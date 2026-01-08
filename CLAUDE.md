@@ -5,6 +5,8 @@ Auto-generated from all feature plans. Last updated: 2026-01-08
 ## Active Technologies
 - Dart 3.x / Flutter 3.x (latest stable) + flutter, supabase_flutter 2.12.0, flutter_riverpod 2.5.0, flutter_secure_storage 9.2.4 (002-employee-auth)
 - PostgreSQL via Supabase (employee_profiles table already exists), flutter_secure_storage for tokens (002-employee-auth)
+- Dart 3.x / Flutter 3.x (>=3.0.0) + flutter_riverpod 2.5.0 (state), supabase_flutter 2.12.0 (backend), geolocator 12.0.0 (GPS), sqflite_sqlcipher 3.1.0 (local encrypted storage), connectivity_plus 6.0.0 (network status) (003-shift-management)
+- PostgreSQL via Supabase (shifts, gps_points tables exist), SQLCipher for encrypted local storage (003-shift-management)
 
 - Dart 3.x / Flutter 3.x (latest stable) + flutter, supabase_flutter, flutter_riverpod, geolocator, sqflite (local storage) (001-project-foundation)
 
@@ -81,6 +83,7 @@ Dart 3.x / Flutter 3.x (latest stable): Follow standard conventions
 - `POST_NOTIFICATIONS` - Push notifications
 
 ## Recent Changes
+- 003-shift-management: Added Dart 3.x / Flutter 3.x (>=3.0.0) + flutter_riverpod 2.5.0 (state), supabase_flutter 2.12.0 (backend), geolocator 12.0.0 (GPS), sqflite_sqlcipher 3.1.0 (local encrypted storage), connectivity_plus 6.0.0 (network status)
 - 002-employee-auth: Added Dart 3.x / Flutter 3.x (latest stable) + flutter, supabase_flutter 2.12.0, flutter_riverpod 2.5.0, flutter_secure_storage 9.2.4
 
 - 001-project-foundation: Added Dart 3.x / Flutter 3.x (latest stable) + flutter, supabase_flutter, flutter_riverpod, geolocator, sqflite (local storage)

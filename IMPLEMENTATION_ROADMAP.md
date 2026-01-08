@@ -477,12 +477,12 @@ Enable employees to clock in and out, recording their shift times and capturing 
 
 ### Success Criteria
 
-- [ ] Employee can clock in and GPS is captured
-- [ ] Employee can clock out and GPS is captured
-- [ ] Shift record created/updated in Supabase
-- [ ] Current status displayed correctly
-- [ ] Elapsed time updates while clocked in
-- [ ] Location permission handled gracefully
+- [x] Employee can clock in and GPS is captured
+- [x] Employee can clock out and GPS is captured
+- [x] Shift record created/updated in Supabase
+- [x] Current status displayed correctly
+- [x] Elapsed time updates while clocked in
+- [x] Location permission handled gracefully
 
 ### Checkpoint
 
