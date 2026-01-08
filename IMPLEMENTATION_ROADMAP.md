@@ -347,11 +347,11 @@ Enable employees to securely identify themselves and consent to location trackin
 
 ### Success Criteria
 
-- [ ] Employee can log in with valid credentials
-- [ ] Invalid credentials show error message
-- [ ] Privacy consent appears on first login
-- [ ] Session persists between app launches
-- [ ] Logout clears session
+- [x] Employee can log in with valid credentials
+- [x] Invalid credentials show error message
+- [x] Privacy consent appears on first login
+- [x] Session persists between app launches
+- [x] Logout clears session
 
 ### Checkpoint
 

@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../features/auth/services/auth_service.dart';
+
 /// Provider for the Supabase client instance
 final supabaseClientProvider = Provider<SupabaseClient>((ref) {
   return Supabase.instance.client;
@@ -19,4 +21,9 @@ final authStateChangesProvider = StreamProvider<AuthState>((ref) {
 /// Provider to check if user is authenticated
 final isAuthenticatedProvider = Provider<bool>((ref) {
   return ref.watch(currentUserProvider) != null;
+});
+
+/// Provider for the AuthService
+final authServiceProvider = Provider<AuthService>((ref) {
+  return AuthService(ref.watch(supabaseClientProvider));
 });

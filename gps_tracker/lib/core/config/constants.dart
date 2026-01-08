@@ -36,4 +36,38 @@ class AppConstants {
   static const String employeeStatusActive = 'active';
   static const String employeeStatusInactive = 'inactive';
   static const String employeeStatusSuspended = 'suspended';
+
+  // --- Authentication Constants ---
+
+  /// Maximum sign-in attempts before rate limiting
+  static const int authMaxAttempts = 5;
+
+  /// Rate limit window in minutes
+  static const int authRateLimitWindowMinutes = 15;
+
+  /// Minimum password length
+  static const int authMinPasswordLength = 8;
+
+  // --- Auth Error Messages ---
+
+  /// Error message for invalid credentials
+  static const String authErrorInvalidCredentials = 'Invalid email or password';
+
+  /// Error message for email not verified
+  static const String authErrorEmailNotVerified = 'Please verify your email first';
+
+  /// Error message for account already exists
+  static const String authErrorAccountExists = 'An account with this email already exists';
+
+  /// Error message for weak password
+  static const String authErrorWeakPassword = 'Password must be at least 8 characters with letters and numbers';
+
+  /// Error message for rate limit exceeded
+  static const String authErrorRateLimited = 'Too many attempts. Please wait a few minutes.';
+
+  /// Error message for network issues
+  static const String authErrorNetwork = 'Network error. Please check your connection.';
+
+  /// Generic auth error message
+  static const String authErrorGeneric = 'Authentication failed. Please try again.';
 }
