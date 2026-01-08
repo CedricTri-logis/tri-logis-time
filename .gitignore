@@ -1,0 +1,59 @@
+.speckit-progress.json
+logs/
+
+# Flutter/Dart
+gps_tracker/.dart_tool/
+gps_tracker/.packages
+gps_tracker/build/
+gps_tracker/.flutter-plugins
+gps_tracker/.flutter-plugins-dependencies
+*.dart_tool/
+*.packages
+
+# Environment files
+gps_tracker/.env
+gps_tracker/.env.*
+!gps_tracker/.env.example
+
+# iOS
+gps_tracker/ios/Pods/
+gps_tracker/ios/.symlinks/
+gps_tracker/ios/Flutter/Flutter.framework
+gps_tracker/ios/Flutter/Flutter.podspec
+gps_tracker/ios/Flutter/Generated.xcconfig
+gps_tracker/ios/Flutter/app.flx
+gps_tracker/ios/Flutter/flutter_assets/
+gps_tracker/ios/ServiceDefinitions.json
+*.xcuserdata
+
+# Android
+gps_tracker/android/.gradle/
+gps_tracker/android/captures/
+gps_tracker/android/gradlew
+gps_tracker/android/gradlew.bat
+gps_tracker/android/local.properties
+gps_tracker/android/**/GeneratedPluginRegistrant.*
+*.apk
+*.aab
+
+# Generated files
+*.g.dart
+*.freezed.dart
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Universal
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.swp
+
+# Supabase
+supabase/.env
+supabase/.env.*
+!supabase/.env.local.example
+supabase/.temp/

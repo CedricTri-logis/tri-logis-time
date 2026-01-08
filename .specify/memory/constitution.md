@@ -1,50 +1,142 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Sync Impact Report
+==================
+Version change: 0.0.0 → 1.0.0 (Initial ratification)
+Added sections:
+  - Principle I: Mobile-First Flutter
+  - Principle II: Battery-Conscious Design
+  - Principle III: Privacy & Compliance
+  - Principle IV: Offline-First Architecture
+  - Principle V: Simplicity & Maintainability
+  - Section: Platform Requirements
+  - Section: Development Workflow
+  - Governance rules
+Templates requiring updates:
+  - .specify/templates/plan-template.md ✅ (no changes needed - generic)
+  - .specify/templates/spec-template.md ✅ (no changes needed - generic)
+  - .specify/templates/tasks-template.md ✅ (no changes needed - generic)
+Follow-up TODOs: None
+-->
+
+# GPS Tracker Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Mobile-First Flutter
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+All features MUST be developed using Flutter for cross-platform deployment (iOS and Android) from a single codebase.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+- Flutter is the ONLY approved framework for this project
+- All UI components MUST use Flutter's Material Design or Cupertino widgets appropriately per platform
+- Platform-specific code (iOS/Android) MUST be minimized and isolated in clearly marked platform channels
+- Dependencies MUST be compatible with both iOS and Android platforms before adoption
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+**Rationale**: Single codebase reduces maintenance burden, ensures feature parity, and maximizes Claude Code's ability to assist with well-documented Flutter APIs.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### II. Battery-Conscious Design
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+All background operations MUST be designed to minimize battery consumption while maintaining required functionality.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+- GPS polling interval MUST be configurable (default: 5 minutes when clocked in)
+- Background location tracking MUST use platform-optimized approaches (iOS Background Modes, Android Foreground Service)
+- App MUST stop all GPS tracking when employee clocks out
+- Battery impact MUST be documented and tested on real devices before release
+- Users MUST be informed of battery usage expectations
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+**Rationale**: Employee devices are personal property; excessive battery drain reduces adoption and trust.
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+### III. Privacy & Compliance
+
+All location data handling MUST respect employee privacy and comply with applicable regulations.
+
+- Location tracking MUST only occur while employee is actively clocked in
+- Employees MUST provide explicit consent before any location tracking begins
+- GPS data MUST be transmitted securely (HTTPS/TLS) to Supabase backend
+- No location data MUST be collected outside of work hours
+- Clear privacy policy MUST be displayed and accepted before first use
+- Data retention policies MUST be documented and enforced
+
+**Rationale**: Employee GPS tracking has legal implications; clear boundaries protect both employer and employee.
+
+### IV. Offline-First Architecture
+
+The app MUST function reliably even with intermittent or no network connectivity.
+
+- Clock in/out actions MUST work offline and sync when connectivity returns
+- GPS data points MUST be stored locally when offline and batch-uploaded when online
+- App MUST clearly indicate sync status to users
+- Local storage MUST be encrypted on device
+- Conflict resolution strategy MUST be defined for offline/online sync scenarios
+
+**Rationale**: Employees work in various environments including areas with poor cellular coverage; the app must remain functional.
+
+### V. Simplicity & Maintainability
+
+The codebase MUST remain simple, focused, and maintainable by AI-assisted development.
+
+- Features MUST directly serve the core use case: employee clock-in with GPS tracking
+- No feature creep: additions require explicit justification against core mission
+- Code MUST be self-documenting with clear naming conventions
+- Complex logic MUST include inline comments explaining the "why"
+- Third-party dependencies MUST be minimized and well-maintained packages preferred
+- YAGNI (You Aren't Gonna Need It) principle applies to all decisions
+
+**Rationale**: A focused app is easier to maintain, test, and extend; AI assistance works best with clear, conventional code.
+
+## Platform Requirements
+
+### iOS Requirements
+
+- Minimum deployment target: iOS 14.0
+- MUST request "Always" location permission with clear justification string
+- MUST use Background Modes capability for location updates
+- MUST display background location indicator when tracking
+
+### Android Requirements
+
+- Minimum SDK: API 24 (Android 7.0)
+- Target SDK: Latest stable
+- MUST use Foreground Service for background location tracking
+- MUST display persistent notification when tracking is active
+- MUST handle Android battery optimization settings gracefully
+
+### Backend Requirements (Supabase)
+
+- Authentication: Supabase Auth with email/password
+- Database: PostgreSQL via Supabase
+- Row Level Security (RLS) MUST be enabled on all tables
+- API calls MUST use Supabase client library (supabase_flutter)
+
+## Development Workflow
+
+### Distribution Strategy
+
+- iOS: TestFlight for beta distribution (up to 10,000 testers)
+- Android: Google Play Internal Testing track (up to 100 testers)
+- No public App Store/Play Store release required for initial deployment
+
+### Testing Requirements
+
+- Critical paths (clock in, clock out, GPS capture) MUST have integration tests
+- Background location behavior MUST be manually tested on physical devices
+- Battery consumption MUST be measured and documented
+
+### Code Review Standards
+
+- All changes MUST be reviewed for compliance with this constitution
+- Security-sensitive changes (auth, location permissions, data transmission) require extra scrutiny
+- Platform-specific code requires testing on both iOS and Android before merge
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution defines non-negotiable principles for the GPS Tracker project. All development decisions MUST align with these principles.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+- **Amendments**: Changes to this constitution require documented justification and version increment
+- **Compliance**: All code reviews MUST verify adherence to constitutional principles
+- **Exceptions**: Any deviation from principles MUST be documented in code comments with rationale
+- **Versioning**: Constitution follows semantic versioning (MAJOR.MINOR.PATCH)
+  - MAJOR: Principle removal or fundamental redefinition
+  - MINOR: New principle added or significant expansion
+  - PATCH: Clarifications and wording improvements
+
+**Version**: 1.0.0 | **Ratified**: 2026-01-08 | **Last Amended**: 2026-01-08
