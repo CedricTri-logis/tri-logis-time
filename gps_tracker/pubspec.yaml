@@ -8,41 +8,25 @@ environment:
   flutter: '>=3.0.0'
 
 dependencies:
+  connectivity_plus: ^6.0.0
+  cupertino_icons: ^1.0.6
+  disable_battery_optimization: ^1.1.1
   flutter:
     sdk: flutter
-
-  # State Management
-  flutter_riverpod: ^2.5.0
-
-  # Backend
-  supabase_flutter: ^2.12.0
-
-  # Location
-  geolocator: ^12.0.0
-  flutter_foreground_task: ^8.0.0
-  disable_battery_optimization: ^1.1.1
-
-  # Local Storage (encrypted)
-  sqflite_sqlcipher: ^3.1.0+1
-  flutter_secure_storage: ^9.2.4
-  path_provider: ^2.1.5
-
-  # Environment
   flutter_dotenv: ^5.1.0
-
-  # Connectivity
-  connectivity_plus: ^6.0.0
-
-  # Utilities
+  flutter_foreground_task: ^8.0.0
+  flutter_riverpod: ^2.5.0
+  flutter_secure_storage: ^9.2.4
+  geolocator: ^12.0.0
+  path_provider: ^2.1.5
+  sqflite_sqlcipher: ^3.1.0+1
+  supabase_flutter: ^2.12.0
   uuid: ^4.0.0
 
-  # UI
-  cupertino_icons: ^1.0.6
-
 dev_dependencies:
+  flutter_lints: ^3.0.0
   flutter_test:
     sdk: flutter
-  flutter_lints: ^3.0.0
   integration_test:
     sdk: flutter
 

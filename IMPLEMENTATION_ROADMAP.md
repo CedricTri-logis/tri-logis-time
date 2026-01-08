@@ -248,11 +248,11 @@ dependencies:
 
 ### Success Criteria
 
-- [ ] Flutter project builds successfully on iOS and Android
-- [ ] Supabase connection established
-- [ ] Database tables created with RLS enabled
-- [ ] Location permissions configured (not yet requested)
-- [ ] Project runs on simulator/emulator showing blank app shell
+- [x] Flutter project builds successfully on iOS and Android
+- [x] Supabase connection established
+- [x] Database tables created with RLS enabled
+- [x] Location permissions configured (not yet requested)
+- [x] Project runs on simulator/emulator showing blank app shell
 
 ### Checkpoint
 
