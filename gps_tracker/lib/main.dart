@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app.dart';
 import 'core/config/env_config.dart';
+import 'features/tracking/services/background_tracking_service.dart';
 import 'shared/services/local_database.dart';
 
 Future<void> main() async {
@@ -21,6 +23,10 @@ Future<void> main() async {
 
   // Initialize local database
   await LocalDatabase().initialize();
+
+  // Initialize background tracking service
+  FlutterForegroundTask.initCommunicationPort();
+  await BackgroundTrackingService.initialize();
 
   runApp(
     const ProviderScope(

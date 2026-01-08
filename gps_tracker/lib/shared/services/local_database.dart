@@ -408,6 +408,42 @@ class LocalDatabase {
     }
   }
 
+  /// Get all GPS points for a specific shift.
+  Future<List<LocalGpsPoint>> getGpsPointsForShift(String shiftId) async {
+    try {
+      final results = await _db.query(
+        'local_gps_points',
+        where: 'shift_id = ?',
+        whereArgs: [shiftId],
+        orderBy: 'captured_at ASC',
+      );
+      return results.map((map) => LocalGpsPoint.fromMap(map)).toList();
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to get GPS points for shift',
+        operation: 'getGpsPointsForShift',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Get GPS point count for a specific shift.
+  Future<int> getGpsPointCountForShift(String shiftId) async {
+    try {
+      final result = await _db.rawQuery(
+        'SELECT COUNT(*) as count FROM local_gps_points WHERE shift_id = ?',
+        [shiftId],
+      );
+      return result.first['count'] as int;
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to get GPS point count for shift',
+        operation: 'getGpsPointCountForShift',
+        originalError: e,
+      );
+    }
+  }
+
   /// Mark multiple GPS points as synced.
   Future<void> markGpsPointsSynced(List<String> pointIds) async {
     if (pointIds.isEmpty) return;

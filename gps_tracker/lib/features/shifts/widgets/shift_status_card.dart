@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../tracking/widgets/tracking_status_indicator.dart';
 import '../models/shift.dart';
 import '../providers/shift_provider.dart';
 import 'sync_status_indicator.dart';
@@ -161,6 +162,8 @@ class ShiftStatusCard extends ConsumerWidget {
                 ],
               ),
             ],
+            const SizedBox(height: 16),
+            const TrackingStatusIndicator(compact: false, showPointCount: true),
           ],
         ),
       ),

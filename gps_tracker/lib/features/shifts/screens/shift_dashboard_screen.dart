@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../../tracking/providers/tracking_provider.dart';
 import '../models/geo_point.dart';
 import '../models/shift.dart';
 import '../providers/location_provider.dart';
@@ -38,6 +39,8 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
     if (state == AppLifecycleState.resumed) {
       // Refresh shift state when app resumes
       ref.read(shiftProvider.notifier).refresh();
+      // Refresh tracking state to sync with background service
+      ref.read(trackingProvider.notifier).refreshState();
     }
   }
 

@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../tracking/providers/route_provider.dart';
+import '../../tracking/widgets/point_detail_sheet.dart';
+import '../../tracking/widgets/route_map_widget.dart';
+import '../../tracking/widgets/route_stats_card.dart';
 import '../models/shift.dart';
 import '../providers/shift_provider.dart';
 import '../widgets/sync_status_indicator.dart';
@@ -256,8 +260,80 @@ class ShiftDetailScreen extends ConsumerWidget {
                 ),
               ),
             ),
+          const SizedBox(height: 16),
+
+          // Route Map Section
+          _buildRouteSection(context, shift.id),
         ],
       ),
+    );
+  }
+
+  Widget _buildRouteSection(BuildContext context, String shiftId) {
+    return Consumer(
+      builder: (context, ref, _) {
+        final routeAsync = ref.watch(routeProvider(shiftId));
+
+        return routeAsync.when(
+          data: (points) {
+            if (points.isEmpty) {
+              return Card(
+                elevation: 1,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.location_off,
+                        size: 48,
+                        color: Colors.grey.shade400,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'No GPS tracking data',
+                        style: TextStyle(color: Colors.grey.shade600),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            final stats = ref.watch(routeStatsProvider(points));
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                RouteStatsCard(stats: stats),
+                const SizedBox(height: 16),
+                Card(
+                  elevation: 1,
+                  clipBehavior: Clip.antiAlias,
+                  child: SizedBox(
+                    height: 300,
+                    child: RouteMapWidget(
+                      points: points,
+                      onPointTap: (point) => PointDetailSheet.show(context, point),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+          loading: () => const Card(
+            child: Padding(
+              padding: EdgeInsets.all(32),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          ),
+          error: (e, _) => Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('Error loading route: $e'),
+            ),
+          ),
+        );
+      },
     );
   }
 
