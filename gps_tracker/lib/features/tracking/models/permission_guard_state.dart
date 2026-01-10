@@ -48,7 +48,8 @@ class PermissionGuardState {
 
   /// Computed: Overall status for UI display
   PermissionGuardStatus get status {
-    // Priority order: device services > no permission > permanent denial > partial > battery > all good
+    // Priority order: device services > no permission > permanent denial > battery > all good
+    // Note: "while in use" permission is treated as sufficient (no upgrade required)
     if (deviceStatus == DeviceLocationStatus.disabled) {
       return PermissionGuardStatus.deviceServicesDisabled;
     }
@@ -58,9 +59,7 @@ class PermissionGuardState {
     if (!permission.hasAnyPermission) {
       return PermissionGuardStatus.permissionRequired;
     }
-    if (permission.level == LocationPermissionLevel.whileInUse) {
-      return PermissionGuardStatus.partialPermission;
-    }
+    // "whileInUse" is acceptable - no need to upgrade to "always"
     if (!isBatteryOptimizationDisabled) {
       return PermissionGuardStatus.batteryOptimizationRequired;
     }
@@ -88,8 +87,8 @@ class PermissionGuardState {
 
   /// Computed: Whether clock-in should show warning (but allow proceeding)
   bool get shouldWarnOnClockIn {
-    return permission.level == LocationPermissionLevel.whileInUse ||
-        !isBatteryOptimizationDisabled;
+    // "whileInUse" is acceptable - only warn for battery optimization
+    return !isBatteryOptimizationDisabled;
   }
 
   /// Computed: Whether real-time monitoring is needed

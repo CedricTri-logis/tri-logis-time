@@ -1,474 +1,624 @@
-# GPS Tracker - Phase 2 Development Roadmap
+# GPS Tracker Manager Dashboard - Desktop UI Roadmap
 
-**Project**: Employee GPS Clock-In Tracker
-**Status**: MVP Complete (Specs 001-004)
-**Next Phase**: Specs 005-008
-
----
-
-## Spec Overview
-
-| Spec # | Name | Priority | Dependencies | MVP? |
-|--------|------|----------|--------------|------|
-| 005 | Offline Resilience | P2 | 004 | No |
-| 006 | Employee History | P3 | 003 | No |
-| 007 | Location Permission Guard | P1 | 004 | No |
-| 008 | Employee & Shift Dashboard | P2 | 003 | No |
+**Project**: Manager Dashboard for GPS Employee Tracking
+**Framework**: Next.js 14+ (App Router) + TypeScript
+**UI**: shadcn/ui + Tailwind CSS
+**Data Layer**: Refine + Supabase
+**Backend**: Supabase (shared with mobile app)
+**Target Users**: Managers/Supervisors
+**Distribution**: Web application (desktop-optimized)
 
 ---
 
-## Spec 005: Offline Resilience
+## Executive Summary
 
-**Branch**: `005-offline-resilience`
+This roadmap covers the **Manager Desktop UI** - a web application for supervisors to monitor employees, view shifts, and manage GPS tracking data. Built with the same tech stack as the ADMIN Data Room project for eventual integration.
+
+### Tech Stack (ADMIN-Compatible)
+
+| Layer | Technology | Rationale |
+|-------|------------|-----------|
+| Language | TypeScript (strict) | AI-optimized, compile-time safety |
+| Framework | Next.js 14+ (App Router) | RSC support, Vercel deployment |
+| UI Components | shadcn/ui | v0.dev AI generation, Radix primitives |
+| Data Layer | Refine | Native Supabase provider, CRUD hooks |
+| Styling | Tailwind CSS | Utility-first, no custom CSS |
+| Database | Supabase PostgreSQL | Shared with mobile app |
+| Validation | Zod | Runtime + compile-time safety |
+| Testing | Playwright | E2E, accessibility verification |
+
+### Spec Overview
+
+| Spec # | Name | Priority | Dependencies |
+|--------|------|----------|--------------|
+| 009 | Dashboard Foundation | P0 | Mobile MVP (001-004) |
+| 010 | Employee Management | P1 | 009 |
+| 011 | Shift Monitoring | P1 | 010 |
+| 012 | GPS Visualization | P2 | 011 |
+| 013 | Reports & Export | P2 | 011 |
+
+### Development Flow
+
+```
++---------------------------------------------------------------------+
+|                     MANAGER DASHBOARD PATH                          |
++---------------------------------------------------------------------+
+|                                                                     |
+|  Mobile MVP (001-004) ─────────────────────────────────────────────►|
+|                                                                     |
+|  009-Foundation --> 010-Employees --> 011-Shifts --> 012-GPS-Map   |
+|       (Setup)        (List/View)      (Monitor)      (Visualize)   |
+|                                                                     |
+|                                           └──────> 013-Reports      |
+|                                                    (Export)         |
+|                                                                     |
++---------------------------------------------------------------------+
+```
+
+---
+
+## Spec 009: Dashboard Foundation
+
+**Branch**: `009-dashboard-foundation`
+**Complexity**: Medium
+
+### Purpose
+
+Set up the Next.js project with Refine + Supabase integration, shadcn/ui components, and authentication for managers.
+
+### Scope
+
+#### In Scope
+- Next.js 14+ project with App Router
+- Refine configuration with Supabase data provider
+- shadcn/ui component library setup
+- Supabase Auth integration (manager role)
+- Basic layout (sidebar, header, content area)
+- TypeScript types generated from existing Supabase schema
+
+#### Out of Scope
+- Employee data display (Spec 010)
+- Shift monitoring (Spec 011)
+- Mobile responsiveness (desktop-first)
+
+### Technical Setup
+
+```bash
+# Project initialization
+npx create-next-app@latest gps-manager --typescript --tailwind --app
+
+# Refine with Supabase
+npm install @refinedev/core @refinedev/supabase @refinedev/nextjs-router
+
+# shadcn/ui
+npx shadcn@latest init
+npx shadcn@latest add button card table sidebar avatar dropdown-menu
+
+# Validation
+npm install zod @hookform/resolvers
+```
+
+### Project Structure
+
+```
+gps-manager/
+├── app/
+│   ├── layout.tsx              # Root layout with Refine provider
+│   ├── page.tsx                # Dashboard home
+│   ├── login/
+│   │   └── page.tsx            # Manager login
+│   ├── employees/
+│   │   ├── page.tsx            # Employee list
+│   │   └── [id]/page.tsx       # Employee detail
+│   └── shifts/
+│       ├── page.tsx            # Shift list/monitor
+│       └── [id]/page.tsx       # Shift detail
+├── components/
+│   ├── ui/                     # shadcn/ui components
+│   ├── layout/
+│   │   ├── Sidebar.tsx
+│   │   ├── Header.tsx
+│   │   └── AppShell.tsx
+│   └── employees/
+│       └── EmployeeCard.tsx
+├── lib/
+│   ├── supabase/
+│   │   ├── client.ts           # Supabase client
+│   │   └── types.ts            # Generated types
+│   └── utils.ts
+└── providers/
+    └── RefineProvider.tsx
+```
+
+### Database Access
+
+Uses existing tables from mobile app:
+- `employee_profiles` - Employee data
+- `shifts` - Shift records
+- `gps_points` - GPS tracking data
+
+**RLS Policy Addition:**
+```sql
+-- Allow managers to view all employees
+CREATE POLICY "Managers can view all employees"
+  ON employee_profiles FOR SELECT
+  USING (
+    auth.uid() IN (
+      SELECT id FROM employee_profiles WHERE role = 'manager'
+    )
+  );
+
+-- Allow managers to view all shifts
+CREATE POLICY "Managers can view all shifts"
+  ON shifts FOR SELECT
+  USING (
+    auth.uid() IN (
+      SELECT id FROM employee_profiles WHERE role = 'manager'
+    )
+  );
+```
+
+### Success Criteria
+
+- [ ] Next.js project builds and runs
+- [ ] Refine connects to Supabase
+- [ ] Manager can log in
+- [ ] Basic layout renders (sidebar, header)
+- [ ] TypeScript types match database schema
+
+### Checkpoint
+
+**After this spec**: Empty dashboard shell with authentication. Manager can log in but sees no data yet.
+
+---
+
+## Spec 010: Employee Management
+
+**Branch**: `010-employee-management`
+**Complexity**: Medium
+
+### Purpose
+
+Display employee list with real-time status indicators showing who is currently clocked in.
+
+### Scope
+
+#### In Scope
+- Employee list with Refine `useTable`
+- Real-time clock-in status via Supabase Realtime
+- Employee detail view
+- Search and filter employees
+- Active/inactive employee status
+
+#### Out of Scope
+- Employee CRUD (admin function)
+- Shift history (Spec 011)
+
+### User Stories
+
+#### US1: View Employee List (P1)
+**As a** manager
+**I want** to see all my employees in a list
+**So that** I can quickly identify who is working
+
+**Acceptance Criteria**:
+- Given I am on the dashboard, then I see a table of employees
+- Given an employee is clocked in, then I see a green "Active" badge
+- Given I search for a name, then the list filters accordingly
+
+#### US2: View Employee Detail (P1)
+**As a** manager
+**I want** to see detailed info about an employee
+**So that** I can review their profile
+
+**Acceptance Criteria**:
+- Given I click an employee row, then I navigate to their detail page
+- Given I am on detail page, then I see profile info and current status
+
+### Screens
+
+```
++--------------------------------------------------+
+|  [Logo]  GPS Manager           [Avatar] Manager  |
++--------------------------------------------------+
+|           |                                      |
+| Dashboard |  Employees                           |
+| Employees |  ┌────────────────────────────────┐  |
+| Shifts    |  │ Search: [____________] [Filter]│  |
+| Reports   |  └────────────────────────────────┘  |
+|           |                                      |
+|           |  ┌──────────────────────────────────┐|
+|           |  │ Name         │ Status │ Since    │|
+|           |  ├──────────────┼────────┼──────────┤|
+|           |  │ John Doe     │ [ON]   │ 9:00 AM  │|
+|           |  │ Jane Smith   │ [OFF]  │ -        │|
+|           |  │ Bob Wilson   │ [ON]   │ 8:30 AM  │|
+|           |  └──────────────────────────────────┘|
++--------------------------------------------------+
+```
+
+### Technical Implementation
+
+```tsx
+// Using Refine's useTable with Supabase
+const { tableProps } = useTable<Employee>({
+  resource: "employee_profiles",
+  filters: {
+    initial: [{ field: "is_active", operator: "eq", value: true }]
+  },
+  sorters: {
+    initial: [{ field: "full_name", order: "asc" }]
+  },
+  liveMode: "auto", // Real-time updates
+});
+
+// shadcn/ui Table
+<Table>
+  <TableHeader>
+    <TableRow>
+      <TableHead>Name</TableHead>
+      <TableHead>Status</TableHead>
+      <TableHead>Since</TableHead>
+    </TableRow>
+  </TableHeader>
+  <TableBody>
+    {tableProps.data?.map(employee => (
+      <TableRow key={employee.id}>
+        <TableCell>{employee.full_name}</TableCell>
+        <TableCell>
+          <Badge variant={employee.active_shift ? "success" : "secondary"}>
+            {employee.active_shift ? "ON" : "OFF"}
+          </Badge>
+        </TableCell>
+        <TableCell>
+          {employee.active_shift?.clock_in_at
+            ? format(employee.active_shift.clock_in_at, 'h:mm a')
+            : '-'}
+        </TableCell>
+      </TableRow>
+    ))}
+  </TableBody>
+</Table>
+```
+
+### Success Criteria
+
+- [ ] Employee list displays with Refine useTable
+- [ ] Real-time status updates when employee clocks in/out
+- [ ] Search filters employees by name
+- [ ] Employee detail page shows profile info
+- [ ] Accessibility: keyboard navigation works
+
+### Checkpoint
+
+**After this spec**: Manager can view all employees and see who is currently working in real-time.
+
+---
+
+## Spec 011: Shift Monitoring
+
+**Branch**: `011-shift-monitoring`
+**Complexity**: Medium-High
+
+### Purpose
+
+Enable managers to monitor active shifts in real-time and view shift history with GPS point counts.
+
+### Scope
+
+#### In Scope
+- Active shifts dashboard (who is clocked in now)
+- Shift history list with filters
+- Shift detail view with GPS point count
+- Date range filtering
+- Employee filtering
+
+#### Out of Scope
+- GPS map visualization (Spec 012)
+- Shift editing/correction
+- Export functionality (Spec 013)
+
+### User Stories
+
+#### US1: Monitor Active Shifts (P1)
+**As a** manager
+**I want** to see all currently active shifts
+**So that** I can monitor who is working right now
+
+**Acceptance Criteria**:
+- Given I open the shifts page, then I see active shifts prominently
+- Given a shift includes GPS points, then I see the count
+- Given real-time updates occur, then the UI updates automatically
+
+#### US2: View Shift History (P1)
+**As a** manager
+**I want** to see past shifts for any employee
+**So that** I can verify work hours
+
+**Acceptance Criteria**:
+- Given I select a date range, then I see shifts in that period
+- Given I select an employee filter, then I see only their shifts
+- Given a shift, then I see duration and GPS point count
+
+#### US3: View Shift Detail (P2)
+**As a** manager
+**I want** to see full details of a shift
+**So that** I can verify clock times and GPS data
+
+**Acceptance Criteria**:
+- Given I click a shift, then I see clock in/out times with locations
+- Given the shift has GPS points, then I see the list of timestamps
+
+### Screens
+
+```
++--------------------------------------------------+
+| Active Shifts (3)                      [Refresh] |
++--------------------------------------------------+
+| ┌────────────────────────────────────────────┐   |
+| │ John Doe      │ Since 9:00 AM │ 45 GPS pts │   |
+| │ Bob Wilson    │ Since 8:30 AM │ 52 GPS pts │   |
+| │ Alice Brown   │ Since 9:15 AM │ 38 GPS pts │   |
+| └────────────────────────────────────────────┘   |
+|                                                  |
+| Shift History                                    |
+| ┌────────────────────────────────────────────┐   |
+| │ Date Range: [Jan 1] to [Jan 10]  [Apply]   │   |
+| │ Employee: [All ▼]                          │   |
+| └────────────────────────────────────────────┘   |
+|                                                  |
+| ┌────────────────────────────────────────────────┐
+| │ Date    │ Employee  │ Duration │ GPS │ Status │
+| ├─────────┼───────────┼──────────┼─────┼────────┤
+| │ Jan 10  │ John Doe  │ 8h 30m   │ 102 │ Done   │
+| │ Jan 10  │ Jane Smith│ 7h 45m   │ 93  │ Done   │
+| │ Jan 9   │ John Doe  │ 8h 15m   │ 99  │ Done   │
+| └────────────────────────────────────────────────┘
+```
+
+### Technical Implementation
+
+```tsx
+// Active shifts query
+const { data: activeShifts } = useList<Shift>({
+  resource: "shifts",
+  filters: [{ field: "status", operator: "eq", value: "active" }],
+  liveMode: "auto",
+  meta: {
+    select: "*, employee:employee_profiles(full_name), gps_count:gps_points(count)"
+  }
+});
+
+// Shift history with filters
+const { tableProps, filters, setFilters } = useTable<Shift>({
+  resource: "shifts",
+  filters: {
+    initial: [
+      { field: "clock_in_at", operator: "gte", value: startDate },
+      { field: "clock_in_at", operator: "lte", value: endDate },
+    ]
+  },
+  sorters: {
+    initial: [{ field: "clock_in_at", order: "desc" }]
+  }
+});
+```
+
+### Success Criteria
+
+- [ ] Active shifts display with real-time updates
+- [ ] Shift history loads with pagination
+- [ ] Date range filter works correctly
+- [ ] Employee filter works correctly
+- [ ] GPS point count shows for each shift
+- [ ] Shift detail page shows full info
+
+### Checkpoint
+
+**After this spec**: Manager has full visibility into active and historical shifts with filtering capabilities.
+
+---
+
+## Spec 012: GPS Visualization
+
+**Branch**: `012-gps-visualization`
 **Complexity**: High
 
 ### Purpose
 
-Ensure the app functions reliably without network connectivity, storing data locally and syncing when online.
+Display GPS points on an interactive map for visual verification of employee locations during shifts.
 
 ### Scope
 
 #### In Scope
-- Local SQLite storage for GPS points
-- Offline clock in/out capability
-- Automatic sync when connectivity returns
-- Sync status indication
-- Conflict resolution for offline data
+- Map component using Mapbox GL or Google Maps
+- GPS trail visualization for a shift
+- Point-by-point timeline
+- Zoom to shift area
 
 #### Out of Scope
-- Offline employee registration
-- Offline password changes
+- Real-time live tracking (would require WebSocket)
+- Geofencing
+- Heat maps
 
 ### User Stories
 
-#### US1: Offline GPS Storage (P1)
-**As an** employee working in a low-coverage area
-**I want** GPS points stored locally when offline
-**So that** no location data is lost
+#### US1: View GPS Trail on Map (P1)
+**As a** manager
+**I want** to see GPS points plotted on a map
+**So that** I can verify where an employee worked
 
 **Acceptance Criteria**:
-- Given I have no network, when a GPS point is captured, then it is stored locally
-- Given I regain network, then local GPS points are uploaded to Supabase
-- Given upload succeeds, then local points are marked as synced
+- Given I view a shift detail, then I see a map with GPS points
+- Given points are plotted, then they connect as a trail
+- Given I click a point, then I see the timestamp
 
-**Independent Test**: Enable airplane mode, wait for GPS captures, disable airplane mode, verify points uploaded
-
-#### US2: Offline Clock In/Out (P1)
-**As an** employee
-**I want to** clock in/out even without network
-**So that** I can always record my shift times
+#### US2: Timeline Playback (P2)
+**As a** manager
+**I want** to step through GPS points chronologically
+**So that** I can trace the employee's path
 
 **Acceptance Criteria**:
-- Given I have no network, when I clock in, then the action is stored locally
-- Given I regain network, then my shift is synced to Supabase
-- Given there's a conflict (shift already exists), then the local data wins (latest timestamp)
-
-**Independent Test**: Clock in while offline, verify local storage, go online, verify Supabase updated
-
-#### US3: Sync Status Display (P2)
-**As an** employee
-**I want to** see sync status
-**So that** I know if my data has been uploaded
-
-**Acceptance Criteria**:
-- Given I have unsynced data, then I see "X items pending sync"
-- Given all data is synced, then I see "All data synced" or nothing
-- Given sync is in progress, then I see a sync indicator
-
-**Independent Test**: Visual verification of sync status in various states
+- Given I am on the map view, then I see a timeline slider
+- Given I move the slider, then the map highlights that point
+- Given I click play, then points animate in sequence
 
 ### Technical Implementation
 
-#### Local Database Schema (SQLite)
-```sql
--- Local GPS points queue
-CREATE TABLE local_gps_points (
-    id TEXT PRIMARY KEY,
-    shift_id TEXT NOT NULL,
-    employee_id TEXT NOT NULL,
-    latitude REAL NOT NULL,
-    longitude REAL NOT NULL,
-    accuracy REAL,
-    altitude REAL,
-    captured_at TEXT NOT NULL,
-    synced INTEGER DEFAULT 0,
-    sync_attempts INTEGER DEFAULT 0,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
+```tsx
+// Map component with GPS trail
+import Map, { Marker, Source, Layer } from 'react-map-gl';
 
--- Local shifts queue
-CREATE TABLE local_shifts (
-    id TEXT PRIMARY KEY,
-    employee_id TEXT NOT NULL,
-    clock_in_at TEXT NOT NULL,
-    clock_out_at TEXT,
-    clock_in_latitude REAL,
-    clock_in_longitude REAL,
-    clock_out_latitude REAL,
-    clock_out_longitude REAL,
-    status TEXT DEFAULT 'active',
-    synced INTEGER DEFAULT 0,
-    sync_attempts INTEGER DEFAULT 0,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-#### Sync Logic
-```dart
-class SyncService {
-  Future<void> syncPendingData() async {
-    if (!await hasConnectivity()) return;
-
-    // Sync shifts first (GPS points depend on shift_id)
-    final pendingShifts = await getUnsyncedShifts();
-    for (final shift in pendingShifts) {
-      await syncShift(shift);
+const ShiftMap = ({ gpsPoints }: { gpsPoints: GpsPoint[] }) => {
+  const geojson = {
+    type: 'Feature',
+    geometry: {
+      type: 'LineString',
+      coordinates: gpsPoints.map(p => [p.longitude, p.latitude])
     }
+  };
 
-    // Then sync GPS points
-    final pendingPoints = await getUnsyncedGpsPoints();
-    for (final point in pendingPoints) {
-      await syncGpsPoint(point);
-    }
-  }
-}
+  return (
+    <Map
+      initialViewState={{
+        longitude: gpsPoints[0]?.longitude,
+        latitude: gpsPoints[0]?.latitude,
+        zoom: 14
+      }}
+      style={{ width: '100%', height: 400 }}
+      mapStyle="mapbox://styles/mapbox/streets-v12"
+    >
+      <Source type="geojson" data={geojson}>
+        <Layer
+          type="line"
+          paint={{ 'line-color': '#3b82f6', 'line-width': 3 }}
+        />
+      </Source>
+      {gpsPoints.map((point, i) => (
+        <Marker key={i} longitude={point.longitude} latitude={point.latitude}>
+          <div className="w-3 h-3 bg-blue-500 rounded-full" />
+        </Marker>
+      ))}
+    </Map>
+  );
+};
 ```
 
 ### Success Criteria
 
-- [x] GPS points stored locally when offline
-- [x] GPS points sync automatically when online
-- [x] Clock in/out works offline
-- [x] Shifts sync automatically when online
-- [x] Sync status displayed to user
-- [x] No data loss in poor connectivity scenarios
-- [x] Conflict resolution works correctly
+- [ ] Map displays GPS points for a shift
+- [ ] Trail line connects points chronologically
+- [ ] Clicking a point shows timestamp
+- [ ] Map auto-zooms to fit all points
+- [ ] Timeline slider highlights points
 
 ### Checkpoint
 
-**After this spec**: The app is robust for field use. Employees in areas with poor cellular coverage can still use the app effectively.
+**After this spec**: Managers can visually verify employee locations on a map.
 
 ---
 
-## Spec 006: Employee History
+## Spec 013: Reports & Export
 
-**Branch**: `006-employee-history`
+**Branch**: `013-reports-export`
 **Complexity**: Medium
 
 ### Purpose
 
-Allow employees to view their past shifts and GPS trail for transparency.
+Generate reports and export shift data for payroll and compliance purposes.
 
 ### Scope
 
 #### In Scope
-- List of past shifts
-- Shift detail view with GPS points
-- Simple map view of GPS trail (optional)
-- Basic statistics (hours worked this week/month)
+- Weekly/monthly shift summary
+- Employee hours report
+- CSV export
+- PDF export (optional)
 
 #### Out of Scope
-- Admin portal (separate project)
-- Data export
-- Editing past shifts
+- Payroll integration
+- Custom report builder
+- Scheduled reports
 
 ### User Stories
 
-#### US1: View Shift History (P1)
-**As an** employee
-**I want to** see my past shifts
-**So that** I can verify my work history
+#### US1: Generate Hours Report (P1)
+**As a** manager
+**I want** to generate a report of employee hours
+**So that** I can submit for payroll
 
 **Acceptance Criteria**:
-- Given I navigate to history, then I see a list of my past shifts
-- Given I tap a shift, then I see shift details including start/end time
-- Given I have many shifts, then I can scroll through them
+- Given I select a date range, then I see total hours per employee
+- Given the report generates, then I can export to CSV
+- Given I export, then the file downloads immediately
 
-**Independent Test**: Create shifts, view history, verify accuracy
-
-#### US2: View GPS Trail (P2)
-**As an** employee
-**I want to** see GPS points for a shift
-**So that** I can verify my location data
+#### US2: Export Shift Data (P1)
+**As a** manager
+**I want** to export shift data as CSV
+**So that** I can import into other systems
 
 **Acceptance Criteria**:
-- Given I am viewing shift details, then I see count of GPS points
-- Given I tap "View GPS Points", then I see a list of timestamps/locations
-- (Optional) Given I tap "View Map", then I see points on a map
+- Given I am on the shifts page, then I see an export button
+- Given I click export, then a CSV downloads with filtered data
+- Given the CSV, then it includes: employee, date, clock in/out, duration, GPS count
 
-**Independent Test**: View shift with GPS points, verify all points shown
+### Technical Implementation
 
-#### US3: Basic Statistics (P3)
-**As an** employee
-**I want to** see my work statistics
-**So that** I can track my hours
+```tsx
+// CSV Export using native browser API
+const exportToCSV = (shifts: Shift[]) => {
+  const headers = ['Employee', 'Date', 'Clock In', 'Clock Out', 'Duration', 'GPS Points'];
+  const rows = shifts.map(s => [
+    s.employee.full_name,
+    format(s.clock_in_at, 'yyyy-MM-dd'),
+    format(s.clock_in_at, 'HH:mm'),
+    s.clock_out_at ? format(s.clock_out_at, 'HH:mm') : '-',
+    formatDuration(s.duration),
+    s.gps_count
+  ]);
 
-**Acceptance Criteria**:
-- Given I am on the history screen, then I see "Hours this week: X"
-- Given I am on the history screen, then I see "Shifts this month: Y"
+  const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
 
-**Independent Test**: Work multiple shifts, verify statistics accuracy
-
-### Screens
-
-1. **History List Screen**
-   ```
-   +-----------------------------+
-   |  Shift History              |
-   |  -------------------------  |
-   |  This Week: 32.5 hours      |
-   |  -------------------------  |
-   |                             |
-   |  +---------------------+    |
-   |  | Mon, Jan 6          |    |
-   |  | 9:00 AM - 5:30 PM   |    |
-   |  | 8.5 hours - 98 GPS  |    |
-   |  +---------------------+    |
-   |                             |
-   |  +---------------------+    |
-   |  | Tue, Jan 7          |    |
-   |  | 8:30 AM - 4:00 PM   |    |
-   |  | 7.5 hours - 84 GPS  |    |
-   |  +---------------------+    |
-   |                             |
-   |  [Load More...]             |
-   +-----------------------------+
-   ```
-
-2. **Shift Detail Screen**
-   ```
-   +-----------------------------+
-   |  <- Shift Details           |
-   |  -------------------------  |
-   |                             |
-   |  Monday, January 6, 2026    |
-   |                             |
-   |  Clock In:  9:00:23 AM      |
-   |  Location:  45.123, -73.456 |
-   |                             |
-   |  Clock Out: 5:30:45 PM      |
-   |  Location:  45.124, -73.455 |
-   |                             |
-   |  Duration: 8h 30m 22s       |
-   |  GPS Points: 98             |
-   |                             |
-   |  [View GPS Points]          |
-   |  [View on Map] (optional)   |
-   +-----------------------------+
-   ```
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `shifts-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+  a.click();
+};
+```
 
 ### Success Criteria
 
-- [x] Shift history list displays correctly
-- [x] Shift details show clock in/out times and locations
-- [x] GPS point count shown per shift
-- [x] GPS point list viewable
-- [x] Basic statistics calculated correctly
+- [ ] Hours report generates for date range
+- [ ] Report shows total hours per employee
+- [ ] CSV export downloads correctly
+- [ ] Exported data matches displayed data
+- [ ] Export includes all filtered shifts
 
 ### Checkpoint
 
-**After this spec**: The app is feature-complete from the employee perspective. Employees have full visibility into their tracked data.
-
----
-
-## Spec 007: Location Permission Guard
-
-**Branch**: `007-location-permission-guard`
-**Complexity**: Medium
-
-### Purpose
-
-Ensure location permission is always granted while clocked in. Auto clock-out if permission is revoked, with guided UI to help users grant the correct permission.
-
-### Scope
-
-#### In Scope
-- Permission check on app resume
-- Auto clock-out if permission revoked while clocked in
-- Platform-specific permission guidance (iOS/Android)
-- Localized button instructions (EN/FR)
-
-#### Out of Scope
-- Background permission monitoring
-- Permission recovery flow
-
-### User Stories
-
-#### US1: Auto Clock-Out on Permission Revoked (P1)
-**As an** employer
-**I want** employees auto-clocked out if they revoke location permission
-**So that** GPS tracking integrity is maintained
-
-**Acceptance Criteria**:
-- Given employee is clocked in, when app resumes and permission is revoked, then auto clock-out occurs
-- Given auto clock-out occurs, then employee sees message explaining why
-- Given permission is still granted, then nothing happens
-
-#### US2: Guided Permission Request (P1)
-**As an** employee
-**I want** clear instructions on which button to tap for location permission
-**So that** I don't accidentally deny permission
-
-**Acceptance Criteria**:
-- Given iOS + English, then show "Tap **Always Allow**"
-- Given iOS + French, then show "Appuyez sur **Toujours autoriser**"
-- Given Android + English, then show "Tap **Allow all the time**"
-- Given Android + French, then show "Appuyez sur **Toujours autoriser**"
-
-### Technical Notes
-
-```dart
-// On app resume (in WidgetsBindingObserver)
-void didChangeAppLifecycleState(AppLifecycleState state) {
-  if (state == AppLifecycleState.resumed) {
-    _checkLocationPermission();
-  }
-}
-
-Future<void> _checkLocationPermission() async {
-  final permission = await Geolocator.checkPermission();
-  final isClocked = ref.read(shiftProvider).isActive;
-
-  if (isClocked && permission == LocationPermission.denied) {
-    await _autoClockOut();
-    _showPermissionRevokedMessage();
-  }
-}
-```
-
-### Permission Guidance Strings
-
-| Platform | Locale | Text |
-|----------|--------|------|
-| iOS | en | Tap **"Always Allow"** to enable GPS tracking |
-| iOS | fr | Appuyez sur **"Toujours autoriser"** pour activer le suivi GPS |
-| Android | en | Tap **"Allow all the time"** for background tracking |
-| Android | fr | Appuyez sur **"Toujours autoriser"** pour le suivi en arriere-plan |
-
-### Success Criteria
-
-- [x] App checks permission on every resume
-- [x] Auto clock-out triggers if permission revoked while clocked in
-- [x] User sees clear message after auto clock-out
-- [x] Permission guidance shows correct platform/language text
-- [x] Guidance appears before system permission dialog
-
-### Checkpoint
-
-**After this spec**: GPS tracking integrity is protected. Users cannot bypass location tracking by revoking permissions.
-
----
-
-## Spec 008: Employee & Shift Dashboard
-
-**Branch**: `008-employee-shift-dashboard`
-**Complexity**: Medium
-
-### Purpose
-
-Provide a UI to visualize all employees and their shifts for administrative oversight.
-
-### Scope
-
-#### In Scope
-- Employee list view
-- Shift list per employee
-- Current shift status (who is clocked in now)
-- Basic filtering (date range, employee)
-
-#### Out of Scope
-- GPS point visualization on map
-- Shift editing/correction
-- Export functionality
-
-### User Stories
-
-#### US1: View All Employees (P1)
-**As an** admin/manager
-**I want** to see a list of all employees
-**So that** I can monitor the workforce
-
-**Acceptance Criteria**:
-- Given I open the dashboard, then I see list of employees
-- Given an employee is clocked in, then I see an "Active" indicator
-- Given I tap an employee, then I see their shift history
-
-#### US2: View Employee Shifts (P1)
-**As an** admin/manager
-**I want** to see shift history for an employee
-**So that** I can verify work hours
-
-**Acceptance Criteria**:
-- Given I select an employee, then I see their shifts
-- Given a shift, then I see clock-in/out times and duration
-- Given a shift, then I see GPS point count
-
-#### US3: Filter Shifts (P2)
-**As an** admin/manager
-**I want** to filter shifts by date
-**So that** I can focus on specific periods
-
-**Acceptance Criteria**:
-- Given I select a date range, then only matching shifts appear
-- Given I clear filters, then all shifts appear
-
-### Screens
-
-```
-+---------------------------+     +---------------------------+
-|  Employees                |     |  John Doe                 |
-|  ----------------------   |     |  ----------------------   |
-|                           |     |  Status: Clocked In       |
-|  +---------------------+  |     |  Since: 9:00 AM           |
-|  | John Doe       [ON] |  |     |  ----------------------   |
-|  +---------------------+  |     |                           |
-|  +---------------------+  |     |  Recent Shifts:           |
-|  | Jane Smith          |  |     |  +---------------------+  |
-|  +---------------------+  |     |  | Jan 9 - 8h 30m      |  |
-|  +---------------------+  |     |  | 52 GPS points       |  |
-|  | Bob Wilson          |  |     |  +---------------------+  |
-|  +---------------------+  |     |  +---------------------+  |
-|                           |     |  | Jan 8 - 7h 45m      |  |
-+---------------------------+     +---------------------------+
-```
-
-### Technical Notes
-
-- Requires admin role check (new RLS policy or separate auth)
-- Query: `SELECT * FROM employee_profiles`
-- Query: `SELECT * FROM shifts WHERE employee_id = ? ORDER BY clock_in_at DESC`
-- Real-time subscription for active shifts (optional)
-
-### Success Criteria
-
-- [x] Employee list displays all employees
-- [x] Active employees show visual indicator
-- [x] Shift history loads for selected employee
-- [x] Shift details show times, duration, GPS count
-- [x] Date filter works correctly
-
-### Checkpoint
-
-**After this spec**: Full administrative visibility into workforce activity.
+**After this spec**: Full manager dashboard with reporting and export capabilities.
 
 ---
 
 ## Implementation Order
 
 ```
-Recommended Sequence:
+Phase 1: Spec 009 (Foundation)
+         +-- Next.js + Refine + shadcn/ui setup
 
-Phase 1: Spec 007 (Location Permission Guard)
-         +-- Protects GPS tracking integrity (HIGH PRIORITY)
+Phase 2: Spec 010 (Employees)
+         +-- Employee list with real-time status
 
-Phase 2: Spec 005 (Offline Resilience)
-         +-- Robust for field use
+Phase 3: Spec 011 (Shifts)
+         +-- Shift monitoring and history
 
-Phase 3: Spec 006 (Employee History)
-         +-- Employee self-service
+Phase 4: Spec 012 (GPS Map)
+         +-- Visual GPS trail on map
 
-Phase 4: Spec 008 (Dashboard)
-         +-- Admin visibility
+Phase 5: Spec 013 (Reports)
+         +-- Export and reporting features
 ```
 
 ---
@@ -476,13 +626,48 @@ Phase 4: Spec 008 (Dashboard)
 ## Dependencies Graph
 
 ```
-001-004 (MVP Complete)
-      |
-      +-------+-------+
-      |               |
-      v               v
-005-Offline      007-Permission-Guard
-      |               |
-      v               v
-006-History      008-Dashboard
+Mobile MVP (001-004)
+        |
+        v
+009-Dashboard-Foundation
+        |
+        v
+010-Employee-Management
+        |
+        v
+011-Shift-Monitoring
+        |
+        +-------+-------+
+        |               |
+        v               v
+012-GPS-Map      013-Reports
+```
+
+---
+
+## Integration Notes
+
+### Merging with ADMIN Project
+
+This dashboard is designed to eventually merge into the ADMIN Data Room project:
+
+1. **Shared Supabase Instance**: Same database, different schemas if needed
+2. **Same Tech Stack**: Next.js, Refine, shadcn/ui - identical patterns
+3. **Constitution Compliance**: Follows ADMIN constitution principles
+4. **Module Extraction**: Can be extracted as `features/gps-tracking/` in ADMIN
+
+### Migration Path
+
+```
+Current:
+  GPS_Tracker/           (Mobile Flutter app)
+  gps-manager/           (Desktop Next.js dashboard)
+
+Future:
+  ADMIN/
+  ├── app/
+  │   ├── gps/           (GPS tracking dashboard pages)
+  │   └── ...
+  └── features/
+      └── gps-tracking/  (Components, hooks, types)
 ```

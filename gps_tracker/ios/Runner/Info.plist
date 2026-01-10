@@ -60,5 +60,19 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
+	<!-- Deep Link URL Scheme for Supabase Auth -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>ca.trilogis.gpstracker</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>ca.trilogis.gpstracker</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

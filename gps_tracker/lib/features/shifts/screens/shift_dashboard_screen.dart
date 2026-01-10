@@ -259,7 +259,8 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
     if (result == 'fix') {
       // Handle fix action
       if (isPartialPermission) {
-        await ref.read(permissionGuardProvider.notifier).requestPermission();
+        // On Android 10+, must open app settings to upgrade from "while in use" to "always"
+        await ref.read(permissionGuardProvider.notifier).openAppSettings();
       } else if (isBatteryOptimization) {
         await BatteryOptimizationDialog.show(context);
       }
