@@ -1,8 +1,22 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../../tracking/models/device_location_status.dart';
+import '../../tracking/models/location_permission_state.dart';
+import '../../tracking/models/permission_change_event.dart';
+import '../../tracking/models/permission_guard_state.dart';
+import '../../tracking/providers/permission_guard_provider.dart';
 import '../../tracking/providers/tracking_provider.dart';
+import '../../tracking/services/permission_monitor_service.dart';
+import '../../tracking/widgets/battery_optimization_dialog.dart';
+import '../../tracking/widgets/device_services_dialog.dart';
+import '../../tracking/widgets/permission_change_alert.dart';
+import '../../tracking/widgets/permission_explanation_dialog.dart';
+import '../../tracking/widgets/permission_status_banner.dart';
+import '../../tracking/widgets/settings_guidance_dialog.dart';
 import '../models/geo_point.dart';
 import '../models/shift.dart';
 import '../providers/location_provider.dart';
@@ -41,14 +55,31 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
       ref.read(shiftProvider.notifier).refresh();
       // Refresh tracking state to sync with background service
       ref.read(trackingProvider.notifier).refreshState();
+      // Re-check permission status on resume (e.g., after returning from settings)
+      ref.read(permissionGuardProvider.notifier).checkStatus();
     }
   }
 
   Future<void> _handleClockIn() async {
     final locationService = ref.read(locationServiceProvider);
     final shiftNotifier = ref.read(shiftProvider.notifier);
+    final guardState = ref.read(permissionGuardProvider);
 
-    // Check and request location permission
+    // Pre-shift permission check: Block if critical permission issue
+    if (guardState.shouldBlockClockIn) {
+      if (!mounted) return;
+      await _handlePermissionBlock(guardState);
+      return;
+    }
+
+    // Pre-shift permission check: Warn if partial permission
+    if (guardState.shouldWarnOnClockIn) {
+      if (!mounted) return;
+      final proceed = await _showClockInWarningDialog(guardState);
+      if (!proceed) return;
+    }
+
+    // Check and request location permission (fallback to legacy behavior)
     final hasPermission = await locationService.ensureLocationPermission();
 
     if (!hasPermission) {
@@ -100,6 +131,10 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
     if (success) {
+      // Notify permission guard of active shift for monitoring
+      ref.read(permissionGuardProvider.notifier).setActiveShift(true);
+      _startPermissionMonitoring();
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Row(
@@ -133,6 +168,154 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
             borderRadius: BorderRadius.circular(8),
           ),
         ),
+      );
+    }
+  }
+
+  /// Handle permission blocking - show appropriate dialog based on state.
+  Future<void> _handlePermissionBlock(PermissionGuardState guardState) async {
+    if (guardState.deviceStatus == DeviceLocationStatus.disabled) {
+      await DeviceServicesDialog.show(context);
+    } else if (guardState.permission.level ==
+        LocationPermissionLevel.deniedForever) {
+      await SettingsGuidanceDialog.show(context);
+    } else {
+      // Permission not granted yet
+      final proceed = await PermissionExplanationDialog.show(context);
+      if (proceed && mounted) {
+        await ref.read(permissionGuardProvider.notifier).requestPermission();
+      }
+    }
+    // Re-check status after dialog closed
+    if (mounted) {
+      await ref.read(permissionGuardProvider.notifier).checkStatus();
+    }
+  }
+
+  /// Show warning dialog for partial permission and allow user to proceed or fix.
+  Future<bool> _showClockInWarningDialog(PermissionGuardState guardState) async {
+    final theme = Theme.of(context);
+
+    // Determine warning type
+    final bool isPartialPermission =
+        guardState.permission.level == LocationPermissionLevel.whileInUse;
+    final bool isBatteryOptimization =
+        guardState.isBatteryOptimizationDisabled == false && Platform.isAndroid;
+
+    String title;
+    String message;
+    String fixLabel;
+
+    if (isPartialPermission) {
+      title = 'Limited Tracking';
+      message =
+          'You have "while in use" permission only. Background tracking may be '
+          'interrupted when the app is not visible. Do you want to continue anyway?';
+      fixLabel = 'Upgrade Permission';
+    } else if (isBatteryOptimization) {
+      title = 'Battery Optimization';
+      message =
+          'Battery optimization may interrupt GPS tracking during your shift. '
+          'We recommend disabling it for this app. Continue anyway?';
+      fixLabel = 'Disable Optimization';
+    } else {
+      title = 'Warning';
+      message =
+          'There may be issues with GPS tracking. Do you want to continue anyway?';
+      fixLabel = 'Fix';
+    }
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber, color: Colors.orange.shade700),
+            const SizedBox(width: 8),
+            Text(title),
+          ],
+        ),
+        content: Text(
+          message,
+          style: theme.textTheme.bodyMedium,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop('cancel'),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop('fix'),
+            child: Text(fixLabel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop('proceed'),
+            child: const Text('Continue Anyway'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == 'fix') {
+      // Handle fix action
+      if (isPartialPermission) {
+        await ref.read(permissionGuardProvider.notifier).requestPermission();
+      } else if (isBatteryOptimization) {
+        await BatteryOptimizationDialog.show(context);
+      }
+      // Re-check status
+      if (mounted) {
+        await ref.read(permissionGuardProvider.notifier).checkStatus();
+      }
+      return false; // Don't proceed, let user try again
+    }
+
+    return result == 'proceed';
+  }
+
+  /// Start monitoring for permission changes during active shift.
+  void _startPermissionMonitoring() {
+    final monitor = ref.read(permissionMonitorProvider);
+    monitor.startMonitoring(
+      onChanged: _handlePermissionChange,
+      intervalSeconds: 30,
+    );
+  }
+
+  /// Stop monitoring for permission changes.
+  void _stopPermissionMonitoring() {
+    final monitor = ref.read(permissionMonitorProvider);
+    monitor.stopMonitoring();
+  }
+
+  /// Handle permission changes during active shift.
+  void _handlePermissionChange(PermissionChangeEvent event) {
+    if (!mounted) return;
+
+    // Update permission guard state
+    ref.read(permissionGuardProvider.notifier).checkStatus();
+
+    // Show alert for downgrades
+    if (event.isDowngrade) {
+      PermissionChangeAlert.show(
+        context,
+        event,
+        onAcknowledge: () {
+          // User acknowledged the issue
+        },
+        onFix: () async {
+          // User wants to fix the issue
+          if (event.affectsTracking) {
+            await SettingsGuidanceDialog.show(context);
+          } else {
+            await ref
+                .read(permissionGuardProvider.notifier)
+                .requestPermission();
+          }
+          if (mounted) {
+            await ref.read(permissionGuardProvider.notifier).checkStatus();
+          }
+        },
       );
     }
   }
@@ -171,6 +354,10 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
     if (!mounted) return;
 
     if (success) {
+      // Stop permission monitoring after clock out
+      _stopPermissionMonitoring();
+      ref.read(permissionGuardProvider.notifier).setActiveShift(false);
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Row(
@@ -268,54 +455,66 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
     final hasActiveShift = shiftState.activeShift != null;
 
     return RefreshIndicator(
-      onRefresh: () => ref.read(shiftProvider.notifier).refresh(),
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const ShiftStatusCard(),
-            if (hasActiveShift) ...[
-              const SizedBox(height: 16),
-              const ShiftTimer(),
-            ],
-            const SizedBox(height: 32),
-            Center(
-              child: ClockButton(
-                onClockIn: _handleClockIn,
-                onClockOut: _handleClockOut,
-              ),
-            ),
-            const SizedBox(height: 32),
-            if (shiftState.error != null)
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.error_outline, color: Colors.red),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        shiftState.error!,
-                        style: const TextStyle(color: Colors.red),
+      onRefresh: () async {
+        await ref.read(shiftProvider.notifier).refresh();
+        await ref.read(permissionGuardProvider.notifier).checkStatus();
+      },
+      child: Column(
+        children: [
+          // Permission status banner at top
+          const PermissionStatusBanner(),
+          Expanded(
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const ShiftStatusCard(),
+                  if (hasActiveShift) ...[
+                    const SizedBox(height: 16),
+                    const ShiftTimer(),
+                  ],
+                  const SizedBox(height: 32),
+                  Center(
+                    child: ClockButton(
+                      onClockIn: _handleClockIn,
+                      onClockOut: _handleClockOut,
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  if (shiftState.error != null)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border:
+                            Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline, color: Colors.red),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              shiftState.error!,
+                              style: const TextStyle(color: Colors.red),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close, color: Colors.red),
+                            onPressed: () =>
+                                ref.read(shiftProvider.notifier).clearError(),
+                          ),
+                        ],
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.red),
-                      onPressed: () =>
-                          ref.read(shiftProvider.notifier).clearError(),
-                    ),
-                  ],
-                ),
+                ],
               ),
-          ],
-        ),
+            ),
+          ),
+        ],
       ),
     );
   }

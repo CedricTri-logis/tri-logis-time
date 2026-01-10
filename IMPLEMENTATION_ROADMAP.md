@@ -347,11 +347,11 @@ Future<void> _checkLocationPermission() async {
 
 ### Success Criteria
 
-- [ ] App checks permission on every resume
-- [ ] Auto clock-out triggers if permission revoked while clocked in
-- [ ] User sees clear message after auto clock-out
-- [ ] Permission guidance shows correct platform/language text
-- [ ] Guidance appears before system permission dialog
+- [x] App checks permission on every resume
+- [x] Auto clock-out triggers if permission revoked while clocked in
+- [x] User sees clear message after auto clock-out
+- [x] Permission guidance shows correct platform/language text
+- [x] Guidance appears before system permission dialog
 
 ### Checkpoint
 

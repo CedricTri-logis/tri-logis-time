@@ -1,5 +1,9 @@
+export 'battery_optimization_dialog.dart';
+export 'device_services_dialog.dart';
 export 'gps_point_marker.dart';
+export 'permission_change_alert.dart';
 export 'permission_explanation_dialog.dart';
+export 'permission_status_banner.dart';
 export 'point_detail_sheet.dart';
 export 'route_map_widget.dart';
 export 'route_stats_card.dart';
