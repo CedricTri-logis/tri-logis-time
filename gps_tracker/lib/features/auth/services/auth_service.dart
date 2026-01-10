@@ -18,6 +18,9 @@ class AuthServiceException implements Exception {
 class AuthService {
   final SupabaseClient _client;
 
+  /// Deep link URL scheme for auth redirects
+  static const String _redirectUrl = 'ca.trilogis.gpstracker://callback';
+
   AuthService(this._client);
 
   /// Get the current authenticated user
@@ -65,6 +68,7 @@ class AuthService {
       final response = await _client.auth.signUp(
         email: email.trim().toLowerCase(),
         password: password,
+        emailRedirectTo: _redirectUrl,
       );
       return response;
     } on AuthException catch (e) {
@@ -96,7 +100,10 @@ class AuthService {
   /// Throws [AuthServiceException] only on rate limiting.
   Future<void> resetPassword(String email) async {
     try {
-      await _client.auth.resetPasswordForEmail(email.trim().toLowerCase());
+      await _client.auth.resetPasswordForEmail(
+        email.trim().toLowerCase(),
+        redirectTo: _redirectUrl,
+      );
     } on AuthException catch (e) {
       throw AuthServiceException(
         _mapAuthErrorToMessage(e.message),
