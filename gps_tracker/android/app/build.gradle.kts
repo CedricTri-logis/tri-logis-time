@@ -42,3 +42,8 @@ android {
 flutter {
     source = "../.."
 }
+
+configurations.all {
+    exclude(group = "com.android.support", module = "support-compat")
+    exclude(group = "com.android.support", module = "support-v4")
+}

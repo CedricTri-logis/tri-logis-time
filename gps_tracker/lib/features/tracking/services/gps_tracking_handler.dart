@@ -10,14 +10,15 @@ class GPSTrackingHandler extends TaskHandler {
   StreamSubscription<Position>? _positionSubscription;
   String? _shiftId;
   String? _employeeId;
-  int _activeIntervalSeconds = 300;
-  int _stationaryIntervalSeconds = 600;
+  int _activeIntervalSeconds = 30; // TESTING (change back to 300)
+  int _stationaryIntervalSeconds = 60; // TESTING (change back to 600)
   int _distanceFilterMeters = 10;
   int _pointCount = 0;
   DateTime? _lastCaptureTime;
   Position? _lastPosition;
   bool _isStationary = false;
   DateTime? _stationaryCheckTime;
+  bool _isCapturing = false; // Prevent duplicate captures
 
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
@@ -25,9 +26,9 @@ class GPSTrackingHandler extends TaskHandler {
     _shiftId = await FlutterForegroundTask.getData<String>(key: 'shift_id');
     _employeeId = await FlutterForegroundTask.getData<String>(key: 'employee_id');
     _activeIntervalSeconds =
-        await FlutterForegroundTask.getData<int>(key: 'active_interval_seconds') ?? 300;
+        await FlutterForegroundTask.getData<int>(key: 'active_interval_seconds') ?? 30; // TESTING
     _stationaryIntervalSeconds =
-        await FlutterForegroundTask.getData<int>(key: 'stationary_interval_seconds') ?? 600;
+        await FlutterForegroundTask.getData<int>(key: 'stationary_interval_seconds') ?? 60; // TESTING
     _distanceFilterMeters =
         await FlutterForegroundTask.getData<int>(key: 'distance_filter_meters') ?? 10;
 
@@ -95,6 +96,12 @@ class GPSTrackingHandler extends TaskHandler {
 
     // Check for stationary state
     _checkStationaryState(position, now);
+
+    // Skip if already capturing
+    if (_isCapturing) {
+      _lastPosition = position;
+      return;
+    }
 
     // Determine current interval based on movement state
     final currentInterval = _isStationary
@@ -213,6 +220,41 @@ class GPSTrackingHandler extends TaskHandler {
         _onPosition,
         onError: _onPositionError,
       );
+    }
+
+    // Force capture when stationary and interval has passed (iOS fix)
+    // iOS distance filter prevents updates when not moving
+    if (_lastCaptureTime != null && _lastPosition != null) {
+      final now = DateTime.now();
+      final timeSinceLast = now.difference(_lastCaptureTime!);
+      final currentInterval = _isStationary
+          ? Duration(seconds: _stationaryIntervalSeconds)
+          : Duration(seconds: _activeIntervalSeconds);
+
+      if (timeSinceLast >= currentInterval) {
+        // Get current position and capture it
+        _forceCapture();
+      }
+    }
+  }
+
+  Future<void> _forceCapture() async {
+    // Prevent concurrent captures
+    if (_isCapturing) return;
+    _isCapturing = true;
+
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      ).timeout(const Duration(seconds: 10));
+      _capturePosition(position, DateTime.now());
+    } catch (e) {
+      // If we can't get position, use last known
+      if (_lastPosition != null) {
+        _capturePosition(_lastPosition!, DateTime.now());
+      }
+    } finally {
+      _isCapturing = false;
     }
   }
 

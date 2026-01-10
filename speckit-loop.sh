@@ -4,12 +4,16 @@
 # Speckit Automation Loop
 # =============================================================================
 # Iterates through all specs in IMPLEMENTATION_ROADMAP.md and runs the full
-# speckit workflow (specify -> plan -> tasks -> implement) for each spec.
+# speckit workflow for each spec:
+#
+#   1. specify  -> Create feature specification
+#   2. clarify  -> Clarify ambiguities (auto-responds "recommended")
+#   3. plan     -> Create implementation plan
+#   4. tasks    -> Generate task breakdown
+#   5. analyze  -> Cross-artifact consistency analysis (auto-responds "yes")
+#   6. implement -> Execute tasks (loops until all complete)
 #
 # Supports both new format (## Spec 001:) and legacy format (## Phase 1:)
-#
-# Each command runs with fresh context (separate Claude processes).
-# The implement step loops until all tasks are complete or stuck.
 #
 # FEATURES:
 # - Automatic rate limit detection and waiting
@@ -17,6 +21,7 @@
 #   the script automatically waits until the reset time + buffer, then resumes.
 # - Progress tracking via .speckit-progress.json (can resume after interruption)
 # - Automatic git commits after each spec completes
+# - Auto-responses for clarify and analyze steps
 # - Backward compatible with Phase-based roadmaps
 #
 # USAGE:
@@ -28,21 +33,67 @@
 set -e
 
 # -----------------------------------------------------------------------------
-# CONFIGURATION
+# EARLY FLAG HANDLING (before WORKDIR setup)
 # -----------------------------------------------------------------------------
 
-# Working directory - can be set via:
-# 1. Command line argument: ./speckit-loop.sh /path/to/project
-# 2. Environment variable: WORKDIR=/path/to/project ./speckit-loop.sh
-# 3. Default: current directory
-if [[ -n "$1" ]]; then
-  WORKDIR="$1"
-elif [[ -z "$WORKDIR" ]]; then
-  WORKDIR="$(pwd)"
-fi
+# Handle --init and --help early, before WORKDIR is set
+# This prevents flags from being interpreted as directory paths
+_handle_early_flags() {
+  case "$1" in
+    --init|-i)
+      # Will be handled in main(), just skip WORKDIR setup for now
+      return 0
+      ;;
+    --help|-h)
+      echo ""
+      echo "Usage: speckit-loop.sh [OPTIONS] [PROJECT_DIR]"
+      echo ""
+      echo "Options:"
+      echo "  --init, -i [DIR]   Initialize a new project with speckit-loop files"
+      echo "                     Copies: speckit-loop.sh, SPECKIT_GUIDE.md,"
+      echo "                             IMPLEMENTATION_ROADMAP.template.md"
+      echo "  --force, -f        Force overwrite existing files (use with --init)"
+      echo "  --help, -h         Show this help message"
+      echo ""
+      echo "Examples:"
+      echo "  ./speckit-loop.sh                        # Run in current directory"
+      echo "  ./speckit-loop.sh /path/to/project       # Run in specified directory"
+      echo "  ./speckit-loop.sh --init                 # Initialize current directory"
+      echo "  ./speckit-loop.sh --init /new/project    # Initialize specified directory"
+      echo "  ./speckit-loop.sh --init --force         # Init and overwrite existing files"
+      echo ""
+      exit 0
+      ;;
+  esac
+  return 1
+}
 
-# Ensure WORKDIR is absolute path
-WORKDIR="$(cd "$WORKDIR" && pwd)"
+# Check for early flags
+if _handle_early_flags "$1"; then
+  # Flag detected that needs deferred handling, set minimal WORKDIR
+  WORKDIR="${2:-$(pwd)}"
+  if [[ -d "$WORKDIR" ]]; then
+    WORKDIR="$(cd "$WORKDIR" && pwd)"
+  fi
+else
+  # Normal operation - set WORKDIR from arguments
+  # -----------------------------------------------------------------------------
+  # CONFIGURATION
+  # -----------------------------------------------------------------------------
+
+  # Working directory - can be set via:
+  # 1. Command line argument: ./speckit-loop.sh /path/to/project
+  # 2. Environment variable: WORKDIR=/path/to/project ./speckit-loop.sh
+  # 3. Default: current directory
+  if [[ -n "$1" ]]; then
+    WORKDIR="$1"
+  elif [[ -z "$WORKDIR" ]]; then
+    WORKDIR="$(pwd)"
+  fi
+
+  # Ensure WORKDIR is absolute path
+  WORKDIR="$(cd "$WORKDIR" && pwd)"
+fi
 
 # File paths (relative to WORKDIR)
 ROADMAP_FILE="${ROADMAP_FILE:-$WORKDIR/IMPLEMENTATION_ROADMAP.md}"
@@ -366,6 +417,15 @@ set_current_phase() {
 # SPEC PARSING
 # -----------------------------------------------------------------------------
 
+# Safely pad a number to 3 digits (handles numbers with leading zeros like 008, 009)
+# Usage: pad_spec_num "008" -> "008"
+# Usage: pad_spec_num "8" -> "008"
+pad_spec_num() {
+  local num=$1
+  # Strip leading zeros and force base-10 interpretation, then pad
+  printf "%03d" "$((10#$num))"
+}
+
 # Get all spec numbers from the roadmap
 # Supports both "## Spec 001:" and "## Phase 1:" formats
 get_spec_numbers() {
@@ -388,7 +448,7 @@ get_phase_numbers() {
 # Get the title of a spec/phase
 get_spec_title() {
   local spec_num=$1
-  local spec_padded=$(printf "%03d" "$spec_num")
+  local spec_padded=$(pad_spec_num "$spec_num")
 
   # Try new format first (Spec NNN:)
   local title=$(grep -E "^## Spec 0*$spec_num:" "$ROADMAP_FILE" | sed -E "s/^## Spec 0*$spec_num: //")
@@ -409,7 +469,7 @@ get_phase_title() {
 # Get the purpose/goal of a spec
 get_spec_purpose() {
   local spec_num=$1
-  local spec_padded=$(printf "%03d" "$spec_num")
+  local spec_padded=$(pad_spec_num "$spec_num")
 
   # Try new format first (### Purpose section)
   local purpose=$(awk "/^## Spec 0*$spec_num:/{found=1} found && /^### Purpose/{getline; while(/^[^#]/ && !/^$/) {print; getline}; exit}" "$ROADMAP_FILE" | head -1 | sed 's/^[[:space:]]*//')
@@ -430,9 +490,9 @@ get_phase_goal() {
 # Get success criteria/tasks for a spec
 get_spec_criteria() {
   local spec_num=$1
-  local spec_padded=$(printf "%03d" "$spec_num")
+  local spec_padded=$(pad_spec_num "$spec_num")
   local next_spec=$((spec_num + 1))
-  local next_spec_padded=$(printf "%03d" "$next_spec")
+  local next_spec_padded=$(pad_spec_num "$next_spec")
 
   # Try new format first (### Success Criteria section)
   local criteria=$(awk "/^## Spec 0*$spec_num:/,/^## Spec|^## Implementation|^## Risk|^---$/" "$ROADMAP_FILE" \
@@ -460,7 +520,7 @@ get_phase_tasks() {
 # Switch to the branch for a spec
 switch_to_spec_branch() {
   local spec_num=$1
-  local spec_prefix=$(printf "%03d" "$spec_num")
+  local spec_prefix=$(pad_spec_num "$spec_num")
 
   cd "$WORKDIR" || return 1
 
@@ -495,7 +555,7 @@ switch_to_phase_branch() {
 # Build a description for passing to speckit.specify
 build_spec_description() {
   local spec_num=$1
-  local spec_padded=$(printf "%03d" "$spec_num")
+  local spec_padded=$(pad_spec_num "$spec_num")
   local title=$(get_spec_title "$spec_num")
   local purpose=$(get_spec_purpose "$spec_num")
   local criteria=$(get_spec_criteria "$spec_num")
@@ -517,7 +577,7 @@ build_phase_description() {
 
 mark_spec_complete_in_roadmap() {
   local spec_num=$1
-  local spec_padded=$(printf "%03d" "$spec_num")
+  local spec_padded=$(pad_spec_num "$spec_num")
 
   echo ""
   echo -e "${BLUE}  Marking Spec $spec_padded criteria as complete in IMPLEMENTATION_ROADMAP.md...${NC}"
@@ -565,7 +625,7 @@ commit_spec_changes() {
   fi
 
   local spec_num=$1
-  local spec_padded=$(printf "%03d" "$spec_num")
+  local spec_padded=$(pad_spec_num "$spec_num")
   local title=$(get_spec_title "$spec_num")
 
   echo ""
@@ -694,6 +754,340 @@ run_speckit_command() {
           retry_count=0
           continue
         fi
+      fi
+
+      success=true
+      echo ""
+      echo -e "${GREEN}  --- CLAUDE OUTPUT ABOVE ---${NC}"
+      echo ""
+      echo -e "${GREEN}  /$command completed successfully${NC}"
+    else
+      echo ""
+
+      if check_rate_limit "$output_file"; then
+        echo -e "${YELLOW}  Rate limit detected (exit code: $claude_result)${NC}"
+
+        local wait_seconds=$(parse_reset_time "$output_file")
+        if [[ "$wait_seconds" -gt 0 ]]; then
+          wait_for_rate_limit_reset "$wait_seconds"
+          retry_count=0
+          continue
+        else
+          echo -e "${YELLOW}  Could not parse reset time, waiting 1 hour as fallback${NC}"
+          wait_for_rate_limit_reset 3600
+          retry_count=0
+          continue
+        fi
+      fi
+
+      echo -e "${RED}  Command failed, exit code: $claude_result${NC}"
+      log "${RED}Command failed, exit code: $claude_result${NC}"
+      sleep $SLEEP_BETWEEN_COMMANDS
+    fi
+  done
+
+  rm -f "$output_file"
+
+  if [[ "$success" == "false" ]]; then
+    echo ""
+    echo -e "${RED}----------------------------------------------------${NC}"
+    echo -e "${RED}  ERROR: /$command failed after $MAX_COMMAND_RETRIES attempts${NC}"
+    echo -e "${RED}----------------------------------------------------${NC}"
+    return 1
+  fi
+
+  sleep $SLEEP_BETWEEN_COMMANDS
+  return 0
+}
+
+# Run clarify command with interactive question-answer loop
+# Usage: run_clarify_with_interactive_responses [max_questions]
+# - max_questions: maximum number of questions to answer (default: 5)
+#
+# This function:
+# 1. Runs /speckit.clarify initially
+# 2. Detects if Claude is asking a question
+# 3. Uses --resume to continue the conversation with "recommended"
+# 4. Loops until no more questions or max reached
+run_clarify_with_interactive_responses() {
+  local max_questions=${1:-5}
+  local question_count=0
+  local output_file=$(mktemp)
+  local conversation_id=""
+  local has_more_questions=true
+
+  echo ""
+  echo -e "${CYAN}============================================================================${NC}"
+  echo -e "${CYAN}  EXECUTING: /speckit.clarify (interactive mode)${NC}"
+  echo -e "${CYAN}============================================================================${NC}"
+  echo ""
+  echo -e "${BLUE}  Working directory: $WORKDIR${NC}"
+  echo -e "${BLUE}  Timestamp: $(date '+%Y-%m-%d %H:%M:%S')${NC}"
+  echo -e "${BLUE}  Max questions: $max_questions${NC}"
+  echo -e "${BLUE}  Auto-response: \"recommended\" after each question${NC}"
+  echo ""
+
+  # Run initial clarify command
+  echo -e "${YELLOW}  Starting clarification process...${NC}"
+  echo ""
+  echo -e "${GREEN}  --- CLAUDE OUTPUT BELOW ---${NC}"
+  echo ""
+
+  > "$output_file"
+
+  # Run clarify and capture output
+  cd "$WORKDIR"
+  if command -v stdbuf >/dev/null 2>&1; then
+    stdbuf -oL -eL claude --print --dangerously-skip-permissions --output-format json "/speckit.clarify" 2>&1 | tee -a "$LOGFILE" | tee "$output_file"
+  else
+    claude --print --dangerously-skip-permissions --output-format json "/speckit.clarify" 2>&1 | tee -a "$LOGFILE" | tee "$output_file"
+  fi
+
+  # Extract conversation ID from output (JSON format includes session_id)
+  conversation_id=$(grep -o '"session_id":"[^"]*"' "$output_file" 2>/dev/null | head -1 | sed 's/"session_id":"//;s/"$//')
+
+  # If no JSON session_id, try to get from .claude directory (most recent conversation)
+  if [[ -z "$conversation_id" ]]; then
+    conversation_id=$(ls -t "$WORKDIR/.claude/conversations/" 2>/dev/null | head -1 | sed 's/\.json$//')
+  fi
+
+  # Check if output contains a question (look for question patterns)
+  check_for_question() {
+    local file=$1
+    # Look for patterns that indicate a question is being asked
+    if grep -qiE "Question [0-9]+ of [0-9]+|Option [A-D]|You can reply with|Recommended:" "$file" 2>/dev/null; then
+      return 0  # Has question
+    fi
+    return 1  # No question
+  }
+
+  # Loop to answer questions
+  while [[ $question_count -lt $max_questions ]]; do
+    # Check rate limit first
+    if check_rate_limit "$output_file"; then
+      echo ""
+      echo -e "${YELLOW}  Rate limit detected${NC}"
+      local wait_seconds=$(parse_reset_time "$output_file")
+      if [[ "$wait_seconds" -gt 0 ]]; then
+        wait_for_rate_limit_reset "$wait_seconds"
+      else
+        wait_for_rate_limit_reset 3600
+      fi
+      continue
+    fi
+
+    # Check if there's a question waiting for an answer
+    if ! check_for_question "$output_file"; then
+      echo ""
+      echo -e "${GREEN}  No more questions detected. Clarification complete.${NC}"
+      has_more_questions=false
+      break
+    fi
+
+    question_count=$((question_count + 1))
+    echo ""
+    echo -e "${YELLOW}+------------------------------------------------------------------------------+${NC}"
+    echo -e "${YELLOW}|  Answering question $question_count/$max_questions with \"recommended\"        ${NC}"
+    echo -e "${YELLOW}+------------------------------------------------------------------------------+${NC}"
+    echo ""
+
+    # Small delay to let Claude update files
+    sleep $SLEEP_BETWEEN_COMMANDS
+
+    # Continue conversation with "recommended" response
+    > "$output_file"
+
+    if [[ -n "$conversation_id" ]]; then
+      # Resume conversation with the response
+      if command -v stdbuf >/dev/null 2>&1; then
+        stdbuf -oL -eL claude --print --dangerously-skip-permissions --resume "$conversation_id" --output-format json "recommended" 2>&1 | tee -a "$LOGFILE" | tee "$output_file"
+      else
+        claude --print --dangerously-skip-permissions --resume "$conversation_id" --output-format json "recommended" 2>&1 | tee -a "$LOGFILE" | tee "$output_file"
+      fi
+    else
+      # Fallback: run a new command asking to continue with recommended
+      echo -e "${YELLOW}  No conversation ID found, running standalone response...${NC}"
+      if command -v stdbuf >/dev/null 2>&1; then
+        stdbuf -oL -eL claude --print --dangerously-skip-permissions --output-format json "Continue with the recommended option for the current clarify question" 2>&1 | tee -a "$LOGFILE" | tee "$output_file"
+      else
+        claude --print --dangerously-skip-permissions --output-format json "Continue with the recommended option for the current clarify question" 2>&1 | tee -a "$LOGFILE" | tee "$output_file"
+      fi
+    fi
+
+    # Update conversation ID if changed
+    local new_id=$(grep -o '"session_id":"[^"]*"' "$output_file" 2>/dev/null | head -1 | sed 's/"session_id":"//;s/"$//')
+    if [[ -n "$new_id" ]]; then
+      conversation_id="$new_id"
+    fi
+  done
+
+  echo ""
+  echo -e "${GREEN}  --- CLAUDE OUTPUT ABOVE ---${NC}"
+  echo ""
+
+  if [[ $question_count -ge $max_questions ]] && [[ "$has_more_questions" == "true" ]]; then
+    echo -e "${YELLOW}  Reached max questions ($max_questions). Some questions may remain.${NC}"
+  fi
+
+  echo -e "${GREEN}  /speckit.clarify completed - answered $question_count questions${NC}"
+
+  rm -f "$output_file"
+  sleep $SLEEP_BETWEEN_COMMANDS
+  return 0
+}
+
+# Run a speckit command with automatic responses (legacy - for analyze)
+# Usage: run_speckit_command_with_auto_response "command" "args" "response" [repeat_count]
+# - response: the text to send as response (e.g., "recommended", "yes")
+# - repeat_count: how many times to send the response (default: 10 for safety)
+run_speckit_command_with_auto_response() {
+  local command=$1
+  local args=$2
+  local response=$3
+  local repeat_count=${4:-10}
+  local retry_count=0
+  local success=false
+  local output_file=$(mktemp)
+  local conversation_id=""
+
+  # For clarify command, use the interactive method
+  if [[ "$command" == "speckit.clarify" ]]; then
+    run_clarify_with_interactive_responses "$repeat_count"
+    return $?
+  fi
+
+  echo ""
+  echo -e "${CYAN}============================================================================${NC}"
+  echo -e "${CYAN}  EXECUTING: /$command (auto-response: \"$response\")${NC}"
+  echo -e "${CYAN}============================================================================${NC}"
+  echo ""
+  echo -e "${BLUE}  Working directory: $WORKDIR${NC}"
+  echo -e "${BLUE}  Timestamp: $(date '+%Y-%m-%d %H:%M:%S')${NC}"
+  echo -e "${BLUE}  Auto-response: \"$response\" (up to $repeat_count times)${NC}"
+  if [[ -n "$args" ]]; then
+    echo -e "${BLUE}  Arguments: ${args:0:100}...${NC}"
+  fi
+  echo ""
+  echo -e "${GREEN}  --- CLAUDE OUTPUT BELOW ---${NC}"
+  echo ""
+
+  while [[ $retry_count -lt $MAX_COMMAND_RETRIES ]] && [[ "$success" == "false" ]]; do
+    retry_count=$((retry_count + 1))
+
+    if [[ $retry_count -gt 1 ]]; then
+      echo ""
+      echo -e "${YELLOW}----------------------------------------------------${NC}"
+      echo -e "${YELLOW}  RETRY $retry_count/$MAX_COMMAND_RETRIES for /$command${NC}"
+      echo -e "${YELLOW}----------------------------------------------------${NC}"
+    fi
+
+    # Heartbeat to show script is alive
+    local heartbeat_pid=""
+    (
+      local elapsed=0
+      while true; do
+        sleep 60
+        elapsed=$((elapsed + 1))
+        echo -e "\n${BLUE}  Still running... (${elapsed}m elapsed)${NC}" >&2
+      done
+    ) &
+    heartbeat_pid=$!
+
+    > "$output_file"
+    local claude_result=0
+
+    # Run initial command
+    cd "$WORKDIR"
+    if command -v stdbuf >/dev/null 2>&1; then
+      stdbuf -oL -eL claude --print --dangerously-skip-permissions --output-format json "/$command $args" 2>&1 | tee -a "$LOGFILE" | tee "$output_file"
+      claude_result=$?
+    else
+      claude --print --dangerously-skip-permissions --output-format json "/$command $args" 2>&1 | tee -a "$LOGFILE" | tee "$output_file"
+      claude_result=$?
+    fi
+
+    kill $heartbeat_pid 2>/dev/null
+    wait $heartbeat_pid 2>/dev/null
+
+    # Extract conversation ID
+    conversation_id=$(grep -o '"session_id":"[^"]*"' "$output_file" 2>/dev/null | head -1 | sed 's/"session_id":"//;s/"$//')
+    if [[ -z "$conversation_id" ]]; then
+      conversation_id=$(ls -t "$WORKDIR/.claude/conversations/" 2>/dev/null | head -1 | sed 's/\.json$//')
+    fi
+
+    if [[ $claude_result -eq 0 ]]; then
+      if check_rate_limit "$output_file"; then
+        echo ""
+        echo -e "${YELLOW}  Rate limit detected in output${NC}"
+
+        local wait_seconds=$(parse_reset_time "$output_file")
+        if [[ "$wait_seconds" -gt 0 ]]; then
+          wait_for_rate_limit_reset "$wait_seconds"
+          retry_count=0
+          continue
+        else
+          echo -e "${YELLOW}  Could not parse reset time, waiting 1 hour as fallback${NC}"
+          wait_for_rate_limit_reset 3600
+          retry_count=0
+          continue
+        fi
+      fi
+
+      # Check if analysis/remediation is complete (ready for next step)
+      # Look for completion indicators before checking for more questions
+      check_analyze_complete() {
+        local file=$1
+        if grep -qiE "ready for.*implement|proceed with.*implement|aligned and ready|all.*issues.*resolved|remediations.*applied|specification.*now.*aligned|ready to proceed" "$file" 2>/dev/null; then
+          return 0  # Complete
+        fi
+        return 1  # Not complete
+      }
+
+      # Check if output contains a question/prompt needing response
+      local needs_response=false
+      if grep -qiE "would you like me to apply|apply these edits|proceed\?|continue\?" "$output_file" 2>/dev/null; then
+        # Only needs response if NOT already complete
+        if ! check_analyze_complete "$output_file"; then
+          needs_response=true
+        fi
+      fi
+
+      # If needs response, use --resume to send the auto-response
+      if [[ "$needs_response" == "true" ]] && [[ -n "$conversation_id" ]]; then
+        local response_count=0
+        while [[ $response_count -lt $repeat_count ]]; do
+          response_count=$((response_count + 1))
+
+          echo ""
+          echo -e "${YELLOW}  Sending auto-response ($response_count/$repeat_count): \"$response\"${NC}"
+
+          sleep $SLEEP_BETWEEN_COMMANDS
+          > "$output_file"
+
+          if command -v stdbuf >/dev/null 2>&1; then
+            stdbuf -oL -eL claude --print --dangerously-skip-permissions --resume "$conversation_id" --output-format json "$response" 2>&1 | tee -a "$LOGFILE" | tee "$output_file"
+          else
+            claude --print --dangerously-skip-permissions --resume "$conversation_id" --output-format json "$response" 2>&1 | tee -a "$LOGFILE" | tee "$output_file"
+          fi
+
+          # Check if analysis is complete - stop sending responses
+          if check_analyze_complete "$output_file"; then
+            echo ""
+            echo -e "${GREEN}  Analysis complete - ready for implement${NC}"
+            break
+          fi
+
+          # Check if more responses needed (question being asked)
+          if ! grep -qiE "would you like me to apply|apply these edits|proceed\?|continue\?" "$output_file" 2>/dev/null; then
+            break
+          fi
+
+          # Update conversation ID
+          local new_id=$(grep -o '"session_id":"[^"]*"' "$output_file" 2>/dev/null | head -1 | sed 's/"session_id":"//;s/"$//')
+          if [[ -n "$new_id" ]]; then
+            conversation_id="$new_id"
+          fi
+        done
       fi
 
       success=true
@@ -986,7 +1380,7 @@ run_implement_loop() {
 
 run_spec_workflow() {
   local spec_num=$1
-  local spec_padded=$(printf "%03d" "$spec_num")
+  local spec_padded=$(pad_spec_num "$spec_num")
   local title=$(get_spec_title "$spec_num")
   local description=$(build_spec_description "$spec_num")
 
@@ -999,10 +1393,12 @@ run_spec_workflow() {
   echo -e "  $(get_spec_purpose "$spec_num")"
   echo ""
   echo -e "${BLUE}Workflow Steps:${NC}"
-  echo -e "  [1/4] speckit.specify  -> Create feature specification"
-  echo -e "  [2/4] speckit.plan     -> Create implementation plan"
-  echo -e "  [3/4] speckit.tasks    -> Generate task breakdown"
-  echo -e "  [4/4] speckit.implement -> Execute tasks (loops until done)"
+  echo -e "  [1/6] speckit.specify   -> Create feature specification"
+  echo -e "  [2/6] speckit.clarify   -> Clarify ambiguities (auto: recommended)"
+  echo -e "  [3/6] speckit.plan      -> Create implementation plan"
+  echo -e "  [4/6] speckit.tasks     -> Generate task breakdown"
+  echo -e "  [5/6] speckit.analyze   -> Analyze consistency (auto: yes)"
+  echo -e "  [6/6] speckit.implement -> Execute tasks (loops until done)"
   echo ""
 
   # Step 1: Specify
@@ -1010,7 +1406,7 @@ run_spec_workflow() {
   if [[ "$specify_status" != "complete" ]]; then
     echo ""
     echo -e "${YELLOW}+------------------------------------------------------------------------------+${NC}"
-    echo -e "${YELLOW}|  [1/4] SPECIFY - Creating feature specification                              |${NC}"
+    echo -e "${YELLOW}|  [1/6] SPECIFY - Creating feature specification                              |${NC}"
     echo -e "${YELLOW}+------------------------------------------------------------------------------+${NC}"
     echo ""
 
@@ -1020,14 +1416,14 @@ run_spec_workflow() {
 
     if run_speckit_command "speckit.specify" "$escaped_desc"; then
       set_phase_status "$spec_num" "specify" "complete"
-      echo -e "${GREEN}  [1/4] SPECIFY COMPLETE${NC}"
+      echo -e "${GREEN}  [1/6] SPECIFY COMPLETE${NC}"
     else
       set_phase_status "$spec_num" "specify" "failed"
-      echo -e "${RED}  [1/4] SPECIFY FAILED${NC}"
+      echo -e "${RED}  [1/6] SPECIFY FAILED${NC}"
       return 1
     fi
   else
-    echo -e "${GREEN}  [1/4] specify already complete, skipping${NC}"
+    echo -e "${GREEN}  [1/6] specify already complete, skipping${NC}"
   fi
 
   # Verify branch
@@ -1040,12 +1436,37 @@ run_spec_workflow() {
   fi
   echo ""
 
-  # Step 2: Plan
+  # Step 2: Clarify (auto-response: "recommended")
+  local clarify_status=$(get_phase_status "$spec_num" "clarify")
+  if [[ "$clarify_status" != "complete" ]]; then
+    echo ""
+    echo -e "${YELLOW}+------------------------------------------------------------------------------+${NC}"
+    echo -e "${YELLOW}|  [2/6] CLARIFY - Identifying and resolving ambiguities                       |${NC}"
+    echo -e "${YELLOW}|        Auto-responding with \"recommended\" to all questions                   |${NC}"
+    echo -e "${YELLOW}+------------------------------------------------------------------------------+${NC}"
+    echo ""
+
+    set_phase_status "$spec_num" "clarify" "in_progress"
+
+    # Run clarify with auto-response "recommended" (up to 10 times for safety)
+    if run_speckit_command_with_auto_response "speckit.clarify" "" "recommended" 10; then
+      set_phase_status "$spec_num" "clarify" "complete"
+      echo -e "${GREEN}  [2/6] CLARIFY COMPLETE${NC}"
+    else
+      set_phase_status "$spec_num" "clarify" "failed"
+      echo -e "${RED}  [2/6] CLARIFY FAILED${NC}"
+      return 1
+    fi
+  else
+    echo -e "${GREEN}  [2/6] clarify already complete, skipping${NC}"
+  fi
+
+  # Step 3: Plan
   local plan_status=$(get_phase_status "$spec_num" "plan")
   if [[ "$plan_status" != "complete" ]]; then
     echo ""
     echo -e "${YELLOW}+------------------------------------------------------------------------------+${NC}"
-    echo -e "${YELLOW}|  [2/4] PLAN - Creating implementation plan                                   |${NC}"
+    echo -e "${YELLOW}|  [3/6] PLAN - Creating implementation plan                                   |${NC}"
     echo -e "${YELLOW}+------------------------------------------------------------------------------+${NC}"
     echo ""
 
@@ -1053,22 +1474,22 @@ run_spec_workflow() {
 
     if run_speckit_command "speckit.plan" ""; then
       set_phase_status "$spec_num" "plan" "complete"
-      echo -e "${GREEN}  [2/4] PLAN COMPLETE${NC}"
+      echo -e "${GREEN}  [3/6] PLAN COMPLETE${NC}"
     else
       set_phase_status "$spec_num" "plan" "failed"
-      echo -e "${RED}  [2/4] PLAN FAILED${NC}"
+      echo -e "${RED}  [3/6] PLAN FAILED${NC}"
       return 1
     fi
   else
-    echo -e "${GREEN}  [2/4] plan already complete, skipping${NC}"
+    echo -e "${GREEN}  [3/6] plan already complete, skipping${NC}"
   fi
 
-  # Step 3: Tasks
+  # Step 4: Tasks
   local tasks_status=$(get_phase_status "$spec_num" "tasks")
   if [[ "$tasks_status" != "complete" ]]; then
     echo ""
     echo -e "${YELLOW}+------------------------------------------------------------------------------+${NC}"
-    echo -e "${YELLOW}|  [3/4] TASKS - Generating task breakdown                                     |${NC}"
+    echo -e "${YELLOW}|  [4/6] TASKS - Generating task breakdown                                     |${NC}"
     echo -e "${YELLOW}+------------------------------------------------------------------------------+${NC}"
     echo ""
 
@@ -1076,22 +1497,47 @@ run_spec_workflow() {
 
     if run_speckit_command "speckit.tasks" ""; then
       set_phase_status "$spec_num" "tasks" "complete"
-      echo -e "${GREEN}  [3/4] TASKS COMPLETE${NC}"
+      echo -e "${GREEN}  [4/6] TASKS COMPLETE${NC}"
     else
       set_phase_status "$spec_num" "tasks" "failed"
-      echo -e "${RED}  [3/4] TASKS FAILED${NC}"
+      echo -e "${RED}  [4/6] TASKS FAILED${NC}"
       return 1
     fi
   else
-    echo -e "${GREEN}  [3/4] tasks already complete, skipping${NC}"
+    echo -e "${GREEN}  [4/6] tasks already complete, skipping${NC}"
   fi
 
-  # Step 4: Implement (with inner loop)
+  # Step 5: Analyze (auto-response: "yes")
+  local analyze_status=$(get_phase_status "$spec_num" "analyze")
+  if [[ "$analyze_status" != "complete" ]]; then
+    echo ""
+    echo -e "${YELLOW}+------------------------------------------------------------------------------+${NC}"
+    echo -e "${YELLOW}|  [5/6] ANALYZE - Cross-artifact consistency analysis                         |${NC}"
+    echo -e "${YELLOW}|        Auto-responding with \"yes\" to remediation questions                   |${NC}"
+    echo -e "${YELLOW}+------------------------------------------------------------------------------+${NC}"
+    echo ""
+
+    set_phase_status "$spec_num" "analyze" "in_progress"
+
+    # Run analyze with auto-response "yes" (up to 5 times for safety)
+    if run_speckit_command_with_auto_response "speckit.analyze" "" "yes" 5; then
+      set_phase_status "$spec_num" "analyze" "complete"
+      echo -e "${GREEN}  [5/6] ANALYZE COMPLETE${NC}"
+    else
+      set_phase_status "$spec_num" "analyze" "failed"
+      echo -e "${RED}  [5/6] ANALYZE FAILED${NC}"
+      return 1
+    fi
+  else
+    echo -e "${GREEN}  [5/6] analyze already complete, skipping${NC}"
+  fi
+
+  # Step 6: Implement (with inner loop)
   local implement_status=$(get_phase_status "$spec_num" "implement")
   if [[ "$implement_status" != "complete" ]]; then
     echo ""
     echo -e "${YELLOW}+------------------------------------------------------------------------------+${NC}"
-    echo -e "${YELLOW}|  [4/4] IMPLEMENT - Executing tasks (will loop until complete)               |${NC}"
+    echo -e "${YELLOW}|  [6/6] IMPLEMENT - Executing tasks (will loop until complete)               |${NC}"
     echo -e "${YELLOW}+------------------------------------------------------------------------------+${NC}"
     echo ""
 
@@ -1100,9 +1546,9 @@ run_spec_workflow() {
     if run_implement_loop; then
       verify_migrations_applied
       set_phase_status "$spec_num" "implement" "complete"
-      echo -e "${GREEN}  [4/4] IMPLEMENT COMPLETE - All tasks done!${NC}"
+      echo -e "${GREEN}  [6/6] IMPLEMENT COMPLETE - All tasks done!${NC}"
     else
-      echo -e "${YELLOW}  [4/4] IMPLEMENT INCOMPLETE - Some tasks remain${NC}"
+      echo -e "${YELLOW}  [6/6] IMPLEMENT INCOMPLETE - Some tasks remain${NC}"
       verify_migrations_applied
       commit_spec_changes "$spec_num"
       echo ""
@@ -1113,7 +1559,7 @@ run_spec_workflow() {
       return 1
     fi
   else
-    echo -e "${GREEN}  [4/4] implement already complete, skipping${NC}"
+    echo -e "${GREEN}  [6/6] implement already complete, skipping${NC}"
   fi
 
   mark_spec_complete_in_roadmap "$spec_num"
@@ -1133,17 +1579,138 @@ run_phase_workflow() {
 }
 
 # -----------------------------------------------------------------------------
+# PROJECT INITIALIZATION
+# -----------------------------------------------------------------------------
+
+# Get the directory where this script is located
+get_script_dir() {
+  local source="${BASH_SOURCE[0]}"
+  while [[ -L "$source" ]]; do
+    local dir="$(cd -P "$(dirname "$source")" && pwd)"
+    source="$(readlink "$source")"
+    [[ $source != /* ]] && source="$dir/$source"
+  done
+  echo "$(cd -P "$(dirname "$source")" && pwd)"
+}
+
+# Initialize a new project with speckit-loop files
+# Usage: init_project [--force] [target_dir]
+init_project() {
+  local force=false
+  local target_dir=""
+
+  # Parse arguments
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --force|-f)
+        force=true
+        shift
+        ;;
+      *)
+        target_dir="$1"
+        shift
+        ;;
+    esac
+  done
+
+  target_dir="${target_dir:-$(pwd)}"
+  local script_dir=$(get_script_dir)
+
+  echo ""
+  echo -e "${CYAN}+==============================================================================+${NC}"
+  echo -e "${CYAN}|  SPECKIT-LOOP PROJECT INITIALIZATION                                        |${NC}"
+  echo -e "${CYAN}+==============================================================================+${NC}"
+  echo ""
+  echo -e "${BLUE}  Source:  $script_dir${NC}"
+  echo -e "${BLUE}  Target:  $target_dir${NC}"
+  if [[ "$force" == "true" ]]; then
+    echo -e "${YELLOW}  Mode:    FORCE (overwrite existing files)${NC}"
+  fi
+  echo ""
+
+  # Create target directory if it doesn't exist
+  mkdir -p "$target_dir"
+
+  # Files to copy
+  local files_to_copy=(
+    "speckit-loop.sh"
+    "SPECKIT_GUIDE.md"
+    "IMPLEMENTATION_ROADMAP.template.md"
+  )
+
+  local copied=0
+  local skipped=0
+  local overwritten=0
+
+  for file in "${files_to_copy[@]}"; do
+    local source_file="$script_dir/$file"
+    local target_file="$target_dir/$file"
+
+    if [[ -f "$source_file" ]]; then
+      if [[ -f "$target_file" ]]; then
+        if [[ "$force" == "true" ]]; then
+          cp "$source_file" "$target_file"
+          echo -e "${YELLOW}  [OVERWRITE] $file${NC}"
+          overwritten=$((overwritten + 1))
+        else
+          echo -e "${YELLOW}  [SKIP] $file (already exists, use --force to overwrite)${NC}"
+          skipped=$((skipped + 1))
+        fi
+      else
+        cp "$source_file" "$target_file"
+        echo -e "${GREEN}  [COPY] $file${NC}"
+        copied=$((copied + 1))
+      fi
+    else
+      echo -e "${RED}  [MISS] $file (not found in source)${NC}"
+    fi
+  done
+
+  # Make the script executable in target
+  if [[ -f "$target_dir/speckit-loop.sh" ]]; then
+    chmod +x "$target_dir/speckit-loop.sh"
+  fi
+
+  echo ""
+  echo -e "${GREEN}+------------------------------------------------------------------------------+${NC}"
+  echo -e "${GREEN}|  INITIALIZATION COMPLETE                                                     |${NC}"
+  echo -e "${GREEN}+------------------------------------------------------------------------------+${NC}"
+  echo -e "${GREEN}|  Files copied: $copied                                                        ${NC}"
+  if [[ $overwritten -gt 0 ]]; then
+    echo -e "${YELLOW}|  Files overwritten: $overwritten                                                   ${NC}"
+  fi
+  if [[ $skipped -gt 0 ]]; then
+    echo -e "${YELLOW}|  Files skipped: $skipped                                                       ${NC}"
+  fi
+  echo -e "${GREEN}+------------------------------------------------------------------------------+${NC}"
+  echo ""
+  echo -e "${BLUE}  Next steps:${NC}"
+  echo -e "${BLUE}    1. Read SPECKIT_GUIDE.md for instructions${NC}"
+  echo -e "${BLUE}    2. Copy IMPLEMENTATION_ROADMAP.template.md to IMPLEMENTATION_ROADMAP.md${NC}"
+  echo -e "${BLUE}    3. Fill in your roadmap details${NC}"
+  echo -e "${BLUE}    4. Run: ./speckit-loop.sh${NC}"
+  echo ""
+}
+
+# -----------------------------------------------------------------------------
 # MAIN
 # -----------------------------------------------------------------------------
 
 main() {
+  # Handle --init flag (--help is handled early, before WORKDIR setup)
+  if [[ "$1" == "--init" ]] || [[ "$1" == "-i" ]]; then
+    shift
+    init_project "$@"
+    exit 0
+  fi
+
   clear
   echo ""
   echo -e "${CYAN}+==============================================================================+${NC}"
   echo -e "${CYAN}|                                                                              |${NC}"
   echo -e "${CYAN}|   SPECKIT AUTOMATION LOOP                                                   |${NC}"
   echo -e "${CYAN}|                                                                              |${NC}"
-  echo -e "${CYAN}|   Automatically runs specify -> plan -> tasks -> implement for each spec   |${NC}"
+  echo -e "${CYAN}|   Runs: specify -> clarify -> plan -> tasks -> analyze -> implement       |${NC}"
   echo -e "${CYAN}|                                                                              |${NC}"
   echo -e "${CYAN}+==============================================================================+${NC}"
   echo ""
@@ -1159,6 +1726,46 @@ main() {
     echo -e "${YELLOW}  Create an IMPLEMENTATION_ROADMAP.md file or specify the path:${NC}"
     echo -e "${YELLOW}    ROADMAP_FILE=/path/to/roadmap.md ./speckit-loop.sh${NC}"
     exit 1
+  fi
+
+  # Check for SPECKIT_GUIDE.md and offer to copy if missing
+  local guide_file="$WORKDIR/SPECKIT_GUIDE.md"
+  if [[ ! -f "$guide_file" ]]; then
+    local script_dir=$(get_script_dir)
+    local source_guide="$script_dir/SPECKIT_GUIDE.md"
+
+    echo -e "${YELLOW}  WARNING: SPECKIT_GUIDE.md not found in project directory${NC}"
+    echo ""
+
+    # Check if source guide exists and auto-copy it
+    if [[ -f "$source_guide" ]]; then
+      echo -e "${BLUE}  Found SPECKIT_GUIDE.md in script source directory.${NC}"
+      echo -e "${BLUE}  Auto-copying missing template files...${NC}"
+      echo ""
+
+      # Copy guide file
+      cp "$source_guide" "$guide_file"
+      echo -e "${GREEN}  [COPY] SPECKIT_GUIDE.md${NC}"
+
+      # Also copy roadmap template if missing
+      local template_file="$WORKDIR/IMPLEMENTATION_ROADMAP.template.md"
+      local source_template="$script_dir/IMPLEMENTATION_ROADMAP.template.md"
+      if [[ ! -f "$template_file" ]] && [[ -f "$source_template" ]]; then
+        cp "$source_template" "$template_file"
+        echo -e "${GREEN}  [COPY] IMPLEMENTATION_ROADMAP.template.md${NC}"
+      fi
+
+      echo ""
+    else
+      echo -e "${BLUE}  This file contains important instructions for creating roadmaps.${NC}"
+      echo -e "${BLUE}  To copy it and other template files, run:${NC}"
+      echo ""
+      echo -e "${GREEN}    $(basename "$0") --init $WORKDIR${NC}"
+      echo ""
+      echo -e "${YELLOW}  Continuing without guide file...${NC}"
+      echo ""
+      sleep 2
+    fi
   fi
 
   # Check for required tools
@@ -1190,7 +1797,7 @@ main() {
 
   echo -e "${BLUE}  Specs to process:${NC}"
   for s in $specs; do
-    local spec_padded=$(printf "%03d" "$s")
+    local spec_padded=$(pad_spec_num "$s")
     local t=$(get_spec_title "$s")
     echo -e "     Spec $spec_padded: $t"
   done
@@ -1199,8 +1806,8 @@ main() {
   # Resume from last spec
   local start_spec=$(get_current_phase)
   if [[ "$start_spec" -gt 1 ]]; then
-    local start_padded=$(printf "%03d" "$start_spec")
-    echo -e "${YELLOW}  Resuming from Spec $start_padded (specs 001-$(printf "%03d" $((start_spec-1))) already complete)${NC}"
+    local start_padded=$(pad_spec_num "$start_spec")
+    echo -e "${YELLOW}  Resuming from Spec $start_padded (specs 001-$(pad_spec_num $((start_spec-1))) already complete)${NC}"
     echo ""
   fi
 
@@ -1213,7 +1820,7 @@ main() {
   local current=0
   for spec_num in $specs; do
     current=$((current + 1))
-    local spec_padded=$(printf "%03d" "$spec_num")
+    local spec_padded=$(pad_spec_num "$spec_num")
 
     if [[ "$spec_num" -lt "$start_spec" ]]; then
       echo -e "${GREEN}  Spec $spec_padded already complete, skipping${NC}"

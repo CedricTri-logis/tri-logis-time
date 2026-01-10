@@ -128,7 +128,7 @@ class ShiftDetailScreen extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      SyncStatusIndicator(syncStatus: shift.syncStatus),
+                      SimpleSyncStatusIndicator(syncStatus: shift.syncStatus),
                     ],
                   ),
                   const SizedBox(height: 24),

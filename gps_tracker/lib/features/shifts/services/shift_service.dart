@@ -24,13 +24,17 @@ class ClockInResult {
 
   factory ClockInResult.fromJson(Map<String, dynamic> json) {
     final status = json['status'] as String;
+    // Handle shift_id robustly - Supabase may return UUID as various types
+    final rawShiftId = json['shift_id'] ?? json['active_shift_id'];
+    final shiftId = rawShiftId?.toString();
+
     return ClockInResult(
       success: status == 'success' || status == 'already_processed',
-      shiftId: json['shift_id'] as String?,
+      shiftId: shiftId,
       clockedInAt: json['clocked_in_at'] != null
-          ? DateTime.parse(json['clocked_in_at'] as String)
+          ? DateTime.parse(json['clocked_in_at'].toString())
           : null,
-      errorMessage: json['message'] as String?,
+      errorMessage: json['message']?.toString(),
     );
   }
 
@@ -64,13 +68,16 @@ class ClockOutResult {
 
   factory ClockOutResult.fromJson(Map<String, dynamic> json) {
     final status = json['status'] as String;
+    // Handle shift_id robustly - Supabase may return UUID as various types
+    final shiftId = json['shift_id']?.toString();
+
     return ClockOutResult(
       success: status == 'success' || status == 'already_processed',
-      shiftId: json['shift_id'] as String?,
+      shiftId: shiftId,
       clockedOutAt: json['clocked_out_at'] != null
-          ? DateTime.parse(json['clocked_out_at'] as String)
+          ? DateTime.parse(json['clocked_out_at'].toString())
           : null,
-      errorMessage: json['message'] as String?,
+      errorMessage: json['message']?.toString(),
     );
   }
 
@@ -146,13 +153,57 @@ class ShiftService {
 
       final result = ClockInResult.fromJson(response);
 
-      if (result.success) {
-        // Mark as synced
+      if (result.success && result.shiftId != null) {
+        // Mark as synced only if we have a valid server ID
         await _localDb.markShiftSynced(shiftId, serverId: result.shiftId);
         return ClockInResult(
           success: true,
           shiftId: shiftId,
           clockedInAt: now,
+        );
+      } else if (result.success) {
+        // Success but no server ID - keep as pending
+        return ClockInResult(
+          success: true,
+          shiftId: shiftId,
+          clockedInAt: now,
+          isPending: true,
+        );
+      } else if (result.shiftId != null) {
+        // Server has an active shift - auto clock-out and retry clock-in
+        final existingServerId = result.shiftId!;
+
+        // Clock out the existing server shift
+        await _supabase.rpc<Map<String, dynamic>>('clock_out', params: {
+          'p_shift_id': existingServerId,
+          'p_request_id': _uuid.v4(),
+          if (location != null) 'p_location': location.toJson(),
+          if (accuracy != null) 'p_accuracy': accuracy,
+        },);
+
+        // Retry clock-in with the same request
+        final retryResponse = await _supabase.rpc<Map<String, dynamic>>('clock_in', params: {
+          'p_request_id': requestId,
+          if (location != null) 'p_location': location.toJson(),
+          if (accuracy != null) 'p_accuracy': accuracy,
+        },);
+
+        final retryResult = ClockInResult.fromJson(retryResponse);
+        if (retryResult.shiftId != null) {
+          await _localDb.markShiftSynced(shiftId, serverId: retryResult.shiftId);
+          return ClockInResult(
+            success: true,
+            shiftId: shiftId,
+            clockedInAt: now,
+          );
+        }
+
+        // If retry failed, keep as pending
+        return ClockInResult(
+          success: true,
+          shiftId: shiftId,
+          clockedInAt: now,
+          isPending: true,
         );
       } else {
         // Mark sync error but shift still exists locally
@@ -292,9 +343,14 @@ class ShiftService {
         },);
 
         final result = ClockInResult.fromJson(response);
-        if (result.success) {
+        if (result.shiftId != null) {
+          // Got a server ID (success, already_processed, or active_shift_id)
           await _localDb.markShiftSynced(shiftId, serverId: result.shiftId);
           return true;
+        } else if (result.success) {
+          // Success but no server ID - keep as pending for retry
+          await _localDb.markShiftSyncError(shiftId, 'No server ID returned');
+          return false;
         } else {
           await _localDb.markShiftSyncError(shiftId, result.errorMessage ?? 'Unknown error');
           return false;
@@ -314,14 +370,18 @@ class ShiftService {
           },);
 
           final clockInResult = ClockInResult.fromJson(clockInResponse);
-          if (!clockInResult.success) {
-            await _localDb.markShiftSyncError(shiftId, clockInResult.errorMessage ?? 'Unknown error');
+          // Accept any response that includes a server shift ID
+          if (clockInResult.shiftId == null) {
+            await _localDb.markShiftSyncError(
+              shiftId,
+              clockInResult.errorMessage ?? 'No server ID returned',
+            );
             return false;
           }
 
-          // Then sync clock-out
+          // Then sync clock-out using server shift ID
           final clockOutResponse = await _supabase.rpc<Map<String, dynamic>>('clock_out', params: {
-            'p_shift_id': clockInResult.shiftId ?? shiftId,
+            'p_shift_id': clockInResult.shiftId,
             'p_request_id': _uuid.v4(),
             if (shift.clockOutLatitude != null && shift.clockOutLongitude != null)
               'p_location': {

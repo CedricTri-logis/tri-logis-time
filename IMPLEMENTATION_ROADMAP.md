@@ -1,628 +1,26 @@
-# GPS Tracker App - Complete Development Roadmap
+# GPS Tracker - Phase 2 Development Roadmap
 
 **Project**: Employee GPS Clock-In Tracker
-**Framework**: Flutter (iOS + Android)
-**Backend**: Supabase
-**Target Users**: 25 employees
-**Distribution**: TestFlight (iOS) + Google Play Internal Testing (Android)
+**Status**: MVP Complete (Specs 001-004)
+**Next Phase**: Specs 005-008
 
 ---
 
-## Executive Summary
-
-This document outlines the complete development roadmap for the GPS Tracker app, decomposed into **6 independent specifications** following Speckit best practices. Each spec is designed to be:
-
-- **Independently implementable** - Can be developed without waiting for others
-- **Independently testable** - Delivers standalone value that can be validated
-- **Incrementally deployable** - Can be shipped to users at each milestone
-
-### Spec Overview
+## Spec Overview
 
 | Spec # | Name | Priority | Dependencies | MVP? |
 |--------|------|----------|--------------|------|
-| 001 | Project Foundation | P0 | None | Yes |
-| 002 | Employee Authentication | P1 | 001 | Yes |
-| 003 | Shift Management | P1 | 002 | Yes |
-| 004 | Background GPS Tracking | P1 | 003 | Yes |
 | 005 | Offline Resilience | P2 | 004 | No |
 | 006 | Employee History | P3 | 003 | No |
-
-### Development Flow
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        MVP DELIVERY PATH                            │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│  001-Foundation ──► 002-Auth ──► 003-Shift ──► 004-GPS             │
-│       (Setup)       (Login)     (Clock)      (Track)               │
-│                                                                     │
-│  ════════════════════════════════════════════════════════════════  │
-│                         MVP COMPLETE                                │
-│  ════════════════════════════════════════════════════════════════  │
-│                                                                     │
-│                              │                                      │
-│                              ▼                                      │
-│                    005-Offline ──► 006-History                     │
-│                    (Robustness)    (Nice-to-have)                  │
-│                                                                     │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Spec Decomposition Rationale
-
-### Why This Split?
-
-Based on Speckit's **independence principle**, each spec must deliver standalone value. Here's the reasoning:
-
-| If we stopped after... | Would the app be useful? |
-|------------------------|--------------------------|
-| 001 - Foundation | No - just empty shell |
-| 002 - Auth | No - can log in but do nothing |
-| 003 - Shift | **Partial** - time tracking works, single GPS on clock in/out |
-| 004 - GPS | **Yes** - full GPS tracking every 5 min (MVP!) |
-| 005 - Offline | **Better** - works in poor coverage |
-| 006 - History | **Complete** - employees see their data |
-
-The MVP milestone is after **Spec 004** - at that point, the core requirement (GPS every 5 minutes while clocked in) is fully functional.
-
-### Alternative Approaches Considered
-
-| Approach | Pros | Cons | Decision |
-|----------|------|------|----------|
-| One mega-spec | Simple tracking | Too large, no incremental validation | Rejected |
-| Split by platform (iOS/Android) | Platform experts | Violates Flutter single-codebase principle | Rejected |
-| Split by layer (UI/Backend/Services) | Clean separation | Not independently testable | Rejected |
-| **Split by user value** | Each spec delivers value | Slightly more specs | **Selected** |
-
----
-
-## Detailed Spec Breakdown
-
----
-
-## Spec 001: Project Foundation
-
-**Branch**: `001-project-foundation`
-**Estimated Complexity**: Medium
-**Constitution Alignment**: All principles
-
-### Purpose
-
-Establish the complete development environment, project structure, and backend infrastructure. This is the **foundational phase** that all other specs depend on.
-
-### Scope
-
-#### In Scope
-- Flutter project creation with proper structure
-- Supabase project setup and configuration
-- Database schema design (all tables)
-- Platform configurations (iOS entitlements, Android permissions)
-- CI/CD pipeline setup (optional)
-- Development environment documentation
-
-#### Out of Scope
-- Any user-facing features
-- Authentication logic (only Supabase client setup)
-- GPS functionality
-
-### User Stories
-
-This spec has no user stories - it's pure infrastructure.
-
-### Technical Deliverables
-
-#### 1. Flutter Project Structure
-```
-gps_tracker/
-├── lib/
-│   ├── main.dart
-│   ├── app.dart
-│   ├── config/
-│   │   ├── supabase_config.dart
-│   │   ├── app_config.dart
-│   │   └── constants.dart
-│   ├── models/
-│   │   └── (empty, ready for entities)
-│   ├── services/
-│   │   └── (empty, ready for business logic)
-│   ├── screens/
-│   │   └── (empty, ready for UI)
-│   ├── widgets/
-│   │   └── (empty, ready for components)
-│   └── utils/
-│       └── (empty, ready for helpers)
-├── ios/
-│   └── (configured with location permissions)
-├── android/
-│   └── (configured with location permissions)
-├── test/
-│   └── (test structure ready)
-└── pubspec.yaml
-```
-
-#### 2. Supabase Database Schema
-```sql
--- employees table (managed by Supabase Auth, extended)
-CREATE TABLE employee_profiles (
-    id UUID PRIMARY KEY REFERENCES auth.users(id),
-    email TEXT NOT NULL,
-    full_name TEXT NOT NULL,
-    employee_id TEXT UNIQUE,
-    is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- shifts table
-CREATE TABLE shifts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    employee_id UUID REFERENCES employee_profiles(id) NOT NULL,
-    clock_in_at TIMESTAMPTZ NOT NULL,
-    clock_out_at TIMESTAMPTZ,
-    clock_in_latitude DOUBLE PRECISION,
-    clock_in_longitude DOUBLE PRECISION,
-    clock_out_latitude DOUBLE PRECISION,
-    clock_out_longitude DOUBLE PRECISION,
-    status TEXT DEFAULT 'active' CHECK (status IN ('active', 'completed')),
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- gps_points table
-CREATE TABLE gps_points (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    shift_id UUID REFERENCES shifts(id) NOT NULL,
-    employee_id UUID REFERENCES employee_profiles(id) NOT NULL,
-    latitude DOUBLE PRECISION NOT NULL,
-    longitude DOUBLE PRECISION NOT NULL,
-    accuracy DOUBLE PRECISION,
-    altitude DOUBLE PRECISION,
-    captured_at TIMESTAMPTZ NOT NULL,
-    synced_at TIMESTAMPTZ DEFAULT NOW(),
-    is_offline_capture BOOLEAN DEFAULT false,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Row Level Security
-ALTER TABLE employee_profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE shifts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE gps_points ENABLE ROW LEVEL SECURITY;
-
--- RLS Policies (employees see only their own data)
-CREATE POLICY "Employees can view own profile"
-    ON employee_profiles FOR SELECT
-    USING (auth.uid() = id);
-
-CREATE POLICY "Employees can view own shifts"
-    ON shifts FOR SELECT
-    USING (auth.uid() = employee_id);
-
-CREATE POLICY "Employees can insert own shifts"
-    ON shifts FOR INSERT
-    WITH CHECK (auth.uid() = employee_id);
-
-CREATE POLICY "Employees can update own active shifts"
-    ON shifts FOR UPDATE
-    USING (auth.uid() = employee_id AND status = 'active');
-
-CREATE POLICY "Employees can view own GPS points"
-    ON gps_points FOR SELECT
-    USING (auth.uid() = employee_id);
-
-CREATE POLICY "Employees can insert own GPS points"
-    ON gps_points FOR INSERT
-    WITH CHECK (auth.uid() = employee_id);
-```
-
-#### 3. Platform Configurations
-
-**iOS (Info.plist)**:
-- `NSLocationWhenInUseUsageDescription`
-- `NSLocationAlwaysAndWhenInUseUsageDescription`
-- `UIBackgroundModes`: `location`
-
-**Android (AndroidManifest.xml)**:
-- `ACCESS_FINE_LOCATION`
-- `ACCESS_COARSE_LOCATION`
-- `ACCESS_BACKGROUND_LOCATION`
-- `FOREGROUND_SERVICE`
-- `FOREGROUND_SERVICE_LOCATION`
-
-#### 4. Dependencies (pubspec.yaml)
-```yaml
-dependencies:
-  flutter:
-    sdk: flutter
-  supabase_flutter: ^2.0.0
-  geolocator: ^11.0.0
-  flutter_local_notifications: ^16.0.0
-  shared_preferences: ^2.2.0
-  connectivity_plus: ^5.0.0
-  sqflite: ^2.3.0
-  path_provider: ^2.1.0
-  provider: ^6.1.0
-  go_router: ^13.0.0
-```
-
-### Success Criteria
-
-- [x] Flutter project builds successfully on iOS and Android
-- [x] Supabase connection established
-- [x] Database tables created with RLS enabled
-- [x] Location permissions configured (not yet requested)
-- [x] Project runs on simulator/emulator showing blank app shell
-
-### Checkpoint
-
-**After this spec**: Development environment is fully ready. No user-visible features exist yet, but all infrastructure is in place for rapid feature development.
-
----
-
-## Spec 002: Employee Authentication
-
-**Branch**: `002-employee-authentication`
-**Estimated Complexity**: Medium
-**Constitution Alignment**: Privacy & Compliance, Simplicity
-
-### Purpose
-
-Enable employees to securely identify themselves and consent to location tracking.
-
-### Scope
-
-#### In Scope
-- Login screen with email/password
-- Logout functionality
-- Privacy consent flow (first launch)
-- Session persistence (stay logged in)
-- Basic error handling (wrong password, network error)
-
-#### Out of Scope
-- Password reset (can use Supabase default)
-- Employee registration (admin creates accounts)
-- Profile editing
-
-### User Stories
-
-#### US1: Employee Login (P1)
-**As an** employee
-**I want to** log in with my email and password
-**So that** the app knows who I am and can track my shifts
-
-**Acceptance Criteria**:
-- Given I am on the login screen, when I enter valid credentials, then I am taken to the home screen
-- Given I enter invalid credentials, then I see an error message
-- Given I have no network, then I see an appropriate error
-
-**Independent Test**: Can verify login/logout flow without any other features
-
-#### US2: Privacy Consent (P1)
-**As an** employee
-**I want to** understand and consent to location tracking
-**So that** I am informed about how my data is used
-
-**Acceptance Criteria**:
-- Given I log in for the first time, when the app loads, then I see the privacy consent screen
-- Given I have not accepted privacy terms, then I cannot proceed to the home screen
-- Given I accept the terms, then my consent is recorded and I proceed to the home screen
-
-**Independent Test**: Can verify consent flow appears on first login
-
-#### US3: Session Persistence (P2)
-**As an** employee
-**I want to** stay logged in between app launches
-**So that** I don't have to enter credentials every time
-
-**Acceptance Criteria**:
-- Given I logged in previously, when I reopen the app, then I am automatically logged in
-- Given my session expired, when I open the app, then I am taken to the login screen
-
-**Independent Test**: Close and reopen app, verify session persists
-
-### Screens
-
-1. **Login Screen**
-   - Email field
-   - Password field
-   - Login button
-   - Error message area
-
-2. **Privacy Consent Screen**
-   - Privacy policy summary
-   - Bullet points of what data is collected
-   - "I Agree" button
-   - "Decline" button (logs out)
-
-3. **Home Screen Shell**
-   - Placeholder for clock in/out (Spec 003)
-   - Logout button in settings/profile
-
-### Technical Notes
-
-- Use Supabase Auth for authentication
-- Store consent acceptance in `employee_profiles.privacy_accepted_at`
-- Use `shared_preferences` for session token caching
-
-### Success Criteria
-
-- [x] Employee can log in with valid credentials
-- [x] Invalid credentials show error message
-- [x] Privacy consent appears on first login
-- [x] Session persists between app launches
-- [x] Logout clears session
-
-### Checkpoint
-
-**After this spec**: Employees can identify themselves. The app shows a home screen but has no functionality yet beyond login/logout.
-
----
-
-## Spec 003: Shift Management
-
-**Branch**: `003-shift-management`
-**Estimated Complexity**: Medium-High
-**Constitution Alignment**: Privacy (only track when clocked in), Simplicity
-
-### Purpose
-
-Enable employees to clock in and out, recording their shift times and capturing GPS at clock in/out moments.
-
-### Scope
-
-#### In Scope
-- Clock In button with single GPS capture
-- Clock Out button with single GPS capture
-- Current shift status display
-- Location permission request flow
-- Basic shift record creation
-
-#### Out of Scope
-- Background GPS tracking (Spec 004)
-- Shift history viewing (Spec 006)
-- Offline clock in/out (Spec 005)
-
-### User Stories
-
-#### US1: Clock In (P1)
-**As an** employee
-**I want to** clock in when I start work
-**So that** my shift start time and location are recorded
-
-**Acceptance Criteria**:
-- Given I am on the home screen and not clocked in, when I tap "Clock In", then my shift starts and my location is captured
-- Given location permission is not granted, when I tap "Clock In", then I am prompted to grant permission
-- Given I am already clocked in, then the "Clock In" button is disabled/hidden
-
-**Independent Test**: Clock in, verify shift record created in Supabase with GPS coordinates
-
-#### US2: Clock Out (P1)
-**As an** employee
-**I want to** clock out when I finish work
-**So that** my shift end time and location are recorded
-
-**Acceptance Criteria**:
-- Given I am clocked in, when I tap "Clock Out", then my shift ends and my location is captured
-- Given I am not clocked in, then the "Clock Out" button is disabled/hidden
-- Given I clock out, then my total shift duration is displayed
-
-**Independent Test**: Clock out, verify shift record updated with end time and GPS
-
-#### US3: Current Shift Status (P2)
-**As an** employee
-**I want to** see my current shift status
-**So that** I know if I'm clocked in and for how long
-
-**Acceptance Criteria**:
-- Given I am clocked in, then I see "Clocked In" status with elapsed time
-- Given I am not clocked in, then I see "Not Clocked In" status
-- Given I am clocked in, then elapsed time updates every minute
-
-**Independent Test**: Visual verification of status display
-
-### Screens
-
-1. **Home Screen (Updated)**
-   ```
-   ┌─────────────────────────────┐
-   │  GPS Tracker                │
-   │  ─────────────────────────  │
-   │                             │
-   │  ┌───────────────────────┐  │
-   │  │   NOT CLOCKED IN      │  │
-   │  │   Tap below to start  │  │
-   │  └───────────────────────┘  │
-   │                             │
-   │  ┌───────────────────────┐  │
-   │  │      CLOCK IN         │  │
-   │  │         ⏱️             │  │
-   │  └───────────────────────┘  │
-   │                             │
-   │  ─────────────────────────  │
-   │  ⚙️ Settings                │
-   └─────────────────────────────┘
-   ```
-
-2. **Home Screen (Clocked In)**
-   ```
-   ┌─────────────────────────────┐
-   │  GPS Tracker                │
-   │  ─────────────────────────  │
-   │                             │
-   │  ┌───────────────────────┐  │
-   │  │   CLOCKED IN          │  │
-   │  │   02:34:15 elapsed    │  │
-   │  │   Started: 9:00 AM    │  │
-   │  └───────────────────────┘  │
-   │                             │
-   │  ┌───────────────────────┐  │
-   │  │      CLOCK OUT        │  │
-   │  │         🛑             │  │
-   │  └───────────────────────┘  │
-   │                             │
-   │  📍 GPS Active (5 points)   │
-   │  ─────────────────────────  │
-   │  ⚙️ Settings                │
-   └─────────────────────────────┘
-   ```
-
-### Technical Notes
-
-- Request `ACCESS_FINE_LOCATION` on first clock-in attempt
-- Use `geolocator` package for single GPS fix
-- Create shift record in Supabase on clock in
-- Update shift record on clock out
-- Store `clock_in_latitude`, `clock_in_longitude`, etc.
-
-### Success Criteria
-
-- [x] Employee can clock in and GPS is captured
-- [x] Employee can clock out and GPS is captured
-- [x] Shift record created/updated in Supabase
-- [x] Current status displayed correctly
-- [x] Elapsed time updates while clocked in
-- [x] Location permission handled gracefully
-
-### Checkpoint
-
-**After this spec**: Basic time tracking works. Employees can clock in/out with location captured at those moments. This is a **usable app** but not yet meeting the "GPS every 5 minutes" requirement.
-
----
-
-## Spec 004: Background GPS Tracking
-
-**Branch**: `004-background-gps-tracking`
-**Estimated Complexity**: High
-**Constitution Alignment**: Battery-Conscious Design, Privacy (only while clocked in)
-
-### Purpose
-
-Capture GPS coordinates every 5 minutes while an employee is clocked in, even when the app is in the background.
-
-### Scope
-
-#### In Scope
-- Background location service
-- 5-minute interval GPS capture
-- iOS Background Modes implementation
-- Android Foreground Service implementation
-- Battery optimization considerations
-- Persistent notification (Android requirement)
-- GPS point storage in Supabase
-
-#### Out of Scope
-- Offline GPS storage (Spec 005)
-- GPS history viewing (Spec 006)
-- Geofencing
-
-### User Stories
-
-#### US1: Background GPS Capture (P1)
-**As an** employer
-**I want** GPS captured every 5 minutes while employees are clocked in
-**So that** I can verify employee locations during their shift
-
-**Acceptance Criteria**:
-- Given an employee is clocked in, when 5 minutes pass, then a GPS point is captured and uploaded
-- Given the app is in the background, then GPS capture continues
-- Given the employee clocks out, then GPS capture stops immediately
-- Given the employee force-closes the app while clocked in, then GPS capture continues (with notification)
-
-**Independent Test**: Clock in, wait 10+ minutes, verify multiple GPS points in Supabase
-
-#### US2: Tracking Notification (P1)
-**As an** employee
-**I want to** see when GPS tracking is active
-**So that** I know my location is being recorded
-
-**Acceptance Criteria**:
-- Given I am clocked in on Android, then a persistent notification shows "GPS tracking active"
-- Given I am clocked in on iOS, then the location indicator appears in status bar
-- Given I clock out, then the notification/indicator disappears
-
-**Independent Test**: Visual verification on both platforms
-
-#### US3: Battery Information (P2)
-**As an** employee
-**I want to** understand the battery impact
-**So that** I can manage my device accordingly
-
-**Acceptance Criteria**:
-- Given I am on the settings screen, then I see estimated battery usage info
-- Given GPS tracking is active, then I can see how many points have been captured
-
-**Independent Test**: Read settings screen information
-
-### Technical Implementation
-
-#### iOS Implementation
-```dart
-// Use geolocator with background mode
-// Info.plist: UIBackgroundModes = [location]
-// Request "Always" permission
-
-Position position = await Geolocator.getCurrentPosition(
-  desiredAccuracy: LocationAccuracy.high,
-);
-```
-
-#### Android Implementation
-```dart
-// Use Foreground Service
-// Show persistent notification
-// AndroidManifest.xml: FOREGROUND_SERVICE_LOCATION
-
-// Start foreground service on clock in
-// Stop foreground service on clock out
-```
-
-#### Timer Logic
-```dart
-// Pseudocode for GPS capture timer
-Timer.periodic(Duration(minutes: 5), (timer) async {
-  if (!isEmployeeClockedIn) {
-    timer.cancel();
-    return;
-  }
-
-  final position = await getCurrentPosition();
-  await uploadGpsPoint(position);
-});
-```
-
-### Platform-Specific Requirements
-
-| Platform | Requirement | Implementation |
-|----------|-------------|----------------|
-| iOS | Background Modes | Enable "Location updates" in capabilities |
-| iOS | Always Permission | Request with clear usage description |
-| iOS | Background indicator | Automatic blue bar shown by OS |
-| Android | Foreground Service | Required for background work |
-| Android | Notification | Persistent notification while tracking |
-| Android | Battery optimization | Request exclusion from Doze mode |
-
-### Success Criteria
-
-- [ ] GPS captured every 5 minutes while clocked in
-- [ ] GPS capture works in background on both platforms
-- [ ] GPS capture stops when clocked out
-- [ ] Android shows persistent notification
-- [ ] iOS shows location indicator
-- [ ] GPS points uploaded to Supabase
-- [ ] Battery usage is reasonable (<15% per 8-hour shift)
-
-### Checkpoint
-
-**After this spec**: **MVP COMPLETE**. The app now does exactly what was requested - captures GPS every 5 minutes while employees are clocked in. This can be deployed to employees via TestFlight/Internal Testing.
+| 007 | Location Permission Guard | P1 | 004 | No |
+| 008 | Employee & Shift Dashboard | P2 | 003 | No |
 
 ---
 
 ## Spec 005: Offline Resilience
 
 **Branch**: `005-offline-resilience`
-**Estimated Complexity**: High
-**Constitution Alignment**: Offline-First Architecture
+**Complexity**: High
 
 ### Purpose
 
@@ -717,7 +115,6 @@ CREATE TABLE local_shifts (
 
 #### Sync Logic
 ```dart
-// Pseudocode for sync service
 class SyncService {
   Future<void> syncPendingData() async {
     if (!await hasConnectivity()) return;
@@ -739,25 +136,24 @@ class SyncService {
 
 ### Success Criteria
 
-- [ ] GPS points stored locally when offline
-- [ ] GPS points sync automatically when online
-- [ ] Clock in/out works offline
-- [ ] Shifts sync automatically when online
-- [ ] Sync status displayed to user
-- [ ] No data loss in poor connectivity scenarios
-- [ ] Conflict resolution works correctly
+- [x] GPS points stored locally when offline
+- [x] GPS points sync automatically when online
+- [x] Clock in/out works offline
+- [x] Shifts sync automatically when online
+- [x] Sync status displayed to user
+- [x] No data loss in poor connectivity scenarios
+- [x] Conflict resolution works correctly
 
 ### Checkpoint
 
-**After this spec**: The app is now robust for field use. Employees in areas with poor cellular coverage can still use the app effectively.
+**After this spec**: The app is robust for field use. Employees in areas with poor cellular coverage can still use the app effectively.
 
 ---
 
 ## Spec 006: Employee History
 
 **Branch**: `006-employee-history`
-**Estimated Complexity**: Medium
-**Constitution Alignment**: Simplicity (nice-to-have, not core)
+**Complexity**: Medium
 
 ### Purpose
 
@@ -817,48 +213,48 @@ Allow employees to view their past shifts and GPS trail for transparency.
 
 1. **History List Screen**
    ```
-   ┌─────────────────────────────┐
-   │  Shift History              │
-   │  ─────────────────────────  │
-   │  This Week: 32.5 hours      │
-   │  ─────────────────────────  │
-   │                             │
-   │  ┌───────────────────────┐  │
-   │  │ Mon, Jan 6            │  │
-   │  │ 9:00 AM - 5:30 PM     │  │
-   │  │ 8.5 hours • 98 GPS    │  │
-   │  └───────────────────────┘  │
-   │                             │
-   │  ┌───────────────────────┐  │
-   │  │ Tue, Jan 7            │  │
-   │  │ 8:30 AM - 4:00 PM     │  │
-   │  │ 7.5 hours • 84 GPS    │  │
-   │  └───────────────────────┘  │
-   │                             │
-   │  [Load More...]             │
-   └─────────────────────────────┘
+   +-----------------------------+
+   |  Shift History              |
+   |  -------------------------  |
+   |  This Week: 32.5 hours      |
+   |  -------------------------  |
+   |                             |
+   |  +---------------------+    |
+   |  | Mon, Jan 6          |    |
+   |  | 9:00 AM - 5:30 PM   |    |
+   |  | 8.5 hours - 98 GPS  |    |
+   |  +---------------------+    |
+   |                             |
+   |  +---------------------+    |
+   |  | Tue, Jan 7          |    |
+   |  | 8:30 AM - 4:00 PM   |    |
+   |  | 7.5 hours - 84 GPS  |    |
+   |  +---------------------+    |
+   |                             |
+   |  [Load More...]             |
+   +-----------------------------+
    ```
 
 2. **Shift Detail Screen**
    ```
-   ┌─────────────────────────────┐
-   │  ← Shift Details            │
-   │  ─────────────────────────  │
-   │                             │
-   │  Monday, January 6, 2026    │
-   │                             │
-   │  Clock In:  9:00:23 AM      │
-   │  Location:  45.123, -73.456 │
-   │                             │
-   │  Clock Out: 5:30:45 PM      │
-   │  Location:  45.124, -73.455 │
-   │                             │
-   │  Duration: 8h 30m 22s       │
-   │  GPS Points: 98             │
-   │                             │
-   │  [View GPS Points]          │
-   │  [View on Map] (optional)   │
-   └─────────────────────────────┘
+   +-----------------------------+
+   |  <- Shift Details           |
+   |  -------------------------  |
+   |                             |
+   |  Monday, January 6, 2026    |
+   |                             |
+   |  Clock In:  9:00:23 AM      |
+   |  Location:  45.123, -73.456 |
+   |                             |
+   |  Clock Out: 5:30:45 PM      |
+   |  Location:  45.124, -73.455 |
+   |                             |
+   |  Duration: 8h 30m 22s       |
+   |  GPS Points: 98             |
+   |                             |
+   |  [View GPS Points]          |
+   |  [View on Map] (optional)   |
+   +-----------------------------+
    ```
 
 ### Success Criteria
@@ -875,79 +271,218 @@ Allow employees to view their past shifts and GPS trail for transparency.
 
 ---
 
-## Implementation Timeline
+## Spec 007: Location Permission Guard
 
-### Recommended Order
+**Branch**: `007-location-permission-guard`
+**Complexity**: Medium
 
+### Purpose
+
+Ensure location permission is always granted while clocked in. Auto clock-out if permission is revoked, with guided UI to help users grant the correct permission.
+
+### Scope
+
+#### In Scope
+- Permission check on app resume
+- Auto clock-out if permission revoked while clocked in
+- Platform-specific permission guidance (iOS/Android)
+- Localized button instructions (EN/FR)
+
+#### Out of Scope
+- Background permission monitoring
+- Permission recovery flow
+
+### User Stories
+
+#### US1: Auto Clock-Out on Permission Revoked (P1)
+**As an** employer
+**I want** employees auto-clocked out if they revoke location permission
+**So that** GPS tracking integrity is maintained
+
+**Acceptance Criteria**:
+- Given employee is clocked in, when app resumes and permission is revoked, then auto clock-out occurs
+- Given auto clock-out occurs, then employee sees message explaining why
+- Given permission is still granted, then nothing happens
+
+#### US2: Guided Permission Request (P1)
+**As an** employee
+**I want** clear instructions on which button to tap for location permission
+**So that** I don't accidentally deny permission
+
+**Acceptance Criteria**:
+- Given iOS + English, then show "Tap **Always Allow**"
+- Given iOS + French, then show "Appuyez sur **Toujours autoriser**"
+- Given Android + English, then show "Tap **Allow all the time**"
+- Given Android + French, then show "Appuyez sur **Toujours autoriser**"
+
+### Technical Notes
+
+```dart
+// On app resume (in WidgetsBindingObserver)
+void didChangeAppLifecycleState(AppLifecycleState state) {
+  if (state == AppLifecycleState.resumed) {
+    _checkLocationPermission();
+  }
+}
+
+Future<void> _checkLocationPermission() async {
+  final permission = await Geolocator.checkPermission();
+  final isClocked = ref.read(shiftProvider).isActive;
+
+  if (isClocked && permission == LocationPermission.denied) {
+    await _autoClockOut();
+    _showPermissionRevokedMessage();
+  }
+}
 ```
-Week 1-2: Spec 001 (Foundation) + Spec 002 (Auth)
-          └─ Deliverable: Employees can log in
 
-Week 3:   Spec 003 (Shift Management)
-          └─ Deliverable: Basic clock in/out works
+### Permission Guidance Strings
 
-Week 4-5: Spec 004 (Background GPS)
-          └─ Deliverable: MVP COMPLETE - Full GPS tracking
+| Platform | Locale | Text |
+|----------|--------|------|
+| iOS | en | Tap **"Always Allow"** to enable GPS tracking |
+| iOS | fr | Appuyez sur **"Toujours autoriser"** pour activer le suivi GPS |
+| Android | en | Tap **"Allow all the time"** for background tracking |
+| Android | fr | Appuyez sur **"Toujours autoriser"** pour le suivi en arriere-plan |
 
-Week 6:   Spec 005 (Offline)
-          └─ Deliverable: Robust for field use
+### Success Criteria
 
-Week 7:   Spec 006 (History)
-          └─ Deliverable: Feature-complete app
-```
+- [ ] App checks permission on every resume
+- [ ] Auto clock-out triggers if permission revoked while clocked in
+- [ ] User sees clear message after auto clock-out
+- [ ] Permission guidance shows correct platform/language text
+- [ ] Guidance appears before system permission dialog
 
-### MVP Milestone
+### Checkpoint
 
-After completing Specs 001-004, you have a **fully functional MVP** that:
-- Employees can log in
-- Employees can clock in/out
-- GPS is captured every 5 minutes while clocked in
-- Works on iOS and Android
-- Can be distributed via TestFlight and Google Play Internal Testing
-
-Specs 005-006 add robustness and user experience improvements but are not required for initial deployment.
+**After this spec**: GPS tracking integrity is protected. Users cannot bypass location tracking by revoking permissions.
 
 ---
 
-## Risk Assessment
+## Spec 008: Employee & Shift Dashboard
 
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| iOS App Store rejects background location | High | Use TestFlight permanently; clear privacy justification |
-| Battery drain complaints | Medium | Configurable interval; clear battery usage docs |
-| GPS accuracy issues indoors | Medium | Document expected accuracy; accept cellular-assisted location |
-| Supabase rate limits | Low | 25 users with 5-min interval = 300 points/hour (well within limits) |
-| Offline sync conflicts | Medium | Clear conflict resolution strategy (latest wins) |
+**Branch**: `008-employee-shift-dashboard`
+**Complexity**: Medium
+
+### Purpose
+
+Provide a UI to visualize all employees and their shifts for administrative oversight.
+
+### Scope
+
+#### In Scope
+- Employee list view
+- Shift list per employee
+- Current shift status (who is clocked in now)
+- Basic filtering (date range, employee)
+
+#### Out of Scope
+- GPS point visualization on map
+- Shift editing/correction
+- Export functionality
+
+### User Stories
+
+#### US1: View All Employees (P1)
+**As an** admin/manager
+**I want** to see a list of all employees
+**So that** I can monitor the workforce
+
+**Acceptance Criteria**:
+- Given I open the dashboard, then I see list of employees
+- Given an employee is clocked in, then I see an "Active" indicator
+- Given I tap an employee, then I see their shift history
+
+#### US2: View Employee Shifts (P1)
+**As an** admin/manager
+**I want** to see shift history for an employee
+**So that** I can verify work hours
+
+**Acceptance Criteria**:
+- Given I select an employee, then I see their shifts
+- Given a shift, then I see clock-in/out times and duration
+- Given a shift, then I see GPS point count
+
+#### US3: Filter Shifts (P2)
+**As an** admin/manager
+**I want** to filter shifts by date
+**So that** I can focus on specific periods
+
+**Acceptance Criteria**:
+- Given I select a date range, then only matching shifts appear
+- Given I clear filters, then all shifts appear
+
+### Screens
+
+```
++---------------------------+     +---------------------------+
+|  Employees                |     |  John Doe                 |
+|  ----------------------   |     |  ----------------------   |
+|                           |     |  Status: Clocked In       |
+|  +---------------------+  |     |  Since: 9:00 AM           |
+|  | John Doe       [ON] |  |     |  ----------------------   |
+|  +---------------------+  |     |                           |
+|  +---------------------+  |     |  Recent Shifts:           |
+|  | Jane Smith          |  |     |  +---------------------+  |
+|  +---------------------+  |     |  | Jan 9 - 8h 30m      |  |
+|  +---------------------+  |     |  | 52 GPS points       |  |
+|  | Bob Wilson          |  |     |  +---------------------+  |
+|  +---------------------+  |     |  +---------------------+  |
+|                           |     |  | Jan 8 - 7h 45m      |  |
++---------------------------+     +---------------------------+
+```
+
+### Technical Notes
+
+- Requires admin role check (new RLS policy or separate auth)
+- Query: `SELECT * FROM employee_profiles`
+- Query: `SELECT * FROM shifts WHERE employee_id = ? ORDER BY clock_in_at DESC`
+- Real-time subscription for active shifts (optional)
+
+### Success Criteria
+
+- [ ] Employee list displays all employees
+- [ ] Active employees show visual indicator
+- [ ] Shift history loads for selected employee
+- [ ] Shift details show times, duration, GPS count
+- [ ] Date filter works correctly
+
+### Checkpoint
+
+**After this spec**: Full administrative visibility into workforce activity.
 
 ---
 
-## Next Steps
+## Implementation Order
 
-1. **Create Supabase Project**: Set up at supabase.com
-2. **Run `/speckit.specify`**: Start with Spec 001
-3. **Create Developer Accounts**: Apple Developer ($99) + Google Play ($25)
-4. **Begin Implementation**: Follow Speckit workflow
+```
+Recommended Sequence:
+
+Phase 1: Spec 007 (Location Permission Guard)
+         +-- Protects GPS tracking integrity (HIGH PRIORITY)
+
+Phase 2: Spec 005 (Offline Resilience)
+         +-- Robust for field use
+
+Phase 3: Spec 006 (Employee History)
+         +-- Employee self-service
+
+Phase 4: Spec 008 (Dashboard)
+         +-- Admin visibility
+```
 
 ---
 
-## Appendix: Spec Dependencies Graph
+## Dependencies Graph
 
 ```
-001-Foundation
-      │
-      ▼
-002-Auth ─────────────────┐
-      │                   │
-      ▼                   │
-003-Shift ────────────────┼──► 006-History
-      │                   │
-      ▼                   │
-004-GPS ◄─────────────────┘
-      │
-      ▼
-005-Offline
+001-004 (MVP Complete)
+      |
+      +-------+-------+
+      |               |
+      v               v
+005-Offline      007-Permission-Guard
+      |               |
+      v               v
+006-History      008-Dashboard
 ```
-
-**Legend**:
-- Solid arrows (│▼) = Must complete before
-- Dashed lines (─) = Can start in parallel after dependency met

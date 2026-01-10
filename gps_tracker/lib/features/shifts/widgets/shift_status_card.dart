@@ -112,7 +112,7 @@ class ShiftStatusCard extends ConsumerWidget {
                     ),
                   ],
                 ),
-                SyncStatusIndicator(syncStatus: activeShift.syncStatus),
+                SimpleSyncStatusIndicator(syncStatus: activeShift.syncStatus),
               ],
             ),
             const SizedBox(height: 20),

@@ -64,7 +64,7 @@ class ShiftCard extends StatelessWidget {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  SyncStatusIndicator(
+                  SimpleSyncStatusIndicator(
                     syncStatus: shift.syncStatus,
                     showLabel: false,
                   ),

@@ -12,25 +12,126 @@ import 'shared/services/local_database.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Load environment variables
-  await dotenv.load(fileName: '.env');
-
-  // Initialize Supabase
-  await Supabase.initialize(
-    url: EnvConfig.supabaseUrl,
-    anonKey: EnvConfig.supabaseAnonKey,
+  // Show loading screen immediately with visible styling
+  runApp(
+    MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        backgroundColor: const Color(0xFF1976D2), // Blue background
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.location_on,
+                size: 64,
+                color: Colors.white,
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'GPS Tracker',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 32),
+              const CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Loading...',
+                style: TextStyle(color: Colors.white70, fontSize: 14),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
   );
 
-  // Initialize local database
-  await LocalDatabase().initialize();
+  String? initError;
 
-  // Initialize background tracking service
-  FlutterForegroundTask.initCommunicationPort();
-  await BackgroundTrackingService.initialize();
+  try {
+    // Load environment variables first (required for Supabase config)
+    await dotenv.load(fileName: '.env');
+  } catch (e) {
+    initError = 'Failed to load .env: $e';
+  }
+
+  if (initError == null) {
+    try {
+      // Initialize Supabase (required before other services)
+      await Supabase.initialize(
+        url: EnvConfig.supabaseUrl,
+        anonKey: EnvConfig.supabaseAnonKey,
+      );
+    } catch (e) {
+      initError = 'Failed to initialize Supabase: $e';
+    }
+  }
+
+  if (initError == null) {
+    try {
+      // Initialize database and tracking in parallel (they're independent)
+      await Future.wait([
+        LocalDatabase().initialize(),
+        _initializeTracking(),
+      ]);
+    } catch (e) {
+      initError = 'Failed to initialize services: $e';
+    }
+  }
+
+  if (initError != null) {
+    runApp(
+      MaterialApp(
+        home: Scaffold(
+          backgroundColor: Colors.red.shade50,
+          body: SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Startup Error',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      initError,
+                      style: const TextStyle(color: Colors.red, fontSize: 14),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    return;
+  }
 
   runApp(
     const ProviderScope(
       child: GpsTrackerApp(),
     ),
   );
+}
+
+Future<void> _initializeTracking() async {
+  FlutterForegroundTask.initCommunicationPort();
+  await BackgroundTrackingService.initialize();
 }

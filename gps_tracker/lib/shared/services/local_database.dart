@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
@@ -5,12 +7,16 @@ import 'package:sqflite_sqlcipher/sqflite.dart';
 
 import '../../features/shifts/models/local_gps_point.dart';
 import '../../features/shifts/models/local_shift.dart';
+import '../../features/shifts/models/quarantined_record.dart';
+import '../../features/shifts/models/storage_metrics.dart';
+import '../../features/shifts/models/sync_log_entry.dart';
+import '../../features/shifts/models/sync_metadata.dart';
 import 'local_database_exception.dart';
 
 /// Local SQLite database service with encrypted storage.
 class LocalDatabase {
   static const String _databaseName = 'gps_tracker.db';
-  static const int _databaseVersion = 1;
+  static const int _databaseVersion = 2;
   static const String _encryptionKeyKey = 'local_db_encryption_key';
 
   static LocalDatabase? _instance;
@@ -128,11 +134,110 @@ class LocalDatabase {
     await db.execute('''
       CREATE INDEX idx_local_gps_sync ON local_gps_points(sync_status)
     ''');
+
+    // Create offline resilience tables
+    await _createOfflineResilienceTables(db);
+  }
+
+  /// Create tables for offline resilience feature.
+  Future<void> _createOfflineResilienceTables(Database db) async {
+    // T001: sync_metadata table (singleton for persistent sync state)
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS sync_metadata (
+        id TEXT PRIMARY KEY DEFAULT 'singleton',
+        last_sync_attempt TEXT,
+        last_successful_sync TEXT,
+        consecutive_failures INTEGER DEFAULT 0,
+        current_backoff_seconds INTEGER DEFAULT 0,
+        sync_in_progress INTEGER DEFAULT 0,
+        last_error TEXT,
+        pending_shifts_count INTEGER DEFAULT 0,
+        pending_gps_points_count INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )
+    ''');
+
+    // Initialize singleton row
+    await db.execute('''
+      INSERT OR IGNORE INTO sync_metadata (id, created_at, updated_at)
+      VALUES ('singleton', datetime('now'), datetime('now'))
+    ''');
+
+    // T002: quarantined_records table (for failed/rejected records)
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS quarantined_records (
+        id TEXT PRIMARY KEY,
+        record_type TEXT NOT NULL CHECK (record_type IN ('shift', 'gps_point')),
+        original_id TEXT NOT NULL,
+        record_data TEXT NOT NULL,
+        error_code TEXT,
+        error_message TEXT,
+        quarantined_at TEXT NOT NULL,
+        review_status TEXT DEFAULT 'pending' CHECK (review_status IN ('pending', 'resolved', 'discarded')),
+        resolution_notes TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_quarantined_record_type ON quarantined_records(record_type)
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_quarantined_review_status ON quarantined_records(review_status)
+    ''');
+
+    // T003: sync_log_entries table (structured sync logging)
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS sync_log_entries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp TEXT NOT NULL,
+        level TEXT NOT NULL CHECK (level IN ('debug', 'info', 'warn', 'error')),
+        message TEXT NOT NULL,
+        metadata TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_sync_log_timestamp ON sync_log_entries(timestamp DESC)
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_sync_log_level ON sync_log_entries(level)
+    ''');
+
+    // T004: storage_metrics table (singleton for storage monitoring)
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS storage_metrics (
+        id TEXT PRIMARY KEY DEFAULT 'singleton',
+        total_capacity_bytes INTEGER DEFAULT 52428800,
+        used_bytes INTEGER DEFAULT 0,
+        shifts_bytes INTEGER DEFAULT 0,
+        gps_points_bytes INTEGER DEFAULT 0,
+        logs_bytes INTEGER DEFAULT 0,
+        last_calculated TEXT,
+        warning_threshold_percent INTEGER DEFAULT 80,
+        critical_threshold_percent INTEGER DEFAULT 95,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )
+    ''');
+
+    // Initialize singleton row
+    await db.execute('''
+      INSERT OR IGNORE INTO storage_metrics (id, created_at, updated_at)
+      VALUES ('singleton', datetime('now'), datetime('now'))
+    ''');
   }
 
   /// Handle database upgrades.
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // Handle migrations here when needed
+    // Migration from v1 to v2: Add offline resilience tables
+    if (oldVersion < 2) {
+      await _createOfflineResilienceTables(db);
+    }
   }
 
   /// Ensure database is available.
@@ -512,6 +617,559 @@ class LocalDatabase {
       throw LocalDatabaseException(
         'Failed to get error shifts',
         operation: 'getErrorShifts',
+        originalError: e,
+      );
+    }
+  }
+
+  // ============ SYNC METADATA OPERATIONS (T012) ============
+
+  /// Get current sync metadata (creates if not exists).
+  Future<SyncMetadata> getSyncMetadata() async {
+    try {
+      final results = await _db.query(
+        SyncMetadata.tableName,
+        where: 'id = ?',
+        whereArgs: [SyncMetadata.singletonId],
+        limit: 1,
+      );
+
+      if (results.isEmpty) {
+        // Initialize singleton if missing
+        final defaults = SyncMetadata.defaults();
+        await _db.insert(SyncMetadata.tableName, defaults.toMap());
+        return defaults;
+      }
+
+      return SyncMetadata.fromMap(results.first);
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to get sync metadata',
+        operation: 'getSyncMetadata',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Update sync metadata.
+  Future<void> updateSyncMetadata(SyncMetadata metadata) async {
+    try {
+      final now = DateTime.now().toUtc();
+      final updated = metadata.copyWith(updatedAt: now);
+      await _db.update(
+        SyncMetadata.tableName,
+        updated.toMap(),
+        where: 'id = ?',
+        whereArgs: [SyncMetadata.singletonId],
+      );
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to update sync metadata',
+        operation: 'updateSyncMetadata',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Record sync attempt start.
+  Future<void> markSyncStarted() async {
+    try {
+      final now = DateTime.now().toUtc().toIso8601String();
+      await _db.update(
+        SyncMetadata.tableName,
+        {
+          'last_sync_attempt': now,
+          'sync_in_progress': 1,
+          'updated_at': now,
+        },
+        where: 'id = ?',
+        whereArgs: [SyncMetadata.singletonId],
+      );
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to mark sync started',
+        operation: 'markSyncStarted',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Record successful sync.
+  Future<void> markSyncSuccess() async {
+    try {
+      final now = DateTime.now().toUtc().toIso8601String();
+      await _db.update(
+        SyncMetadata.tableName,
+        {
+          'last_successful_sync': now,
+          'consecutive_failures': 0,
+          'current_backoff_seconds': 0,
+          'sync_in_progress': 0,
+          'last_error': null,
+          'updated_at': now,
+        },
+        where: 'id = ?',
+        whereArgs: [SyncMetadata.singletonId],
+      );
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to mark sync success',
+        operation: 'markSyncSuccess',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Record failed sync with error.
+  Future<void> markSyncFailed(String error, int backoffSeconds) async {
+    try {
+      final now = DateTime.now().toUtc().toIso8601String();
+
+      // Get current failures
+      final current = await getSyncMetadata();
+      final newFailures = current.consecutiveFailures + 1;
+
+      await _db.update(
+        SyncMetadata.tableName,
+        {
+          'consecutive_failures': newFailures,
+          'current_backoff_seconds': backoffSeconds,
+          'sync_in_progress': 0,
+          'last_error': error,
+          'updated_at': now,
+        },
+        where: 'id = ?',
+        whereArgs: [SyncMetadata.singletonId],
+      );
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to mark sync failed',
+        operation: 'markSyncFailed',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Update pending counts.
+  Future<void> updatePendingCounts(int shifts, int gpsPoints) async {
+    try {
+      final now = DateTime.now().toUtc().toIso8601String();
+      await _db.update(
+        SyncMetadata.tableName,
+        {
+          'pending_shifts_count': shifts,
+          'pending_gps_points_count': gpsPoints,
+          'updated_at': now,
+        },
+        where: 'id = ?',
+        whereArgs: [SyncMetadata.singletonId],
+      );
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to update pending counts',
+        operation: 'updatePendingCounts',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Reset backoff after successful sync.
+  Future<void> resetBackoff() async {
+    try {
+      final now = DateTime.now().toUtc().toIso8601String();
+      await _db.update(
+        SyncMetadata.tableName,
+        {
+          'consecutive_failures': 0,
+          'current_backoff_seconds': 0,
+          'last_error': null,
+          'updated_at': now,
+        },
+        where: 'id = ?',
+        whereArgs: [SyncMetadata.singletonId],
+      );
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to reset backoff',
+        operation: 'resetBackoff',
+        originalError: e,
+      );
+    }
+  }
+
+  // ============ QUARANTINED RECORD OPERATIONS (T013) ============
+
+  /// Insert a quarantined record.
+  Future<void> insertQuarantinedRecord(QuarantinedRecord record) async {
+    try {
+      await _db.insert(
+        QuarantinedRecord.tableName,
+        record.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to insert quarantined record',
+        operation: 'insertQuarantinedRecord',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Get pending quarantined records.
+  Future<List<QuarantinedRecord>> getPendingQuarantined({
+    RecordType? type,
+    int limit = 50,
+  }) async {
+    try {
+      String where = 'review_status = ?';
+      List<dynamic> whereArgs = ['pending'];
+
+      if (type != null) {
+        where += ' AND record_type = ?';
+        whereArgs.add(type.value);
+      }
+
+      final results = await _db.query(
+        QuarantinedRecord.tableName,
+        where: where,
+        whereArgs: whereArgs,
+        orderBy: 'quarantined_at DESC',
+        limit: limit,
+      );
+
+      return results.map((map) => QuarantinedRecord.fromMap(map)).toList();
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to get pending quarantined records',
+        operation: 'getPendingQuarantined',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Get quarantine statistics by record type.
+  Future<Map<RecordType, int>> getQuarantineStats() async {
+    try {
+      final results = await _db.rawQuery('''
+        SELECT record_type, COUNT(*) as count
+        FROM ${QuarantinedRecord.tableName}
+        WHERE review_status = 'pending'
+        GROUP BY record_type
+      ''');
+
+      final stats = <RecordType, int>{};
+      for (final row in results) {
+        final type = RecordType.fromString(row['record_type'] as String);
+        stats[type] = row['count'] as int;
+      }
+      return stats;
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to get quarantine stats',
+        operation: 'getQuarantineStats',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Mark quarantined record as resolved.
+  Future<void> resolveQuarantined(String id, String notes) async {
+    try {
+      await _db.update(
+        QuarantinedRecord.tableName,
+        {
+          'review_status': 'resolved',
+          'resolution_notes': notes,
+        },
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to resolve quarantined record',
+        operation: 'resolveQuarantined',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Mark quarantined record as discarded.
+  Future<void> discardQuarantined(String id, String reason) async {
+    try {
+      await _db.update(
+        QuarantinedRecord.tableName,
+        {
+          'review_status': 'discarded',
+          'resolution_notes': reason,
+        },
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to discard quarantined record',
+        operation: 'discardQuarantined',
+        originalError: e,
+      );
+    }
+  }
+
+  // ============ SYNC LOG OPERATIONS (T014) ============
+
+  /// Insert a sync log entry.
+  Future<void> insertSyncLog(SyncLogEntry entry) async {
+    try {
+      final map = entry.toMap();
+      // Remove id for auto-increment
+      map.remove('id');
+      await _db.insert(SyncLogEntry.tableName, map);
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to insert sync log',
+        operation: 'insertSyncLog',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Get recent log entries.
+  Future<List<SyncLogEntry>> getRecentLogs({
+    SyncLogLevel? minLevel,
+    int limit = 100,
+    int offset = 0,
+  }) async {
+    try {
+      String? where;
+      List<dynamic>? whereArgs;
+
+      if (minLevel != null) {
+        // Filter to include only logs at or above the minimum level
+        final levels = SyncLogLevel.values
+            .where((l) => l.index >= minLevel.index)
+            .map((l) => "'${l.value}'")
+            .join(', ');
+        where = 'level IN ($levels)';
+      }
+
+      final results = await _db.query(
+        SyncLogEntry.tableName,
+        where: where,
+        whereArgs: whereArgs,
+        orderBy: 'timestamp DESC',
+        limit: limit,
+        offset: offset,
+      );
+
+      return results.map((map) => SyncLogEntry.fromMap(map)).toList();
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to get recent logs',
+        operation: 'getRecentLogs',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Rotate old logs (keep last N entries).
+  Future<int> rotateOldLogs({int keepCount = 10000}) async {
+    try {
+      // Get the ID threshold
+      final result = await _db.rawQuery('''
+        SELECT id FROM ${SyncLogEntry.tableName}
+        ORDER BY id DESC
+        LIMIT 1 OFFSET ?
+      ''', [keepCount]);
+
+      if (result.isEmpty) return 0;
+
+      final thresholdId = result.first['id'] as int;
+
+      // Delete older entries
+      return await _db.delete(
+        SyncLogEntry.tableName,
+        where: 'id < ?',
+        whereArgs: [thresholdId],
+      );
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to rotate old logs',
+        operation: 'rotateOldLogs',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Get log count.
+  Future<int> getLogCount() async {
+    try {
+      final result = await _db.rawQuery(
+        'SELECT COUNT(*) as count FROM ${SyncLogEntry.tableName}',
+      );
+      return result.first['count'] as int;
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to get log count',
+        operation: 'getLogCount',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Clear all logs.
+  Future<void> clearLogs() async {
+    try {
+      await _db.delete(SyncLogEntry.tableName);
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to clear logs',
+        operation: 'clearLogs',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Export logs as JSON string.
+  Future<String> exportLogs({int? limit}) async {
+    try {
+      final logs = await getRecentLogs(limit: limit ?? 10000);
+      final logMaps = logs.map((l) => l.toMap()).toList();
+      return jsonEncode(logMaps);
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to export logs',
+        operation: 'exportLogs',
+        originalError: e,
+      );
+    }
+  }
+
+  // ============ STORAGE METRICS OPERATIONS (T015) ============
+
+  /// Get current storage metrics.
+  Future<StorageMetrics> getStorageMetrics() async {
+    try {
+      final results = await _db.query(
+        StorageMetrics.tableName,
+        where: 'id = ?',
+        whereArgs: [StorageMetrics.singletonId],
+        limit: 1,
+      );
+
+      if (results.isEmpty) {
+        // Initialize singleton if missing
+        final defaults = StorageMetrics.defaults();
+        await _db.insert(StorageMetrics.tableName, defaults.toMap());
+        return defaults;
+      }
+
+      return StorageMetrics.fromMap(results.first);
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to get storage metrics',
+        operation: 'getStorageMetrics',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Update storage metrics.
+  Future<void> updateStorageMetrics(StorageMetrics metrics) async {
+    try {
+      final now = DateTime.now().toUtc();
+      final updated = metrics.copyWith(updatedAt: now);
+      await _db.update(
+        StorageMetrics.tableName,
+        updated.toMap(),
+        where: 'id = ?',
+        whereArgs: [StorageMetrics.singletonId],
+      );
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to update storage metrics',
+        operation: 'updateStorageMetrics',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Calculate and update storage metrics.
+  Future<StorageMetrics> calculateStorageMetrics() async {
+    try {
+      // Calculate approximate size for each table
+      // Using a rough estimate of ~260 bytes per shift, ~140 bytes per GPS point, ~200 bytes per log
+
+      final shiftsCount = await _db.rawQuery(
+        'SELECT COUNT(*) as count FROM local_shifts',
+      );
+      final gpsCount = await _db.rawQuery(
+        'SELECT COUNT(*) as count FROM local_gps_points',
+      );
+      final logsCount = await _db.rawQuery(
+        'SELECT COUNT(*) as count FROM ${SyncLogEntry.tableName}',
+      );
+
+      final shiftsBytes = (shiftsCount.first['count'] as int) * 260;
+      final gpsPointsBytes = (gpsCount.first['count'] as int) * 140;
+      final logsBytes = (logsCount.first['count'] as int) * 200;
+      final usedBytes = shiftsBytes + gpsPointsBytes + logsBytes;
+
+      final now = DateTime.now().toUtc();
+      final current = await getStorageMetrics();
+
+      final updated = current.copyWith(
+        usedBytes: usedBytes,
+        shiftsBytes: shiftsBytes,
+        gpsPointsBytes: gpsPointsBytes,
+        logsBytes: logsBytes,
+        lastCalculated: now,
+        updatedAt: now,
+      );
+
+      await updateStorageMetrics(updated);
+      return updated;
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to calculate storage metrics',
+        operation: 'calculateStorageMetrics',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Check if storage warning should be shown.
+  Future<bool> shouldShowStorageWarning() async {
+    try {
+      final metrics = await getStorageMetrics();
+
+      // Recalculate if stale
+      if (metrics.isStale) {
+        final updated = await calculateStorageMetrics();
+        return updated.isWarning;
+      }
+
+      return metrics.isWarning;
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to check storage warning',
+        operation: 'shouldShowStorageWarning',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Get count of pending GPS points.
+  Future<int> getPendingGpsPointCount() async {
+    try {
+      final result = await _db.rawQuery(
+        'SELECT COUNT(*) as count FROM local_gps_points WHERE sync_status = ?',
+        ['pending'],
+      );
+      return result.first['count'] as int;
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to get pending GPS point count',
+        operation: 'getPendingGpsPointCount',
         originalError: e,
       );
     }
