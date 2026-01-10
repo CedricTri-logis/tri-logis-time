@@ -5,6 +5,7 @@ import '../../core/config/constants.dart';
 import '../../shared/providers/supabase_provider.dart';
 import '../auth/providers/profile_provider.dart';
 import '../auth/screens/profile_screen.dart';
+import '../dashboard/screens/team_dashboard_screen.dart';
 import '../history/screens/my_history_screen.dart';
 import '../history/screens/supervised_employees_screen.dart';
 import '../shifts/screens/shift_dashboard_screen.dart';
@@ -67,6 +68,16 @@ class HomeScreen extends ConsumerWidget {
       error: (_, __) => false,
     );
 
+    // Use TabBar view for managers, simple dashboard for employees
+    if (isManager) {
+      return _ManagerHomeScreen(
+        onSignOut: () => _handleSignOut(context, ref),
+        onProfile: () => _navigateToProfile(context),
+        onHistory: () => _navigateToHistory(context),
+        onEmployeeHistory: () => _navigateToEmployeeHistory(context),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(AppConstants.appName),
@@ -84,9 +95,6 @@ class HomeScreen extends ConsumerWidget {
                 case 'profile':
                   _navigateToProfile(context);
                   break;
-                case 'employee_history':
-                  _navigateToEmployeeHistory(context);
-                  break;
                 case 'signout':
                   _handleSignOut(context, ref);
                   break;
@@ -103,17 +111,6 @@ class HomeScreen extends ConsumerWidget {
                   ],
                 ),
               ),
-              if (isManager)
-                const PopupMenuItem(
-                  value: 'employee_history',
-                  child: Row(
-                    children: [
-                      Icon(Icons.groups),
-                      SizedBox(width: 12),
-                      Text('Employee History'),
-                    ],
-                  ),
-                ),
               const PopupMenuDivider(),
               const PopupMenuItem(
                 value: 'signout',
@@ -130,6 +127,108 @@ class HomeScreen extends ConsumerWidget {
         ],
       ),
       body: const ShiftDashboardScreen(),
+    );
+  }
+}
+
+/// Home screen for managers with tab navigation between personal and team dashboards.
+class _ManagerHomeScreen extends StatelessWidget {
+  final VoidCallback onSignOut;
+  final VoidCallback onProfile;
+  final VoidCallback onHistory;
+  final VoidCallback onEmployeeHistory;
+
+  const _ManagerHomeScreen({
+    required this.onSignOut,
+    required this.onProfile,
+    required this.onHistory,
+    required this.onEmployeeHistory,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text(AppConstants.appName),
+          centerTitle: true,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.history),
+              tooltip: 'Shift History',
+              onPressed: onHistory,
+            ),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert),
+              onSelected: (value) {
+                switch (value) {
+                  case 'profile':
+                    onProfile();
+                    break;
+                  case 'employee_history':
+                    onEmployeeHistory();
+                    break;
+                  case 'signout':
+                    onSignOut();
+                    break;
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'profile',
+                  child: Row(
+                    children: [
+                      Icon(Icons.person_outline),
+                      SizedBox(width: 12),
+                      Text('Profile'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'employee_history',
+                  child: Row(
+                    children: [
+                      Icon(Icons.groups),
+                      SizedBox(width: 12),
+                      Text('Employee History'),
+                    ],
+                  ),
+                ),
+                const PopupMenuDivider(),
+                const PopupMenuItem(
+                  value: 'signout',
+                  child: Row(
+                    children: [
+                      Icon(Icons.logout),
+                      SizedBox(width: 12),
+                      Text('Sign Out'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+          bottom: const TabBar(
+            tabs: [
+              Tab(
+                icon: Icon(Icons.person),
+                text: 'My Dashboard',
+              ),
+              Tab(
+                icon: Icon(Icons.groups),
+                text: 'Team',
+              ),
+            ],
+          ),
+        ),
+        body: const TabBarView(
+          children: [
+            ShiftDashboardScreen(),
+            TeamDashboardScreen(),
+          ],
+        ),
+      ),
     );
   }
 }

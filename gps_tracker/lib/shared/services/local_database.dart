@@ -1174,4 +1174,165 @@ class LocalDatabase {
       );
     }
   }
+
+  // ============ DASHBOARD CACHE OPERATIONS ============
+
+  /// Ensure dashboard cache table exists.
+  Future<void> ensureDashboardCacheTable() async {
+    try {
+      await _db.execute('''
+        CREATE TABLE IF NOT EXISTS dashboard_cache (
+          id TEXT PRIMARY KEY,
+          cache_type TEXT NOT NULL,
+          employee_id TEXT NOT NULL,
+          cached_data TEXT NOT NULL,
+          last_updated TEXT NOT NULL,
+          expires_at TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+      ''');
+
+      await _db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_dashboard_cache_employee
+        ON dashboard_cache(employee_id)
+      ''');
+
+      await _db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_dashboard_cache_type
+        ON dashboard_cache(cache_type)
+      ''');
+
+      await _db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_dashboard_cache_expires
+        ON dashboard_cache(expires_at)
+      ''');
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to ensure dashboard cache table',
+        operation: 'ensureDashboardCacheTable',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Insert or update cached dashboard data.
+  Future<void> cacheDashboardData({
+    required String cacheId,
+    required String cacheType,
+    required String employeeId,
+    required String cachedData,
+    int ttlDays = 7,
+  }) async {
+    try {
+      final now = DateTime.now().toUtc();
+      final expiresAt = now.add(Duration(days: ttlDays));
+
+      await _db.insert(
+        'dashboard_cache',
+        {
+          'id': cacheId,
+          'cache_type': cacheType,
+          'employee_id': employeeId,
+          'cached_data': cachedData,
+          'last_updated': now.toIso8601String(),
+          'expires_at': expiresAt.toIso8601String(),
+          'created_at': now.toIso8601String(),
+          'updated_at': now.toIso8601String(),
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to cache dashboard data',
+        operation: 'cacheDashboardData',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Get cached dashboard data if not expired.
+  Future<Map<String, dynamic>?> getCachedDashboard(String cacheId) async {
+    try {
+      final now = DateTime.now().toUtc().toIso8601String();
+      final results = await _db.query(
+        'dashboard_cache',
+        where: 'id = ? AND expires_at > ?',
+        whereArgs: [cacheId, now],
+        limit: 1,
+      );
+
+      if (results.isEmpty) return null;
+
+      final row = results.first;
+      return {
+        'cached_data': row['cached_data'] as String,
+        'last_updated': row['last_updated'] as String,
+        'expires_at': row['expires_at'] as String,
+      };
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to get cached dashboard',
+        operation: 'getCachedDashboard',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Get last updated time for a cache entry.
+  Future<DateTime?> getDashboardCacheLastUpdated(String cacheId) async {
+    try {
+      final results = await _db.query(
+        'dashboard_cache',
+        columns: ['last_updated'],
+        where: 'id = ?',
+        whereArgs: [cacheId],
+        limit: 1,
+      );
+
+      if (results.isEmpty) return null;
+      return DateTime.parse(results.first['last_updated'] as String);
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to get dashboard cache last updated',
+        operation: 'getDashboardCacheLastUpdated',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Delete expired dashboard cache entries.
+  Future<int> clearExpiredDashboardCache() async {
+    try {
+      final now = DateTime.now().toUtc().toIso8601String();
+      return await _db.delete(
+        'dashboard_cache',
+        where: 'expires_at < ?',
+        whereArgs: [now],
+      );
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to clear expired dashboard cache',
+        operation: 'clearExpiredDashboardCache',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Delete all dashboard cache for an employee.
+  Future<void> clearEmployeeDashboardCache(String employeeId) async {
+    try {
+      await _db.delete(
+        'dashboard_cache',
+        where: 'employee_id = ?',
+        whereArgs: [employeeId],
+      );
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to clear employee dashboard cache',
+        operation: 'clearEmployeeDashboardCache',
+        originalError: e,
+      );
+    }
+  }
 }
