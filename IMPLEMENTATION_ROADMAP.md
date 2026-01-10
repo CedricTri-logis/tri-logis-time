@@ -259,11 +259,11 @@ Allow employees to view their past shifts and GPS trail for transparency.
 
 ### Success Criteria
 
-- [ ] Shift history list displays correctly
-- [ ] Shift details show clock in/out times and locations
-- [ ] GPS point count shown per shift
-- [ ] GPS point list viewable
-- [ ] Basic statistics calculated correctly
+- [x] Shift history list displays correctly
+- [x] Shift details show clock in/out times and locations
+- [x] GPS point count shown per shift
+- [x] GPS point list viewable
+- [x] Basic statistics calculated correctly
 
 ### Checkpoint
 

@@ -11,6 +11,8 @@ Auto-generated from all feature plans. Last updated: 2026-01-08
 - PostgreSQL via Supabase (gps_points table exists), SQLCipher for encrypted local storage (local_gps_points table exists) (004-background-gps-tracking)
 - Dart 3.x / Flutter 3.x (>=3.0.0) + flutter_riverpod 2.5.0 (state), supabase_flutter 2.12.0 (backend), sqflite_sqlcipher 3.1.0 (local encrypted storage), connectivity_plus 6.0.0 (network status) (005-offline-resilience)
 - SQLCipher-encrypted SQLite (local_shifts, local_gps_points tables exist); PostgreSQL via Supabase (shifts, gps_points tables) (005-offline-resilience)
+- Dart 3.x / Flutter 3.x (>=3.0.0) + flutter_riverpod 2.5.0 (state), supabase_flutter 2.12.0 (backend), google_maps_flutter (map display), pdf (client-side PDF generation), csv (CSV export) (006-employee-history)
+- PostgreSQL via Supabase (existing: employee_profiles, shifts, gps_points; new: employee_supervisors), SQLCipher local storage (existing) (006-employee-history)
 
 - Dart 3.x / Flutter 3.x (latest stable) + flutter, supabase_flutter, flutter_riverpod, geolocator, sqflite (local storage) (001-project-foundation)
 
@@ -87,9 +89,9 @@ Dart 3.x / Flutter 3.x (latest stable): Follow standard conventions
 - `POST_NOTIFICATIONS` - Push notifications
 
 ## Recent Changes
+- 006-employee-history: Added Dart 3.x / Flutter 3.x (>=3.0.0) + flutter_riverpod 2.5.0 (state), supabase_flutter 2.12.0 (backend), google_maps_flutter (map display), pdf (client-side PDF generation), csv (CSV export)
 - 005-offline-resilience: Added Dart 3.x / Flutter 3.x (>=3.0.0) + flutter_riverpod 2.5.0 (state), supabase_flutter 2.12.0 (backend), sqflite_sqlcipher 3.1.0 (local encrypted storage), connectivity_plus 6.0.0 (network status)
 - 004-background-gps-tracking: Added Dart 3.x / Flutter 3.x (>=3.0.0) + flutter_riverpod 2.5.0 (state), supabase_flutter 2.12.0 (backend), geolocator 12.0.0 (GPS), flutter_foreground_task 8.0.0 (background services), disable_battery_optimization 1.1.1, sqflite_sqlcipher 3.1.0 (local encrypted storage), connectivity_plus 6.0.0 (network status)
-- 003-shift-management: Added Dart 3.x / Flutter 3.x (>=3.0.0) + flutter_riverpod 2.5.0 (state), supabase_flutter 2.12.0 (backend), geolocator 12.0.0 (GPS), sqflite_sqlcipher 3.1.0 (local encrypted storage), connectivity_plus 6.0.0 (network status)
 
 
 <!-- MANUAL ADDITIONS START -->

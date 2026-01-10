@@ -55,6 +55,11 @@
             android:name="flutterEmbedding"
             android:value="2" />
 
+        <!-- Google Maps API Key for Employee History feature (Spec 006) -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="YOUR_GOOGLE_MAPS_API_KEY" />
+
         <!-- Foreground service for background GPS tracking -->
         <service
             android:name="com.pravera.flutter_foreground_task.service.ForegroundService"

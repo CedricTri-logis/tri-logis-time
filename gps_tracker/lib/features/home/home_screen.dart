@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/config/constants.dart';
 import '../../shared/providers/supabase_provider.dart';
+import '../auth/providers/profile_provider.dart';
 import '../auth/screens/profile_screen.dart';
+import '../history/screens/my_history_screen.dart';
+import '../history/screens/supervised_employees_screen.dart';
 import '../shifts/screens/shift_dashboard_screen.dart';
-import '../shifts/screens/shift_history_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -45,12 +47,26 @@ class HomeScreen extends ConsumerWidget {
 
   void _navigateToHistory(BuildContext context) {
     Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(builder: (_) => const ShiftHistoryScreen()),
+      MaterialPageRoute<void>(builder: (_) => const MyHistoryScreen()),
+    );
+  }
+
+  void _navigateToEmployeeHistory(BuildContext context) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(builder: (_) => const SupervisedEmployeesScreen()),
     );
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Watch profile to determine if user is a manager
+    final profileAsync = ref.watch(currentProfileProvider);
+    final isManager = profileAsync.when(
+      data: (profile) => profile?.isManager ?? false,
+      loading: () => false,
+      error: (_, __) => false,
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(AppConstants.appName),
@@ -68,6 +84,9 @@ class HomeScreen extends ConsumerWidget {
                 case 'profile':
                   _navigateToProfile(context);
                   break;
+                case 'employee_history':
+                  _navigateToEmployeeHistory(context);
+                  break;
                 case 'signout':
                   _handleSignOut(context, ref);
                   break;
@@ -84,6 +103,17 @@ class HomeScreen extends ConsumerWidget {
                   ],
                 ),
               ),
+              if (isManager)
+                const PopupMenuItem(
+                  value: 'employee_history',
+                  child: Row(
+                    children: [
+                      Icon(Icons.groups),
+                      SizedBox(width: 12),
+                      Text('Employee History'),
+                    ],
+                  ),
+                ),
               const PopupMenuDivider(),
               const PopupMenuItem(
                 value: 'signout',

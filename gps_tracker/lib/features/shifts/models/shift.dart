@@ -20,6 +20,9 @@ class Shift {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  /// Number of GPS points recorded during this shift (from history queries)
+  final int? gpsPointCount;
+
   const Shift({
     required this.id,
     required this.employeeId,
@@ -34,6 +37,7 @@ class Shift {
     this.syncStatus = SyncStatus.synced,
     required this.createdAt,
     required this.updatedAt,
+    this.gpsPointCount,
   });
 
   /// Computed duration of the shift.
@@ -72,6 +76,7 @@ class Shift {
             : SyncStatus.synced,
         createdAt: DateTime.parse(json['created_at'] as String),
         updatedAt: DateTime.parse(json['updated_at'] as String),
+        gpsPointCount: json['gps_point_count'] as int?,
       );
 
   Map<String, dynamic> toJson() => {
@@ -104,6 +109,7 @@ class Shift {
     SyncStatus? syncStatus,
     DateTime? createdAt,
     DateTime? updatedAt,
+    int? gpsPointCount,
   }) =>
       Shift(
         id: id ?? this.id,
@@ -119,6 +125,7 @@ class Shift {
         syncStatus: syncStatus ?? this.syncStatus,
         createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
+        gpsPointCount: gpsPointCount ?? this.gpsPointCount,
       );
 
   @override
