@@ -10,7 +10,7 @@ import GoogleMaps
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     // Google Maps API Key for Employee History feature (Spec 006)
-    GMSServices.provideAPIKey("YOUR_GOOGLE_MAPS_API_KEY")
+    GMSServices.provideAPIKey("AIzaSyCH-YBkJy4ggJ8qsFj7PEY49GylnAZysBo")
 
     GeneratedPluginRegistrant.register(with: self)
 

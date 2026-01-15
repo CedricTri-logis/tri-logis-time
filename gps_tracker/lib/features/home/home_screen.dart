@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/config/constants.dart';
 import '../../shared/providers/supabase_provider.dart';
+import '../admin/screens/user_management_screen.dart';
 import '../auth/providers/profile_provider.dart';
 import '../auth/screens/profile_screen.dart';
 import '../dashboard/screens/team_dashboard_screen.dart';
@@ -58,12 +59,23 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
+  void _navigateToUserManagement(BuildContext context) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(builder: (_) => const UserManagementScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Watch profile to determine if user is a manager
+    // Watch profile to determine if user is a manager or admin
     final profileAsync = ref.watch(currentProfileProvider);
     final isManager = profileAsync.when(
       data: (profile) => profile?.isManager ?? false,
+      loading: () => false,
+      error: (_, __) => false,
+    );
+    final isAdmin = profileAsync.when(
+      data: (profile) => profile?.isAdmin ?? false,
       loading: () => false,
       error: (_, __) => false,
     );
@@ -75,6 +87,8 @@ class HomeScreen extends ConsumerWidget {
         onProfile: () => _navigateToProfile(context),
         onHistory: () => _navigateToHistory(context),
         onEmployeeHistory: () => _navigateToEmployeeHistory(context),
+        onUserManagement: () => _navigateToUserManagement(context),
+        isAdmin: isAdmin,
       );
     }
 
@@ -137,12 +151,16 @@ class _ManagerHomeScreen extends StatelessWidget {
   final VoidCallback onProfile;
   final VoidCallback onHistory;
   final VoidCallback onEmployeeHistory;
+  final VoidCallback onUserManagement;
+  final bool isAdmin;
 
   const _ManagerHomeScreen({
     required this.onSignOut,
     required this.onProfile,
     required this.onHistory,
     required this.onEmployeeHistory,
+    required this.onUserManagement,
+    required this.isAdmin,
   });
 
   @override
@@ -168,6 +186,9 @@ class _ManagerHomeScreen extends StatelessWidget {
                     break;
                   case 'employee_history':
                     onEmployeeHistory();
+                    break;
+                  case 'user_management':
+                    onUserManagement();
                     break;
                   case 'signout':
                     onSignOut();
@@ -195,6 +216,17 @@ class _ManagerHomeScreen extends StatelessWidget {
                     ],
                   ),
                 ),
+                if (isAdmin)
+                  const PopupMenuItem(
+                    value: 'user_management',
+                    child: Row(
+                      children: [
+                        Icon(Icons.admin_panel_settings),
+                        SizedBox(width: 12),
+                        Text('User Management'),
+                      ],
+                    ),
+                  ),
                 const PopupMenuDivider(),
                 const PopupMenuItem(
                   value: 'signout',

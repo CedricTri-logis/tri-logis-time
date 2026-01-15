@@ -484,6 +484,7 @@ class _ShiftDetailScreenState extends ConsumerState<ShiftDetailScreen> {
                 clockedInAt: shift.clockedInAt,
                 clockedOutAt: shift.clockedOutAt,
                 height: 250,
+                shiftTitle: 'Shift - ${DateFormat('MMM d, yyyy').format(shift.clockedInAt)}',
                 onPointTapped: (point) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(

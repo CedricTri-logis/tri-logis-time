@@ -74,7 +74,7 @@
         <!-- Google Maps API Key for Employee History feature (Spec 006) -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="YOUR_GOOGLE_MAPS_API_KEY" />
+            android:value="AIzaSyCH-YBkJy4ggJ8qsFj7PEY49GylnAZysBo" />
 
         <!-- Foreground service for background GPS tracking -->
         <service

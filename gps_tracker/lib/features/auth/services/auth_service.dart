@@ -18,8 +18,8 @@ class AuthServiceException implements Exception {
 class AuthService {
   final SupabaseClient _client;
 
-  /// Deep link URL scheme for auth redirects
-  static const String _redirectUrl = 'ca.trilogis.gpstracker://callback';
+  /// Web redirect URL for auth (redirects to deep link)
+  static const String _redirectUrl = 'https://time.trilogis.ca/auth/callback';
 
   AuthService(this._client);
 

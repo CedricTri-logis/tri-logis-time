@@ -160,11 +160,11 @@ CREATE POLICY "Managers can view all shifts"
 
 ### Success Criteria
 
-- [ ] Next.js project builds and runs
-- [ ] Refine connects to Supabase
-- [ ] Manager can log in
-- [ ] Basic layout renders (sidebar, header)
-- [ ] TypeScript types match database schema
+- [x] Next.js project builds and runs
+- [x] Refine connects to Supabase
+- [x] Manager can log in
+- [x] Basic layout renders (sidebar, header)
+- [x] TypeScript types match database schema
 
 ### Checkpoint
 

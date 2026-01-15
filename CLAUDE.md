@@ -17,6 +17,8 @@ Auto-generated from all feature plans. Last updated: 2026-01-08
 - N/A (uses existing local storage infrastructure; session-scoped acknowledgment state only) (007-location-permission-guard)
 - Dart >=3.0.0 <4.0.0 / Flutter >=3.0.0 + flutter_riverpod 2.5.0 (state), supabase_flutter 2.12.0 (backend), fl_chart (bar charts for team statistics) (008-employee-shift-dashboard)
 - PostgreSQL via Supabase (existing: employee_profiles, shifts, gps_points, employee_supervisors); SQLCipher local storage (7-day cache) (008-employee-shift-dashboard)
+- TypeScript 5.x, Node.js 18.x LTS + Next.js 14+ (App Router), shadcn/ui, Refine (@refinedev/supabase), Tailwind CSS, Zod (009-dashboard-foundation)
+- PostgreSQL via Supabase (existing schema), client-side cache (React Query via Refine) (009-dashboard-foundation)
 
 - Dart 3.x / Flutter 3.x (latest stable) + flutter, supabase_flutter, flutter_riverpod, geolocator, sqflite (local storage) (001-project-foundation)
 
@@ -93,9 +95,9 @@ Dart 3.x / Flutter 3.x (latest stable): Follow standard conventions
 - `POST_NOTIFICATIONS` - Push notifications
 
 ## Recent Changes
+- 009-dashboard-foundation: Added TypeScript 5.x, Node.js 18.x LTS + Next.js 14+ (App Router), shadcn/ui, Refine (@refinedev/supabase), Tailwind CSS, Zod
 - 008-employee-shift-dashboard: Added Dart >=3.0.0 <4.0.0 / Flutter >=3.0.0 + flutter_riverpod 2.5.0 (state), supabase_flutter 2.12.0 (backend), fl_chart (bar charts for team statistics)
 - 007-location-permission-guard: Added Dart >=3.0.0 <4.0.0 / Flutter >=3.0.0 + flutter_riverpod 2.5.0 (state), geolocator 12.0.0 (permissions/location), flutter_foreground_task 8.0.0 (background services)
-- 006-employee-history: Added Dart 3.x / Flutter 3.x (>=3.0.0) + flutter_riverpod 2.5.0 (state), supabase_flutter 2.12.0 (backend), google_maps_flutter (map display), pdf (client-side PDF generation), csv (CSV export)
 
 
 <!-- MANUAL ADDITIONS START -->
