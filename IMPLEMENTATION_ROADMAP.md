@@ -283,11 +283,11 @@ const { tableProps } = useTable<Employee>({
 
 ### Success Criteria
 
-- [ ] Employee list displays with Refine useTable
-- [ ] Real-time status updates when employee clocks in/out
-- [ ] Search filters employees by name
-- [ ] Employee detail page shows profile info
-- [ ] Accessibility: keyboard navigation works
+- [x] Employee list displays with Refine useTable
+- [x] Real-time status updates when employee clocks in/out
+- [x] Search filters employees by name
+- [x] Employee detail page shows profile info
+- [x] Accessibility: keyboard navigation works
 
 ### Checkpoint
 

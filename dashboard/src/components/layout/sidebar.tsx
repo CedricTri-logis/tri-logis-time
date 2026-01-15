@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, MapPin } from 'lucide-react';
+import { LayoutDashboard, Users, MapPin, UserCog } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navigation = [
@@ -15,6 +15,11 @@ const navigation = [
     name: 'Teams',
     href: '/dashboard/teams',
     icon: Users,
+  },
+  {
+    name: 'Employees',
+    href: '/dashboard/employees',
+    icon: UserCog,
   },
 ];
 
@@ -29,7 +34,10 @@ export function Sidebar() {
       </div>
       <nav className="flex-1 space-y-1 p-4">
         {navigation.map((item) => {
-          const isActive = pathname === item.href;
+          // Support nested routes: /dashboard/employees/123 matches /dashboard/employees
+          const isActive = item.href === '/dashboard'
+            ? pathname === item.href
+            : pathname === item.href || pathname?.startsWith(`${item.href}/`);
           return (
             <Link
               key={item.name}

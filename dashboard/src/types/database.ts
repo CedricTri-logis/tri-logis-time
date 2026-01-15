@@ -1,3 +1,4 @@
+Connecting to db 5432
 export type Json =
   | string
   | number
@@ -7,10 +8,30 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.1"
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -210,6 +231,22 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      assign_supervisor: {
+        Args: {
+          p_employee_id: string
+          p_manager_id: string
+          p_supervision_type?: string
+        }
+        Returns: Json
+      }
+      check_employee_active_shift: {
+        Args: { p_employee_id: string }
+        Returns: boolean
+      }
+      check_last_admin: {
+        Args: { p_exclude_user_id: string }
+        Returns: boolean
+      }
       clock_in: {
         Args: { p_accuracy?: number; p_location?: Json; p_request_id: string }
         Returns: Json
@@ -223,12 +260,55 @@ export type Database = {
         }
         Returns: Json
       }
+      get_all_users: {
+        Args: never
+        Returns: {
+          created_at: string
+          email: string
+          employee_id: string
+          full_name: string
+          id: string
+          role: string
+          status: string
+        }[]
+      }
       get_dashboard_summary: {
         Args: {
           p_include_recent_shifts?: boolean
           p_recent_shifts_limit?: number
         }
         Returns: Json
+      }
+      get_employee_audit_log: {
+        Args: { p_employee_id: string; p_limit?: number; p_offset?: number }
+        Returns: {
+          change_reason: string
+          changed_at: string
+          id: string
+          new_values: Json
+          old_values: Json
+          operation: string
+          total_count: number
+          user_email: string
+          user_id: string
+        }[]
+      }
+      get_employee_detail: {
+        Args: { p_employee_id: string }
+        Returns: {
+          created_at: string
+          current_supervisor: Json
+          email: string
+          employee_id: string
+          full_name: string
+          has_active_shift: boolean
+          id: string
+          privacy_consent_at: string
+          role: string
+          status: string
+          supervision_history: Json
+          updated_at: string
+        }[]
       }
       get_employee_shifts: {
         Args: {
@@ -268,6 +348,55 @@ export type Database = {
           total_shifts: number
         }[]
       }
+      get_employees_paginated: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_role?: string
+          p_search?: string
+          p_sort_field?: string
+          p_sort_order?: string
+          p_status?: string
+        }
+        Returns: {
+          created_at: string
+          current_supervisor_email: string
+          current_supervisor_id: string
+          current_supervisor_name: string
+          email: string
+          employee_id: string
+          full_name: string
+          id: string
+          role: string
+          status: string
+          total_count: number
+          updated_at: string
+        }[]
+      }
+      get_manager_team_summaries: {
+        Args: { p_end_date?: string; p_start_date?: string }
+        Returns: {
+          active_employees: number
+          avg_hours_per_employee: number
+          manager_email: string
+          manager_id: string
+          manager_name: string
+          team_size: number
+          total_hours: number
+          total_shifts: number
+        }[]
+      }
+      get_managers_list: {
+        Args: never
+        Returns: {
+          email: string
+          full_name: string
+          id: string
+          role: string
+          supervised_count: number
+        }[]
+      }
+      get_org_dashboard_summary: { Args: never; Returns: Json }
       get_shift_gps_points: {
         Args: { p_shift_id: string }
         Returns: {
@@ -324,24 +453,23 @@ export type Database = {
           total_shifts: number
         }[]
       }
+      remove_supervisor: { Args: { p_employee_id: string }; Returns: Json }
       sync_gps_points: { Args: { p_points: Json }; Returns: Json }
-      // New dashboard functions (from migration 010)
-      get_org_dashboard_summary: {
-        Args: Record<string, never>
+      update_employee_profile: {
+        Args: {
+          p_employee_id: string
+          p_employee_id_value?: string
+          p_full_name?: string
+        }
         Returns: Json
       }
-      get_manager_team_summaries: {
-        Args: { p_start_date?: string; p_end_date?: string }
-        Returns: {
-          manager_id: string
-          manager_name: string
-          manager_email: string
-          team_size: number
-          active_employees: number
-          total_hours: number
-          total_shifts: number
-          avg_hours_per_employee: number
-        }[]
+      update_employee_status: {
+        Args: { p_employee_id: string; p_force?: boolean; p_new_status: string }
+        Returns: Json
+      }
+      update_user_role: {
+        Args: { p_new_role: string; p_user_id: string }
+        Returns: boolean
       }
     }
     Enums: {
@@ -471,7 +599,13 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },
 } as const
+
+A new version of Supabase CLI is available: v2.67.1 (currently installed v2.62.10)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
