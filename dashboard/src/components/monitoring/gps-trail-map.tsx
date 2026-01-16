@@ -15,6 +15,12 @@ interface GpsTrailMapProps {
   trail: GpsTrailPoint[];
   isLoading?: boolean;
   employeeName?: string;
+  /** Historical mode: changes end marker label from "Current" to "End" */
+  mode?: 'realtime' | 'historical';
+  /** For playback animation: the currently animated point */
+  animatedPoint?: GpsTrailPoint | null;
+  /** Whether playback is currently active */
+  isPlaybackActive?: boolean;
 }
 
 // Trail line colors
@@ -22,13 +28,22 @@ const TRAIL_COLOR = '#3b82f6'; // blue-500
 const TRAIL_HIGHLIGHT_COLOR = '#1d4ed8'; // blue-700
 const START_MARKER_COLOR = '#22c55e'; // green-500
 const END_MARKER_COLOR = '#ef4444'; // red-500
+const ANIMATED_MARKER_COLOR = '#f59e0b'; // amber-500
 
 /**
  * Map component showing GPS trail as a connected polyline.
  * Includes start/end markers and interactive point hover.
  */
-export function GpsTrailMap({ trail, isLoading, employeeName }: GpsTrailMapProps) {
+export function GpsTrailMap({
+  trail,
+  isLoading,
+  employeeName,
+  mode = 'realtime',
+  animatedPoint,
+  isPlaybackActive = false,
+}: GpsTrailMapProps) {
   const [selectedPoint, setSelectedPoint] = useState<GpsTrailPoint | null>(null);
+  const isHistorical = mode === 'historical';
 
   if (isLoading) {
     return <GpsTrailMapSkeleton />;
@@ -133,7 +148,9 @@ export function GpsTrailMap({ trail, isLoading, employeeName }: GpsTrailMapProps
               >
                 <Popup>
                   <div className="text-sm">
-                    <p className="font-semibold text-red-700">Current Position</p>
+                    <p className="font-semibold text-red-700">
+                      {isHistorical ? 'End Point' : 'Current Position'}
+                    </p>
                     <p className="text-slate-600">{format(endPoint.capturedAt, 'h:mm:ss a')}</p>
                     <p className="text-xs text-slate-500 font-mono mt-1">
                       {endPoint.latitude.toFixed(6)}, {endPoint.longitude.toFixed(6)}
@@ -143,6 +160,30 @@ export function GpsTrailMap({ trail, isLoading, employeeName }: GpsTrailMapProps
                         Accuracy: ~{Math.round(endPoint.accuracy)}m
                       </p>
                     )}
+                  </div>
+                </Popup>
+              </CircleMarker>
+            )}
+
+            {/* Animated playback marker (for historical mode) */}
+            {isPlaybackActive && animatedPoint && (
+              <CircleMarker
+                center={[animatedPoint.latitude, animatedPoint.longitude]}
+                radius={12}
+                pathOptions={{
+                  color: ANIMATED_MARKER_COLOR,
+                  fillColor: ANIMATED_MARKER_COLOR,
+                  fillOpacity: 1,
+                  weight: 3,
+                }}
+              >
+                <Popup>
+                  <div className="text-sm">
+                    <p className="font-semibold text-amber-700">Playback Position</p>
+                    <p className="text-slate-600">{format(animatedPoint.capturedAt, 'h:mm:ss a')}</p>
+                    <p className="text-xs text-slate-500 font-mono mt-1">
+                      {animatedPoint.latitude.toFixed(6)}, {animatedPoint.longitude.toFixed(6)}
+                    </p>
                   </div>
                 </Popup>
               </CircleMarker>
@@ -160,12 +201,18 @@ export function GpsTrailMap({ trail, isLoading, employeeName }: GpsTrailMapProps
           </span>
           <span className="flex items-center gap-1.5">
             <span className="h-3 w-3 rounded-full bg-red-500" />
-            Current
+            {isHistorical ? 'End' : 'Current'}
           </span>
           <span className="flex items-center gap-1.5">
             <span className="h-6 w-0.5 bg-blue-500" />
             Trail
           </span>
+          {isPlaybackActive && (
+            <span className="flex items-center gap-1.5">
+              <span className="h-3 w-3 rounded-full bg-amber-500" />
+              Playback
+            </span>
+          )}
         </div>
       </CardContent>
     </Card>

@@ -506,11 +506,11 @@ const ShiftMap = ({ gpsPoints }: { gpsPoints: GpsPoint[] }) => {
 
 ### Success Criteria
 
-- [ ] Map displays GPS points for a shift
-- [ ] Trail line connects points chronologically
-- [ ] Clicking a point shows timestamp
-- [ ] Map auto-zooms to fit all points
-- [ ] Timeline slider highlights points
+- [x] Map displays GPS points for a shift
+- [x] Trail line connects points chronologically
+- [x] Clicking a point shows timestamp
+- [x] Map auto-zooms to fit all points
+- [x] Timeline slider highlights points
 
 ### Checkpoint
 
