@@ -406,12 +406,12 @@ const { tableProps, filters, setFilters } = useTable<Shift>({
 
 ### Success Criteria
 
-- [ ] Active shifts display with real-time updates
-- [ ] Shift history loads with pagination
-- [ ] Date range filter works correctly
-- [ ] Employee filter works correctly
-- [ ] GPS point count shows for each shift
-- [ ] Shift detail page shows full info
+- [x] Active shifts display with real-time updates
+- [x] Shift history loads with pagination
+- [x] Date range filter works correctly
+- [x] Employee filter works correctly
+- [x] GPS point count shows for each shift
+- [x] Shift detail page shows full info
 
 ### Checkpoint
 

@@ -21,6 +21,8 @@ Auto-generated from all feature plans. Last updated: 2026-01-08
 - PostgreSQL via Supabase (existing schema), client-side cache (React Query via Refine) (009-dashboard-foundation)
 - TypeScript 5.x / Node.js 18.x LTS + Next.js 14+ (App Router), Refine (@refinedev/supabase), shadcn/ui, Tailwind CSS, Zod, @tanstack/react-table (010-employee-management)
 - PostgreSQL via Supabase (existing `employee_profiles`, `employee_supervisors` tables) (010-employee-management)
+- TypeScript 5.x, Node.js 18.x LTS + Next.js 14+ (App Router), Refine (@refinedev/supabase), shadcn/ui, Tailwind CSS, Zod, react-leaflet (map), Supabase Realtime (011-shift-monitoring)
+- PostgreSQL via Supabase (existing tables: employee_profiles, shifts, gps_points, employee_supervisors) (011-shift-monitoring)
 
 - Dart 3.x / Flutter 3.x (latest stable) + flutter, supabase_flutter, flutter_riverpod, geolocator, sqflite (local storage) (001-project-foundation)
 
@@ -97,9 +99,9 @@ Dart 3.x / Flutter 3.x (latest stable): Follow standard conventions
 - `POST_NOTIFICATIONS` - Push notifications
 
 ## Recent Changes
+- 011-shift-monitoring: Added TypeScript 5.x, Node.js 18.x LTS + Next.js 14+ (App Router), Refine (@refinedev/supabase), shadcn/ui, Tailwind CSS, Zod, react-leaflet (map), Supabase Realtime
 - 010-employee-management: Added TypeScript 5.x / Node.js 18.x LTS + Next.js 14+ (App Router), Refine (@refinedev/supabase), shadcn/ui, Tailwind CSS, Zod, @tanstack/react-table
 - 009-dashboard-foundation: Added TypeScript 5.x, Node.js 18.x LTS + Next.js 14+ (App Router), shadcn/ui, Refine (@refinedev/supabase), Tailwind CSS, Zod
-- 008-employee-shift-dashboard: Added Dart >=3.0.0 <4.0.0 / Flutter >=3.0.0 + flutter_riverpod 2.5.0 (state), supabase_flutter 2.12.0 (backend), fl_chart (bar charts for team statistics)
 
 
 <!-- MANUAL ADDITIONS START -->
