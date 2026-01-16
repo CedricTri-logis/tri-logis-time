@@ -25,6 +25,8 @@ Auto-generated from all feature plans. Last updated: 2026-01-08
 - PostgreSQL via Supabase (existing tables: employee_profiles, shifts, gps_points, employee_supervisors) (011-shift-monitoring)
 - TypeScript 5.x, Node.js 18.x LTS + Next.js 14+ (App Router), Refine (@refinedev/supabase), shadcn/ui, Tailwind CSS, Zod, react-leaflet 5.0.0, Leaflet 1.9.4, date-fns 4.1.0 (012-gps-visualization)
 - PostgreSQL via Supabase (existing: employee_profiles, shifts, gps_points, employee_supervisors tables) (012-gps-visualization)
+- TypeScript 5.x / Node.js 18.x LTS + Next.js 14+ (App Router), Refine (@refinedev/supabase), shadcn/ui, Tailwind CSS, Zod, @tanstack/react-table, date-fns 4.1.0 (013-reports-export)
+- PostgreSQL via Supabase (existing: employee_profiles, shifts, gps_points, employee_supervisors), Supabase Storage (new: reports bucket) (013-reports-export)
 
 - Dart 3.x / Flutter 3.x (latest stable) + flutter, supabase_flutter, flutter_riverpod, geolocator, sqflite (local storage) (001-project-foundation)
 
@@ -101,9 +103,9 @@ Dart 3.x / Flutter 3.x (latest stable): Follow standard conventions
 - `POST_NOTIFICATIONS` - Push notifications
 
 ## Recent Changes
+- 013-reports-export: Added TypeScript 5.x / Node.js 18.x LTS + Next.js 14+ (App Router), Refine (@refinedev/supabase), shadcn/ui, Tailwind CSS, Zod, @tanstack/react-table, date-fns 4.1.0
 - 012-gps-visualization: Added TypeScript 5.x, Node.js 18.x LTS + Next.js 14+ (App Router), Refine (@refinedev/supabase), shadcn/ui, Tailwind CSS, Zod, react-leaflet 5.0.0, Leaflet 1.9.4, date-fns 4.1.0
 - 011-shift-monitoring: Added TypeScript 5.x, Node.js 18.x LTS + Next.js 14+ (App Router), Refine (@refinedev/supabase), shadcn/ui, Tailwind CSS, Zod, react-leaflet (map), Supabase Realtime
-- 010-employee-management: Added TypeScript 5.x / Node.js 18.x LTS + Next.js 14+ (App Router), Refine (@refinedev/supabase), shadcn/ui, Tailwind CSS, Zod, @tanstack/react-table
 
 
 <!-- MANUAL ADDITIONS START -->

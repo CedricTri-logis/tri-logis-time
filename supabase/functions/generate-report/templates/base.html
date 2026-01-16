@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>{{REPORT_TITLE}}</title>
+    <style>
+      /* Reset */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      /* Typography */
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        font-size: 12px;
+        line-height: 1.5;
+        color: #1e293b;
+        background: #ffffff;
+      }
+
+      /* Container */
+      .container {
+        max-width: 100%;
+        padding: 30px 40px;
+      }
+
+      /* Header */
+      .header {
+        margin-bottom: 25px;
+        padding-bottom: 20px;
+        border-bottom: 3px solid #0f172a;
+      }
+
+      .header-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 10px;
+      }
+
+      .header h1 {
+        font-size: 28px;
+        font-weight: 700;
+        color: #0f172a;
+        letter-spacing: -0.5px;
+      }
+
+      .header .logo {
+        font-size: 14px;
+        font-weight: 600;
+        color: #64748b;
+      }
+
+      .header .subtitle {
+        font-size: 14px;
+        color: #64748b;
+        margin-top: 5px;
+      }
+
+      /* Metadata Section */
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 30px;
+        margin-bottom: 25px;
+        padding: 15px 20px;
+        background: #f8fafc;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+      }
+
+      .meta-item .label {
+        font-size: 10px;
+        font-weight: 600;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 2px;
+      }
+
+      .meta-item .value {
+        font-size: 14px;
+        font-weight: 500;
+        color: #0f172a;
+      }
+
+      /* Summary Cards */
+      .summary {
+        margin-bottom: 25px;
+        padding: 20px;
+        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        border-radius: 8px;
+        border: 1px solid #bae6fd;
+      }
+
+      .summary h3 {
+        font-size: 14px;
+        font-weight: 600;
+        color: #0369a1;
+        margin-bottom: 15px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 20px;
+      }
+
+      .summary-item {
+        text-align: center;
+      }
+
+      .summary-item .value {
+        font-size: 24px;
+        font-weight: 700;
+        color: #0c4a6e;
+        line-height: 1.2;
+      }
+
+      .summary-item .label {
+        font-size: 10px;
+        font-weight: 500;
+        color: #0369a1;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        margin-top: 4px;
+      }
+
+      /* Table */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 25px;
+        font-size: 11px;
+      }
+
+      thead {
+        background: #f1f5f9;
+      }
+
+      th {
+        padding: 12px 15px;
+        text-align: left;
+        font-weight: 600;
+        color: #475569;
+        text-transform: uppercase;
+        font-size: 10px;
+        letter-spacing: 0.5px;
+        border-bottom: 2px solid #cbd5e1;
+      }
+
+      td {
+        padding: 10px 15px;
+        border-bottom: 1px solid #e2e8f0;
+        color: #334155;
+      }
+
+      tr:nth-child(even) {
+        background: #f8fafc;
+      }
+
+      tr:hover {
+        background: #f1f5f9;
+      }
+
+      /* Status badges */
+      .status {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+
+      .status-complete {
+        background: #dcfce7;
+        color: #166534;
+      }
+
+      .status-incomplete {
+        background: #fef3c7;
+        color: #92400e;
+      }
+
+      .status-active {
+        background: #dbeafe;
+        color: #1e40af;
+      }
+
+      /* Footer */
+      .footer {
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 1px solid #e2e8f0;
+        text-align: center;
+        color: #94a3b8;
+        font-size: 10px;
+      }
+
+      .footer .generated {
+        margin-bottom: 5px;
+      }
+
+      .footer .confidential {
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #cbd5e1;
+      }
+
+      /* Print styles */
+      @media print {
+        body {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+
+        .container {
+          padding: 0;
+        }
+
+        .header {
+          page-break-after: avoid;
+        }
+
+        table {
+          page-break-inside: auto;
+        }
+
+        tr {
+          page-break-inside: avoid;
+          page-break-after: auto;
+        }
+
+        thead {
+          display: table-header-group;
+        }
+      }
+
+      /* Page numbers for PDF */
+      @page {
+        size: A4;
+        margin: 20mm 15mm;
+        @bottom-center {
+          content: "Page " counter(page) " of " counter(pages);
+          font-size: 10px;
+          color: #94a3b8;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <div class="header-top">
+          <div>
+            <h1>{{REPORT_TITLE}}</h1>
+            <div class="subtitle">{{REPORT_SUBTITLE}}</div>
+          </div>
+          <div class="logo">GPS Tracker</div>
+        </div>
+      </div>
+
+      <div class="meta">
+        <div class="meta-item">
+          <div class="label">Date Range</div>
+          <div class="value">{{DATE_RANGE}}</div>
+        </div>
+        <div class="meta-item">
+          <div class="label">Generated</div>
+          <div class="value">{{GENERATED_AT}}</div>
+        </div>
+        <div class="meta-item">
+          <div class="label">Total Records</div>
+          <div class="value">{{TOTAL_RECORDS}}</div>
+        </div>
+        <div class="meta-item">
+          <div class="label">Generated By</div>
+          <div class="value">{{GENERATED_BY}}</div>
+        </div>
+      </div>
+
+      {{SUMMARY_SECTION}}
+
+      <table>
+        <thead>
+          <tr>
+            {{TABLE_HEADERS}}
+          </tr>
+        </thead>
+        <tbody>
+          {{TABLE_ROWS}}
+        </tbody>
+      </table>
+
+      <div class="footer">
+        <div class="generated">
+          Generated on {{GENERATED_AT}} by GPS Tracker Management Dashboard
+        </div>
+        <div class="confidential">
+          Confidential - For Internal Use Only
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

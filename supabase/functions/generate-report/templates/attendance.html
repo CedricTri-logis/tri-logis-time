@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Attendance Report</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      line-height: 1.4;
+      color: #1e293b;
+      background: #fff;
+    }
+
+    .container {
+      max-width: 100%;
+      padding: 20px;
+    }
+
+    /* Header */
+    .header {
+      margin-bottom: 24px;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 16px;
+    }
+
+    .header h1 {
+      font-size: 24px;
+      font-weight: bold;
+      color: #0f172a;
+      margin-bottom: 4px;
+    }
+
+    .header .subtitle {
+      color: #64748b;
+      font-size: 14px;
+    }
+
+    /* Metadata */
+    .meta {
+      display: flex;
+      gap: 24px;
+      margin-bottom: 24px;
+      background: #f8fafc;
+      padding: 12px 16px;
+      border-radius: 6px;
+    }
+
+    .meta-item .label {
+      font-weight: 600;
+      color: #64748b;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .meta-item .value {
+      color: #0f172a;
+      font-size: 13px;
+    }
+
+    /* Summary Cards */
+    .summary-cards {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .summary-card {
+      background: #f0f9ff;
+      border: 1px solid #bae6fd;
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .summary-card.positive {
+      background: #f0fdf4;
+      border-color: #bbf7d0;
+    }
+
+    .summary-card.warning {
+      background: #fef3c7;
+      border-color: #fcd34d;
+    }
+
+    .summary-card.negative {
+      background: #fef2f2;
+      border-color: #fecaca;
+    }
+
+    .summary-card .card-value {
+      font-size: 28px;
+      font-weight: bold;
+      color: #0f172a;
+      margin-bottom: 4px;
+    }
+
+    .summary-card .card-label {
+      font-size: 11px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Rate Legend */
+    .rate-legend {
+      margin-bottom: 20px;
+      display: flex;
+      gap: 16px;
+      font-size: 11px;
+    }
+
+    .rate-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .rate-indicator {
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+    }
+
+    .rate-indicator.excellent {
+      background: #22c55e;
+    }
+
+    .rate-indicator.good {
+      background: #84cc16;
+    }
+
+    .rate-indicator.average {
+      background: #facc15;
+    }
+
+    .rate-indicator.poor {
+      background: #f97316;
+    }
+
+    .rate-indicator.critical {
+      background: #ef4444;
+    }
+
+    /* Table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 24px;
+    }
+
+    th {
+      background: #f1f5f9;
+      color: #475569;
+      font-weight: 600;
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 2px solid #e2e8f0;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #e2e8f0;
+      vertical-align: middle;
+    }
+
+    tr:nth-child(even) {
+      background: #fafafa;
+    }
+
+    /* Attendance Rate Bar */
+    .rate-bar-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .rate-bar {
+      flex: 1;
+      height: 8px;
+      background: #e2e8f0;
+      border-radius: 4px;
+      overflow: hidden;
+      max-width: 100px;
+    }
+
+    .rate-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.3s ease;
+    }
+
+    .rate-bar-fill.excellent {
+      background: #22c55e;
+    }
+
+    .rate-bar-fill.good {
+      background: #84cc16;
+    }
+
+    .rate-bar-fill.average {
+      background: #facc15;
+    }
+
+    .rate-bar-fill.poor {
+      background: #f97316;
+    }
+
+    .rate-bar-fill.critical {
+      background: #ef4444;
+    }
+
+    .rate-value {
+      font-weight: 600;
+      min-width: 50px;
+      text-align: right;
+    }
+
+    /* Calendar Mini View */
+    .calendar-mini {
+      display: flex;
+      gap: 2px;
+      flex-wrap: wrap;
+      max-width: 200px;
+    }
+
+    .calendar-day {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+      background: #e2e8f0;
+    }
+
+    .calendar-day.worked {
+      background: #22c55e;
+    }
+
+    .calendar-day.absent {
+      background: #fecaca;
+    }
+
+    .calendar-day.weekend {
+      background: #f1f5f9;
+    }
+
+    /* Footer */
+    .footer {
+      margin-top: 24px;
+      padding-top: 16px;
+      border-top: 1px solid #e2e8f0;
+      color: #94a3b8;
+      font-size: 10px;
+      text-align: center;
+    }
+
+    /* Print styles */
+    @media print {
+      body {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      .container {
+        padding: 0;
+      }
+    }
+
+    @page {
+      size: A4;
+      margin: 15mm;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1>Attendance Report</h1>
+      <div class="subtitle">GPS Tracker Management Dashboard</div>
+    </div>
+
+    <!-- Metadata -->
+    <div class="meta">
+      <div class="meta-item">
+        <div class="label">Date Range</div>
+        <div class="value">{{DATE_RANGE}}</div>
+      </div>
+      <div class="meta-item">
+        <div class="label">Generated</div>
+        <div class="value">{{GENERATED_AT}}</div>
+      </div>
+      <div class="meta-item">
+        <div class="label">Generated By</div>
+        <div class="value">{{GENERATED_BY}}</div>
+      </div>
+      <div class="meta-item">
+        <div class="label">Total Employees</div>
+        <div class="value">{{TOTAL_EMPLOYEES}}</div>
+      </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="summary-cards">
+      <div class="summary-card">
+        <div class="card-value">{{WORKING_DAYS}}</div>
+        <div class="card-label">Working Days</div>
+      </div>
+      <div class="summary-card positive">
+        <div class="card-value">{{AVG_ATTENDANCE_RATE}}%</div>
+        <div class="card-label">Avg Attendance</div>
+      </div>
+      <div class="summary-card">
+        <div class="card-value">{{TOTAL_SHIFTS}}</div>
+        <div class="card-label">Total Shifts</div>
+      </div>
+      <div class="summary-card warning">
+        <div class="card-value">{{TOTAL_ABSENCES}}</div>
+        <div class="card-label">Total Absences</div>
+      </div>
+    </div>
+
+    <!-- Rate Legend -->
+    <div class="rate-legend">
+      <div class="rate-item">
+        <div class="rate-indicator excellent"></div>
+        <span>Excellent (95-100%)</span>
+      </div>
+      <div class="rate-item">
+        <div class="rate-indicator good"></div>
+        <span>Good (85-94%)</span>
+      </div>
+      <div class="rate-item">
+        <div class="rate-indicator average"></div>
+        <span>Average (75-84%)</span>
+      </div>
+      <div class="rate-item">
+        <div class="rate-indicator poor"></div>
+        <span>Poor (60-74%)</span>
+      </div>
+      <div class="rate-item">
+        <div class="rate-indicator critical"></div>
+        <span>Critical (&lt;60%)</span>
+      </div>
+    </div>
+
+    <!-- Attendance Table -->
+    <table>
+      <thead>
+        <tr>
+          <th>Employee</th>
+          <th>Days Worked</th>
+          <th>Days Absent</th>
+          <th>Attendance Rate</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{TABLE_ROWS}}
+      </tbody>
+    </table>
+
+    <!-- Footer -->
+    <div class="footer">
+      Generated by GPS Tracker Dashboard &bull; {{GENERATED_AT}}
+    </div>
+  </div>
+</body>
+</html>

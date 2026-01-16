@@ -590,11 +590,11 @@ const exportToCSV = (shifts: Shift[]) => {
 
 ### Success Criteria
 
-- [ ] Hours report generates for date range
-- [ ] Report shows total hours per employee
-- [ ] CSV export downloads correctly
-- [ ] Exported data matches displayed data
-- [ ] Export includes all filtered shifts
+- [x] Hours report generates for date range
+- [x] Report shows total hours per employee
+- [x] CSV export downloads correctly
+- [x] Exported data matches displayed data
+- [x] Export includes all filtered shifts
 
 ### Checkpoint
 
