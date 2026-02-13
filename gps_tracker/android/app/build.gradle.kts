@@ -14,6 +14,12 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
+val secretsFile = file("secrets.properties")
+val secretsProperties = Properties()
+if (secretsFile.exists()) {
+    secretsProperties.load(FileInputStream(secretsFile))
+}
+
 android {
     namespace = "ca.trilogis.gpstracker"
     compileSdk = flutter.compileSdkVersion
@@ -43,6 +49,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = secretsProperties.getProperty("GOOGLE_MAPS_API_KEY", "")
     }
 
     buildTypes {

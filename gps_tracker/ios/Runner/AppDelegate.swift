@@ -9,8 +9,10 @@ import GoogleMaps
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    // Google Maps API Key for Employee History feature (Spec 006)
-    GMSServices.provideAPIKey("AIzaSyCH-YBkJy4ggJ8qsFj7PEY49GylnAZysBo")
+    // Google Maps API Key (loaded from Secrets.xcconfig via Info.plist)
+    if let apiKey = Bundle.main.object(forInfoDictionaryKey: "GOOGLE_MAPS_API_KEY") as? String, !apiKey.isEmpty {
+      GMSServices.provideAPIKey(apiKey)
+    }
 
     GeneratedPluginRegistrant.register(with: self)
 

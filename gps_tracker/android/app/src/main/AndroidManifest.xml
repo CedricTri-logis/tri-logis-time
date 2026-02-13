@@ -74,10 +74,10 @@
             android:name="flutterEmbedding"
             android:value="2" />
 
-        <!-- Google Maps API Key for Employee History feature (Spec 006) -->
+        <!-- Google Maps API Key (loaded from secrets.properties) -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyCH-YBkJy4ggJ8qsFj7PEY49GylnAZysBo" />
+            android:value="${GOOGLE_MAPS_API_KEY}" />
 
         <!-- Foreground service for background GPS tracking -->
         <service
