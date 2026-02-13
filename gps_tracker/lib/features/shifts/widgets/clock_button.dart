@@ -61,7 +61,7 @@ class ClockButton extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    hasActiveShift ? 'Clock Out' : 'Clock In',
+                    hasActiveShift ? 'Terminer' : 'Débuter',
                     style: theme.textTheme.titleMedium?.copyWith(
                       color: hasActiveShift
                           ? theme.colorScheme.onError

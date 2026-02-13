@@ -7,14 +7,14 @@ class EmailValidator {
   /// Returns null if valid, or an error message if invalid.
   static String? validate(String? email) {
     if (email == null || email.isEmpty) {
-      return 'Email is required';
+      return 'Le courriel est requis';
     }
 
     final trimmed = email.trim();
 
     // Basic email regex - Supabase will do final validation
     if (!RegExp(r'^[\w\-\.]+@([\w\-]+\.)+[\w\-]{2,}$').hasMatch(trimmed)) {
-      return 'Enter a valid email address';
+      return 'Entrez une adresse courriel valide';
     }
 
     return null;
@@ -41,19 +41,19 @@ class PasswordValidator {
   /// Returns null if valid, or an error message if invalid.
   static String? validate(String? password) {
     if (password == null || password.isEmpty) {
-      return 'Password is required';
+      return 'Le mot de passe est requis';
     }
 
     if (password.length < minLength) {
-      return 'Password must be at least $minLength characters';
+      return 'Le mot de passe doit avoir au moins $minLength caractères';
     }
 
     if (!RegExp(r'[a-zA-Z]').hasMatch(password)) {
-      return 'Password must contain at least one letter';
+      return 'Le mot de passe doit contenir au moins une lettre';
     }
 
     if (!RegExp(r'[0-9]').hasMatch(password)) {
-      return 'Password must contain at least one number';
+      return 'Le mot de passe doit contenir au moins un chiffre';
     }
 
     return null;
@@ -67,11 +67,11 @@ class PasswordValidator {
   /// Returns null if matches, or an error message if not.
   static String? validateConfirmation(String? password, String? confirmation) {
     if (confirmation == null || confirmation.isEmpty) {
-      return 'Please confirm your password';
+      return 'Veuillez confirmer votre mot de passe';
     }
 
     if (password != confirmation) {
-      return 'Passwords do not match';
+      return 'Les mots de passe ne correspondent pas';
     }
 
     return null;

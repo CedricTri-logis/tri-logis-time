@@ -88,16 +88,18 @@ export interface MultiShiftGpsPointRow {
  */
 export interface SupervisedEmployee {
   id: string;
-  fullName: string;
+  fullName: string | null;
+  email: string;
   employeeId: string | null;
 }
 
 /**
- * Raw RPC row from get_supervised_employees_list
+ * Raw RPC row from get_supervised_employees
  */
 export interface SupervisedEmployeeRow {
   id: string;
-  full_name: string;
+  full_name: string | null;
+  email: string;
   employee_id: string | null;
 }
 
@@ -237,6 +239,7 @@ export function transformSupervisedEmployeeRow(
   return {
     id: row.id,
     fullName: row.full_name,
+    email: row.email,
     employeeId: row.employee_id,
   };
 }

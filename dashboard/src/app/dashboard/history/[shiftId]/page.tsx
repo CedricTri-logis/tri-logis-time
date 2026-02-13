@@ -1,13 +1,23 @@
 'use client';
 
 import { use, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useHistoricalTrail } from '@/lib/hooks/use-historical-gps';
 import { usePlaybackAnimation } from '@/lib/hooks/use-playback-animation';
-import { GpsTrailMap } from '@/components/monitoring/gps-trail-map';
+
+// Dynamically import the GPS trail map to avoid SSR issues with Leaflet
+const GpsTrailMap = dynamic(
+  () => import('@/components/monitoring/gps-trail-map').then((mod) => mod.GpsTrailMap),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-[400px] w-full rounded-lg" />,
+  }
+);
 import { TrailInfoPanel } from '@/components/history/trail-info-panel';
 import { EmptyGpsState } from '@/components/history/empty-gps-state';
 import { GpsPlaybackControls } from '@/components/history/gps-playback-controls';

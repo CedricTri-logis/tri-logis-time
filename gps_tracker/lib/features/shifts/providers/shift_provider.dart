@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/providers/supabase_provider.dart';
 import '../../../shared/services/local_database.dart';
+import '../../cleaning/providers/cleaning_session_provider.dart';
 import '../models/geo_point.dart';
 import '../models/shift.dart';
 import '../services/shift_service.dart';
@@ -56,8 +57,9 @@ class ShiftState {
 /// Notifier for managing active shift state.
 class ShiftNotifier extends StateNotifier<ShiftState> {
   final ShiftService _shiftService;
+  final Ref _ref;
 
-  ShiftNotifier(this._shiftService) : super(const ShiftState()) {
+  ShiftNotifier(this._shiftService, this._ref) : super(const ShiftState()) {
     _loadActiveShift();
   }
 
@@ -84,9 +86,9 @@ class ShiftNotifier extends StateNotifier<ShiftState> {
     await _loadActiveShift();
   }
 
-  /// Clock in with optional location.
+  /// Clock in with required GPS location.
   Future<bool> clockIn({
-    GeoPoint? location,
+    required GeoPoint location,
     double? accuracy,
   }) async {
     state = state.copyWith(isClockingIn: true, clearError: true);
@@ -138,6 +140,21 @@ class ShiftNotifier extends StateNotifier<ShiftState> {
       );
 
       if (result.success) {
+        // Auto-close any open cleaning sessions for this shift
+        try {
+          final cleaningService = _ref.read(cleaningSessionServiceProvider);
+          final userId = _ref.read(supabaseClientProvider).auth.currentUser?.id;
+          if (userId != null) {
+            await cleaningService.autoCloseSessions(
+              shiftId: activeShift.id,
+              employeeId: userId,
+              closedAt: DateTime.now().toUtc(),
+            );
+          }
+        } catch (_) {
+          // Don't fail clock-out if auto-close fails
+        }
+
         state = state.copyWith(
           isClockingOut: false,
           clearActiveShift: true,
@@ -168,7 +185,7 @@ class ShiftNotifier extends StateNotifier<ShiftState> {
 /// Provider for shift state management.
 final shiftProvider = StateNotifierProvider<ShiftNotifier, ShiftState>((ref) {
   final shiftService = ref.watch(shiftServiceProvider);
-  return ShiftNotifier(shiftService);
+  return ShiftNotifier(shiftService, ref);
 });
 
 /// Provider for checking if user has an active shift.

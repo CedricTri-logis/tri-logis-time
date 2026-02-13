@@ -155,13 +155,13 @@ function RoleSummaryCard({
   }
 
   const roles = [
-    { name: 'Employees', count: data?.employee_counts.by_role?.employee ?? 0, color: 'bg-blue-500' },
-    { name: 'Managers', count: data?.employee_counts.by_role?.manager ?? 0, color: 'bg-green-500' },
-    { name: 'Admins', count: data?.employee_counts.by_role?.admin ?? 0, color: 'bg-purple-500' },
-    { name: 'Super Admins', count: data?.employee_counts.by_role?.super_admin ?? 0, color: 'bg-orange-500' },
+    { name: 'Employees', count: data?.employee_counts?.by_role?.employee ?? 0, color: 'bg-blue-500' },
+    { name: 'Managers', count: data?.employee_counts?.by_role?.manager ?? 0, color: 'bg-green-500' },
+    { name: 'Admins', count: data?.employee_counts?.by_role?.admin ?? 0, color: 'bg-purple-500' },
+    { name: 'Super Admins', count: data?.employee_counts?.by_role?.super_admin ?? 0, color: 'bg-orange-500' },
   ];
 
-  const total = data?.employee_counts.total ?? 0;
+  const total = data?.employee_counts?.total ?? 0;
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-6">

@@ -319,8 +319,8 @@ class _GpsRouteMapState extends State<GpsRouteMap> {
                               ? Icons.map
                               : Icons.satellite_alt,
                           tooltip: _mapType == MapType.satellite
-                              ? 'Normal view'
-                              : 'Satellite view',
+                              ? 'Vue normale'
+                              : 'Vue satellite',
                           onPressed: () {
                             setState(() {
                               _mapType = _mapType == MapType.satellite
@@ -333,7 +333,7 @@ class _GpsRouteMapState extends State<GpsRouteMap> {
                         // Zoom in
                         _MapControlButton(
                           icon: Icons.add,
-                          tooltip: 'Zoom in',
+                          tooltip: 'Zoom avant',
                           onPressed: () {
                             _controller?.animateCamera(CameraUpdate.zoomIn());
                           },
@@ -342,7 +342,7 @@ class _GpsRouteMapState extends State<GpsRouteMap> {
                         // Zoom out
                         _MapControlButton(
                           icon: Icons.remove,
-                          tooltip: 'Zoom out',
+                          tooltip: 'Zoom arrière',
                           onPressed: () {
                             _controller?.animateCamera(CameraUpdate.zoomOut());
                           },
@@ -351,7 +351,7 @@ class _GpsRouteMapState extends State<GpsRouteMap> {
                         // Fit bounds
                         _MapControlButton(
                           icon: Icons.fit_screen,
-                          tooltip: 'Fit route',
+                          tooltip: 'Ajuster le tracé',
                           onPressed: _fitBounds,
                         ),
                         if (widget.showFullscreenButton) ...[
@@ -359,7 +359,7 @@ class _GpsRouteMapState extends State<GpsRouteMap> {
                           // Fullscreen
                           _MapControlButton(
                             icon: Icons.fullscreen,
-                            tooltip: 'Fullscreen',
+                            tooltip: 'Plein écran',
                             onPressed: () => _openFullscreen(context),
                           ),
                         ],

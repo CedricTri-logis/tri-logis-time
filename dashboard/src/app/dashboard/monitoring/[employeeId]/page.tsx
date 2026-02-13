@@ -1,14 +1,17 @@
 'use client';
 
-import { useState, useCallback, useMemo, use } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef, use } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useCustom } from '@refinedev/core';
-import { ArrowLeft, RefreshCw, Wifi, WifiOff } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Wifi, WifiOff, Map, Navigation } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ShiftDetailCard } from '@/components/monitoring/shift-detail-card';
+import { TimelineBar } from '@/components/timeline/timeline-bar';
+import { TimelineSummaryCard } from '@/components/timeline/timeline-summary';
 import { useRealtimeGps } from '@/lib/hooks/use-realtime-gps';
+import { useTimelineSegments } from '@/lib/hooks/use-timeline-segments';
 import type {
   EmployeeCurrentShiftRow,
   GpsTrailRow,
@@ -18,6 +21,7 @@ import type {
   ConnectionStatus,
 } from '@/types/monitoring';
 import { transformGpsTrailRow } from '@/types/monitoring';
+import type { TimelineSegment } from '@/types/location';
 
 // Dynamically import the GPS trail map to avoid SSR issues
 const GpsTrailMap = dynamic(
@@ -28,6 +32,17 @@ const GpsTrailMap = dynamic(
   }
 );
 
+// Dynamically import the segmented trail map
+const SegmentedTrailMap = dynamic(
+  () => import('@/components/timeline/segmented-trail-map').then((mod) => mod.SegmentedTrailMap),
+  {
+    ssr: false,
+    loading: () => <MapSkeleton />,
+  }
+);
+
+type MapViewMode = 'basic' | 'segmented';
+
 interface PageProps {
   params: Promise<{ employeeId: string }>;
 }
@@ -35,6 +50,7 @@ interface PageProps {
 export default function EmployeeMonitoringPage({ params }: PageProps) {
   const { employeeId } = use(params);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [mapViewMode, setMapViewMode] = useState<MapViewMode>('segmented');
 
   // Fetch employee's current shift
   const {
@@ -62,10 +78,12 @@ export default function EmployeeMonitoringPage({ params }: PageProps) {
 
   // Transform shift data
   const currentShift: EmployeeCurrentShift | null = useMemo(() => {
-    const rows = shiftResult?.data as EmployeeCurrentShiftRow[] | undefined;
-    if (!rows || rows.length === 0) return null;
+    const data = shiftResult?.data;
+    if (!data || !Array.isArray(data) || data.length === 0) return null;
 
-    const row = rows[0];
+    const row = data[0] as EmployeeCurrentShiftRow;
+    if (!row || !row.shift_id) return null;
+
     return {
       shiftId: row.shift_id,
       clockedInAt: new Date(row.clocked_in_at),
@@ -115,13 +133,19 @@ export default function EmployeeMonitoringPage({ params }: PageProps) {
 
   // Transform GPS trail data
   const [localTrail, setLocalTrail] = useState<GpsTrailPoint[]>([]);
+  const trailData = trailResult?.data;
+  const prevTrailDataRef = useRef<string | null>(null);
 
-  useMemo(() => {
-    const rows = trailResult?.data as GpsTrailRow[] | undefined;
-    if (rows) {
-      setLocalTrail(rows.map(transformGpsTrailRow));
+  useEffect(() => {
+    if (trailData && Array.isArray(trailData)) {
+      // Only update if data actually changed (compare by JSON string)
+      const dataKey = JSON.stringify(trailData.map((r: GpsTrailRow) => r.id));
+      if (prevTrailDataRef.current !== dataKey) {
+        prevTrailDataRef.current = dataKey;
+        setLocalTrail((trailData as GpsTrailRow[]).map(transformGpsTrailRow));
+      }
     }
-  }, [trailResult]);
+  }, [trailData]);
 
   // Handle real-time GPS updates for this employee
   const handleGpsPoint = useCallback(
@@ -150,6 +174,23 @@ export default function EmployeeMonitoringPage({ params }: PageProps) {
     onGpsPoint: handleGpsPoint,
     enabled: !!currentShift,
   });
+
+  // Timeline segments for shift
+  const {
+    segments,
+    summary: timelineSummary,
+    shiftDuration,
+    isLoading: timelineLoading,
+  } = useTimelineSegments(currentShift?.shiftId ?? null);
+
+  // Selected segment state for timeline interaction
+  const [selectedSegment, setSelectedSegment] = useState<TimelineSegment | null>(null);
+
+  const handleSegmentClick = useCallback((segment: TimelineSegment) => {
+    setSelectedSegment((current) =>
+      current?.segmentIndex === segment.segmentIndex ? null : segment
+    );
+  }, []);
 
   // Refresh handler
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -212,13 +253,72 @@ export default function EmployeeMonitoringPage({ params }: PageProps) {
           isLoading={isLoading}
         />
 
-        {/* GPS trail map */}
-        <GpsTrailMap
-          trail={localTrail}
-          isLoading={trailLoading && localTrail.length === 0}
-          employeeName={employeeName}
-        />
+        {/* GPS trail map with view toggle */}
+        <div className="space-y-2">
+          {/* Map view toggle */}
+          <div className="flex items-center justify-end gap-1">
+            <div className="flex items-center rounded-lg border bg-white p-1">
+              <Button
+                variant={mapViewMode === 'basic' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => setMapViewMode('basic')}
+                className="h-7 px-2 text-xs gap-1"
+              >
+                <Map className="h-3 w-3" />
+                Basic
+              </Button>
+              <Button
+                variant={mapViewMode === 'segmented' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => setMapViewMode('segmented')}
+                className="h-7 px-2 text-xs gap-1"
+              >
+                <Navigation className="h-3 w-3" />
+                Segmented
+              </Button>
+            </div>
+          </div>
+
+          {/* Map display */}
+          {mapViewMode === 'basic' ? (
+            <GpsTrailMap
+              trail={localTrail}
+              isLoading={trailLoading && localTrail.length === 0}
+              employeeName={employeeName}
+            />
+          ) : (
+            <SegmentedTrailMap
+              trail={localTrail}
+              segments={segments}
+              isLoading={trailLoading && localTrail.length === 0}
+              selectedSegment={selectedSegment}
+              onSegmentClick={handleSegmentClick}
+              mode="realtime"
+            />
+          )}
+        </div>
       </div>
+
+      {/* Timeline visualization */}
+      {currentShift && (
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <TimelineBar
+              segments={segments}
+              totalDuration={shiftDuration}
+              isLoading={timelineLoading}
+              showLegend={true}
+              showTimeMarkers={true}
+              onSegmentClick={handleSegmentClick}
+              selectedSegment={selectedSegment}
+            />
+          </div>
+          <TimelineSummaryCard
+            summary={timelineSummary}
+            isLoading={timelineLoading}
+          />
+        </div>
+      )}
 
       {/* Last updated indicator */}
       {lastUpdated && (

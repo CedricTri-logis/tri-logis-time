@@ -58,6 +58,8 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Camera access is needed to scan QR codes for room check-in and check-out.</string>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
 	<!-- Deep Link URL Scheme for Supabase Auth -->

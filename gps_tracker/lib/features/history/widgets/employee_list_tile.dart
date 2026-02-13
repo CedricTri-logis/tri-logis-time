@@ -75,7 +75,7 @@ class EmployeeListTile extends StatelessWidget {
           children: [
             if (employee.lastShiftAt != null) ...[
               Text(
-                'Last shift',
+                'Dernier quart',
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -88,7 +88,7 @@ class EmployeeListTile extends StatelessWidget {
               ),
             ] else
               Text(
-                'No shifts',
+                'Aucun quart',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),

@@ -1,4 +1,4 @@
-package com.gps_tracker.gps_tracker
+package ca.trilogis.gpstracker
 
 import io.flutter.embedding.android.FlutterActivity
 

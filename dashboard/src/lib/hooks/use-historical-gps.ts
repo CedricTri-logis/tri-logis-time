@@ -26,7 +26,9 @@ export function useHistoricalTrail(shiftId: string | null) {
     method: 'get',
     meta: {
       rpc: 'get_historical_shift_trail',
-      rpcParams: {
+    },
+    config: {
+      payload: {
         p_shift_id: shiftId,
       },
     },
@@ -38,7 +40,7 @@ export function useHistoricalTrail(shiftId: string | null) {
   const rawData = result?.data as HistoricalGpsPointRow[] | undefined;
 
   const trail: HistoricalGpsPoint[] = useMemo(() => {
-    if (!rawData) return [];
+    if (!rawData || !Array.isArray(rawData)) return [];
     return rawData.map((row) => ({
       id: row.id,
       latitude: row.latitude,
@@ -71,7 +73,9 @@ export function useShiftHistory(params: {
     method: 'get',
     meta: {
       rpc: 'get_employee_shift_history',
-      rpcParams: {
+    },
+    config: {
+      payload: {
         p_employee_id: employeeId,
         p_start_date: startDate,
         p_end_date: endDate,
@@ -85,7 +89,7 @@ export function useShiftHistory(params: {
   const rawData = result?.data as ShiftHistorySummaryRow[] | undefined;
 
   const shifts: ShiftHistorySummary[] = useMemo(() => {
-    if (!rawData) return [];
+    if (!rawData || !Array.isArray(rawData)) return [];
     return rawData.map((row) => ({
       id: row.id,
       employeeId: row.employee_id,
@@ -118,7 +122,7 @@ export function useSupervisedEmployees() {
     url: '',
     method: 'get',
     meta: {
-      rpc: 'get_supervised_employees_list',
+      rpc: 'get_supervised_employees',
     },
     queryOptions: {
       staleTime: 5 * 60 * 1000, // Cache for 5 minutes
@@ -128,10 +132,11 @@ export function useSupervisedEmployees() {
   const rawData = result?.data as SupervisedEmployeeRow[] | undefined;
 
   const employees: SupervisedEmployee[] = useMemo(() => {
-    if (!rawData) return [];
+    if (!rawData || !Array.isArray(rawData)) return [];
     return rawData.map((row) => ({
       id: row.id,
       fullName: row.full_name,
+      email: row.email,
       employeeId: row.employee_id,
     }));
   }, [rawData]);
@@ -153,7 +158,9 @@ export function useMultiShiftTrails(shiftIds: string[]) {
     method: 'get',
     meta: {
       rpc: 'get_multi_shift_trails',
-      rpcParams: {
+    },
+    config: {
+      payload: {
         p_shift_ids: shiftIds,
       },
     },
@@ -166,7 +173,7 @@ export function useMultiShiftTrails(shiftIds: string[]) {
 
   // Group points by shift ID
   const trailsByShift: Map<string, MultiShiftGpsPoint[]> = useMemo(() => {
-    if (!rawData) return new Map();
+    if (!rawData || !Array.isArray(rawData)) return new Map();
 
     const map = new Map<string, MultiShiftGpsPoint[]>();
 
@@ -191,7 +198,7 @@ export function useMultiShiftTrails(shiftIds: string[]) {
 
   // All points in a flat array
   const allPoints: MultiShiftGpsPoint[] = useMemo(() => {
-    if (!rawData) return [];
+    if (!rawData || !Array.isArray(rawData)) return [];
     return rawData.map((row) => ({
       id: row.id,
       shiftId: row.shift_id,

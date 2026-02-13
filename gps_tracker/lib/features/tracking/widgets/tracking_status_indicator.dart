@@ -102,7 +102,7 @@ class TrackingStatusIndicator extends ConsumerWidget {
               ),
               if (showPointCount && trackingState.status.isActive) ...[
                 Text(
-                  '$pointsCaptured points${isStationary ? ' (stationary)' : ''}',
+                  '$pointsCaptured points${isStationary ? ' (immobile)' : ''}',
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: config.color.withAlpha(179),
                   ),
@@ -120,31 +120,31 @@ class TrackingStatusIndicator extends ConsumerWidget {
       TrackingStatus.stopped => const _StatusConfig(
           icon: Icons.location_off,
           color: Colors.grey,
-          label: 'Not Tracking',
+          label: 'Pas de suivi',
           isAnimated: false,
         ),
       TrackingStatus.starting => const _StatusConfig(
           icon: Icons.location_searching,
           color: Colors.orange,
-          label: 'Starting...',
+          label: 'Démarrage...',
           isAnimated: true,
         ),
       TrackingStatus.running => const _StatusConfig(
           icon: Icons.location_on,
           color: Colors.green,
-          label: 'Tracking Active',
+          label: 'Suivi actif',
           isAnimated: true,
         ),
       TrackingStatus.paused => const _StatusConfig(
           icon: Icons.location_disabled,
           color: Colors.orange,
-          label: 'GPS Unavailable',
+          label: 'GPS indisponible',
           isAnimated: false,
         ),
       TrackingStatus.error => const _StatusConfig(
           icon: Icons.error,
           color: Colors.red,
-          label: 'Tracking Error',
+          label: 'Erreur de suivi',
           isAnimated: false,
         ),
     };

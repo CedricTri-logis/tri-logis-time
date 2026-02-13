@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -15,6 +16,10 @@ import '../../tracking/widgets/battery_optimization_dialog.dart';
 import '../../tracking/widgets/device_services_dialog.dart';
 import '../../tracking/widgets/permission_change_alert.dart';
 import '../../tracking/widgets/permission_explanation_dialog.dart';
+import '../../cleaning/providers/cleaning_session_provider.dart';
+import '../../cleaning/screens/qr_scanner_screen.dart';
+import '../../cleaning/widgets/active_session_card.dart';
+import '../../cleaning/widgets/cleaning_history_list.dart';
 import '../../tracking/widgets/permission_status_banner.dart';
 import '../../tracking/widgets/settings_guidance_dialog.dart';
 import '../models/geo_point.dart';
@@ -36,6 +41,21 @@ class ShiftDashboardScreen extends ConsumerStatefulWidget {
 
 class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
     with WidgetsBindingObserver {
+  /// Grace period duration before auto clock-out when GPS is lost (5 minutes).
+  static const _gpsGracePeriodDuration = Duration(minutes: 5);
+
+  /// Timer for the GPS grace period countdown.
+  Timer? _gpsGracePeriodTimer;
+
+  /// Timer for updating the countdown display.
+  Timer? _countdownDisplayTimer;
+
+  /// When GPS was lost (null if GPS is available).
+  DateTime? _gpsLostAt;
+
+  /// Whether an auto clock-out warning is currently being shown.
+  bool _isShowingGpsWarning = false;
+
   @override
   void initState() {
     super.initState();
@@ -44,6 +64,7 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
 
   @override
   void dispose() {
+    _cancelGpsGracePeriod();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -111,7 +132,7 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
               ),
             ),
             SizedBox(width: 16),
-            Text('Getting your location...'),
+            Text('Obtention de votre position...'),
           ],
         ),
         duration: Duration(seconds: 2),
@@ -121,9 +142,17 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
     // Capture location
     final locationData = await locationService.captureClockLocation();
 
-    // Clock in
+    // Validate GPS location was captured - clock-in requires location
+    if (locationData.location == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      _showLocationCaptureFailedDialog();
+      return;
+    }
+
+    // Clock in (location is guaranteed non-null after validation above)
     final success = await shiftNotifier.clockIn(
-      location: locationData.location,
+      location: locationData.location!,
       accuracy: locationData.accuracy,
     );
 
@@ -141,7 +170,7 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
             children: [
               Icon(Icons.check_circle, color: Colors.white),
               SizedBox(width: 12),
-              Text('Successfully clocked in!'),
+              Text('Quart débuté!'),
             ],
           ),
           backgroundColor: Colors.green,
@@ -159,7 +188,7 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
             children: [
               const Icon(Icons.error, color: Colors.white),
               const SizedBox(width: 12),
-              Expanded(child: Text(error ?? 'Failed to clock in')),
+              Expanded(child: Text(error ?? 'Échec du démarrage du quart')),
             ],
           ),
           backgroundColor: Colors.red,
@@ -207,22 +236,22 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
     String fixLabel;
 
     if (isPartialPermission) {
-      title = 'Limited Tracking';
+      title = 'Suivi limité';
       message =
-          'You have "while in use" permission only. Background tracking may be '
-          'interrupted when the app is not visible. Do you want to continue anyway?';
-      fixLabel = 'Upgrade Permission';
+          'Vous avez la permission "en cours d\'utilisation" seulement. Le suivi en '
+          'arrière-plan peut être interrompu quand l\'app n\'est pas visible. Continuer quand même?';
+      fixLabel = 'Améliorer permission';
     } else if (isBatteryOptimization) {
-      title = 'Battery Optimization';
+      title = 'Optimisation batterie';
       message =
-          'Battery optimization may interrupt GPS tracking during your shift. '
-          'We recommend disabling it for this app. Continue anyway?';
-      fixLabel = 'Disable Optimization';
+          'L\'optimisation de batterie peut interrompre le suivi GPS pendant votre quart. '
+          'Nous recommandons de la désactiver pour cette app. Continuer quand même?';
+      fixLabel = 'Désactiver optimisation';
     } else {
-      title = 'Warning';
+      title = 'Avertissement';
       message =
-          'There may be issues with GPS tracking. Do you want to continue anyway?';
-      fixLabel = 'Fix';
+          'Il pourrait y avoir des problèmes avec le suivi GPS. Continuer quand même?';
+      fixLabel = 'Corriger';
     }
 
     final result = await showDialog<String>(
@@ -242,7 +271,7 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop('cancel'),
-            child: const Text('Cancel'),
+            child: const Text('Annuler'),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop('fix'),
@@ -250,7 +279,7 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop('proceed'),
-            child: const Text('Continue Anyway'),
+            child: const Text('Continuer quand même'),
           ),
         ],
       ),
@@ -289,6 +318,116 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
     monitor.stopMonitoring();
   }
 
+  /// Start the GPS grace period countdown when GPS is lost.
+  void _startGpsGracePeriod() {
+    // Don't start if already running
+    if (_gpsLostAt != null) return;
+
+    _gpsLostAt = DateTime.now();
+
+    // Start the main timer that will trigger auto clock-out
+    _gpsGracePeriodTimer = Timer(_gpsGracePeriodDuration, () {
+      _forceClockOut();
+    });
+
+    // Start a display timer to update the UI every second
+    _countdownDisplayTimer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) {
+        if (mounted) setState(() {});
+      },
+    );
+
+    // Show the warning dialog
+    _showGpsLostWarningDialog();
+  }
+
+  /// Cancel the GPS grace period (called when GPS is restored or shift ends).
+  void _cancelGpsGracePeriod() {
+    _gpsGracePeriodTimer?.cancel();
+    _gpsGracePeriodTimer = null;
+    _countdownDisplayTimer?.cancel();
+    _countdownDisplayTimer = null;
+    _gpsLostAt = null;
+    _isShowingGpsWarning = false;
+  }
+
+  /// Get remaining seconds in the grace period.
+  int get _gracePeriodSecondsRemaining {
+    if (_gpsLostAt == null) return 0;
+    final elapsed = DateTime.now().difference(_gpsLostAt!);
+    final remaining = _gpsGracePeriodDuration - elapsed;
+    return remaining.inSeconds.clamp(0, _gpsGracePeriodDuration.inSeconds);
+  }
+
+  /// Force clock-out when grace period expires.
+  Future<void> _forceClockOut() async {
+    if (!mounted) return;
+
+    // Cancel the grace period timers
+    _cancelGpsGracePeriod();
+
+    // Dismiss any open dialogs
+    Navigator.of(context).popUntil((route) => route.isFirst);
+
+    final shiftNotifier = ref.read(shiftProvider.notifier);
+
+    // Clock out without location (GPS is unavailable)
+    final success = await shiftNotifier.clockOut(
+      location: null,
+      accuracy: null,
+    );
+
+    if (!mounted) return;
+
+    // Stop permission monitoring
+    _stopPermissionMonitoring();
+    ref.read(permissionGuardProvider.notifier).setActiveShift(false);
+
+    // Show notification
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Row(
+          children: [
+            Icon(Icons.warning, color: Colors.white),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Quart terminé automatiquement - GPS indisponible trop longtemps',
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.orange.shade700,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 5),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+
+    if (!success) {
+      final error = ref.read(shiftProvider).error;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error, color: Colors.white),
+              const SizedBox(width: 12),
+              Expanded(child: Text(error ?? 'Échec de la fin automatique')),
+            ],
+          ),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+      );
+    }
+  }
+
   /// Handle permission changes during active shift.
   void _handlePermissionChange(PermissionChangeEvent event) {
     if (!mounted) return;
@@ -296,8 +435,38 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
     // Update permission guard state
     ref.read(permissionGuardProvider.notifier).checkStatus();
 
-    // Show alert for downgrades
-    if (event.isDowngrade) {
+    // Check current permission state - if no permission, start grace period
+    final hasPermission = event.newState.hasAnyPermission;
+    final hadPermission = event.previousState.hasAnyPermission;
+
+    if (!hasPermission && hadPermission) {
+      // GPS permission lost - start grace period countdown
+      _startGpsGracePeriod();
+    } else if (hasPermission && _gpsLostAt != null) {
+      // GPS restored - cancel grace period and show success
+      _cancelGpsGracePeriod();
+      // Dismiss the warning dialog if showing
+      if (_isShowingGpsWarning && mounted) {
+        Navigator.of(context).pop();
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.white),
+              SizedBox(width: 12),
+              Text('GPS restauré - suivi repris'),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+      );
+    } else if (event.isDowngrade && hasPermission) {
+      // Non-critical downgrade (e.g., "always" to "while in use") - show warning only
       PermissionChangeAlert.show(
         context,
         event,
@@ -305,14 +474,7 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
           // User acknowledged the issue
         },
         onFix: () async {
-          // User wants to fix the issue
-          if (event.affectsTracking) {
-            await SettingsGuidanceDialog.show(context);
-          } else {
-            await ref
-                .read(permissionGuardProvider.notifier)
-                .requestPermission();
-          }
+          await ref.read(permissionGuardProvider.notifier).openAppSettings();
           if (mounted) {
             await ref.read(permissionGuardProvider.notifier).checkStatus();
           }
@@ -355,8 +517,9 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
     if (!mounted) return;
 
     if (success) {
-      // Stop permission monitoring after clock out
+      // Stop permission monitoring and grace period after clock out
       _stopPermissionMonitoring();
+      _cancelGpsGracePeriod();
       ref.read(permissionGuardProvider.notifier).setActiveShift(false);
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -365,7 +528,7 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
             children: [
               Icon(Icons.check_circle, color: Colors.white),
               SizedBox(width: 12),
-              Text('Successfully clocked out!'),
+              Text('Quart terminé!'),
             ],
           ),
           backgroundColor: Colors.green,
@@ -383,7 +546,7 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
             children: [
               const Icon(Icons.error, color: Colors.white),
               const SizedBox(width: 12),
-              Expanded(child: Text(error ?? 'Failed to clock out')),
+              Expanded(child: Text(error ?? 'Échec de la fin du quart')),
             ],
           ),
           backgroundColor: Colors.red,
@@ -400,15 +563,15 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Location Permission Required'),
+        title: const Text('Permission de localisation requise'),
         content: const Text(
-          'GPS Tracker needs location access to record where you clock in and out. '
-          'Please grant location permission to continue.',
+          'GPS Tracker a besoin d\'accéder à votre position pour enregistrer vos quarts. '
+          'Veuillez accorder la permission de localisation pour continuer.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+            child: const Text('Annuler'),
           ),
           FilledButton(
             onPressed: () async {
@@ -416,7 +579,7 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
               final locationService = ref.read(locationServiceProvider);
               await locationService.requestPermission();
             },
-            child: const Text('Grant Permission'),
+            child: const Text('Accorder permission'),
           ),
         ],
       ),
@@ -427,15 +590,15 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Location Permission Denied'),
+        title: const Text('Permission de localisation refusée'),
         content: const Text(
-          'Location permission has been permanently denied. '
-          'Please enable it in your device settings to clock in.',
+          'La permission de localisation a été refusée de façon permanente. '
+          'Veuillez l\'activer dans les paramètres de votre appareil pour débuter.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+            child: const Text('Annuler'),
           ),
           FilledButton(
             onPressed: () async {
@@ -443,10 +606,160 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
               final locationService = ref.read(locationServiceProvider);
               await locationService.openAppSettings();
             },
-            child: const Text('Open Settings'),
+            child: const Text('Ouvrir paramètres'),
           ),
         ],
       ),
+    );
+  }
+
+  void _showLocationCaptureFailedDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.location_off, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Position introuvable'),
+          ],
+        ),
+        content: const Text(
+          'Impossible d\'obtenir votre position GPS. Veuillez vérifier:\n\n'
+          '• Les services de localisation sont activés\n'
+          '• Vous êtes dans une zone avec signal GPS\n'
+          '• L\'app a la permission de localisation\n\n'
+          'Une position GPS valide est requise pour débuter.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              // Retry clock-in
+              _handleClockIn();
+            },
+            child: const Text('Réessayer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Show warning dialog when GPS is lost mid-shift with countdown to auto clock-out.
+  void _showGpsLostWarningDialog() {
+    _isShowingGpsWarning = true;
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false, // User must take action
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          // Calculate remaining time
+          final remaining = _gracePeriodSecondsRemaining;
+          final minutes = remaining ~/ 60;
+          final seconds = remaining % 60;
+          final timeString = '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+
+          // Update dialog every second
+          Future.delayed(const Duration(seconds: 1), () {
+            if (_isShowingGpsWarning && mounted) {
+              setDialogState(() {});
+            }
+          });
+
+          return AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.gps_off, color: Colors.red.shade700),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text('Signal GPS perdu'),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Le suivi de position a arrêté. Votre quart se terminera '
+                  'automatiquement si le GPS n\'est pas restauré.',
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.timer, color: Colors.red),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Fin auto dans $timeString',
+                        style: const TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Pour restaurer le suivi:\n'
+                  '• Activez les services de localisation\n'
+                  '• Accordez la permission à cette app',
+                  style: TextStyle(fontSize: 13),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(dialogContext).pop();
+                  _isShowingGpsWarning = false;
+                  // Immediately clock out
+                  _forceClockOut();
+                },
+                child: const Text('Terminer maintenant'),
+              ),
+              FilledButton(
+                onPressed: () async {
+                  Navigator.of(dialogContext).pop();
+                  _isShowingGpsWarning = false;
+                  // Open settings to fix
+                  await ref
+                      .read(permissionGuardProvider.notifier)
+                      .openAppSettings();
+                  if (mounted) {
+                    await ref
+                        .read(permissionGuardProvider.notifier)
+                        .checkStatus();
+                  }
+                },
+                child: const Text('Ouvrir paramètres'),
+              ),
+            ],
+          );
+        },
+      ),
+    ).then((_) {
+      _isShowingGpsWarning = false;
+    });
+  }
+
+  void _openQrScanner() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const QrScannerScreen()),
     );
   }
 
@@ -455,68 +768,82 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
     final shiftState = ref.watch(shiftProvider);
     final hasActiveShift = shiftState.activeShift != null;
 
-    return RefreshIndicator(
-      onRefresh: () async {
-        await ref.read(shiftProvider.notifier).refresh();
-        await ref.read(permissionGuardProvider.notifier).checkStatus();
-      },
-      child: Column(
-        children: [
-          // Permission status banner at top
-          const PermissionStatusBanner(),
-          Expanded(
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const ShiftStatusCard(),
-                  if (hasActiveShift) ...[
-                    const SizedBox(height: 16),
-                    const ShiftTimer(),
-                  ],
-                  const SizedBox(height: 32),
-                  Center(
-                    child: ClockButton(
-                      onClockIn: _handleClockIn,
-                      onClockOut: _handleClockOut,
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  if (shiftState.error != null)
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border:
-                            Border.all(color: Colors.red.withValues(alpha: 0.3)),
+    return Scaffold(
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await ref.read(shiftProvider.notifier).refresh();
+          await ref.read(cleaningSessionProvider.notifier).loadActiveSession();
+          await ref.read(permissionGuardProvider.notifier).checkStatus();
+        },
+        child: Column(
+          children: [
+            // Permission status banner at top
+            const PermissionStatusBanner(),
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const ShiftStatusCard(),
+                    if (hasActiveShift) ...[
+                      const SizedBox(height: 16),
+                      const ShiftTimer(),
+                      const SizedBox(height: 16),
+                      const ActiveSessionCard(),
+                      const SizedBox(height: 16),
+                      const CleaningHistoryList(),
+                    ],
+                    const SizedBox(height: 32),
+                    Center(
+                      child: ClockButton(
+                        onClockIn: _handleClockIn,
+                        onClockOut: _handleClockOut,
                       ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.error_outline, color: Colors.red),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              shiftState.error!,
-                              style: const TextStyle(color: Colors.red),
+                    ),
+                    const SizedBox(height: 32),
+                    if (shiftState.error != null)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border:
+                              Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.error_outline, color: Colors.red),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                shiftState.error!,
+                                style: const TextStyle(color: Colors.red),
+                              ),
                             ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.close, color: Colors.red),
-                            onPressed: () =>
-                                ref.read(shiftProvider.notifier).clearError(),
-                          ),
-                        ],
+                            IconButton(
+                              icon: const Icon(Icons.close, color: Colors.red),
+                              onPressed: () =>
+                                  ref.read(shiftProvider.notifier).clearError(),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
+      floatingActionButton: hasActiveShift
+          ? FloatingActionButton(
+              onPressed: _openQrScanner,
+              tooltip: 'Scanner QR',
+              child: const Icon(Icons.qr_code_scanner),
+            )
+          : null,
     );
   }
 }
@@ -560,14 +887,14 @@ class _ClockOutConfirmationSheet extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'Clock Out?',
+            'Terminer le quart?',
             style: theme.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Current shift duration',
+            'Durée du quart actuel',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -586,7 +913,7 @@ class _ClockOutConfirmationSheet extends StatelessWidget {
               Expanded(
                 child: OutlinedButton(
                   onPressed: () => Navigator.of(context).pop(false),
-                  child: const Text('Cancel'),
+                  child: const Text('Annuler'),
                 ),
               ),
               const SizedBox(width: 16),
@@ -596,7 +923,7 @@ class _ClockOutConfirmationSheet extends StatelessWidget {
                   style: FilledButton.styleFrom(
                     backgroundColor: theme.colorScheme.error,
                   ),
-                  child: const Text('Clock Out'),
+                  child: const Text('Terminer'),
                 ),
               ),
             ],

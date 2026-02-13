@@ -80,7 +80,7 @@ class _ShiftTimerState extends ConsumerState<ShiftTimer>
         child: Column(
           children: [
             Text(
-              'Shift Duration',
+              'Durée du quart',
               style: theme.textTheme.titleMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

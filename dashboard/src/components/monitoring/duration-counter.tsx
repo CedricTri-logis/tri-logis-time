@@ -26,26 +26,29 @@ export function DurationCounter({
   className,
   showPulse = false,
 }: DurationCounterProps) {
-  const [duration, setDuration] = useState(() =>
-    startTime ? differenceInSeconds(new Date(), startTime) : 0
-  );
+  // Get stable timestamp value (number) to avoid re-running effect on Date reference changes
+  const startTimestamp = startTime ? startTime.getTime() : null;
+
+  const [duration, setDuration] = useState(0);
 
   useEffect(() => {
-    if (!startTime) {
+    if (startTimestamp === null) {
       setDuration(0);
       return;
     }
 
+    const startDate = new Date(startTimestamp);
+
     // Initial calculation
-    setDuration(differenceInSeconds(new Date(), startTime));
+    setDuration(differenceInSeconds(new Date(), startDate));
 
     // Update every second
     const interval = setInterval(() => {
-      setDuration(differenceInSeconds(new Date(), startTime));
+      setDuration(differenceInSeconds(new Date(), startDate));
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [startTime]);
+  }, [startTimestamp]);
 
   if (!startTime) {
     return <span className={cn('text-slate-400', className)}>--:--:--</span>;

@@ -96,7 +96,7 @@ export function ShiftHistoryTable({
                   <SelectItem value="all">All Employees</SelectItem>
                   {employees.map((emp) => (
                     <SelectItem key={emp.id} value={emp.id}>
-                      {emp.fullName}
+                      {emp.fullName || emp.email || 'Unknown'}
                       {emp.employeeId && (
                         <span className="text-slate-400 ml-1">({emp.employeeId})</span>
                       )}

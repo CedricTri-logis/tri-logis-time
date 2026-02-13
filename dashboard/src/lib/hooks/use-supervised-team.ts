@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useCustom } from '@refinedev/core';
 import { useRealtimeShifts } from './use-realtime-shifts';
 import { useRealtimeGps } from './use-realtime-gps';
@@ -71,14 +71,20 @@ export function useSupervisedTeam({
 
   // Transform raw data to typed objects
   const [localTeam, setLocalTeam] = useState<MonitoredEmployee[]>([]);
-  const rawTeam = result?.data as MonitoredTeamRow[] | undefined;
+  const rawTeam = result?.data;
+  const prevRawTeamRef = useRef<string | null>(null);
 
   // Update local team when query data changes
-  useMemo(() => {
-    if (rawTeam) {
-      const transformed = rawTeam.map(transformMonitoredTeamRow);
-      setLocalTeam(transformed);
-      setLastUpdated(new Date());
+  useEffect(() => {
+    if (rawTeam && Array.isArray(rawTeam)) {
+      // Only update if data actually changed (compare by IDs)
+      const dataKey = JSON.stringify((rawTeam as MonitoredTeamRow[]).map((r) => r.id));
+      if (prevRawTeamRef.current !== dataKey) {
+        prevRawTeamRef.current = dataKey;
+        const transformed = (rawTeam as MonitoredTeamRow[]).map(transformMonitoredTeamRow);
+        setLocalTeam(transformed);
+        setLastUpdated(new Date());
+      }
     }
   }, [rawTeam]);
 

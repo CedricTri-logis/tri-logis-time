@@ -105,8 +105,9 @@ class ShiftService {
   String? get _currentUserId => _supabase.auth.currentUser?.id;
 
   /// Clock in - creates a new shift locally first, then syncs.
+  /// Requires a valid GPS location to proceed.
   Future<ClockInResult> clockIn({
-    GeoPoint? location,
+    required GeoPoint location,
     double? accuracy,
   }) async {
     final userId = _currentUserId;
@@ -132,8 +133,8 @@ class ShiftService {
       requestId: requestId,
       status: 'active',
       clockedInAt: now,
-      clockInLatitude: location?.latitude,
-      clockInLongitude: location?.longitude,
+      clockInLatitude: location.latitude,
+      clockInLongitude: location.longitude,
       clockInAccuracy: accuracy,
       syncStatus: 'pending',
       createdAt: now,
@@ -147,7 +148,7 @@ class ShiftService {
     try {
       final response = await _supabase.rpc<Map<String, dynamic>>('clock_in', params: {
         'p_request_id': requestId,
-        if (location != null) 'p_location': location.toJson(),
+        'p_location': location.toJson(),
         if (accuracy != null) 'p_accuracy': accuracy,
       },);
 
@@ -177,14 +178,14 @@ class ShiftService {
         await _supabase.rpc<Map<String, dynamic>>('clock_out', params: {
           'p_shift_id': existingServerId,
           'p_request_id': _uuid.v4(),
-          if (location != null) 'p_location': location.toJson(),
+          'p_location': location.toJson(),
           if (accuracy != null) 'p_accuracy': accuracy,
         },);
 
         // Retry clock-in with the same request
         final retryResponse = await _supabase.rpc<Map<String, dynamic>>('clock_in', params: {
           'p_request_id': requestId,
-          if (location != null) 'p_location': location.toJson(),
+          'p_location': location.toJson(),
           if (accuracy != null) 'p_accuracy': accuracy,
         },);
 

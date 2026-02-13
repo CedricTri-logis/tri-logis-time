@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, MapPin, UserCog, Radio, History, FileBarChart } from 'lucide-react';
+import { LayoutDashboard, Users, MapPin, MapPinned, UserCog, Radio, History, FileBarChart, SprayCan } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navigation = [
@@ -30,6 +30,16 @@ const navigation = [
     name: 'History',
     href: '/dashboard/history',
     icon: History,
+  },
+  {
+    name: 'Locations',
+    href: '/dashboard/locations',
+    icon: MapPinned,
+  },
+  {
+    name: 'Cleaning',
+    href: '/dashboard/cleaning',
+    icon: SprayCan,
   },
   {
     name: 'Reports',

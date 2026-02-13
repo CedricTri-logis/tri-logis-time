@@ -51,7 +51,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       if (remaining != null && mounted) {
         ErrorSnackbar.show(
           context,
-          'Too many attempts. Try again in ${AuthRateLimiter.formatDuration(remaining)}',
+          'Trop de tentatives. Réessayez dans ${AuthRateLimiter.formatDuration(remaining)}',
         );
       }
       return;
@@ -117,7 +117,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
 
                   // Title
                   Text(
-                    'Welcome Back',
+                    'Bon retour',
                     style: theme.textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -125,7 +125,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Sign in to continue',
+                    'Connectez-vous pour continuer',
                     style: theme.textTheme.bodyLarge?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -153,7 +153,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                     },
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Password is required';
+                        return 'Le mot de passe est requis';
                       }
                       return null;
                     },
@@ -166,7 +166,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   Align(
                     alignment: Alignment.centerRight,
                     child: AuthTextButton(
-                      text: 'Forgot Password?',
+                      text: 'Mot de passe oublié?',
                       onPressed: _isLoading ? null : _navigateToForgotPassword,
                     ),
                   ),
@@ -174,8 +174,8 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
 
                   // Sign in button
                   AuthButton(
-                    text: 'Sign In',
-                    loadingText: 'Signing in...',
+                    text: 'Connexion',
+                    loadingText: 'Connexion en cours...',
                     isLoading: _isLoading,
                     onPressed: _handleSignIn,
                   ),
@@ -186,11 +186,11 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        "Don't have an account? ",
+                        "Pas de compte? ",
                         style: theme.textTheme.bodyMedium,
                       ),
                       AuthTextButton(
-                        text: 'Create Account',
+                        text: 'Créer un compte',
                         onPressed: _isLoading ? null : _navigateToSignUp,
                       ),
                     ],

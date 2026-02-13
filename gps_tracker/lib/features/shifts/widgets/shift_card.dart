@@ -131,7 +131,7 @@ class ShiftCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      'Location recorded',
+                      'Position enregistrée',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
