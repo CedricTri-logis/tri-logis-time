@@ -226,6 +226,27 @@ class CleaningSessionNotifier extends StateNotifier<CleaningSessionState> {
     }
   }
 
+  /// Manually close the active cleaning session (without scanning).
+  Future<bool> manualClose() async {
+    final employeeId = _employeeId;
+    if (employeeId == null) return false;
+
+    state = state.copyWith(clearError: true);
+
+    try {
+      final result = await _service.manualClose(employeeId: employeeId);
+      if (result != null) {
+        state = state.copyWith(clearActiveSession: true);
+        return true;
+      }
+      state = state.copyWith(error: 'Aucune session active');
+      return false;
+    } catch (e) {
+      state = state.copyWith(error: 'Erreur lors de la fermeture: $e');
+      return false;
+    }
+  }
+
   /// Clear error state.
   void clearError() {
     state = state.copyWith(clearError: true);

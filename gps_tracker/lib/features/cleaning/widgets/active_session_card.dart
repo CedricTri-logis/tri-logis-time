@@ -71,6 +71,66 @@ class _ActiveSessionCardState extends ConsumerState<ActiveSessionCard> {
     );
   }
 
+  Future<void> _manualClose() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber, color: Colors.orange),
+            SizedBox(width: 8),
+            Expanded(child: Text('Terminer sans scanner?')),
+          ],
+        ),
+        content: const Text(
+          'La session sera marquée comme fermée manuellement. '
+          'Il est recommandé de scanner le code QR pour terminer normalement.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.orange,
+            ),
+            child: const Text('Terminer'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final success =
+        await ref.read(cleaningSessionProvider.notifier).manualClose();
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              success ? Icons.check_circle : Icons.error,
+              color: Colors.white,
+            ),
+            const SizedBox(width: 12),
+            Text(success
+                ? 'Session terminée manuellement'
+                : 'Erreur lors de la fermeture'),
+          ],
+        ),
+        backgroundColor: success ? Colors.green : Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(activeCleaningSessionProvider);
@@ -238,6 +298,26 @@ class _ActiveSessionCardState extends ConsumerState<ActiveSessionCard> {
                 onPressed: _openScanner,
                 icon: const Icon(Icons.qr_code_scanner),
                 label: const Text('Scanner pour terminer'),
+              ),
+            ),
+
+            const SizedBox(height: 8),
+
+            // Manual close button
+            SizedBox(
+              width: double.infinity,
+              child: TextButton.icon(
+                onPressed: _manualClose,
+                icon: Icon(Icons.stop_circle_outlined,
+                    size: 18,
+                    color: theme.colorScheme.onSurfaceVariant),
+                label: Text(
+                  'Terminer sans scanner',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontSize: 13,
+                  ),
+                ),
               ),
             ),
           ],

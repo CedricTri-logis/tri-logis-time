@@ -261,6 +261,48 @@ class CleaningSessionService {
     return sessions.length;
   }
 
+  /// Manually close the active cleaning session (without scanning).
+  Future<CleaningSession?> manualClose({
+    required String employeeId,
+  }) async {
+    final activeSession =
+        await _localDb.getActiveSessionForEmployee(employeeId);
+    if (activeSession == null) return null;
+
+    final now = DateTime.now().toUtc();
+    final durationMinutes =
+        now.difference(activeSession.startedAt).inSeconds / 60.0;
+
+    final flagResult = _computeFlags(
+      studioType: activeSession.studioType ?? StudioType.unit,
+      durationMinutes: durationMinutes,
+    );
+
+    final closedSession = activeSession.copyWith(
+      status: CleaningSessionStatus.manuallyClosed,
+      completedAt: now,
+      durationMinutes: durationMinutes,
+      isFlagged: flagResult.isFlagged,
+      flagReason: flagResult.reason,
+      syncStatus: SyncStatus.pending,
+    );
+    await _localDb.updateCleaningSession(closedSession);
+
+    // Try to sync to Supabase
+    try {
+      await _supabase.rpc('manual_close_cleaning_session', params: {
+        'p_employee_id': employeeId,
+        'p_session_id': activeSession.id,
+        'p_closed_at': now.toIso8601String(),
+      });
+      await _localDb.markCleaningSessionSynced(activeSession.id);
+      return closedSession.copyWith(syncStatus: SyncStatus.synced);
+    } catch (_) {
+      // Will be synced later
+      return closedSession;
+    }
+  }
+
   /// Get the current active cleaning session for the employee.
   Future<CleaningSession?> getActiveSession(String employeeId) async {
     return _localDb.getActiveSessionForEmployee(employeeId);
