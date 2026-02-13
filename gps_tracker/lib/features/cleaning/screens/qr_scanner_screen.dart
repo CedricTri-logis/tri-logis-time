@@ -95,7 +95,11 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
         final result = await notifier.scanOut(qrCode);
         if (!mounted) return;
         await ScanResultDialog.show(context, result);
-        _resumeScanner();
+        if (result.success) {
+          if (mounted) Navigator.of(context).pop();
+        } else {
+          _resumeScanner();
+        }
         return;
       }
 
@@ -112,11 +116,16 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
           final result = await notifier.scanIn(qrCode, activeShift.id);
           if (!mounted) return;
           await ScanResultDialog.show(context, result);
+          if (result.success) {
+            if (mounted) Navigator.of(context).pop();
+          } else {
+            _resumeScanner();
+          }
         } else {
           if (!mounted) return;
           await ScanResultDialog.show(context, closeResult);
+          _resumeScanner();
         }
-        _resumeScanner();
         return;
       } else {
         // User cancelled
@@ -129,7 +138,11 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
     final result = await notifier.scanIn(qrCode, activeShift.id);
     if (!mounted) return;
     await ScanResultDialog.show(context, result);
-    _resumeScanner();
+    if (result.success) {
+      if (mounted) Navigator.of(context).pop();
+    } else {
+      _resumeScanner();
+    }
   }
 
   Future<String> _getQrCodeForSession(dynamic session) async {
