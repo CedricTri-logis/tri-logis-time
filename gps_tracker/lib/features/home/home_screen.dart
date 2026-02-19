@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/config/constants.dart';
 import '../../shared/providers/supabase_provider.dart';
+import '../shifts/providers/shift_provider.dart';
 import '../admin/screens/user_management_screen.dart';
 import '../auth/providers/profile_provider.dart';
 import '../auth/screens/profile_screen.dart';
@@ -35,6 +36,12 @@ class HomeScreen extends ConsumerWidget {
     );
 
     if (confirmed == true) {
+      // Clock out first (auto-closes cleaning + maintenance sessions)
+      final shiftState = ref.read(shiftProvider);
+      if (shiftState.activeShift != null) {
+        await ref.read(shiftProvider.notifier).clockOut();
+      }
+
       final authService = ref.read(authServiceProvider);
       await authService.signOut();
       // Navigation handled automatically by auth state in app.dart

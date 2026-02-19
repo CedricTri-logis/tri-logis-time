@@ -1,36 +1,14 @@
 {
-  "rewrites": [
+  "redirects": [
     {
       "source": "/android",
-      "destination": "/gps-tracker.apk"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/gps-tracker.apk",
-      "headers": [
-        {
-          "key": "Content-Type",
-          "value": "application/vnd.android.package-archive"
-        },
-        {
-          "key": "Content-Disposition",
-          "value": "attachment; filename=\"gps-tracker.apk\""
-        }
-      ]
+      "destination": "https://play.google.com/apps/internaltest/4700168777886432619",
+      "permanent": false
     },
     {
-      "source": "/android",
-      "headers": [
-        {
-          "key": "Content-Type",
-          "value": "application/vnd.android.package-archive"
-        },
-        {
-          "key": "Content-Disposition",
-          "value": "attachment; filename=\"gps-tracker.apk\""
-        }
-      ]
+      "source": "/apple",
+      "destination": "https://testflight.apple.com/join/mMQMnnqJ",
+      "permanent": false
     }
   ]
 }

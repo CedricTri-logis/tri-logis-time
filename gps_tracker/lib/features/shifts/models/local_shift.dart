@@ -110,6 +110,7 @@ class LocalShift {
             : null,
         clockOutAccuracy: clockOutAccuracy,
         syncStatus: SyncStatus.fromJson(syncStatus),
+        serverId: serverId,
         createdAt: createdAt,
         updatedAt: updatedAt,
       );

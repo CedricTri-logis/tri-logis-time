@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../maintenance/services/maintenance_local_db.dart';
 import '../../shifts/models/shift_enums.dart';
 import '../models/cleaning_session.dart';
 import '../models/scan_result.dart';
@@ -14,10 +15,16 @@ class CleaningSessionService {
   final SupabaseClient _supabase;
   final CleaningLocalDb _localDb;
   final StudioCacheService _studioCache;
+  final MaintenanceLocalDb? _maintenanceLocalDb;
   final Uuid _uuid;
 
-  CleaningSessionService(this._supabase, this._localDb, this._studioCache)
-      : _uuid = const Uuid();
+  CleaningSessionService(
+    this._supabase,
+    this._localDb,
+    this._studioCache, {
+    MaintenanceLocalDb? maintenanceLocalDb,
+  })  : _maintenanceLocalDb = maintenanceLocalDb,
+        _uuid = const Uuid();
 
   /// Get the current user ID.
   String? get _currentUserId => _supabase.auth.currentUser?.id;
@@ -27,6 +34,7 @@ class CleaningSessionService {
     required String employeeId,
     required String qrCode,
     required String shiftId,
+    String? serverShiftId,
   }) async {
     // 1. Look up studio by QR code in local cache
     Studio? studio = await _studioCache.lookupByQrCode(qrCode);
@@ -72,7 +80,20 @@ class CleaningSessionService {
       return ScanResult.error(ScanErrorType.studioInactive);
     }
 
-    // 5. Check for existing active session for this employee + studio
+    // 5. Check for active maintenance session (cross-feature)
+    if (_maintenanceLocalDb != null) {
+      final activeMaintenance =
+          await _maintenanceLocalDb!.getActiveSessionForEmployee(employeeId);
+      if (activeMaintenance != null) {
+        return ScanResult.error(
+          ScanErrorType.sessionExists,
+          message:
+              'Terminez votre session d\'entretien avant de commencer un ménage',
+        );
+      }
+    }
+
+    // 6. Check for existing active session for this employee + studio
     final existingSession = await _localDb.getActiveSessionForEmployee(
       employeeId,
       studioId: studio.id,
@@ -103,13 +124,13 @@ class CleaningSessionService {
 
     await _localDb.insertCleaningSession(session);
 
-    // 7. Attempt Supabase RPC scan_in
+    // 7. Attempt Supabase RPC scan_in (use server shift ID for RPC)
     try {
       final response =
           await _supabase.rpc<Map<String, dynamic>>('scan_in', params: {
         'p_employee_id': employeeId,
         'p_qr_code': qrCode,
-        'p_shift_id': shiftId,
+        'p_shift_id': serverShiftId ?? shiftId,
       });
 
       if (response['success'] == true) {
@@ -242,17 +263,20 @@ class CleaningSessionService {
       await _localDb.updateCleaningSession(closedSession);
     }
 
-    // Attempt Supabase sync
+    // Attempt Supabase sync — resolve server shift ID
     try {
-      await _supabase.rpc('auto_close_shift_sessions', params: {
-        'p_shift_id': shiftId,
-        'p_employee_id': employeeId,
-        'p_closed_at': closedAt.toIso8601String(),
-      });
+      final serverShiftId = await _localDb.resolveServerShiftId(shiftId);
+      if (serverShiftId != null) {
+        await _supabase.rpc('auto_close_shift_sessions', params: {
+          'p_shift_id': serverShiftId,
+          'p_employee_id': employeeId,
+          'p_closed_at': closedAt.toIso8601String(),
+        });
 
-      // Mark all as synced
-      for (final session in sessions) {
-        await _localDb.markCleaningSessionSynced(session.id);
+        // Mark all as synced
+        for (final session in sessions) {
+          await _localDb.markCleaningSessionSynced(session.id);
+        }
       }
     } catch (_) {
       // Will be synced later
@@ -319,16 +343,24 @@ class CleaningSessionService {
 
     for (final session in pending) {
       try {
+        // Resolve the server shift ID from local DB
+        final serverShiftId =
+            await _localDb.resolveServerShiftId(session.shiftId);
+        if (serverShiftId == null) {
+          // Shift not synced yet — skip, will retry later
+          continue;
+        }
+
         if (session.status == CleaningSessionStatus.inProgress) {
-          // Sync scan-in
-          final studio = await _localDb.getStudioByQrCode('');
-          // We need the QR code but don't have it in the session.
-          // Use the Supabase direct insert as fallback.
+          // Sync in-progress session via RPC with correct server shift ID
+          final qrCode = await _getQrCodeForStudio(session.studioId);
+          if (qrCode.isEmpty) continue;
+
           final response =
               await _supabase.rpc<Map<String, dynamic>>('scan_in', params: {
             'p_employee_id': session.employeeId,
-            'p_qr_code': await _getQrCodeForStudio(session.studioId),
-            'p_shift_id': session.shiftId,
+            'p_qr_code': qrCode,
+            'p_shift_id': serverShiftId,
           });
 
           if (response['success'] == true) {
@@ -338,19 +370,30 @@ class CleaningSessionService {
             await _localDb.markCleaningSessionSyncError(session.id);
           }
         } else {
-          // Completed/auto-closed/manually-closed: sync scan-out
-          final qrCode = await _getQrCodeForStudio(session.studioId);
-          final response =
-              await _supabase.rpc<Map<String, dynamic>>('scan_out', params: {
-            'p_employee_id': session.employeeId,
-            'p_qr_code': qrCode,
-          });
+          // Completed/auto-closed/manually-closed: direct insert
+          // RPCs won't work because scan_in never succeeded and shift may
+          // no longer be active. Insert the full record directly.
+          final response = await _supabase
+              .from('cleaning_sessions')
+              .insert({
+                'employee_id': session.employeeId,
+                'studio_id': session.studioId,
+                'shift_id': serverShiftId,
+                'status': session.status.toJson(),
+                'started_at': session.startedAt.toUtc().toIso8601String(),
+                'completed_at':
+                    session.completedAt?.toUtc().toIso8601String(),
+                'duration_minutes': session.durationMinutes,
+                'is_flagged': session.isFlagged,
+                'flag_reason': session.flagReason,
+              })
+              .select('id')
+              .single();
 
-          if (response['success'] == true) {
-            await _localDb.markCleaningSessionSynced(session.id);
-          } else {
-            await _localDb.markCleaningSessionSyncError(session.id);
-          }
+          await _localDb.markCleaningSessionSynced(
+            session.id,
+            serverId: response['id'] as String?,
+          );
         }
       } catch (_) {
         await _localDb.markCleaningSessionSyncError(session.id);

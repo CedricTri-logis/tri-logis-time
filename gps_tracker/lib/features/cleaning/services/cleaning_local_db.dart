@@ -87,6 +87,28 @@ class CleaningLocalDb {
     }
   }
 
+  // ============ SHIFT ID RESOLUTION ============
+
+  /// Resolve a local shift ID to its Supabase server ID.
+  /// Returns null if the shift hasn't been synced yet.
+  Future<String?> resolveServerShiftId(String localShiftId) async {
+    try {
+      final results = await _localDb.transaction((txn) async {
+        return await txn.query(
+          'local_shifts',
+          columns: ['server_id'],
+          where: 'id = ?',
+          whereArgs: [localShiftId],
+          limit: 1,
+        );
+      });
+      if (results.isEmpty) return null;
+      return results.first['server_id'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
   // ============ STUDIO OPERATIONS ============
 
   /// Upsert studios from Supabase into local cache.

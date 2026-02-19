@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { format, subDays } from 'date-fns';
 import { useSupervisedEmployees, useShiftHistory } from '@/lib/hooks/use-historical-gps';
 import { ShiftHistoryTable } from '@/components/history/shift-history-table';
@@ -13,13 +13,6 @@ export default function HistoryPage() {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
 
   const { employees, isLoading: employeesLoading } = useSupervisedEmployees();
-
-  // Auto-select first employee when loaded
-  useEffect(() => {
-    if (!selectedEmployeeId && employees.length > 0) {
-      setSelectedEmployeeId(employees[0].id);
-    }
-  }, [employees, selectedEmployeeId]);
 
   const { shifts, isLoading: shiftsLoading } = useShiftHistory({
     employeeId: selectedEmployeeId,

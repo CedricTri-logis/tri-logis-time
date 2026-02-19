@@ -17,6 +17,7 @@ class Shift {
   final GeoPoint? clockOutLocation;
   final double? clockOutAccuracy;
   final SyncStatus syncStatus;
+  final String? serverId;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -35,6 +36,7 @@ class Shift {
     this.clockOutLocation,
     this.clockOutAccuracy,
     this.syncStatus = SyncStatus.synced,
+    this.serverId,
     required this.createdAt,
     required this.updatedAt,
     this.gpsPointCount,
@@ -74,6 +76,7 @@ class Shift {
         syncStatus: json['sync_status'] != null
             ? SyncStatus.fromJson(json['sync_status'] as String)
             : SyncStatus.synced,
+        serverId: json['server_id'] as String?,
         createdAt: DateTime.parse(json['created_at'] as String),
         updatedAt: DateTime.parse(json['updated_at'] as String),
         gpsPointCount: json['gps_point_count'] as int?,
@@ -91,6 +94,7 @@ class Shift {
         'clock_out_location': clockOutLocation?.toJson(),
         'clock_out_accuracy': clockOutAccuracy,
         'sync_status': syncStatus.toJson(),
+        'server_id': serverId,
         'created_at': createdAt.toUtc().toIso8601String(),
         'updated_at': updatedAt.toUtc().toIso8601String(),
       };
@@ -107,6 +111,7 @@ class Shift {
     GeoPoint? clockOutLocation,
     double? clockOutAccuracy,
     SyncStatus? syncStatus,
+    String? serverId,
     DateTime? createdAt,
     DateTime? updatedAt,
     int? gpsPointCount,
@@ -123,6 +128,7 @@ class Shift {
         clockOutLocation: clockOutLocation ?? this.clockOutLocation,
         clockOutAccuracy: clockOutAccuracy ?? this.clockOutAccuracy,
         syncStatus: syncStatus ?? this.syncStatus,
+        serverId: serverId ?? this.serverId,
         createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
         gpsPointCount: gpsPointCount ?? this.gpsPointCount,

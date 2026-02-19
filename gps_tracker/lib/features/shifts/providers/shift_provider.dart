@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/providers/supabase_provider.dart';
 import '../../../shared/services/local_database.dart';
 import '../../cleaning/providers/cleaning_session_provider.dart';
+import '../../maintenance/providers/maintenance_provider.dart';
 import '../models/geo_point.dart';
 import '../models/shift.dart';
 import '../services/shift_service.dart';
@@ -141,11 +142,28 @@ class ShiftNotifier extends StateNotifier<ShiftState> {
 
       if (result.success) {
         // Auto-close any open cleaning sessions for this shift
+        // Use local shift ID — sessions are stored locally with this ID
         try {
           final cleaningService = _ref.read(cleaningSessionServiceProvider);
           final userId = _ref.read(supabaseClientProvider).auth.currentUser?.id;
           if (userId != null) {
             await cleaningService.autoCloseSessions(
+              shiftId: activeShift.id,
+              employeeId: userId,
+              closedAt: DateTime.now().toUtc(),
+            );
+          }
+        } catch (_) {
+          // Don't fail clock-out if auto-close fails
+        }
+
+        // Auto-close any open maintenance sessions for this shift
+        try {
+          final maintenanceService =
+              _ref.read(maintenanceSessionServiceProvider);
+          final userId = _ref.read(supabaseClientProvider).auth.currentUser?.id;
+          if (userId != null) {
+            await maintenanceService.autoCloseSessions(
               shiftId: activeShift.id,
               employeeId: userId,
               closedAt: DateTime.now().toUtc(),
@@ -183,7 +201,10 @@ class ShiftNotifier extends StateNotifier<ShiftState> {
 }
 
 /// Provider for shift state management.
+/// Rebuilds when the authenticated user changes (logout/login).
 final shiftProvider = StateNotifierProvider<ShiftNotifier, ShiftState>((ref) {
+  // Watch auth state stream so provider rebuilds on login/logout
+  ref.watch(authStateChangesProvider);
   final shiftService = ref.watch(shiftServiceProvider);
   return ShiftNotifier(shiftService, ref);
 });

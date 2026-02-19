@@ -90,7 +90,7 @@ function TeamListItem({ employee }: TeamListItemProps) {
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span className="font-medium text-slate-900 truncate">
-                {employee.fullName}
+                {employee.displayName}
               </span>
               <ShiftStatusBadge status={employee.shiftStatus} />
             </div>
@@ -226,7 +226,7 @@ export function CompactTeamList({ team, maxItems = 5 }: CompactTeamListProps) {
           className="flex items-center gap-2 text-sm hover:bg-slate-50 rounded px-2 py-1 -mx-2"
         >
           <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-          <span className="truncate">{employee.fullName}</span>
+          <span className="truncate">{employee.displayName}</span>
           {employee.currentShift && (
             <DurationCounter
               startTime={employee.currentShift.clockedInAt}

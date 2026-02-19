@@ -68,6 +68,14 @@ export function useShiftHistory(params: {
 }) {
   const { employeeId, startDate, endDate } = params;
 
+  const payload: Record<string, unknown> = {
+    p_start_date: startDate,
+    p_end_date: endDate,
+  };
+  if (employeeId) {
+    payload.p_employee_id = employeeId;
+  }
+
   const { query, result } = useCustom<ShiftHistorySummaryRow[]>({
     url: '',
     method: 'get',
@@ -75,14 +83,10 @@ export function useShiftHistory(params: {
       rpc: 'get_employee_shift_history',
     },
     config: {
-      payload: {
-        p_employee_id: employeeId,
-        p_start_date: startDate,
-        p_end_date: endDate,
-      },
+      payload,
     },
     queryOptions: {
-      enabled: !!employeeId && !!startDate && !!endDate,
+      enabled: !!startDate && !!endDate,
     },
   });
 
@@ -94,6 +98,7 @@ export function useShiftHistory(params: {
       id: row.id,
       employeeId: row.employee_id,
       employeeName: row.employee_name,
+      employeeEmail: row.employee_email,
       clockedInAt: new Date(row.clocked_in_at),
       clockedOutAt: new Date(row.clocked_out_at),
       durationMinutes: row.duration_minutes,

@@ -1,10 +1,15 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/providers/supabase_provider.dart';
 import '../../../shared/widgets/error_snackbar.dart';
+import '../providers/device_session_provider.dart';
 import '../services/auth_rate_limiter.dart';
 import '../services/auth_service.dart';
+import '../services/biometric_service.dart';
+import '../services/device_info_service.dart';
 import '../services/validators.dart';
 import '../widgets/auth_button.dart';
 import '../widgets/auth_form_field.dart';
@@ -29,6 +34,43 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
 
   bool _isLoading = false;
   bool _obscurePassword = true;
+  bool _biometricAvailable = false;
+  bool _biometricReady = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkBiometric();
+
+    // Show explanation if user was force-logged out by another device
+    if (DeviceSessionNotifier.wasForceLoggedOut) {
+      DeviceSessionNotifier.wasForceLoggedOut = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Session terminée : un autre appareil s\'est connecté à votre compte',
+              ),
+              duration: Duration(seconds: 6),
+            ),
+          );
+        }
+      });
+    }
+  }
+
+  Future<void> _checkBiometric() async {
+    final bio = ref.read(biometricServiceProvider);
+    final available = await bio.isAvailable();
+    final ready = await bio.hasCredentials();
+    if (mounted) {
+      setState(() {
+        _biometricAvailable = available;
+        _biometricReady = ready;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -67,11 +109,64 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         password: _passwordController.text,
       );
 
+      // Save credentials for biometric login on next launch
+      if (_biometricAvailable) {
+        final bio = ref.read(biometricServiceProvider);
+        await bio.saveCredentials(
+          email: _emailController.text.trim().toLowerCase(),
+          password: _passwordController.text,
+        );
+      }
+
+      // Sync device info (fire-and-forget)
+      final client = ref.read(supabaseClientProvider);
+      DeviceInfoService(client).syncDeviceInfo();
+
       // Success - navigation handled by auth state listener in app.dart
       _rateLimiter.reset();
     } on AuthServiceException catch (e) {
       if (mounted) {
         ErrorSnackbar.show(context, e.message);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _handleBiometricSignIn() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final bio = ref.read(biometricServiceProvider);
+      final credentials = await bio.authenticate();
+
+      if (credentials == null) {
+        // User cancelled or biometric failed
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
+
+      final authService = ref.read(authServiceProvider);
+      await authService.signIn(
+        email: credentials.email,
+        password: credentials.password,
+      );
+
+      // Sync device info (fire-and-forget)
+      final client = ref.read(supabaseClientProvider);
+      DeviceInfoService(client).syncDeviceInfo();
+    } on AuthServiceException catch (e) {
+      if (mounted) {
+        // If saved password is wrong (user changed it), clear biometric
+        final bio = ref.read(biometricServiceProvider);
+        await bio.clearCredentials();
+        setState(() => _biometricReady = false);
+        ErrorSnackbar.show(
+          context,
+          '${e.message}. Veuillez vous connecter manuellement.',
+        );
       }
     } finally {
       if (mounted) {
@@ -90,6 +185,16 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(builder: (_) => const ForgotPasswordScreen()),
     );
+  }
+
+  String get _biometricLabel {
+    if (Platform.isIOS) return 'Face ID';
+    return 'Biométrie';
+  }
+
+  IconData get _biometricIcon {
+    if (Platform.isIOS) return Icons.face;
+    return Icons.fingerprint;
   }
 
   @override
@@ -132,6 +237,39 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 32),
+
+                  // Biometric quick login button
+                  if (_biometricReady) ...[
+                    OutlinedButton.icon(
+                      onPressed: _isLoading ? null : _handleBiometricSignIn,
+                      icon: Icon(_biometricIcon, size: 24),
+                      label: Text('Connexion avec $_biometricLabel'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: BorderSide(color: theme.colorScheme.primary),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(child: Divider(color: theme.colorScheme.outline.withValues(alpha: 0.3))),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(
+                            'ou',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                        Expanded(child: Divider(color: theme.colorScheme.outline.withValues(alpha: 0.3))),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                  ],
 
                   // Email field
                   AuthFormField.email(

@@ -20,6 +20,13 @@ class GPSTrackingHandler extends TaskHandler {
   DateTime? _stationaryCheckTime;
   bool _isCapturing = false; // Prevent duplicate captures
 
+  // GPS loss detection
+  DateTime? _lastSuccessfulPositionAt;
+  bool _gpsLostNotified = false;
+  bool _gpsTimeoutNotified = false;
+  static const _gpsLostThreshold = Duration(minutes: 2);
+  static const _gpsTimeoutThreshold = Duration(minutes: 5);
+
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
     // Load shift context
@@ -93,6 +100,22 @@ class GPSTrackingHandler extends TaskHandler {
 
   void _onPosition(Position position) {
     final now = DateTime.now();
+
+    // Update GPS loss tracking — we got a valid position
+    _lastSuccessfulPositionAt = now;
+    if (_gpsLostNotified) {
+      _gpsLostNotified = false;
+      _gpsTimeoutNotified = false;
+      // Restore normal notification
+      FlutterForegroundTask.updateService(
+        notificationTitle: 'GPS Tracking Active',
+        notificationText: 'Points: $_pointCount | GPS restauré',
+      );
+      // Notify main isolate
+      FlutterForegroundTask.sendDataToMain({
+        'type': 'gps_restored',
+      });
+    }
 
     // Check for stationary state
     _checkStationaryState(position, now);
@@ -210,6 +233,9 @@ class GPSTrackingHandler extends TaskHandler {
       'last_capture': _lastCaptureTime?.toIso8601String(),
     });
 
+    // GPS loss detection
+    _checkGpsLoss(timestamp);
+
     // Ensure position stream is still active
     if (_positionSubscription == null) {
       // Try to restart the stream
@@ -235,6 +261,48 @@ class GPSTrackingHandler extends TaskHandler {
         // Get current position and capture it
         _forceCapture();
       }
+    }
+  }
+
+  void _checkGpsLoss(DateTime now) {
+    final lastSuccess = _lastSuccessfulPositionAt;
+    if (lastSuccess == null) return; // No position yet — still initializing
+
+    final elapsed = now.difference(lastSuccess);
+
+    // 5-minute timeout → auto clock-out
+    if (elapsed >= _gpsTimeoutThreshold && !_gpsTimeoutNotified) {
+      _gpsTimeoutNotified = true;
+      FlutterForegroundTask.updateService(
+        notificationTitle: 'GPS PERDU',
+        notificationText: 'Arrêt automatique du shift - GPS indisponible',
+      );
+      FlutterForegroundTask.sendDataToMain({
+        'type': 'gps_timeout',
+      });
+      return;
+    }
+
+    // 2-minute warning
+    if (elapsed >= _gpsLostThreshold && !_gpsLostNotified) {
+      _gpsLostNotified = true;
+      final remainingMin = (_gpsTimeoutThreshold - elapsed).inMinutes + 1;
+      FlutterForegroundTask.updateService(
+        notificationTitle: 'GPS PERDU',
+        notificationText:
+            'Réactivez la localisation! Auto-arrêt dans $remainingMin min',
+      );
+      FlutterForegroundTask.sendDataToMain({
+        'type': 'gps_lost',
+      });
+    } else if (_gpsLostNotified && !_gpsTimeoutNotified) {
+      // Update countdown in notification
+      final remainingMin = (_gpsTimeoutThreshold - elapsed).inMinutes + 1;
+      FlutterForegroundTask.updateService(
+        notificationTitle: 'GPS PERDU',
+        notificationText:
+            'Réactivez la localisation! Auto-arrêt dans $remainingMin min',
+      );
     }
   }
 

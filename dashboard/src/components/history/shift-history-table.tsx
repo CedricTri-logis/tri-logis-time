@@ -58,7 +58,8 @@ export function ShiftHistoryTable({
     const term = search.toLowerCase();
     return shifts.filter(
       (shift) =>
-        shift.employeeName.toLowerCase().includes(term) ||
+        shift.employeeName?.toLowerCase().includes(term) ||
+        shift.employeeEmail?.toLowerCase().includes(term) ||
         format(shift.clockedInAt, 'MMM d, yyyy').toLowerCase().includes(term)
     );
   }, [shifts, search]);
@@ -177,6 +178,7 @@ export function ShiftHistoryTable({
                 <TableHeader>
                   <TableRow>
                     <TableHead>Employee</TableHead>
+                    <TableHead>Email</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>Time</TableHead>
                     <TableHead>Duration</TableHead>
@@ -189,6 +191,9 @@ export function ShiftHistoryTable({
                     <TableRow key={shift.id}>
                       <TableCell>
                         <div className="font-medium">{shift.employeeName}</div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm text-slate-600">{shift.employeeEmail}</div>
                       </TableCell>
                       <TableCell>
                         {format(shift.clockedInAt, 'MMM d, yyyy')}

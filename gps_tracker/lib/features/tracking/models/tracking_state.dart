@@ -36,6 +36,9 @@ class TrackingState {
   /// Whether currently in stationary mode (reduced polling).
   final bool isStationary;
 
+  /// Whether GPS signal has been lost (background handler detected no position).
+  final bool gpsSignalLost;
+
   const TrackingState({
     this.status = TrackingStatus.stopped,
     this.activeShiftId,
@@ -47,6 +50,7 @@ class TrackingState {
     this.config = const TrackingConfig(),
     this.errorMessage,
     this.isStationary = false,
+    this.gpsSignalLost = false,
   });
 
   /// Initial state before any tracking.
@@ -74,6 +78,7 @@ class TrackingState {
     TrackingConfig? config,
     String? errorMessage,
     bool? isStationary,
+    bool? gpsSignalLost,
     bool clearError = false,
     bool clearActiveShift = false,
   }) =>
@@ -88,6 +93,7 @@ class TrackingState {
         config: config ?? this.config,
         errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
         isStationary: isStationary ?? this.isStationary,
+        gpsSignalLost: gpsSignalLost ?? this.gpsSignalLost,
       );
 
   /// Create state indicating tracking has started for a shift.

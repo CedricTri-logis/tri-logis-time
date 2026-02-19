@@ -103,7 +103,7 @@ function MarkerPopupContent({ employee, staleness }: MarkerPopupContentProps) {
     <div className="min-w-[180px]">
       {/* Employee name */}
       <div className="font-semibold text-slate-900 mb-1">
-        {employee.fullName}
+        {employee.displayName}
       </div>
 
       {/* Employee ID */}

@@ -113,7 +113,8 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
         );
         if (closeResult.success) {
           // Now scan in to the new studio
-          final result = await notifier.scanIn(qrCode, activeShift.id);
+          final result = await notifier.scanIn(qrCode, activeShift.id,
+                serverShiftId: activeShift.serverId);
           if (!mounted) return;
           await ScanResultDialog.show(context, result);
           if (result.success) {
@@ -135,7 +136,8 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
     }
 
     // No active session — try scan in
-    final result = await notifier.scanIn(qrCode, activeShift.id);
+    final result = await notifier.scanIn(qrCode, activeShift.id,
+                serverShiftId: activeShift.serverId);
     if (!mounted) return;
     await ScanResultDialog.show(context, result);
     if (result.success) {

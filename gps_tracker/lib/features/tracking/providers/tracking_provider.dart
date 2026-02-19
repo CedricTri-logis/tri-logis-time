@@ -68,7 +68,19 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
         state = state.stopTracking();
       case 'status':
         _handleStatusUpdate(data);
+      case 'gps_lost':
+        state = state.copyWith(gpsSignalLost: true);
+      case 'gps_restored':
+        state = state.copyWith(gpsSignalLost: false);
+      case 'gps_timeout':
+        _handleGpsTimeout();
     }
+  }
+
+  void _handleGpsTimeout() {
+    // Auto clock-out due to GPS loss timeout
+    state = state.copyWith(gpsSignalLost: true);
+    _ref.read(shiftProvider.notifier).clockOut();
   }
 
   Future<void> _handlePositionUpdate(Map<String, dynamic> pointData) async {
@@ -238,4 +250,9 @@ final pointsCapturedProvider = Provider<int>((ref) {
 /// Provider for stationary state.
 final isStationaryProvider = Provider<bool>((ref) {
   return ref.watch(trackingProvider.select((s) => s.isStationary));
+});
+
+/// Provider for GPS signal lost state (background detection).
+final gpsSignalLostProvider = Provider<bool>((ref) {
+  return ref.watch(trackingProvider.select((s) => s.gpsSignalLost));
 });

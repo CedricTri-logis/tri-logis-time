@@ -7,6 +7,7 @@ import '../../shifts/providers/connectivity_provider.dart';
 import '../../shifts/providers/shift_provider.dart';
 import '../models/cleaning_session.dart';
 import '../models/scan_result.dart';
+import '../../maintenance/services/maintenance_local_db.dart';
 import '../services/cleaning_local_db.dart';
 import '../services/cleaning_session_service.dart';
 import '../services/studio_cache_service.dart';
@@ -24,12 +25,24 @@ final studioCacheServiceProvider = Provider<StudioCacheService>((ref) {
   return StudioCacheService(supabase, cleaningDb);
 });
 
+/// Provider for MaintenanceLocalDb (used for cross-feature validation).
+final _maintenanceLocalDbProvider = Provider<MaintenanceLocalDb>((ref) {
+  final localDb = ref.watch(localDatabaseProvider);
+  return MaintenanceLocalDb(localDb);
+});
+
 /// Provider for CleaningSessionService.
 final cleaningSessionServiceProvider = Provider<CleaningSessionService>((ref) {
   final supabase = ref.watch(supabaseClientProvider);
   final cleaningDb = ref.watch(cleaningLocalDbProvider);
   final studioCache = ref.watch(studioCacheServiceProvider);
-  return CleaningSessionService(supabase, cleaningDb, studioCache);
+  final maintenanceDb = ref.watch(_maintenanceLocalDbProvider);
+  return CleaningSessionService(
+    supabase,
+    cleaningDb,
+    studioCache,
+    maintenanceLocalDb: maintenanceDb,
+  );
 });
 
 /// State for cleaning session operations.
@@ -150,7 +163,10 @@ class CleaningSessionNotifier extends StateNotifier<CleaningSessionState> {
   }
 
   /// Scan a QR code to start a new cleaning session.
-  Future<ScanResult> scanIn(String qrCode, String shiftId) async {
+  /// [shiftId] is the local shift ID (for local storage queries).
+  /// [serverShiftId] is the Supabase shift ID (for RPC calls).
+  Future<ScanResult> scanIn(String qrCode, String shiftId,
+      {String? serverShiftId}) async {
     final employeeId = _employeeId;
     if (employeeId == null) {
       return ScanResult.error(ScanErrorType.noActiveShift);
@@ -163,6 +179,7 @@ class CleaningSessionNotifier extends StateNotifier<CleaningSessionState> {
         employeeId: employeeId,
         qrCode: qrCode,
         shiftId: shiftId,
+        serverShiftId: serverShiftId,
       );
 
       if (result.success && result.session != null) {

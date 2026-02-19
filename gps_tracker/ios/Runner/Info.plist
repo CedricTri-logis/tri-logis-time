@@ -58,6 +58,8 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Utilisez Face ID pour vous connecter rapidement sans entrer votre mot de passe.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Camera access is needed to scan QR codes for room check-in and check-out.</string>
 	<key>GOOGLE_MAPS_API_KEY</key>

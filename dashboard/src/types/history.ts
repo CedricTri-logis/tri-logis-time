@@ -32,6 +32,7 @@ export interface ShiftHistorySummary {
   id: string;
   employeeId: string;
   employeeName: string;
+  employeeEmail: string;
   clockedInAt: Date;
   clockedOutAt: Date;
   durationMinutes: number;
@@ -50,6 +51,7 @@ export interface ShiftHistorySummaryRow {
   id: string;
   employee_id: string;
   employee_name: string;
+  employee_email: string;
   clocked_in_at: string;
   clocked_out_at: string;
   duration_minutes: number;
@@ -201,6 +203,7 @@ export function transformShiftHistorySummaryRow(
     id: row.id,
     employeeId: row.employee_id,
     employeeName: row.employee_name,
+    employeeEmail: row.employee_email,
     clockedInAt: new Date(row.clocked_in_at),
     clockedOutAt: new Date(row.clocked_out_at),
     durationMinutes: row.duration_minutes,

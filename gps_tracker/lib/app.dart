@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'features/auth/providers/device_session_provider.dart';
 import 'features/auth/screens/sign_in_screen.dart';
 import 'features/home/home_screen.dart';
 import 'shared/providers/supabase_provider.dart';
@@ -31,9 +32,14 @@ class GpsTrackerApp extends ConsumerWidget {
       ),
       themeMode: ThemeMode.system,
       home: authState.when(
-        data: (state) => state.session != null
-            ? const HomeScreen()
-            : const SignInScreen(),
+        data: (state) {
+          if (state.session != null) {
+            // Keep device session monitor alive while authenticated
+            ref.watch(deviceSessionProvider);
+            return const HomeScreen();
+          }
+          return const SignInScreen();
+        },
         loading: () => const _SplashScreen(),
         error: (_, __) => const SignInScreen(),
       ),

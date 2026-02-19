@@ -31,6 +31,8 @@ export interface ActiveShift {
 export interface MonitoredEmployee {
   id: string;
   fullName: string;
+  email: string | null;
+  displayName: string;
   employeeId: string | null;
   shiftStatus: ShiftStatus;
   currentShift: ActiveShift | null;
@@ -126,6 +128,7 @@ export interface GpsPointRealtimePayload {
 export interface MonitoredTeamRow {
   id: string;
   full_name: string;
+  email: string | null;
   employee_id: string | null;
   shift_status: 'on-shift' | 'off-shift';
   current_shift_id: string | null;
@@ -231,6 +234,8 @@ export function transformMonitoredTeamRow(row: MonitoredTeamRow): MonitoredEmplo
   return {
     id: row.id,
     fullName: row.full_name,
+    email: row.email ?? null,
+    displayName: row.full_name || row.email || 'Unknown',
     employeeId: row.employee_id,
     shiftStatus: row.shift_status,
     currentShift,

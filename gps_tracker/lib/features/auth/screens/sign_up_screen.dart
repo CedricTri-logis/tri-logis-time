@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/providers/supabase_provider.dart';
 import '../../../shared/widgets/error_snackbar.dart';
 import '../services/auth_service.dart';
+import '../services/device_info_service.dart';
 import '../services/validators.dart';
 import '../widgets/auth_button.dart';
 import '../widgets/auth_form_field.dart';
@@ -55,6 +56,10 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         email: _emailController.text,
         password: _passwordController.text,
       );
+
+      // Sync device info (fire-and-forget)
+      final client = ref.read(supabaseClientProvider);
+      DeviceInfoService(client).syncDeviceInfo();
 
       // Show success state
       if (mounted) {

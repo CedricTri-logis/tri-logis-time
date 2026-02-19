@@ -4,7 +4,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
+import '../../../shared/providers/supabase_provider.dart';
 import '../../tracking/models/device_location_status.dart';
 import '../../tracking/models/location_permission_state.dart';
 import '../../tracking/models/permission_change_event.dart';
@@ -20,15 +22,23 @@ import '../../cleaning/providers/cleaning_session_provider.dart';
 import '../../cleaning/screens/qr_scanner_screen.dart';
 import '../../cleaning/widgets/active_session_card.dart';
 import '../../cleaning/widgets/cleaning_history_list.dart';
+import '../../maintenance/providers/maintenance_provider.dart';
+import '../../maintenance/widgets/active_maintenance_card.dart';
+import '../../maintenance/widgets/building_picker_sheet.dart';
+import '../../maintenance/widgets/maintenance_history_list.dart';
 import '../../tracking/widgets/permission_status_banner.dart';
 import '../../tracking/widgets/settings_guidance_dialog.dart';
 import '../models/geo_point.dart';
 import '../models/shift.dart';
 import '../providers/location_provider.dart';
 import '../providers/shift_provider.dart';
+import '../services/version_check_service.dart';
 import '../widgets/clock_button.dart';
 import '../widgets/shift_status_card.dart';
 import '../widgets/shift_timer.dart';
+
+/// Tab selection for the shift dashboard.
+enum _DashboardTab { menager, entretien }
 
 /// Main dashboard screen for shift management.
 class ShiftDashboardScreen extends ConsumerStatefulWidget {
@@ -56,6 +66,9 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
   /// Whether an auto clock-out warning is currently being shown.
   bool _isShowingGpsWarning = false;
 
+  /// Currently selected tab (ménager / entretien).
+  _DashboardTab _selectedTab = _DashboardTab.menager;
+
   @override
   void initState() {
     super.initState();
@@ -82,6 +95,17 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
   }
 
   Future<void> _handleClockIn() async {
+    // Version check: block clock-in if app is outdated
+    final versionResult = await VersionCheckService(
+      ref.read(supabaseClientProvider),
+    ).checkVersionForClockIn();
+
+    if (!versionResult.allowed) {
+      if (!mounted) return;
+      _showUpdateRequiredDialog(versionResult);
+      return;
+    }
+
     final locationService = ref.read(locationServiceProvider);
     final shiftNotifier = ref.read(shiftProvider.notifier);
     final guardState = ref.read(permissionGuardProvider);
@@ -649,6 +673,59 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
     );
   }
 
+  /// Show dialog when app version is too old to clock in.
+  void _showUpdateRequiredDialog(VersionCheckResult result) {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.system_update, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('Mise à jour requise'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              result.message ?? 'Veuillez mettre à jour l\'application.',
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.orange, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Contactez votre superviseur si vous avez besoin d\'aide pour la mise à jour.',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Compris'),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Show warning dialog when GPS is lost mid-shift with countdown to auto clock-out.
   void _showGpsLostWarningDialog() {
     _isShowingGpsWarning = true;
@@ -763,16 +840,85 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
     );
   }
 
+  Future<void> _openBuildingPicker() async {
+    final result = await BuildingPickerSheet.show(context);
+    if (result == null || !mounted) return;
+
+    final activeShift = ref.read(shiftProvider).activeShift;
+    if (activeShift == null) return;
+
+    final maintenanceResult =
+        await ref.read(maintenanceSessionProvider.notifier).startSession(
+              shiftId: activeShift.id,
+              buildingId: result.buildingId,
+              buildingName: result.buildingName,
+              apartmentId: result.apartmentId,
+              unitNumber: result.unitNumber,
+              serverShiftId: activeShift.serverId,
+            );
+
+    if (!mounted) return;
+
+    if (maintenanceResult.success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Entretien démarré — ${result.buildingName}'
+                  '${result.unitNumber != null ? ' (${result.unitNumber})' : ''}',
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error, color: Colors.white),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                    maintenanceResult.errorMessage ?? 'Erreur de démarrage'),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final shiftState = ref.watch(shiftProvider);
     final hasActiveShift = shiftState.activeShift != null;
+    final hasActiveCleaning = ref.watch(hasActiveCleaningSessionProvider);
+    final hasActiveMaintenance = ref.watch(hasActiveMaintenanceSessionProvider);
 
     return Scaffold(
       body: RefreshIndicator(
         onRefresh: () async {
           await ref.read(shiftProvider.notifier).refresh();
           await ref.read(cleaningSessionProvider.notifier).loadActiveSession();
+          await ref
+              .read(maintenanceSessionProvider.notifier)
+              .loadActiveSession();
           await ref.read(permissionGuardProvider.notifier).checkStatus();
         },
         child: Column(
@@ -790,10 +936,47 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
                     if (hasActiveShift) ...[
                       const SizedBox(height: 16),
                       const ShiftTimer(),
+
+                      // Tab toggle
                       const SizedBox(height: 16),
-                      const ActiveSessionCard(),
+                      SizedBox(
+                        width: double.infinity,
+                        child: SegmentedButton<_DashboardTab>(
+                          segments: const [
+                            ButtonSegment(
+                              value: _DashboardTab.menager,
+                              label: Text('Ménager'),
+                              icon: Icon(Icons.cleaning_services, size: 18),
+                            ),
+                            ButtonSegment(
+                              value: _DashboardTab.entretien,
+                              label: Text('Entretien'),
+                              icon: Icon(Icons.handyman, size: 18),
+                            ),
+                          ],
+                          selected: {_selectedTab},
+                          onSelectionChanged: (selected) {
+                            setState(() => _selectedTab = selected.first);
+                          },
+                        ),
+                      ),
+
+                      // Active session — always visible regardless of tab
                       const SizedBox(height: 16),
-                      const CleaningHistoryList(),
+                      if (hasActiveCleaning) const ActiveSessionCard(),
+                      if (hasActiveMaintenance)
+                        const ActiveMaintenanceCard(),
+
+                      // Tab-specific content
+                      const SizedBox(height: 16),
+                      if (_selectedTab == _DashboardTab.menager) ...[
+                        if (!hasActiveCleaning && !hasActiveMaintenance)
+                          const ActiveSessionCard(),
+                        const CleaningHistoryList(),
+                      ],
+                      if (_selectedTab == _DashboardTab.entretien) ...[
+                        const MaintenanceHistoryList(),
+                      ],
                     ],
                     const SizedBox(height: 32),
                     Center(
@@ -803,14 +986,31 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
                       ),
                     ),
                     const SizedBox(height: 32),
+                    FutureBuilder<PackageInfo>(
+                      future: PackageInfo.fromPlatform(),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) return const SizedBox.shrink();
+                        final info = snapshot.data!;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Text(
+                            'v${info.version} (${info.buildNumber})',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.outline,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                     if (shiftState.error != null)
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: Colors.red.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
-                          border:
-                              Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                          border: Border.all(
+                              color: Colors.red.withValues(alpha: 0.3)),
                         ),
                         child: Row(
                           children: [
@@ -838,13 +1038,30 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
         ),
       ),
       floatingActionButton: hasActiveShift
-          ? FloatingActionButton(
-              onPressed: _openQrScanner,
-              tooltip: 'Scanner QR',
-              child: const Icon(Icons.qr_code_scanner),
-            )
+          ? _buildFab(hasActiveCleaning, hasActiveMaintenance)
           : null,
     );
+  }
+
+  Widget? _buildFab(bool hasActiveCleaning, bool hasActiveMaintenance) {
+    if (_selectedTab == _DashboardTab.menager) {
+      // Disable QR scanner if maintenance session is active
+      if (hasActiveMaintenance) return null;
+      return FloatingActionButton(
+        onPressed: _openQrScanner,
+        tooltip: 'Scanner QR',
+        child: const Icon(Icons.qr_code_scanner),
+      );
+    } else {
+      // Disable building picker if cleaning session is active or maintenance already active
+      if (hasActiveCleaning || hasActiveMaintenance) return null;
+      return FloatingActionButton(
+        onPressed: _openBuildingPicker,
+        tooltip: 'Démarrer entretien',
+        backgroundColor: Colors.orange,
+        child: const Icon(Icons.handyman),
+      );
+    }
   }
 }
 
