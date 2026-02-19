@@ -25,7 +25,8 @@ platform :ios do
       ipa: "../build/ios/ipa/gps_tracker.ipa",
       groups: ["Tri-Logis", "Employee"],
       distribute_external: true,
-      notify_external_testers: true
+      notify_external_testers: true,
+      changelog: ENV["CHANGELOG"] || "Bug fixes and improvements."
     )
   end
 
