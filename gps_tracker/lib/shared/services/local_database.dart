@@ -1,10 +1,14 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:math';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
 
+import '../../features/shifts/models/local_gps_gap.dart';
 import '../../features/shifts/models/local_gps_point.dart';
 import '../../features/shifts/models/local_shift.dart';
 import '../../features/shifts/models/quarantined_record.dart';
@@ -16,7 +20,7 @@ import 'local_database_exception.dart';
 /// Local SQLite database service with encrypted storage.
 class LocalDatabase {
   static const String _databaseName = 'gps_tracker.db';
-  static const int _databaseVersion = 2;
+  static const int _databaseVersion = 3;
   static const String _encryptionKeyKey = 'local_db_encryption_key';
 
   static LocalDatabase? _instance;
@@ -35,16 +39,36 @@ class LocalDatabase {
   bool get isInitialized => _database != null;
 
   /// Initialize database with encrypted storage.
+  /// If the Android Keystore encryption key is corrupted (BAD_DECRYPT),
+  /// automatically wipes the local database and creates a fresh one.
   Future<void> initialize() async {
     if (_database != null) return;
 
     try {
-      // Get or create encryption key
-      String? encryptionKey = await _secureStorage.read(key: _encryptionKeyKey);
-      if (encryptionKey == null) {
-        // Generate a new encryption key (32 bytes hex = 64 chars)
-        encryptionKey = _generateEncryptionKey();
-        await _secureStorage.write(key: _encryptionKeyKey, value: encryptionKey);
+      // Get or create encryption key (may throw BAD_DECRYPT on Android)
+      String encryptionKey;
+      try {
+        final storedKey = await _secureStorage.read(key: _encryptionKeyKey);
+        if (storedKey != null) {
+          encryptionKey = storedKey;
+        } else {
+          encryptionKey = _generateEncryptionKey();
+          await _secureStorage.write(key: _encryptionKeyKey, value: encryptionKey);
+        }
+      } on PlatformException catch (e) {
+        // BAD_DECRYPT can appear in message, details, or code depending on
+        // the Android version. Check the full exception string.
+        final fullError = e.toString();
+        if (fullError.contains('BAD_DECRYPT') ||
+            fullError.contains('BadPaddingException')) {
+          // Android Keystore was invalidated (app update, device change, etc.)
+          // Wipe corrupt secure storage and local DB, then start fresh.
+          await _recoverFromCorruptKeystore();
+          encryptionKey = _generateEncryptionKey();
+          await _secureStorage.write(key: _encryptionKeyKey, value: encryptionKey);
+        } else {
+          rethrow;
+        }
       }
 
       // Get database path
@@ -68,10 +92,34 @@ class LocalDatabase {
     }
   }
 
-  /// Generate a random encryption key.
+  /// Recover from a corrupted Android Keystore by wiping secure storage
+  /// and deleting the old encrypted database file.
+  Future<void> _recoverFromCorruptKeystore() async {
+    // Delete all secure storage entries (the keys are unreadable anyway)
+    try {
+      await _secureStorage.deleteAll();
+    } catch (_) {
+      // Best-effort — if deleteAll also fails, we still continue
+    }
+
+    // Delete the old encrypted database file (can't decrypt it without the key)
+    try {
+      final documentsDir = await getApplicationDocumentsDirectory();
+      final dbPath = path.join(documentsDir.path, _databaseName);
+      final dbFile = File(dbPath);
+      if (await dbFile.exists()) {
+        await dbFile.delete();
+      }
+    } catch (_) {
+      // Best-effort — openDatabase will create a new file anyway
+    }
+  }
+
+  /// Generate a cryptographically secure random encryption key.
   String _generateEncryptionKey() {
-    final random = DateTime.now().microsecondsSinceEpoch;
-    return random.toRadixString(16).padLeft(64, '0').substring(0, 64);
+    final random = Random.secure();
+    final bytes = List<int>.generate(32, (_) => random.nextInt(256));
+    return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
   }
 
   /// Create database tables.
@@ -137,6 +185,9 @@ class LocalDatabase {
 
     // Create offline resilience tables
     await _createOfflineResilienceTables(db);
+
+    // Create GPS gaps table
+    await _createGpsGapsTable(db);
   }
 
   /// Create tables for offline resilience feature.
@@ -232,11 +283,42 @@ class LocalDatabase {
     ''');
   }
 
+  /// Create GPS gaps table for tracking GPS signal loss periods.
+  Future<void> _createGpsGapsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS local_gps_gaps (
+        id TEXT PRIMARY KEY,
+        shift_id TEXT NOT NULL,
+        employee_id TEXT NOT NULL,
+        started_at TEXT NOT NULL,
+        ended_at TEXT,
+        reason TEXT NOT NULL DEFAULT 'signal_loss',
+        sync_status TEXT NOT NULL DEFAULT 'pending' CHECK (sync_status IN ('pending', 'synced')),
+        FOREIGN KEY (shift_id) REFERENCES local_shifts(id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_local_gps_gaps_shift ON local_gps_gaps(shift_id)
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_local_gps_gaps_sync ON local_gps_gaps(sync_status)
+    ''');
+  }
+
   /// Handle database upgrades.
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     // Migration from v1 to v2: Add offline resilience tables
     if (oldVersion < 2) {
       await _createOfflineResilienceTables(db);
+    }
+    // Migration from v2 to v3: Add GPS gaps table + clock_out_reason
+    if (oldVersion < 3) {
+      await _createGpsGapsTable(db);
+      await db.execute(
+        'ALTER TABLE local_shifts ADD COLUMN clock_out_reason TEXT',
+      );
     }
   }
 
@@ -283,6 +365,7 @@ class LocalDatabase {
     double? latitude,
     double? longitude,
     double? accuracy,
+    String? reason,
   }) async {
     try {
       final now = DateTime.now().toUtc().toIso8601String();
@@ -294,6 +377,7 @@ class LocalDatabase {
           'clock_out_latitude': latitude,
           'clock_out_longitude': longitude,
           'clock_out_accuracy': accuracy,
+          'clock_out_reason': reason ?? 'manual',
           'sync_status': 'pending',
           'updated_at': now,
         },
@@ -1170,6 +1254,87 @@ class LocalDatabase {
       throw LocalDatabaseException(
         'Failed to get pending GPS point count',
         operation: 'getPendingGpsPointCount',
+        originalError: e,
+      );
+    }
+  }
+
+  // ============ GPS GAP OPERATIONS ============
+
+  /// Insert a GPS gap record.
+  Future<void> insertGpsGap(LocalGpsGap gap) async {
+    try {
+      await _db.insert(
+        'local_gps_gaps',
+        gap.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to insert GPS gap',
+        operation: 'insertGpsGap',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Close an open GPS gap by setting ended_at.
+  Future<void> closeGpsGap(String gapId, DateTime endedAt) async {
+    try {
+      await _db.update(
+        'local_gps_gaps',
+        {'ended_at': endedAt.toUtc().toIso8601String()},
+        where: 'id = ?',
+        whereArgs: [gapId],
+      );
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to close GPS gap',
+        operation: 'closeGpsGap',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Get all GPS gaps pending sync.
+  Future<List<LocalGpsGap>> getPendingGpsGaps({int limit = 100}) async {
+    try {
+      final results = await _db.query(
+        'local_gps_gaps',
+        where: 'sync_status = ?',
+        whereArgs: ['pending'],
+        orderBy: 'started_at ASC',
+        limit: limit,
+      );
+      return results.map((map) => LocalGpsGap.fromMap(map)).toList();
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to get pending GPS gaps',
+        operation: 'getPendingGpsGaps',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Mark GPS gaps as synced.
+  Future<void> markGpsGapsSynced(List<String> gapIds) async {
+    if (gapIds.isEmpty) return;
+
+    try {
+      await _db.transaction((txn) async {
+        for (final id in gapIds) {
+          await txn.update(
+            'local_gps_gaps',
+            {'sync_status': 'synced'},
+            where: 'id = ?',
+            whereArgs: [id],
+          );
+        }
+      });
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to mark GPS gaps synced',
+        operation: 'markGpsGapsSynced',
         originalError: e,
       );
     }

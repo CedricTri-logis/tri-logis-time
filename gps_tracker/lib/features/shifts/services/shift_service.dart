@@ -227,6 +227,7 @@ class ShiftService {
     required String shiftId,
     GeoPoint? location,
     double? accuracy,
+    String? reason,
   }) async {
     final userId = _currentUserId;
     if (userId == null) {
@@ -252,6 +253,7 @@ class ShiftService {
       latitude: location?.latitude,
       longitude: location?.longitude,
       accuracy: accuracy,
+      reason: reason,
     );
 
     // Try to sync to Supabase
@@ -261,6 +263,7 @@ class ShiftService {
         'p_request_id': requestId,
         if (location != null) 'p_location': location.toJson(),
         if (accuracy != null) 'p_accuracy': accuracy,
+        if (reason != null) 'p_reason': reason,
       },);
 
       final result = ClockOutResult.fromJson(response);
@@ -390,6 +393,7 @@ class ShiftService {
                 'longitude': shift.clockOutLongitude,
               },
             if (shift.clockOutAccuracy != null) 'p_accuracy': shift.clockOutAccuracy,
+            if (shift.clockOutReason != null) 'p_reason': shift.clockOutReason,
           },);
 
           final clockOutResult = ClockOutResult.fromJson(clockOutResponse);

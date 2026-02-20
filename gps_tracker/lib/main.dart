@@ -8,6 +8,7 @@ import 'app.dart';
 import 'core/config/env_config.dart';
 import 'features/tracking/services/background_tracking_service.dart';
 import 'shared/services/local_database.dart';
+import 'shared/services/notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,7 +30,7 @@ Future<void> main() async {
               ),
               const SizedBox(height: 24),
               const Text(
-                'GPS Tracker',
+                'Tri-Logis Time',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 24,
@@ -75,10 +76,11 @@ Future<void> main() async {
 
   if (initError == null) {
     try {
-      // Initialize database and tracking in parallel (they're independent)
+      // Initialize database, tracking, and notifications in parallel
       await Future.wait([
         LocalDatabase().initialize(),
         _initializeTracking(),
+        NotificationService().initialize(),
       ]);
     } catch (e) {
       initError = 'Failed to initialize services: $e';

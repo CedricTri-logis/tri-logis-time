@@ -40,7 +40,7 @@ class BackgroundTrackingService {
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
         channelId: 'gps_tracking_channel',
-        channelName: 'GPS Tracking',
+        channelName: 'Suivi de position',
         channelDescription: 'Background location tracking during shifts',
         channelImportance: NotificationChannelImportance.LOW,
         priority: NotificationPriority.LOW,
@@ -102,8 +102,8 @@ class BackgroundTrackingService {
 
       // Start the foreground service
       final result = await FlutterForegroundTask.startService(
-        notificationTitle: 'GPS Tracking Active',
-        notificationText: 'Tracking your location during shift',
+        notificationTitle: 'Suivi de position actif',
+        notificationText: 'Suivi de votre position pendant le quart',
         notificationIcon: null,
         notificationButtons: [
           const NotificationButton(id: 'stop', text: 'Stop'),

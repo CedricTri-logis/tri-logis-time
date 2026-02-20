@@ -55,7 +55,7 @@ class SettingsGuidanceDialog extends StatelessWidget {
                 const SizedBox(height: 8),
                 if (Platform.isIOS) ...[
                   _buildStep(context, '1. Ouvrir Réglages'),
-                  _buildStep(context, '2. Trouver GPS Tracker'),
+                  _buildStep(context, '2. Trouver Tri-Logis Time'),
                   _buildStep(context, '3. Toucher Position'),
                   _buildStep(context, '4. Sélectionner "Toujours"'),
                 ] else ...[

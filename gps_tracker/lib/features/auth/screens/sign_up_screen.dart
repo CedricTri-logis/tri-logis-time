@@ -19,9 +19,13 @@ class SignUpScreen extends ConsumerStatefulWidget {
 
 class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _firstNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _firstNameFocusNode = FocusNode();
+  final _lastNameFocusNode = FocusNode();
   final _emailFocusNode = FocusNode();
   final _passwordFocusNode = FocusNode();
   final _confirmPasswordFocusNode = FocusNode();
@@ -33,9 +37,13 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
   @override
   void dispose() {
+    _firstNameController.dispose();
+    _lastNameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _firstNameFocusNode.dispose();
+    _lastNameFocusNode.dispose();
     _emailFocusNode.dispose();
     _passwordFocusNode.dispose();
     _confirmPasswordFocusNode.dispose();
@@ -52,9 +60,12 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
     try {
       final authService = ref.read(authServiceProvider);
+      final fullName =
+          '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}';
       await authService.signUp(
         email: _emailController.text,
         password: _passwordController.text,
+        fullName: fullName,
       );
 
       // Sync device info (fire-and-forget)
@@ -181,6 +192,52 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 32),
+
+                  // First name field
+                  AuthFormField(
+                    controller: _firstNameController,
+                    focusNode: _firstNameFocusNode,
+                    label: 'Prénom',
+                    hint: 'Entrez votre prénom',
+                    prefixIcon: Icons.person_outline,
+                    textInputAction: TextInputAction.next,
+                    keyboardType: TextInputType.name,
+                    enabled: !_isLoading,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Le prénom est requis';
+                      }
+                      if (value.trim().length < 2) {
+                        return 'Le prénom doit contenir au moins 2 caractères';
+                      }
+                      return null;
+                    },
+                    onSubmitted: () => _lastNameFocusNode.requestFocus(),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Last name field
+                  AuthFormField(
+                    controller: _lastNameController,
+                    focusNode: _lastNameFocusNode,
+                    label: 'Nom de famille',
+                    hint: 'Entrez votre nom de famille',
+                    prefixIcon: Icons.person_outline,
+                    textInputAction: TextInputAction.next,
+                    keyboardType: TextInputType.name,
+                    enabled: !_isLoading,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Le nom de famille est requis';
+                      }
+                      if (value.trim().length < 2) {
+                        return 'Le nom de famille doit contenir au moins 2 caractères';
+                      }
+                      return null;
+                    },
+                    onSubmitted: () => _emailFocusNode.requestFocus(),
+                  ),
+                  const SizedBox(height: 16),
 
                   // Email field
                   AuthFormField.email(

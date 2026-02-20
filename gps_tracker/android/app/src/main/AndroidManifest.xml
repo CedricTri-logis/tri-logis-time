@@ -30,7 +30,7 @@
     <uses-permission android:name="android.permission.CAMERA" />
 
     <application
-        android:label="GPS Tracker"
+        android:label="Tri-Logis Time"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

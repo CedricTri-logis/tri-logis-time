@@ -124,6 +124,7 @@ class ShiftNotifier extends StateNotifier<ShiftState> {
   Future<bool> clockOut({
     GeoPoint? location,
     double? accuracy,
+    String? reason,
   }) async {
     final activeShift = state.activeShift;
     if (activeShift == null) {
@@ -138,6 +139,7 @@ class ShiftNotifier extends StateNotifier<ShiftState> {
         shiftId: activeShift.id,
         location: location,
         accuracy: accuracy,
+        reason: reason,
       );
 
       if (result.success) {

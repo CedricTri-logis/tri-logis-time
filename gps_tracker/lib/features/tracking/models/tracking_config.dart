@@ -22,8 +22,8 @@ class TrackingConfig {
   final bool adaptivePolling;
 
   const TrackingConfig({
-    this.activeIntervalSeconds = 30, // 30 seconds for TESTING (change back to 300 for production)
-    this.stationaryIntervalSeconds = 60, // 1 minute for TESTING (change back to 600 for production)
+    this.activeIntervalSeconds = 300, // 5 minutes (FR-003)
+    this.stationaryIntervalSeconds = 600, // 10 minutes
     this.distanceFilterMeters = 10, // 10m movement triggers update
     this.highAccuracyThreshold = 50.0, // SC-003: 95% under 50m
     this.lowAccuracyThreshold = 100.0, // Points over 100m flagged

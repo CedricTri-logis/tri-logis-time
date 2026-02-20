@@ -63,12 +63,14 @@ class AuthService {
   Future<AuthResponse> signUp({
     required String email,
     required String password,
+    String? fullName,
   }) async {
     try {
       final response = await _client.auth.signUp(
         email: email.trim().toLowerCase(),
         password: password,
         emailRedirectTo: _redirectUrl,
+        data: fullName != null ? {'full_name': fullName} : null,
       );
       return response;
     } on AuthException catch (e) {

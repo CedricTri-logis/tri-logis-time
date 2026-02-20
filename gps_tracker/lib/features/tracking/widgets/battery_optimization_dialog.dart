@@ -42,7 +42,7 @@ class BatteryOptimizationDialog extends StatelessWidget {
           Text(
             'Android may pause GPS tracking to save battery when the app is in '
             'the background. To ensure uninterrupted tracking during your shifts, '
-            'allow GPS Tracker to run without battery restrictions.',
+            'allow Tri-Logis Time to run without battery restrictions.',
             style: theme.textTheme.bodyMedium,
           ),
           const SizedBox(height: 16),

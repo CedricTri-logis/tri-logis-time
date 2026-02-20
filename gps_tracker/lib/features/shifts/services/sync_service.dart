@@ -98,6 +98,9 @@ class SyncService {
       _progressController.add(progress);
     }
 
+    // Sync GPS gaps
+    await _syncGpsGaps();
+
     // Sync pending GPS points with progress
     final gpsResult = await _syncGpsPointsWithProgress(
       totalPending: totalPendingGps,
@@ -162,21 +165,35 @@ class SyncService {
       final mappedPoints = <Map<String, dynamic>>[];
       final validPointIds = <String>[];
 
-      for (final point in pendingPoints) {
-        final shift = await _localDb.getShiftById(point.shiftId);
+      int skippedOrphanCount = 0;
 
-        // Only sync if shift exists AND has a server ID
+      for (final point in pendingPoints) {
+        var shift = await _localDb.getShiftById(point.shiftId);
+
+        // If shift has no server ID, attempt inline shift sync
+        if (shift != null && shift.serverId == null) {
+          final synced = await _shiftService.syncShift(shift.id);
+          if (synced) {
+            // Re-fetch to get the new serverId
+            shift = await _localDb.getShiftById(point.shiftId);
+          }
+        }
+
         if (shift != null && shift.serverId != null) {
           final pointJson = point.toJson();
           pointJson['shift_id'] = shift.serverId; // Use server ID
           mappedPoints.add(pointJson);
           validPointIds.add(point.id);
+        } else {
+          // Count as failed — not silently skipped
+          failedCount++;
+          skippedOrphanCount++;
         }
-        // Points without valid server shift ID are skipped and will be retried later
       }
 
-      // If all points were skipped (no valid server IDs), break to avoid infinite loop
+      // If all points were orphaned (no valid server IDs), report as error to trigger retry
       if (mappedPoints.isEmpty) {
+        lastError = '$skippedOrphanCount GPS points orphaned (shift not synced)';
         break;
       }
 
@@ -209,6 +226,41 @@ class SyncService {
       failedGpsPoints: failedCount,
       lastError: lastError,
     );
+  }
+
+  /// Sync pending GPS gaps to Supabase.
+  Future<void> _syncGpsGaps() async {
+    final pendingGaps = await _localDb.getPendingGpsGaps();
+    if (pendingGaps.isEmpty) return;
+
+    // Map local shift IDs to server IDs
+    final mappedGaps = <Map<String, dynamic>>[];
+    final validGapIds = <String>[];
+
+    for (final gap in pendingGaps) {
+      final shift = await _localDb.getShiftById(gap.shiftId);
+      if (shift != null && shift.serverId != null) {
+        final gapJson = gap.toJson();
+        gapJson['shift_id'] = shift.serverId;
+        gapJson['employee_id'] = gap.employeeId;
+        mappedGaps.add(gapJson);
+        validGapIds.add(gap.id);
+      }
+    }
+
+    if (mappedGaps.isEmpty) return;
+
+    try {
+      final result = await _supabase.rpc<Map<String, dynamic>>(
+        'sync_gps_gaps',
+        params: {'p_gaps': mappedGaps},
+      );
+      if (result['status'] == 'success') {
+        await _localDb.markGpsGapsSynced(validGapIds);
+      }
+    } catch (_) {
+      // Will retry on next sync cycle
+    }
   }
 
   /// Sync a single shift.

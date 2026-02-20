@@ -152,10 +152,14 @@ class SyncNotifier extends StateNotifier<SyncState> {
   StreamSubscription<bool>? _connectivitySub;
   Timer? _syncRetryTimer;
   Timer? _countdownTimer;
+  Timer? _periodicSyncTimer;
   StreamSubscription<SyncProgress>? _progressSub;
 
-  /// Delay before auto-sync on connectivity restore (30 seconds per spec).
-  static const Duration _syncDelay = Duration(seconds: 30);
+  /// Delay before auto-sync on connectivity restore (cautious for flaky networks).
+  static const Duration _connectivityRestoreDelay = Duration(seconds: 30);
+
+  /// Delay before auto-sync when new data arrives (fast response).
+  static const Duration _newDataDelay = Duration(seconds: 5);
 
   /// Backoff strategy instance.
   late ExponentialBackoff _backoff;
@@ -177,6 +181,15 @@ class SyncNotifier extends StateNotifier<SyncState> {
 
     // Subscribe to sync progress from service
     _subscribeToProgress();
+
+    // Start periodic sync timer (every 2 minutes)
+    _periodicSyncTimer = Timer.periodic(const Duration(minutes: 2), (_) {
+      if (state.hasPendingData &&
+          state.isConnected &&
+          state.status != SyncStatus.syncing) {
+        syncPendingData();
+      }
+    });
   }
 
   /// Load sync state from persistence.
@@ -236,7 +249,7 @@ class SyncNotifier extends StateNotifier<SyncState> {
           );
 
       if (isConnected && state.hasPendingData) {
-        _scheduleSyncWithDelay();
+        _scheduleSyncWithDelay(delay: _connectivityRestoreDelay);
       } else if (!isConnected) {
         // Cancel any pending retries when disconnected
         _cancelRetryTimer();
@@ -251,19 +264,21 @@ class SyncNotifier extends StateNotifier<SyncState> {
     });
   }
 
-  /// Schedule sync after connectivity restore (30 second delay per spec).
-  void _scheduleSyncWithDelay() {
+  /// Schedule sync after a delay. Uses [_newDataDelay] by default.
+  void _scheduleSyncWithDelay({Duration? delay}) {
     _cancelRetryTimer();
 
-    _syncRetryTimer = Timer(_syncDelay, () {
+    final effectiveDelay = delay ?? _newDataDelay;
+
+    _syncRetryTimer = Timer(effectiveDelay, () {
       if (state.hasPendingData && state.isConnected) {
         syncPendingData();
       }
     });
 
     _ref.read(syncLoggerProvider).debug(
-      'Sync scheduled after connectivity restore',
-      metadata: {'delay_seconds': _syncDelay.inSeconds},
+      'Sync scheduled',
+      metadata: {'delay_seconds': effectiveDelay.inSeconds},
     );
   }
 
@@ -506,6 +521,7 @@ class SyncNotifier extends StateNotifier<SyncState> {
     _connectivitySub?.cancel();
     _syncRetryTimer?.cancel();
     _countdownTimer?.cancel();
+    _periodicSyncTimer?.cancel();
     _progressSub?.cancel();
     super.dispose();
   }

@@ -1,7 +1,10 @@
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../shared/services/local_database.dart';
+import '../../../shared/services/notification_service.dart';
+import '../../shifts/models/local_gps_gap.dart';
 import '../../shifts/models/local_gps_point.dart';
 import '../../shifts/providers/shift_provider.dart';
 import '../../shifts/providers/sync_provider.dart';
@@ -14,6 +17,9 @@ import '../services/background_tracking_service.dart';
 class TrackingNotifier extends StateNotifier<TrackingState> {
   final Ref _ref;
   ProviderSubscription<ShiftState>? _shiftSubscription;
+
+  /// ID of the currently open GPS gap (if any).
+  String? _activeGpsGapId;
 
   TrackingNotifier(this._ref) : super(const TrackingState()) {
     _initializeListeners();
@@ -69,18 +75,87 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
       case 'status':
         _handleStatusUpdate(data);
       case 'gps_lost':
-        state = state.copyWith(gpsSignalLost: true);
+        _handleGpsLost(data);
       case 'gps_restored':
-        state = state.copyWith(gpsSignalLost: false);
-      case 'gps_timeout':
-        _handleGpsTimeout();
+        _handleGpsRestored(data);
+      case 'stream_recovered':
+        // Stream was recovered — no action needed, just log
+        break;
     }
   }
 
-  void _handleGpsTimeout() {
-    // Auto clock-out due to GPS loss timeout
+  void _handleGpsLost(Map<String, dynamic> data) {
     state = state.copyWith(gpsSignalLost: true);
-    _ref.read(shiftProvider.notifier).clockOut();
+
+    // Show local notification
+    NotificationService().showGpsLostNotification();
+
+    // Start recording the gap
+    _startGpsGap(data);
+  }
+
+  void _handleGpsRestored(Map<String, dynamic> data) {
+    state = state.copyWith(gpsSignalLost: false);
+
+    // Cancel the persistent GPS lost notification and show brief restore
+    NotificationService().cancelGpsLostNotification();
+    NotificationService().showGpsRestoredNotification();
+
+    // Close the GPS gap record
+    _closeGpsGap(data);
+  }
+
+  /// Open a GPS gap record in the local database.
+  Future<void> _startGpsGap(Map<String, dynamic> data) async {
+    final shiftId = state.activeShiftId;
+    if (shiftId == null) return;
+
+    final shiftState = _ref.read(shiftProvider);
+    final employeeId = shiftState.activeShift?.employeeId;
+    if (employeeId == null) return;
+
+    final gapId = const Uuid().v4();
+    _activeGpsGapId = gapId;
+
+    final startedAtStr = data['gap_started_at'] as String?;
+    final startedAt = startedAtStr != null
+        ? DateTime.parse(startedAtStr)
+        : DateTime.now().toUtc();
+
+    final gap = LocalGpsGap(
+      id: gapId,
+      shiftId: shiftId,
+      employeeId: employeeId,
+      startedAt: startedAt,
+      reason: 'signal_loss',
+    );
+
+    try {
+      await LocalDatabase().insertGpsGap(gap);
+    } catch (_) {
+      // Best-effort — don't crash tracking if gap insert fails
+    }
+  }
+
+  /// Close the active GPS gap record.
+  Future<void> _closeGpsGap(Map<String, dynamic> data) async {
+    final gapId = _activeGpsGapId;
+    if (gapId == null) return;
+    _activeGpsGapId = null;
+
+    final endedAtStr = data['gap_ended_at'] as String?;
+    final endedAt = endedAtStr != null
+        ? DateTime.parse(endedAtStr)
+        : DateTime.now().toUtc();
+
+    try {
+      await LocalDatabase().closeGpsGap(gapId, endedAt);
+    } catch (_) {
+      // Best-effort
+    }
+
+    // Trigger sync to upload the gap
+    _ref.read(syncProvider.notifier).notifyPendingData();
   }
 
   Future<void> _handlePositionUpdate(Map<String, dynamic> pointData) async {
@@ -108,6 +183,9 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
   void _handleHeartbeat(Map<String, dynamic> data) {
     final isStationary = data['is_stationary'] as bool? ?? false;
     state = state.copyWith(isStationary: isStationary);
+
+    // Trigger sync check on every heartbeat (debounced by 5s delay in sync provider)
+    _ref.read(syncProvider.notifier).notifyPendingData();
   }
 
   void _handleStatusUpdate(Map<String, dynamic> data) {
@@ -123,12 +201,17 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
   void _handleShiftStateChange(ShiftState? previous, ShiftState next) {
     // Auto-start on clock in
     if (previous?.activeShift == null && next.activeShift != null) {
+      // Request notification permission at clock-in
+      NotificationService().requestPermission();
       startTracking();
     }
 
     // Auto-stop on clock out
     if (previous?.activeShift != null && next.activeShift == null) {
       stopTracking();
+      // Clean up any active GPS gap and notifications
+      _activeGpsGapId = null;
+      NotificationService().cancelGpsLostNotification();
     }
   }
 

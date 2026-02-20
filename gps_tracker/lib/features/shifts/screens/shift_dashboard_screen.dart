@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../shared/providers/supabase_provider.dart';
 import '../../tracking/models/device_location_status.dart';
@@ -396,10 +397,11 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
 
     final shiftNotifier = ref.read(shiftProvider.notifier);
 
-    // Clock out without location (GPS is unavailable)
+    // Clock out without location (GPS is unavailable — permission revoked)
     final success = await shiftNotifier.clockOut(
       location: null,
       accuracy: null,
+      reason: 'auto_permission_revoked',
     );
 
     if (!mounted) return;
@@ -589,7 +591,7 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
       builder: (context) => AlertDialog(
         title: const Text('Permission de localisation requise'),
         content: const Text(
-          'GPS Tracker a besoin d\'accéder à votre position pour enregistrer vos quarts. '
+          'Tri-Logis Time a besoin d\'accéder à votre position pour enregistrer vos quarts. '
           'Veuillez accorder la permission de localisation pour continuer.',
         ),
         actions: [
@@ -717,9 +719,17 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
           ],
         ),
         actions: [
-          FilledButton(
+          TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Compris'),
+            child: const Text('Fermer'),
+          ),
+          FilledButton.icon(
+            onPressed: () {
+              final storeUrl = Uri.parse('https://time.trilogis.ca/update');
+              launchUrl(storeUrl, mode: LaunchMode.externalApplication);
+            },
+            icon: const Icon(Icons.download),
+            label: const Text('Mettre à jour'),
           ),
         ],
       ),

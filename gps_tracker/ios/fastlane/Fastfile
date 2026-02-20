@@ -23,10 +23,12 @@ platform :ios do
     upload_to_testflight(
       api_key: api_key,
       ipa: "../build/ios/ipa/gps_tracker.ipa",
-      groups: ["Tri-Logis", "Employee"],
+      groups: ["Employee"],
       distribute_external: true,
       notify_external_testers: true,
       changelog: ENV["CHANGELOG"] || "Bug fixes and improvements."
+      # Note: "Tri-Logis" is internal with auto-distribution enabled
+      # and receives all builds automatically.
     )
   end
 

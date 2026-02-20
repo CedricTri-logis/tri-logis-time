@@ -35,7 +35,7 @@ class DeviceServicesDialog extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Location services are turned off on your device. GPS Tracker needs '
+            'Location services are turned off on your device. Tri-Logis Time needs '
             'location services to be enabled to track your work shifts.',
             style: theme.textTheme.bodyMedium,
           ),

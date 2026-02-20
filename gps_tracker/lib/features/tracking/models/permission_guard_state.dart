@@ -87,7 +87,9 @@ class PermissionGuardState {
 
   /// Computed: Whether clock-in should show warning (but allow proceeding)
   bool get shouldWarnOnClockIn {
-    // "whileInUse" is acceptable - only warn for battery optimization
+    // Warn if only "whileInUse" (background tracking needs "always")
+    if (permission.level == LocationPermissionLevel.whileInUse) return true;
+    // Warn if battery optimization is enabled
     return !isBatteryOptimizationDisabled;
   }
 

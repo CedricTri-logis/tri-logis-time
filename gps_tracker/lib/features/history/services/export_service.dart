@@ -136,7 +136,7 @@ class ExportService {
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           children: [
             pw.Text(
-              'GPS Clock-In Tracker',
+              'Tri-Logis Time',
               style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey600),
             ),
             pw.Text(

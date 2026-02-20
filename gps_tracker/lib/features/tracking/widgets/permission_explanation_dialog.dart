@@ -61,7 +61,7 @@ class PermissionExplanationDialog extends StatelessWidget {
           Text(
             forBackgroundPermission
                 ? 'To track your location during shifts (even when the app is in the background), we need "Always" location permission.'
-                : 'GPS Clock-In Tracker needs your location to record where you clock in and out.',
+                : 'Tri-Logis Time needs your location to record where you clock in and out.',
             style: theme.textTheme.bodyMedium,
           ),
           const SizedBox(height: 16),

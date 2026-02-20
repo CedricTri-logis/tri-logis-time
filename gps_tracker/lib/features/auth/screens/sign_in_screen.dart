@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/config/theme.dart';
 import '../../../shared/providers/supabase_provider.dart';
 import '../../../shared/widgets/error_snackbar.dart';
 import '../providers/device_session_provider.dart';
@@ -202,6 +203,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -212,27 +214,44 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // App logo/icon
-                  Icon(
-                    Icons.location_on,
-                    size: 80,
-                    color: theme.colorScheme.primary,
+                  // Branded Logo
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 20,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
+                      ),
+                      child: Image.asset(
+                        'assets/images/logo.png',
+                        height: 100,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 48),
 
                   // Title
                   Text(
-                    'Bon retour',
+                    'Pointage Employé',
                     style: theme.textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.bold,
+                      color: TriLogisColors.black,
                     ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Connectez-vous pour continuer',
+                    'Connectez-vous pour débuter votre quart',
                     style: theme.textTheme.bodyLarge?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                      color: Colors.grey[600],
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -242,11 +261,14 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   if (_biometricReady) ...[
                     OutlinedButton.icon(
                       onPressed: _isLoading ? null : _handleBiometricSignIn,
-                      icon: Icon(_biometricIcon, size: 24),
-                      label: Text('Connexion avec $_biometricLabel'),
+                      icon: Icon(_biometricIcon, size: 24, color: TriLogisColors.gold),
+                      label: Text(
+                        'Connexion avec $_biometricLabel',
+                        style: const TextStyle(color: TriLogisColors.black),
+                      ),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        side: BorderSide(color: theme.colorScheme.primary),
+                        side: const BorderSide(color: TriLogisColors.gold),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -255,17 +277,17 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                     const SizedBox(height: 16),
                     Row(
                       children: [
-                        Expanded(child: Divider(color: theme.colorScheme.outline.withValues(alpha: 0.3))),
+                        Expanded(child: Divider(color: Colors.grey[300])),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: Text(
                             'ou',
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
+                              color: Colors.grey[500],
                             ),
                           ),
                         ),
-                        Expanded(child: Divider(color: theme.colorScheme.outline.withValues(alpha: 0.3))),
+                        Expanded(child: Divider(color: Colors.grey[300])),
                       ],
                     ),
                     const SizedBox(height: 16),

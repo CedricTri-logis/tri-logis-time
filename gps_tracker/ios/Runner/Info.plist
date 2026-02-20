@@ -11,7 +11,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>GPS Tracker</string>
+	<string>Tri-Logis Time</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -31,9 +31,9 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>GPS Clock-In Tracker needs continuous access to your location to track your work shifts even when the app is in the background.</string>
+	<string>Tri-Logis Time needs continuous access to your location to track your work shifts even when the app is in the background.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>GPS Clock-In Tracker needs your location to track your work shifts.</string>
+	<string>Tri-Logis Time needs your location to track your work shifts.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIBackgroundModes</key>

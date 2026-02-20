@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/config/theme.dart';
 import 'features/auth/providers/device_session_provider.dart';
 import 'features/auth/screens/sign_in_screen.dart';
 import 'features/home/home_screen.dart';
@@ -14,22 +15,10 @@ class GpsTrackerApp extends ConsumerWidget {
     final authState = ref.watch(authStateChangesProvider);
 
     return MaterialApp(
-      title: 'GPS Clock-In Tracker',
+      title: 'Tri-Logis Time',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.blue,
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-      ),
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.blue,
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-      ),
+      theme: TriLogisTheme.lightTheme,
+      darkTheme: TriLogisTheme.darkTheme,
       themeMode: ThemeMode.system,
       home: authState.when(
         data: (state) {
