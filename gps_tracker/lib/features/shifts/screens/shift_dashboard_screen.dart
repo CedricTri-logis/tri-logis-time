@@ -260,6 +260,42 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
     } else if (guardState.permission.level ==
         LocationPermissionLevel.deniedForever) {
       await SettingsGuidanceDialog.show(context);
+    } else if (guardState.permission.level ==
+        LocationPermissionLevel.whileInUse) {
+      // Has "While In Use" but needs "Always" for background tracking
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.location_off, color: Colors.orange),
+              SizedBox(width: 8),
+              Expanded(child: Text('Permission insuffisante')),
+            ],
+          ),
+          content: const Text(
+            'Le suivi GPS nécessite la permission "Toujours" pour fonctionner '
+            'en arrière-plan pendant votre quart.\n\n'
+            'Allez dans :\nRéglages > Tri-Logis Time > Position > Toujours',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Annuler'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await ref
+                    .read(permissionGuardProvider.notifier)
+                    .openAppSettings();
+              },
+              child: const Text('Ouvrir réglages'),
+            ),
+          ],
+        ),
+      );
     } else {
       // Permission not granted yet
       final proceed = await PermissionExplanationDialog.show(context);

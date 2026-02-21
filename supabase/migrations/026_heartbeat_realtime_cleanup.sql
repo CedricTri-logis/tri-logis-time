@@ -66,8 +66,8 @@ BEGIN
         clock_out_reason = 'auto_zombie_cleanup'
     WHERE status = 'active'
       AND (
-        (last_heartbeat_at IS NOT NULL AND last_heartbeat_at < NOW() - INTERVAL '2 hours')
-        OR (last_heartbeat_at IS NULL AND clocked_in_at < NOW() - INTERVAL '2 hours')
+        (last_heartbeat_at IS NOT NULL AND last_heartbeat_at < NOW() - INTERVAL '30 minutes')
+        OR (last_heartbeat_at IS NULL AND clocked_in_at < NOW() - INTERVAL '30 minutes')
         OR (clocked_in_at < NOW() - INTERVAL '16 hours')
       )
     RETURNING id
