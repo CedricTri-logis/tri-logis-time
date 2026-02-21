@@ -16,6 +16,9 @@ import GoogleMaps
 
     GeneratedPluginRegistrant.register(with: self)
 
+    // Register Significant Location Change plugin (safety net for terminated app)
+    SignificantLocationPlugin.register(with: self.registrar(forPlugin: "SignificantLocationPlugin")!)
+
     // Required for flutter_foreground_task
     SwiftFlutterForegroundTaskPlugin.setPluginRegistrantCallback { registry in
       GeneratedPluginRegistrant.register(with: registry)

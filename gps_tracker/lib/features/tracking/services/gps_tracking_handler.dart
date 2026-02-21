@@ -106,7 +106,7 @@ class GPSTrackingHandler extends TaskHandler {
       return AppleSettings(
         accuracy: LocationAccuracy.high,
         distanceFilter: 0,
-        activityType: ActivityType.otherNavigation,
+        activityType: ActivityType.other,
         pauseLocationUpdatesAutomatically: false,
         showBackgroundLocationIndicator: true,
         allowBackgroundLocationUpdates: true,
@@ -398,6 +398,10 @@ class GPSTrackingHandler extends TaskHandler {
         _stationaryIntervalSeconds =
             data['stationary_interval_seconds'] as int? ?? _stationaryIntervalSeconds;
         _distanceFilterMeters = data['distance_filter_meters'] as int? ?? _distanceFilterMeters;
+      } else if (command == 'recoverStream') {
+        // Main isolate detected GPS gap — force stream recovery
+        _streamRecoveryAttempts = 0; // Reset counter to allow recovery
+        _recoverPositionStream();
       } else if (command == 'getStatus') {
         FlutterForegroundTask.sendDataToMain({
           'type': 'status',

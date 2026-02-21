@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../shared/services/local_database.dart';
@@ -13,6 +14,7 @@ import '../models/tracking_config.dart';
 import '../models/tracking_state.dart';
 import '../models/tracking_status.dart';
 import '../services/background_tracking_service.dart';
+import '../services/significant_location_service.dart';
 
 /// Manages UI state for background GPS tracking.
 class TrackingNotifier extends StateNotifier<TrackingState> {
@@ -21,6 +23,12 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
 
   /// ID of the currently open GPS gap (if any).
   String? _activeGpsGapId;
+
+  /// Counter for throttling server heartbeat (every 3rd background heartbeat = ~90s).
+  int _heartbeatCounter = 0;
+
+  /// Last time the background handler reported a GPS capture, for self-healing.
+  DateTime? _lastBackgroundCapture;
 
   TrackingNotifier(this._ref) : super(const TrackingState()) {
     _initializeListeners();
@@ -191,8 +199,58 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     final isStationary = data['is_stationary'] as bool? ?? false;
     state = state.copyWith(isStationary: isStationary);
 
+    // Track last capture time from background handler
+    final lastCapture = data['last_capture'] as String?;
+    if (lastCapture != null) {
+      _lastBackgroundCapture = DateTime.tryParse(lastCapture);
+    }
+
     // Trigger sync check on every heartbeat (debounced by 5s delay in sync provider)
     _ref.read(syncProvider.notifier).notifyPendingData();
+
+    // App-level server heartbeat — independent of GPS points.
+    // Sends every 3rd heartbeat (~90s) so the server knows the app is alive
+    // even if GPS stream dies. Prevents false zombie cleanup.
+    _heartbeatCounter++;
+    if (_heartbeatCounter % 3 == 0) {
+      _sendServerHeartbeat();
+    }
+
+    // GPS self-healing: if no capture in 3+ minutes, ask background to recover
+    _checkGpsSelfHealing();
+  }
+
+  /// Ping the server to update shift heartbeat, independent of GPS points.
+  Future<void> _sendServerHeartbeat() async {
+    final shift = _ref.read(shiftProvider).activeShift;
+    final serverId = shift?.serverId;
+    if (serverId == null) return;
+
+    try {
+      await Supabase.instance.client.rpc<void>(
+        'ping_shift_heartbeat',
+        params: {'p_shift_id': serverId},
+      );
+    } catch (e) {
+      debugPrint('[Tracking] Server heartbeat failed: $e');
+      // Best-effort — don't crash tracking
+    }
+  }
+
+  /// If GPS hasn't produced a point in 3+ minutes, tell the background
+  /// handler to recover its position stream.
+  void _checkGpsSelfHealing() {
+    final lastCapture = _lastBackgroundCapture;
+    if (lastCapture == null) return;
+
+    final gap = DateTime.now().difference(lastCapture);
+    if (gap > const Duration(minutes: 3)) {
+      debugPrint('[Tracking] GPS gap detected (${gap.inSeconds}s), '
+          'requesting stream recovery');
+      FlutterForegroundTask.sendDataToTask({'command': 'recoverStream'});
+      // Reset to avoid spamming recovery requests
+      _lastBackgroundCapture = DateTime.now();
+    }
   }
 
   void _handleStatusUpdate(Map<String, dynamic> data) {
@@ -249,6 +307,9 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
           status: TrackingStatus.running,
           config: trackingConfig,
         );
+        // Start iOS significant location change monitoring as safety net
+        SignificantLocationService.onWokenByLocationChange = _onWokenByLocationChange;
+        SignificantLocationService.startMonitoring();
       case TrackingPermissionDenied():
         state = state.withError('Location permission required');
       case TrackingServiceError(:final message):
@@ -261,7 +322,22 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
   /// Stop background tracking.
   Future<void> stopTracking() async {
     await BackgroundTrackingService.stopTracking();
+    SignificantLocationService.stopMonitoring();
     state = state.stopTracking();
+  }
+
+  /// Called when iOS relaunches the app after a significant location change.
+  /// Attempts to restart GPS tracking if there's an active shift.
+  void _onWokenByLocationChange() {
+    debugPrint('[Tracking] App woken by significant location change');
+    if (state.status != TrackingStatus.running) {
+      // Try to restart tracking if we have an active shift
+      final shift = _ref.read(shiftProvider).activeShift;
+      if (shift != null) {
+        debugPrint('[Tracking] Restarting GPS tracking after iOS relaunch');
+        startTracking();
+      }
+    }
   }
 
   /// Update tracking configuration.

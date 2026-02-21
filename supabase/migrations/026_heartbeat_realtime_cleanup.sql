@@ -66,8 +66,8 @@ BEGIN
         clock_out_reason = 'auto_zombie_cleanup'
     WHERE status = 'active'
       AND (
-        (last_heartbeat_at IS NOT NULL AND last_heartbeat_at < NOW() - INTERVAL '30 minutes')
-        OR (last_heartbeat_at IS NULL AND clocked_in_at < NOW() - INTERVAL '30 minutes')
+        (last_heartbeat_at IS NOT NULL AND last_heartbeat_at < NOW() - INTERVAL '15 minutes')
+        OR (last_heartbeat_at IS NULL AND clocked_in_at < NOW() - INTERVAL '15 minutes')
         OR (clocked_in_at < NOW() - INTERVAL '16 hours')
       )
     RETURNING id
@@ -83,7 +83,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- -----------------------------------------------------------------------------
 SELECT cron.schedule(
   'cleanup-zombie-shifts',
-  '*/15 * * * *',
+  '*/5 * * * *',
   $$SELECT * FROM cleanup_zombie_shifts()$$
 );
 
@@ -102,3 +102,19 @@ $$;
 -- REPLICA IDENTITY FULL so Realtime sends old + new values on UPDATE
 ALTER TABLE active_device_sessions REPLICA IDENTITY FULL;
 ALTER TABLE shifts REPLICA IDENTITY FULL;
+
+-- -----------------------------------------------------------------------------
+-- 4. App-level heartbeat RPC (independent of GPS points)
+-- -----------------------------------------------------------------------------
+-- The app calls this every ~90s to prove it's still alive,
+-- even if GPS stream has died. Prevents false zombie cleanup.
+CREATE OR REPLACE FUNCTION ping_shift_heartbeat(p_shift_id UUID)
+RETURNS VOID AS $$
+BEGIN
+  UPDATE shifts
+  SET last_heartbeat_at = NOW()
+  WHERE id = p_shift_id
+    AND employee_id = auth.uid()
+    AND status = 'active';
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
