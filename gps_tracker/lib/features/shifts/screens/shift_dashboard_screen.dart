@@ -122,6 +122,22 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
     }
   }
 
+  /// Returns settings navigation instructions matching the device language.
+  String _locationSettingsInstructions() {
+    final locale = Localizations.localeOf(context).languageCode;
+    if (Platform.isIOS) {
+      return switch (locale) {
+        'en' => 'Go to:\nSettings > Tri-Logis Time > Location > Always',
+        _ => 'Allez dans :\nRéglages > Tri-Logis Time > Position > Toujours',
+      };
+    } else {
+      return switch (locale) {
+        'en' => 'Go to:\nSettings > Apps > Tri-Logis Time > Permissions > Location > Allow all the time',
+        _ => 'Allez dans :\nParamètres > Applications > Tri-Logis Time > Autorisations > Position > Toujours autoriser',
+      };
+    }
+  }
+
   Future<void> _handleClockIn() async {
     // Version check: block clock-in if app is outdated
     final versionResult = await VersionCheckService(
@@ -274,10 +290,10 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
               Expanded(child: Text('Permission insuffisante')),
             ],
           ),
-          content: const Text(
+          content: Text(
             'Le suivi GPS nécessite la permission "Toujours" pour fonctionner '
             'en arrière-plan pendant votre quart.\n\n'
-            'Allez dans :\nRéglages > Tri-Logis Time > Position > Toujours',
+            '${_locationSettingsInstructions()}',
           ),
           actions: [
             TextButton(
