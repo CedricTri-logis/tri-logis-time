@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../shared/providers/supabase_provider.dart';
@@ -92,6 +93,32 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
       ref.read(trackingProvider.notifier).refreshState();
       // Re-check permission status on resume (e.g., after returning from settings)
       ref.read(permissionGuardProvider.notifier).checkStatus();
+      // Verify shift is still active server-side (catches changes missed while backgrounded)
+      _reconcileShiftWithServer();
+    }
+  }
+
+  /// Check with Supabase that the active shift hasn't been closed server-side
+  /// while the app was in the background (admin action, zombie cleanup, etc.).
+  Future<void> _reconcileShiftWithServer() async {
+    final activeShift = ref.read(shiftProvider).activeShift;
+    if (activeShift?.serverId == null) return;
+
+    try {
+      final serverShift = await Supabase.instance.client
+          .from('shifts')
+          .select('status')
+          .eq('id', activeShift!.serverId!)
+          .maybeSingle();
+
+      if (serverShift != null && serverShift['status'] != 'active') {
+        // Shift was closed server-side while app was backgrounded
+        debugPrint('Reconciliation: shift ${activeShift.serverId} '
+            'is ${serverShift['status']} on server — refreshing');
+        ref.read(shiftProvider.notifier).refresh();
+      }
+    } catch (_) {
+      // Fail-open: if we can't verify, continue with local state
     }
   }
 

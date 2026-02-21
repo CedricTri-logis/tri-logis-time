@@ -101,8 +101,30 @@ class HomeScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(AppConstants.appName),
+        title: Image.asset(
+          'assets/images/logo.png',
+          height: 40,
+          fit: BoxFit.contain,
+        ),
         centerTitle: true,
+        backgroundColor: Colors.white,
+        elevation: 0,
+        surfaceTintColor: Colors.white,
+        shadowColor: Colors.black.withValues(alpha: 0.1),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1.0),
+          child: Container(
+            height: 1.0,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Color(0xFFD11848), // TriLogis Red
+                  Color(0xFFBA8041), // TriLogis Gold
+                ],
+              ),
+            ),
+          ),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.history),
@@ -176,8 +198,16 @@ class _ManagerHomeScreen extends StatelessWidget {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text(AppConstants.appName),
+          title: Image.asset(
+            'assets/images/logo.png',
+            height: 40,
+            fit: BoxFit.contain,
+          ),
           centerTitle: true,
+          backgroundColor: Colors.white,
+          elevation: 0,
+          surfaceTintColor: Colors.white,
+          shadowColor: Colors.black.withValues(alpha: 0.1),
           actions: [
             IconButton(
               icon: const Icon(Icons.history),
@@ -248,8 +278,11 @@ class _ManagerHomeScreen extends StatelessWidget {
               ],
             ),
           ],
-          bottom: const TabBar(
-            tabs: [
+          bottom: TabBar(
+            indicatorColor: const Color(0xFFD11848), // TriLogis Red
+            labelColor: const Color(0xFFD11848),
+            unselectedLabelColor: Colors.grey,
+            tabs: const [
               Tab(
                 icon: Icon(Icons.person),
                 text: 'My Dashboard',

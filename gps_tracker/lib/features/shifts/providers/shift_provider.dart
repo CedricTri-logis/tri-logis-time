@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/providers/supabase_provider.dart';
 import '../../../shared/services/local_database.dart';
+import '../../../shared/services/realtime_service.dart';
 import '../../cleaning/providers/cleaning_session_provider.dart';
 import '../../maintenance/providers/maintenance_provider.dart';
 import '../models/geo_point.dart';
@@ -62,6 +64,34 @@ class ShiftNotifier extends StateNotifier<ShiftState> {
 
   ShiftNotifier(this._shiftService, this._ref) : super(const ShiftState()) {
     _loadActiveShift();
+    _setupRealtimeListener();
+  }
+
+  /// Listen to Realtime shift updates from the server.
+  ///
+  /// Detects when a shift is closed server-side (admin action, zombie cleanup)
+  /// and updates local state accordingly.
+  void _setupRealtimeListener() {
+    final realtimeService = _ref.read(realtimeServiceProvider);
+    realtimeService.onShiftChanged = (newRecord) {
+      _handleServerShiftUpdate(newRecord);
+    };
+  }
+
+  void _handleServerShiftUpdate(Map<String, dynamic> record) {
+    final activeShift = state.activeShift;
+    if (activeShift == null) return;
+
+    final newStatus = record['status'] as String?;
+    final shiftId = record['id'] as String?;
+
+    // If the active shift was closed server-side (admin, zombie cleanup, etc.)
+    if (shiftId == activeShift.serverId && newStatus == 'completed') {
+      debugPrint(
+          'ShiftNotifier: server closed shift $shiftId '
+          '(reason: ${record['clock_out_reason']})');
+      state = state.copyWith(clearActiveShift: true);
+    }
   }
 
   /// Load the current active shift.

@@ -4,7 +4,9 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/providers/supabase_provider.dart';
+import '../../../shared/services/realtime_service.dart';
 import '../../shifts/providers/shift_provider.dart';
+import '../services/device_id_service.dart';
 import '../services/device_session_service.dart';
 
 /// Status of the device session check.
@@ -12,19 +14,45 @@ enum DeviceSessionStatus { active, checking, forcedOut }
 
 /// Monitors whether this device is still the active session.
 ///
-/// Polls every 60 seconds and on app resume. When another device
-/// takes over, it auto-clocks out and signs out.
+/// Uses Supabase Realtime for near-instant detection (~1-2s) when online,
+/// with 60-second polling as fallback for offline/reconnection scenarios.
 class DeviceSessionNotifier extends StateNotifier<DeviceSessionStatus>
     with WidgetsBindingObserver {
   final Ref _ref;
   Timer? _timer;
+  String? _currentDeviceId;
 
   /// Static flag checked by sign-in screen to show explanation.
   static bool wasForceLoggedOut = false;
 
   DeviceSessionNotifier(this._ref) : super(DeviceSessionStatus.active) {
     WidgetsBinding.instance.addObserver(this);
+    _init();
+  }
+
+  Future<void> _init() async {
+    // Cache the device ID for Realtime comparison
+    _currentDeviceId = await DeviceIdService.getDeviceId();
+    _setupRealtime();
     _startPolling();
+  }
+
+  /// Set up Realtime listener for instant force-logout detection.
+  void _setupRealtime() {
+    final realtimeService = _ref.read(realtimeServiceProvider);
+    realtimeService.onSessionChanged = (newRecord) {
+      if (state == DeviceSessionStatus.forcedOut) return;
+
+      final newDeviceId = newRecord['device_id'] as String?;
+      if (newDeviceId != null &&
+          _currentDeviceId != null &&
+          newDeviceId != _currentDeviceId) {
+        // Another device took the session — force logout
+        debugPrint(
+            'DeviceSessionNotifier: Realtime detected session takeover');
+        _handleForceLogout();
+      }
+    };
   }
 
   void _startPolling() {
