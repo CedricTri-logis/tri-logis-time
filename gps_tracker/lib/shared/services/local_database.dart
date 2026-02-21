@@ -83,6 +83,10 @@ class LocalDatabase {
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
+
+      // Safety check: ensure clock_out_reason column exists
+      // (covers case where DB was created at v3 without the column)
+      await _ensureClockOutReasonColumn(_database!);
     } catch (e) {
       throw LocalDatabaseException(
         'Failed to initialize database',
@@ -142,6 +146,7 @@ class LocalDatabase {
         last_sync_attempt TEXT,
         sync_error TEXT,
         server_id TEXT,
+        clock_out_reason TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       )
@@ -305,6 +310,18 @@ class LocalDatabase {
     await db.execute('''
       CREATE INDEX IF NOT EXISTS idx_local_gps_gaps_sync ON local_gps_gaps(sync_status)
     ''');
+  }
+
+  /// Ensure clock_out_reason column exists on local_shifts.
+  /// Covers edge case where DB was freshly created at v3 without the column.
+  Future<void> _ensureClockOutReasonColumn(Database db) async {
+    final cols = await db.rawQuery('PRAGMA table_info(local_shifts)');
+    final hasColumn = cols.any((c) => c['name'] == 'clock_out_reason');
+    if (!hasColumn) {
+      await db.execute(
+        'ALTER TABLE local_shifts ADD COLUMN clock_out_reason TEXT',
+      );
+    }
   }
 
   /// Handle database upgrades.

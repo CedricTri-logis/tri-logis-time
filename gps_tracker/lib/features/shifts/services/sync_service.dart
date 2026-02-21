@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../shared/services/local_database.dart';
@@ -257,9 +258,11 @@ class SyncService {
       );
       if (result['status'] == 'success') {
         await _localDb.markGpsGapsSynced(validGapIds);
+      } else {
+        debugPrint('[SyncService] GPS gaps sync returned: ${result['status']} - ${result['message']}');
       }
-    } catch (_) {
-      // Will retry on next sync cycle
+    } catch (e) {
+      debugPrint('[SyncService] GPS gaps sync failed: $e — will retry next cycle');
     }
   }
 

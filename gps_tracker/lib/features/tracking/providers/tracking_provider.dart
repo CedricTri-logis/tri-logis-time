@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -79,8 +80,9 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
       case 'gps_restored':
         _handleGpsRestored(data);
       case 'stream_recovered':
-        // Stream was recovered — no action needed, just log
-        break;
+        debugPrint('[Tracking] GPS stream recovered (attempt ${data['attempt']})');
+      default:
+        debugPrint('[Tracking] Unknown message type: $type');
     }
   }
 

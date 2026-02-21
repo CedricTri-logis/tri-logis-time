@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
@@ -76,12 +77,17 @@ Future<void> main() async {
 
   if (initError == null) {
     try {
-      // Initialize database, tracking, and notifications in parallel
+      // Initialize critical services in parallel
       await Future.wait([
         LocalDatabase().initialize(),
         _initializeTracking(),
-        NotificationService().initialize(),
       ]);
+      // Initialize notifications separately (non-critical — don't block app startup)
+      try {
+        await NotificationService().initialize();
+      } catch (e) {
+        debugPrint('[Main] Notification init failed (non-critical): $e');
+      }
     } catch (e) {
       initError = 'Failed to initialize services: $e';
     }
