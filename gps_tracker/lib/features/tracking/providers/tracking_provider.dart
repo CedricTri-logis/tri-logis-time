@@ -163,8 +163,13 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
   Future<void> _handlePositionUpdate(Map<String, dynamic> pointData) async {
     final point = LocalGpsPoint.fromMap(pointData);
 
-    // Store in local database
-    await LocalDatabase().insertGpsPoint(point);
+    try {
+      // Store in local database
+      await LocalDatabase().insertGpsPoint(point);
+    } catch (e) {
+      debugPrint('[Tracking] ERROR inserting GPS point: $e');
+      // Don't return — still update UI state and trigger sync
+    }
 
     // Update state
     state = state.recordPoint(

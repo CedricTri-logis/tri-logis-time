@@ -10,9 +10,9 @@ class GPSTrackingHandler extends TaskHandler {
   StreamSubscription<Position>? _positionSubscription;
   String? _shiftId;
   String? _employeeId;
-  int _activeIntervalSeconds = 300;
-  int _stationaryIntervalSeconds = 600;
-  int _distanceFilterMeters = 10;
+  int _activeIntervalSeconds = 60;
+  int _stationaryIntervalSeconds = 300;
+  int _distanceFilterMeters = 0;
   int _pointCount = 0;
   DateTime? _lastCaptureTime;
   Position? _lastPosition;
@@ -38,11 +38,11 @@ class GPSTrackingHandler extends TaskHandler {
     _shiftId = await FlutterForegroundTask.getData<String>(key: 'shift_id');
     _employeeId = await FlutterForegroundTask.getData<String>(key: 'employee_id');
     _activeIntervalSeconds =
-        await FlutterForegroundTask.getData<int>(key: 'active_interval_seconds') ?? 300;
+        await FlutterForegroundTask.getData<int>(key: 'active_interval_seconds') ?? 60;
     _stationaryIntervalSeconds =
-        await FlutterForegroundTask.getData<int>(key: 'stationary_interval_seconds') ?? 600;
+        await FlutterForegroundTask.getData<int>(key: 'stationary_interval_seconds') ?? 300;
     _distanceFilterMeters =
-        await FlutterForegroundTask.getData<int>(key: 'distance_filter_meters') ?? 10;
+        await FlutterForegroundTask.getData<int>(key: 'distance_filter_meters') ?? 0;
 
     // If started by system (boot), verify we have an active shift
     if (starter == TaskStarter.system && _shiftId == null) {
@@ -67,6 +67,17 @@ class GPSTrackingHandler extends TaskHandler {
       onError: _onPositionError,
     );
 
+    // Capture initial position immediately (don't rely on stream's first event)
+    try {
+      final initialPosition = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 10),
+      );
+      _onPosition(initialPosition);
+    } catch (_) {
+      // Stream will deliver the first position shortly
+    }
+
     // Notify main isolate that tracking has started
     FlutterForegroundTask.sendDataToMain({
       'type': 'started',
@@ -80,14 +91,21 @@ class GPSTrackingHandler extends TaskHandler {
         accuracy: LocationAccuracy.high,
         distanceFilter: _distanceFilterMeters,
         forceLocationManager: false,
+        // intervalDuration controls how often FusedLocationProvider delivers.
+        // Use a short interval so Android batches are frequent enough.
         intervalDuration: Duration(seconds: _activeIntervalSeconds),
         // No foregroundNotificationConfig — flutter_foreground_task manages
         // the foreground service already (background_tracking_service.dart).
       );
     } else if (Platform.isIOS) {
+      // CRITICAL: distanceFilter MUST be 0 on iOS to keep the position stream
+      // alive when stationary. With distanceFilter > 0, iOS stops delivering
+      // positions when the user doesn't move, which causes iOS to suspend the
+      // app in background — killing GPS tracking entirely.
+      // Our _onPosition interval logic filters the high-frequency updates.
       return AppleSettings(
         accuracy: LocationAccuracy.high,
-        distanceFilter: _distanceFilterMeters,
+        distanceFilter: 0,
         activityType: ActivityType.otherNavigation,
         pauseLocationUpdatesAutomatically: false,
         showBackgroundLocationIndicator: true,
@@ -274,11 +292,10 @@ class GPSTrackingHandler extends TaskHandler {
     final lastSuccess = _lastSuccessfulPositionAt;
     if (lastSuccess == null) return;
 
-    final currentInterval = _isStationary
-        ? _stationaryIntervalSeconds
-        : _activeIntervalSeconds;
-    // Threshold: 1.5x the expected interval + 30s buffer
-    final threshold = Duration(seconds: (currentInterval * 1.5).round() + 30);
+    // On iOS with distanceFilter 0, we should get positions every few seconds.
+    // On Android, every intervalDuration. If no position for 2 minutes,
+    // the stream is likely dead.
+    const threshold = Duration(minutes: 2);
 
     if (now.difference(lastSuccess) >= threshold &&
         _streamRecoveryAttempts < _maxStreamRecoveryAttempts) {
