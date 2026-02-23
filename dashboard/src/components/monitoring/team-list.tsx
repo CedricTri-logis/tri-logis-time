@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ChevronRight, MapPin, User } from 'lucide-react';
+import { ChevronRight, Clock, MapPin, Smartphone, User } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -106,6 +106,24 @@ function TeamListItem({ employee }: TeamListItemProps) {
                 />
               )}
             </div>
+            {/* Device & last shift info */}
+            <div className="flex items-center gap-3 text-xs text-slate-400 mt-0.5">
+              {employee.lastShiftAt && (
+                <span className="flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  {formatLastShift(employee.lastShiftAt)}
+                </span>
+              )}
+              {employee.deviceAppVersion && (
+                <span>v{employee.deviceAppVersion}</span>
+              )}
+              {(employee.deviceModel || employee.devicePlatform) && (
+                <span className="flex items-center gap-1">
+                  <Smartphone className="h-3 w-3" />
+                  {employee.deviceModel || employee.devicePlatform}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -168,6 +186,18 @@ function LocationInfo({ location }: LocationInfoProps) {
       <LastUpdatedBadge capturedAt={location.capturedAt} />
     </div>
   );
+}
+
+function formatLastShift(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays}d ago`;
+
+  return date.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' });
 }
 
 function TeamListSkeleton() {

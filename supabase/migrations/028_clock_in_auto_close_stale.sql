@@ -98,6 +98,11 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- -----------------------------------------------------------------------------
 -- 2. Update clock_out to also close any duplicate active shifts
 -- -----------------------------------------------------------------------------
+-- Drop the old 4-param version first (no p_reason parameter).
+-- Without this, CREATE OR REPLACE creates a second overloaded function
+-- instead of replacing the existing one, causing PostgREST HTTP 300 errors.
+DROP FUNCTION IF EXISTS clock_out(UUID, UUID, JSONB, NUMERIC);
+
 CREATE OR REPLACE FUNCTION clock_out(
     p_shift_id UUID,
     p_request_id UUID,

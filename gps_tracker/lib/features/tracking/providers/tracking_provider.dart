@@ -61,9 +61,17 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     if (isRunning) {
       final shiftId = await FlutterForegroundTask.getData<String>(key: 'shift_id');
       if (shiftId != null) {
+        // Load actual point count from local DB so the counter survives app restarts
+        int pointCount = 0;
+        try {
+          pointCount = await LocalDatabase().getGpsPointCountForShift(shiftId);
+        } catch (e) {
+          debugPrint('[Tracking] Failed to load point count from DB: $e');
+        }
         state = state.copyWith(
           status: TrackingStatus.running,
           activeShiftId: shiftId,
+          pointsCaptured: pointCount,
         );
       }
     } else {
@@ -217,7 +225,14 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
 
   void _handleHeartbeat(Map<String, dynamic> data) {
     final isStationary = data['is_stationary'] as bool? ?? false;
-    state = state.copyWith(isStationary: isStationary);
+    // Sync point count from background handler to keep UI accurate after restarts
+    final bgPointCount = data['point_count'] as int?;
+    state = state.copyWith(
+      isStationary: isStationary,
+      pointsCaptured: bgPointCount != null && bgPointCount > state.pointsCaptured
+          ? bgPointCount
+          : null,
+    );
 
     // Track last capture time from background handler
     final lastCapture = data['last_capture'] as String?;

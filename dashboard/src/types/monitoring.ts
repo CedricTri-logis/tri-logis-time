@@ -37,6 +37,10 @@ export interface MonitoredEmployee {
   shiftStatus: ShiftStatus;
   currentShift: ActiveShift | null;
   currentLocation: LocationPoint | null;
+  lastShiftAt: Date | null;
+  deviceAppVersion: string | null;
+  deviceModel: string | null;
+  devicePlatform: string | null;
 }
 
 // GPS trail point for path rendering
@@ -139,6 +143,10 @@ export interface MonitoredTeamRow {
   latest_longitude: number | null;
   latest_accuracy: number | null;
   latest_captured_at: string | null;
+  last_shift_at: string | null;
+  device_app_version: string | null;
+  device_model: string | null;
+  device_platform: string | null;
 }
 
 export interface ShiftDetailRow {
@@ -240,6 +248,10 @@ export function transformMonitoredTeamRow(row: MonitoredTeamRow): MonitoredEmplo
     shiftStatus: row.shift_status,
     currentShift,
     currentLocation,
+    lastShiftAt: row.last_shift_at ? new Date(row.last_shift_at) : null,
+    deviceAppVersion: row.device_app_version ?? null,
+    deviceModel: row.device_model ?? null,
+    devicePlatform: row.device_platform ?? null,
   };
 }
 
