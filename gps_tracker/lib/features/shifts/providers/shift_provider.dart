@@ -8,6 +8,7 @@ import '../../cleaning/providers/cleaning_session_provider.dart';
 import '../../maintenance/providers/maintenance_provider.dart';
 import '../models/geo_point.dart';
 import '../models/shift.dart';
+import '../../auth/services/device_info_service.dart';
 import '../services/shift_service.dart';
 
 /// Provider for the LocalDatabase instance.
@@ -132,6 +133,7 @@ class ShiftNotifier extends StateNotifier<ShiftState> {
 
       if (result.success) {
         await _loadActiveShift();
+        DeviceInfoService(_ref.read(supabaseClientProvider)).syncDeviceInfo();
         state = state.copyWith(isClockingIn: false);
         return true;
       } else {

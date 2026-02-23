@@ -7,6 +7,7 @@ import 'features/auth/providers/device_session_provider.dart';
 import 'features/auth/screens/sign_in_screen.dart';
 import 'features/home/home_screen.dart';
 import 'shared/providers/supabase_provider.dart';
+import 'features/auth/services/device_info_service.dart';
 import 'shared/services/realtime_service.dart';
 
 class GpsTrackerApp extends ConsumerWidget {
@@ -32,6 +33,7 @@ class GpsTrackerApp extends ConsumerWidget {
             final userId = Supabase.instance.client.auth.currentUser?.id;
             if (userId != null) {
               realtimeService.subscribe(userId);
+              DeviceInfoService(Supabase.instance.client).syncDeviceInfo();
             }
             return const HomeScreen();
           }
