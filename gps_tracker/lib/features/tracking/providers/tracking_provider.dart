@@ -66,6 +66,17 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
           activeShiftId: shiftId,
         );
       }
+    } else {
+      // Service not running at startup — if there's an active shift, restart tracking.
+      // This handles the case where iOS killed the app and it's relaunched.
+      // Use a short delay to let shiftProvider initialize from local DB first.
+      Future.delayed(const Duration(seconds: 2), () {
+        final shift = _ref.read(shiftProvider).activeShift;
+        if (shift != null && state.status != TrackingStatus.running) {
+          debugPrint('[Tracking] Startup: service dead but shift active — restarting');
+          startTracking();
+        }
+      });
     }
   }
 
@@ -432,9 +443,19 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     if (isRunning) {
       // Request status from background task
       FlutterForegroundTask.sendDataToTask({'command': 'getStatus'});
-    } else if (state.status == TrackingStatus.running) {
-      // Service stopped unexpectedly
-      state = state.stopTracking();
+    } else {
+      // Service is not running — check if there's an active shift that needs tracking
+      final shift = _ref.read(shiftProvider).activeShift;
+      if (shift != null) {
+        // Active shift but tracking died (iOS killed the app/service).
+        // Restart tracking automatically.
+        debugPrint('[Tracking] Service dead but shift active — restarting');
+        state = state.copyWith(status: TrackingStatus.stopped);
+        startTracking();
+      } else if (state.status == TrackingStatus.running) {
+        // No active shift and no service — clean up state
+        state = state.stopTracking();
+      }
     }
   }
 

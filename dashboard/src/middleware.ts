@@ -32,8 +32,15 @@ export async function middleware(request: NextRequest) {
   }
 
   // Redirect to dashboard if already authenticated and on login page
+  // BUT don't redirect if error=unauthorized (non-admin user stuck in loop)
   if (isLoginPage && user) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    const hasUnauthorizedError = request.nextUrl.searchParams.get('error') === 'unauthorized';
+    if (!hasUnauthorizedError) {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+    // User is logged in but unauthorized — sign them out so they can re-login as admin
+    await supabase.auth.signOut();
+    return response;
   }
 
   // Check role for dashboard access
