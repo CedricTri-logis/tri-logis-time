@@ -518,6 +518,23 @@ class LocalDatabase {
     }
   }
 
+  /// Delete a local shift (used when server rejects a clock-in so user can retry cleanly).
+  Future<void> deleteShift(String shiftId) async {
+    try {
+      await _db.delete(
+        'local_shifts',
+        where: 'id = ?',
+        whereArgs: [shiftId],
+      );
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to delete shift',
+        operation: 'deleteShift',
+        originalError: e,
+      );
+    }
+  }
+
   /// Mark a shift sync attempt as failed.
   Future<void> markShiftSyncError(String shiftId, String error) async {
     try {

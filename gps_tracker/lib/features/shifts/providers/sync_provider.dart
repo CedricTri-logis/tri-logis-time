@@ -184,6 +184,13 @@ class SyncNotifier extends StateNotifier<SyncState> {
 
     // Subscribe to sync progress from service
     _subscribeToProgress();
+
+    // Auto-sync on startup if there's pending data (e.g. clock-out that
+    // failed to reach the server before the app was killed/updated).
+    // _scheduleSyncWithDelay checks hasPendingData && isConnected before firing.
+    if (state.hasPendingData) {
+      _scheduleSyncWithDelay(delay: const Duration(seconds: 5));
+    }
   }
 
   /// Load sync state from persistence.

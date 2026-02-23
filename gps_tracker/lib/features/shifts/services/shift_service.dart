@@ -104,8 +104,9 @@ class ShiftService {
   /// Get the current user ID.
   String? get _currentUserId => _supabase.auth.currentUser?.id;
 
-  /// Clock in - creates a new shift locally first, then syncs.
-  /// Requires a valid GPS location to proceed.
+  /// Clock in - requires server confirmation before showing success.
+  /// Creates a local shift, then waits for server to confirm.
+  /// If the server is unreachable, returns an error so the UI can retry.
   Future<ClockInResult> clockIn({
     required GeoPoint location,
     double? accuracy,
@@ -141,10 +142,10 @@ class ShiftService {
       updatedAt: now,
     );
 
-    // Write to local database first
+    // Write to local database first (crash safety)
     await _localDb.insertShift(localShift);
 
-    // Try to sync to Supabase
+    // Server confirmation required — don't show success until server responds
     try {
       final response = await _supabase.rpc<Map<String, dynamic>>('clock_in', params: {
         'p_request_id': requestId,
@@ -155,7 +156,7 @@ class ShiftService {
       final result = ClockInResult.fromJson(response);
 
       if (result.success && result.shiftId != null) {
-        // Mark as synced only if we have a valid server ID
+        // Server confirmed — mark as synced
         await _localDb.markShiftSynced(shiftId, serverId: result.shiftId);
         return ClockInResult(
           success: true,
@@ -163,18 +164,17 @@ class ShiftService {
           clockedInAt: now,
         );
       } else if (result.success) {
-        // Success but no server ID - keep as pending
+        // Server returned success but no shift ID — treat as confirmed
         return ClockInResult(
           success: true,
           shiftId: shiftId,
           clockedInAt: now,
-          isPending: true,
         );
       } else if (result.shiftId != null) {
-        // Server has an active shift - auto clock-out and retry clock-in
+        // Server has an active shift — auto clock-out and retry
+        // (This should be rare now that clock_in RPC auto-closes stale shifts)
         final existingServerId = result.shiftId!;
 
-        // Clock out the existing server shift
         await _supabase.rpc<Map<String, dynamic>>('clock_out', params: {
           'p_shift_id': existingServerId,
           'p_request_id': _uuid.v4(),
@@ -199,30 +199,30 @@ class ShiftService {
           );
         }
 
-        // If retry failed, keep as pending
-        return ClockInResult(
-          success: true,
-          shiftId: shiftId,
-          clockedInAt: now,
-          isPending: true,
+        // Retry also failed — remove local shift so user can retry cleanly
+        await _localDb.deleteShift(shiftId);
+        return ClockInResult.error(
+          retryResult.errorMessage ?? 'Server rejected clock-in',
         );
       } else {
-        // Mark sync error but shift still exists locally
-        await _localDb.markShiftSyncError(shiftId, result.errorMessage ?? 'Unknown error');
-        return ClockInResult(
-          success: true, // Still success because local shift was created
-          shiftId: shiftId,
-          clockedInAt: now,
-          isPending: true,
+        // Server returned an error — remove local shift so user can retry
+        await _localDb.deleteShift(shiftId);
+        return ClockInResult.error(
+          result.errorMessage ?? 'Server rejected clock-in',
         );
       }
     } catch (e) {
-      // Network error - shift is pending sync
-      return ClockInResult.pending(shiftId);
+      // Network error — remove local shift so user can retry cleanly
+      await _localDb.deleteShift(shiftId);
+      return ClockInResult.error(
+        'Unable to reach the server. Check your connection and try again.',
+      );
     }
   }
 
-  /// Clock out - updates shift locally first, then syncs.
+  /// Clock out - requires server confirmation before showing success.
+  /// Updates local shift, then waits for server to confirm.
+  /// If the server is unreachable, reverts local state and returns error.
   Future<ClockOutResult> clockOut({
     required String shiftId,
     GeoPoint? location,
@@ -246,17 +246,7 @@ class ShiftService {
     final requestId = _uuid.v4();
     final now = DateTime.now().toUtc();
 
-    // Update local shift first
-    await _localDb.updateShiftClockOut(
-      shiftId: shiftId,
-      clockedOutAt: now,
-      latitude: location?.latitude,
-      longitude: location?.longitude,
-      accuracy: accuracy,
-      reason: reason,
-    );
-
-    // Try to sync to Supabase
+    // Server confirmation required — call server first
     try {
       final response = await _supabase.rpc<Map<String, dynamic>>('clock_out', params: {
         'p_shift_id': existingShift.serverId ?? shiftId,
@@ -269,6 +259,15 @@ class ShiftService {
       final result = ClockOutResult.fromJson(response);
 
       if (result.success) {
+        // Server confirmed — now update local DB
+        await _localDb.updateShiftClockOut(
+          shiftId: shiftId,
+          clockedOutAt: now,
+          latitude: location?.latitude,
+          longitude: location?.longitude,
+          accuracy: accuracy,
+          reason: reason,
+        );
         await _localDb.markShiftSynced(shiftId);
         return ClockOutResult(
           success: true,
@@ -276,16 +275,15 @@ class ShiftService {
           clockedOutAt: now,
         );
       } else {
-        await _localDb.markShiftSyncError(shiftId, result.errorMessage ?? 'Unknown error');
-        return ClockOutResult(
-          success: true,
-          shiftId: shiftId,
-          clockedOutAt: now,
-          isPending: true,
+        return ClockOutResult.error(
+          result.errorMessage ?? 'Server rejected clock-out',
         );
       }
     } catch (e) {
-      return ClockOutResult.pending(shiftId);
+      // Network error — don't update local DB, keep shift active so UI stays consistent
+      return ClockOutResult.error(
+        'Unable to reach the server. Check your connection and try again.',
+      );
     }
   }
 
