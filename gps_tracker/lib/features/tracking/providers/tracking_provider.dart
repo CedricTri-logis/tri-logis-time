@@ -30,6 +30,12 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
   /// Last time the background handler reported a GPS capture, for self-healing.
   DateTime? _lastBackgroundCapture;
 
+  /// Last time we sent a recoverStream command to the background handler.
+  DateTime? _lastSelfHealingAt;
+
+  /// Consecutive server heartbeat failures (for shift validation escalation).
+  int _heartbeatFailures = 0;
+
   TrackingNotifier(this._ref) : super(const TrackingState()) {
     _initializeListeners();
   }
@@ -89,6 +95,9 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
         _handleGpsRestored(data);
       case 'stream_recovered':
         debugPrint('[Tracking] GPS stream recovered (attempt ${data['attempt']})');
+      case 'stream_recovery_failing':
+        debugPrint('[Tracking] GPS stream recovery struggling: '
+            '${data['attempts']} attempts, ${data['gap_minutes']}min gap');
       default:
         debugPrint('[Tracking] Unknown message type: $type');
     }
@@ -231,25 +240,67 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
         'ping_shift_heartbeat',
         params: {'p_shift_id': serverId},
       );
+      _heartbeatFailures = 0;
+
+      // Periodic shift validation: every 10th successful heartbeat (~5min)
+      if (_heartbeatCounter % 10 == 0) {
+        _validateShiftStatus();
+      }
     } catch (e) {
       debugPrint('[Tracking] Server heartbeat failed: $e');
-      // Best-effort — don't crash tracking
+      _heartbeatFailures++;
+
+      // After 10 consecutive failures (~15min), proactively check shift status
+      if (_heartbeatFailures >= 10) {
+        debugPrint('[Tracking] 10 consecutive heartbeat failures, validating shift status');
+        _validateShiftStatus();
+        _heartbeatFailures = 0; // Reset to avoid spamming
+      }
     }
   }
 
-  /// If GPS hasn't produced a point in 3+ minutes, tell the background
-  /// handler to recover its position stream.
+  /// Lightweight check to confirm the shift is still active on the server.
+  /// If the server says it's completed (e.g. zombie cleanup), refresh local state.
+  Future<void> _validateShiftStatus() async {
+    final shift = _ref.read(shiftProvider).activeShift;
+    final serverId = shift?.serverId;
+    if (serverId == null) return;
+
+    try {
+      final result = await Supabase.instance.client
+          .from('shifts')
+          .select('status')
+          .eq('id', serverId)
+          .maybeSingle();
+      if (result != null && result['status'] == 'completed') {
+        debugPrint('[Tracking] Server says shift is completed, refreshing local state');
+        _ref.read(shiftProvider.notifier).refresh();
+      }
+    } catch (_) {
+      // Fail-open: if we can't reach the server, keep tracking
+    }
+  }
+
+  /// If GPS hasn't produced a point in 10+ minutes, tell the background
+  /// handler to recover its position stream. Rate-limited to once per 10 min.
+  /// The background handler manages its own recovery with backoff (Fix 4),
+  /// so this is a last-resort nudge from the main isolate.
   void _checkGpsSelfHealing() {
     final lastCapture = _lastBackgroundCapture;
     if (lastCapture == null) return;
 
-    final gap = DateTime.now().difference(lastCapture);
-    if (gap > const Duration(minutes: 3)) {
+    final now = DateTime.now();
+    final gap = now.difference(lastCapture);
+    if (gap > const Duration(minutes: 10)) {
+      // Rate-limit: don't send recovery more than once per 10 minutes
+      if (_lastSelfHealingAt != null &&
+          now.difference(_lastSelfHealingAt!) < const Duration(minutes: 10)) {
+        return;
+      }
       debugPrint('[Tracking] GPS gap detected (${gap.inSeconds}s), '
-          'requesting stream recovery');
+          'requesting stream recovery from main isolate');
       FlutterForegroundTask.sendDataToTask({'command': 'recoverStream'});
-      // Reset to avoid spamming recovery requests
-      _lastBackgroundCapture = DateTime.now();
+      _lastSelfHealingAt = now;
     }
   }
 
@@ -327,16 +378,35 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
   }
 
   /// Called when iOS relaunches the app after a significant location change.
-  /// Attempts to restart GPS tracking if there's an active shift.
-  void _onWokenByLocationChange() {
+  /// Validates shift is still active on server before restarting tracking.
+  Future<void> _onWokenByLocationChange() async {
     debugPrint('[Tracking] App woken by significant location change');
     if (state.status != TrackingStatus.running) {
-      // Try to restart tracking if we have an active shift
       final shift = _ref.read(shiftProvider).activeShift;
-      if (shift != null) {
-        debugPrint('[Tracking] Restarting GPS tracking after iOS relaunch');
-        startTracking();
+      if (shift == null) return;
+
+      // Check with server if shift is still active (if we have a server ID)
+      final serverId = shift.serverId;
+      if (serverId != null) {
+        try {
+          final result = await Supabase.instance.client
+              .from('shifts')
+              .select('status')
+              .eq('id', serverId)
+              .maybeSingle();
+          if (result != null && result['status'] == 'completed') {
+            debugPrint('[Tracking] iOS relaunch: shift already closed on server, cleaning up');
+            _ref.read(shiftProvider.notifier).refresh();
+            return;
+          }
+        } catch (_) {
+          // Network unavailable — start tracking anyway (fail-open for field workers)
+          debugPrint('[Tracking] iOS relaunch: could not validate shift, starting anyway');
+        }
       }
+
+      debugPrint('[Tracking] Restarting GPS tracking after iOS relaunch');
+      startTracking();
     }
   }
 

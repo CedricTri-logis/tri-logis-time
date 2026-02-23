@@ -28,9 +28,9 @@ class GPSTrackingHandler extends TaskHandler {
   // GPS gap tracking
   DateTime? _gpsGapStartedAt;
 
-  // Stream recovery
+  // Stream recovery (unlimited attempts with exponential backoff)
   int _streamRecoveryAttempts = 0;
-  static const int _maxStreamRecoveryAttempts = 5;
+  DateTime? _lastRecoveryAttemptAt;
 
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
@@ -287,20 +287,32 @@ class GPSTrackingHandler extends TaskHandler {
   }
 
   /// Check if stream is silently dead (no positions for too long)
-  /// and attempt recovery by cancelling and recreating the stream.
+  /// and attempt recovery with exponential backoff (no attempt cap).
   void _checkStreamHealth(DateTime now) {
     final lastSuccess = _lastSuccessfulPositionAt;
     if (lastSuccess == null) return;
 
-    // On iOS with distanceFilter 0, we should get positions every few seconds.
-    // On Android, every intervalDuration. If no position for 2 minutes,
-    // the stream is likely dead.
-    const threshold = Duration(minutes: 2);
+    // Need at least 2 minutes of silence before attempting recovery.
+    if (now.difference(lastSuccess) < const Duration(minutes: 2)) return;
 
-    if (now.difference(lastSuccess) >= threshold &&
-        _streamRecoveryAttempts < _maxStreamRecoveryAttempts) {
-      _streamRecoveryAttempts++;
-      _recoverPositionStream();
+    // Exponential backoff between recovery attempts: 2, 4, 8, 16, 30 min cap.
+    final backoffMin = (2 * (1 << _streamRecoveryAttempts.clamp(0, 4))).clamp(2, 30);
+    if (_lastRecoveryAttemptAt != null &&
+        now.difference(_lastRecoveryAttemptAt!) < Duration(minutes: backoffMin)) {
+      return;
+    }
+
+    _streamRecoveryAttempts++;
+    _lastRecoveryAttemptAt = now;
+    _recoverPositionStream();
+
+    // Every 5th failed attempt, notify main isolate that recovery is struggling
+    if (_streamRecoveryAttempts >= 5 && _streamRecoveryAttempts % 5 == 0) {
+      FlutterForegroundTask.sendDataToMain({
+        'type': 'stream_recovery_failing',
+        'attempts': _streamRecoveryAttempts,
+        'gap_minutes': now.difference(lastSuccess).inMinutes,
+      });
     }
   }
 
@@ -399,8 +411,8 @@ class GPSTrackingHandler extends TaskHandler {
             data['stationary_interval_seconds'] as int? ?? _stationaryIntervalSeconds;
         _distanceFilterMeters = data['distance_filter_meters'] as int? ?? _distanceFilterMeters;
       } else if (command == 'recoverStream') {
-        // Main isolate detected GPS gap — force stream recovery
-        _streamRecoveryAttempts = 0; // Reset counter to allow recovery
+        // Main isolate detected GPS gap — force one immediate recovery attempt
+        _lastRecoveryAttemptAt = null; // Allow immediate attempt
         _recoverPositionStream();
       } else if (command == 'getStatus') {
         FlutterForegroundTask.sendDataToMain({

@@ -10,6 +10,7 @@ import '../services/backoff_strategy.dart';
 import '../services/sync_logger.dart';
 import '../services/sync_service.dart';
 import 'connectivity_provider.dart';
+import 'quarantine_provider.dart';
 import 'shift_provider.dart';
 
 /// Provider for SyncService.
@@ -17,7 +18,10 @@ final syncServiceProvider = Provider<SyncService>((ref) {
   final supabase = ref.watch(supabaseClientProvider);
   final localDb = ref.watch(localDatabaseProvider);
   final shiftService = ref.watch(shiftServiceProvider);
-  return SyncService(supabase, localDb, shiftService);
+  final syncService = SyncService(supabase, localDb, shiftService);
+  // Inject quarantine service for orphaned GPS point handling
+  syncService.setQuarantineService(ref.watch(quarantineServiceProvider));
+  return syncService;
 });
 
 /// Provider for SyncLogger.
@@ -152,7 +156,6 @@ class SyncNotifier extends StateNotifier<SyncState> {
   StreamSubscription<bool>? _connectivitySub;
   Timer? _syncRetryTimer;
   Timer? _countdownTimer;
-  Timer? _periodicSyncTimer;
   StreamSubscription<SyncProgress>? _progressSub;
 
   /// Delay before auto-sync on connectivity restore (cautious for flaky networks).
@@ -181,15 +184,6 @@ class SyncNotifier extends StateNotifier<SyncState> {
 
     // Subscribe to sync progress from service
     _subscribeToProgress();
-
-    // Start periodic sync timer (every 2 minutes)
-    _periodicSyncTimer = Timer.periodic(const Duration(minutes: 2), (_) {
-      if (state.hasPendingData &&
-          state.isConnected &&
-          state.status != SyncStatus.syncing) {
-        syncPendingData();
-      }
-    });
   }
 
   /// Load sync state from persistence.
@@ -500,6 +494,10 @@ class SyncNotifier extends StateNotifier<SyncState> {
 
     // Only schedule sync if not already syncing and we have a connection
     if (state.status != SyncStatus.syncing && state.isConnected) {
+      // Don't override active backoff timer — let the retry schedule run
+      if (state.consecutiveFailures > 0 && _syncRetryTimer?.isActive == true) {
+        return;
+      }
       _scheduleSyncWithDelay();
     }
   }
@@ -521,7 +519,6 @@ class SyncNotifier extends StateNotifier<SyncState> {
     _connectivitySub?.cancel();
     _syncRetryTimer?.cancel();
     _countdownTimer?.cancel();
-    _periodicSyncTimer?.cancel();
     _progressSub?.cancel();
     super.dispose();
   }

@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../shared/services/local_database.dart';
 import '../models/sync_progress.dart';
+import 'quarantine_service.dart';
 import 'shift_service.dart';
 
 /// Result of a sync operation.
@@ -36,13 +37,25 @@ class SyncService {
   final SupabaseClient _supabase;
   final LocalDatabase _localDb;
   final ShiftService _shiftService;
+  QuarantineService? _quarantineService;
 
   static const int _gpsPointBatchSize = 100;
+
+  /// Max sync attempts for orphaned GPS points before quarantine.
+  static const int _maxOrphanSyncAttempts = 3;
+
+  /// Track per-shift orphan sync attempts (shift_id -> attempt count).
+  final Map<String, int> _orphanAttempts = {};
 
   /// Stream controller for progress updates.
   final _progressController = StreamController<SyncProgress>.broadcast();
 
   SyncService(this._supabase, this._localDb, this._shiftService);
+
+  /// Set the quarantine service (injected to avoid circular dependencies).
+  void setQuarantineService(QuarantineService service) {
+    _quarantineService = service;
+  }
 
   /// Stream of sync progress updates.
   Stream<SyncProgress> get progressStream => _progressController.stream;
@@ -165,6 +178,8 @@ class SyncService {
       // Map local shift IDs to server IDs, skipping points without valid server IDs
       final mappedPoints = <Map<String, dynamic>>[];
       final validPointIds = <String>[];
+      // Track point ID → local point for potential quarantine
+      final pointsByClientId = <String, dynamic>{};
 
       int skippedOrphanCount = 0;
 
@@ -185,16 +200,37 @@ class SyncService {
           pointJson['shift_id'] = shift.serverId; // Use server ID
           mappedPoints.add(pointJson);
           validPointIds.add(point.id);
+          pointsByClientId[point.id] = point;
         } else {
-          // Count as failed — not silently skipped
-          failedCount++;
+          // Track orphan attempts per shift and quarantine after threshold
           skippedOrphanCount++;
+          final attempts = (_orphanAttempts[point.shiftId] ?? 0) + 1;
+          _orphanAttempts[point.shiftId] = attempts;
+
+          if (attempts >= _maxOrphanSyncAttempts && _quarantineService != null) {
+            try {
+              await _quarantineService!.quarantineGpsPoint(
+                point: point,
+                errorCode: 'orphaned_shift',
+                errorMessage: 'Shift ${point.shiftId} has no server ID after $attempts sync attempts',
+              );
+              // Mark as synced to remove from pending queue
+              await _localDb.markGpsPointsSynced([point.id]);
+              debugPrint('[SyncService] Quarantined orphaned GPS point ${point.id}');
+            } catch (_) {
+              failedCount++;
+            }
+          } else {
+            failedCount++;
+          }
         }
       }
 
       // If all points were orphaned (no valid server IDs), report as error to trigger retry
       if (mappedPoints.isEmpty) {
-        lastError = '$skippedOrphanCount GPS points orphaned (shift not synced)';
+        if (skippedOrphanCount > 0) {
+          lastError = '$skippedOrphanCount GPS points orphaned (shift not synced)';
+        }
         break;
       }
 
@@ -207,10 +243,25 @@ class SyncService {
         );
         if (result['status'] == 'success') {
           final inserted = result['inserted'] as int? ?? 0;
-          syncedCount += inserted;
+          final duplicates = result['duplicates'] as int? ?? 0;
+          final serverErrors = result['errors'] as int? ?? 0;
+          final failedIds = (result['failed_ids'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toSet() ?? <String>{};
 
-          // Mark only successfully synced points as synced
-          await _localDb.markGpsPointsSynced(validPointIds);
+          syncedCount += inserted + duplicates;
+
+          // Mark only non-failed points as synced
+          if (failedIds.isEmpty) {
+            await _localDb.markGpsPointsSynced(validPointIds);
+          } else {
+            final succeededIds = validPointIds
+                .where((id) => !failedIds.contains(id))
+                .toList();
+            await _localDb.markGpsPointsSynced(succeededIds);
+            failedCount += serverErrors;
+            lastError = '$serverErrors GPS points rejected by server';
+          }
         } else {
           failedCount += validPointIds.length;
           lastError = result['message'] as String?;
