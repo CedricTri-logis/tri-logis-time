@@ -313,6 +313,11 @@ class AuthService {
     if (lowerError.contains('network') || lowerError.contains('connection')) {
       return 'Network error. Please check your connection.';
     }
+    // SMS provider / Twilio errors (must be checked BEFORE OTP errors)
+    if (lowerError.contains('sms_send_failed') ||
+        lowerError.contains('error sending') && lowerError.contains('otp to provider')) {
+      return 'Impossible d\'envoyer le SMS. Veuillez reessayer.';
+    }
     // SMS OTP errors
     if (lowerError.contains('otp_expired') ||
         lowerError.contains('token has expired')) {
@@ -321,9 +326,9 @@ class AuthService {
     if (lowerError.contains('otp_disabled')) {
       return 'La verification par SMS n\'est pas activee.';
     }
-    if (lowerError.contains('invalid') && lowerError.contains('otp') ||
-        lowerError.contains('invalid_otp') ||
-        lowerError.contains('token is invalid')) {
+    if (lowerError.contains('invalid_otp') ||
+        lowerError.contains('token is invalid') ||
+        lowerError.contains('otp is invalid')) {
       return 'Code invalide. Veuillez verifier.';
     }
     if (lowerError.contains('over_sms_send_rate_limit') ||
