@@ -135,6 +135,140 @@ class AuthService {
     }
   }
 
+  /// Send an OTP code via SMS to the given phone number
+  Future<void> sendOtp({required String phone}) async {
+    try {
+      await _client.auth.signInWithOtp(phone: phone);
+    } on AuthException catch (e) {
+      throw AuthServiceException(
+        _mapAuthErrorToMessage(e.message),
+        code: e.statusCode,
+      );
+    } catch (e) {
+      throw const AuthServiceException(
+        'Impossible d\'envoyer le code. Veuillez reessayer.',
+      );
+    }
+  }
+
+  /// Verify an SMS OTP code and sign in
+  Future<AuthResponse> verifyOtp({
+    required String phone,
+    required String token,
+  }) async {
+    try {
+      final response = await _client.auth.verifyOTP(
+        phone: phone,
+        token: token,
+        type: OtpType.sms,
+      );
+      return response;
+    } on AuthException catch (e) {
+      throw AuthServiceException(
+        _mapAuthErrorToMessage(e.message),
+        code: e.statusCode,
+      );
+    } catch (e) {
+      throw const AuthServiceException(
+        'Verification echouee. Veuillez reessayer.',
+      );
+    }
+  }
+
+  /// Restore a session from saved tokens (for biometric login)
+  Future<AuthResponse> restoreSession({
+    required String refreshToken,
+  }) async {
+    try {
+      final response = await _client.auth.setSession(refreshToken);
+      return response;
+    } on AuthException catch (e) {
+      throw AuthServiceException(
+        _mapAuthErrorToMessage(e.message),
+        code: e.statusCode,
+      );
+    } catch (e) {
+      throw const AuthServiceException(
+        'Session expiree. Reconnectez-vous.',
+      );
+    }
+  }
+
+  /// Register a phone number on the current user's auth account
+  /// (triggers phone verification OTP)
+  Future<void> registerPhone({required String phone}) async {
+    try {
+      await _client.auth.updateUser(
+        UserAttributes(phone: phone),
+      );
+    } on AuthException catch (e) {
+      throw AuthServiceException(
+        _mapAuthErrorToMessage(e.message),
+        code: e.statusCode,
+      );
+    } catch (e) {
+      throw const AuthServiceException(
+        'Impossible d\'enregistrer le telephone. Veuillez reessayer.',
+      );
+    }
+  }
+
+  /// Verify a phone change OTP (after registerPhone)
+  Future<AuthResponse> verifyPhoneChange({
+    required String phone,
+    required String token,
+  }) async {
+    try {
+      final response = await _client.auth.verifyOTP(
+        phone: phone,
+        token: token,
+        type: OtpType.phoneChange,
+      );
+      return response;
+    } on AuthException catch (e) {
+      throw AuthServiceException(
+        _mapAuthErrorToMessage(e.message),
+        code: e.statusCode,
+      );
+    } catch (e) {
+      throw const AuthServiceException(
+        'Verification echouee. Veuillez reessayer.',
+      );
+    }
+  }
+
+  /// Save phone number to employee_profiles via RPC
+  Future<void> savePhoneToProfile({required String phone}) async {
+    try {
+      await _client.rpc<void>('register_phone_number', params: {'p_phone': phone});
+    } catch (e) {
+      final msg = e.toString().toLowerCase();
+      if (msg.contains('unique_violation') || msg.contains('deja associe')) {
+        throw const AuthServiceException(
+          'Ce numero est deja associe a un autre employe.',
+        );
+      }
+      if (msg.contains('check_violation') || msg.contains('format invalide')) {
+        throw const AuthServiceException(
+          'Format de numero invalide. Utilisez le format +1XXXXXXXXXX.',
+        );
+      }
+      throw const AuthServiceException(
+        'Impossible de sauvegarder le numero. Veuillez reessayer.',
+      );
+    }
+  }
+
+  /// Check if the current user has a phone number registered
+  Future<bool> isPhoneRegistered() async {
+    try {
+      final result = await _client.rpc<bool>('check_phone_registered');
+      return result == true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   /// Refresh the current session
   ///
   /// Called automatically by SDK, but can be triggered manually.
@@ -178,6 +312,27 @@ class AuthService {
     }
     if (lowerError.contains('network') || lowerError.contains('connection')) {
       return 'Network error. Please check your connection.';
+    }
+    // SMS OTP errors
+    if (lowerError.contains('otp_expired') ||
+        lowerError.contains('token has expired')) {
+      return 'Code expire. Demandez un nouveau code.';
+    }
+    if (lowerError.contains('otp_disabled')) {
+      return 'La verification par SMS n\'est pas activee.';
+    }
+    if (lowerError.contains('invalid') && lowerError.contains('otp') ||
+        lowerError.contains('invalid_otp') ||
+        lowerError.contains('token is invalid')) {
+      return 'Code invalide. Veuillez verifier.';
+    }
+    if (lowerError.contains('over_sms_send_rate_limit') ||
+        lowerError.contains('sms send rate')) {
+      return 'Trop de SMS. Attendez 30 secondes.';
+    }
+    if (lowerError.contains('phone') && lowerError.contains('not found') ||
+        lowerError.contains('user not found')) {
+      return 'Aucun compte associe a ce numero.';
     }
 
     // Return original message if no mapping found

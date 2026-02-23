@@ -201,6 +201,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
           _buildInfoTile(
             theme,
+            icon: Icons.phone_outlined,
+            label: 'Telephone',
+            value: profile?.hasPhoneNumber == true
+                ? profile!.phoneNumber!
+                : 'Non enregistre',
+            isReadOnly: true,
+          ),
+          const Divider(),
+
+          _buildInfoTile(
+            theme,
             icon: Icons.person_outline,
             label: 'Full Name',
             value: profile?.fullName ?? 'Not set',

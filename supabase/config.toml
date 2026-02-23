@@ -51,7 +51,7 @@ double_confirm_changes = true
 enable_confirmations = false
 
 [auth.sms]
-enable_signup = false
+enable_signup = true
 enable_confirmations = false
 
 [auth.external.apple]
