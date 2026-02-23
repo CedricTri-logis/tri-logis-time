@@ -16,6 +16,7 @@ class NotificationService {
   /// Notification IDs
   static const int _gpsLostId = 1001;
   static const int _gpsRestoredId = 1002;
+  static const int _midnightWarningId = 1003;
 
   /// Android notification channel for GPS alerts.
   static const _gpsChannelId = 'gps_alerts';
@@ -119,6 +120,45 @@ class NotificationService {
   Future<void> cancelGpsLostNotification() async {
     if (!_initialized) return;
     await _plugin.cancel(_gpsLostId);
+  }
+
+  /// Show a warning notification 5 minutes before midnight auto clock-out.
+  Future<void> showMidnightWarningNotification() async {
+    if (!_initialized) return;
+
+    const androidDetails = AndroidNotificationDetails(
+      _gpsChannelId,
+      _gpsChannelName,
+      channelDescription: _gpsChannelDescription,
+      importance: Importance.high,
+      priority: Priority.high,
+      autoCancel: true,
+      icon: '@mipmap/ic_launcher',
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentSound: true,
+    );
+
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await _plugin.show(
+      _midnightWarningId,
+      'Fin de quart à minuit',
+      'Votre quart se terminera automatiquement à minuit. '
+          'Vous pourrez recommencer un nouveau quart après minuit si nécessaire.',
+      details,
+    );
+  }
+
+  /// Cancel the midnight warning notification.
+  Future<void> cancelMidnightWarningNotification() async {
+    if (!_initialized) return;
+    await _plugin.cancel(_midnightWarningId);
   }
 
   /// Show a brief notification when GPS is restored.

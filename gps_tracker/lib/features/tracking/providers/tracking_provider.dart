@@ -36,6 +36,9 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
   /// Consecutive server heartbeat failures (for shift validation escalation).
   int _heartbeatFailures = 0;
 
+  /// Whether the midnight warning notification has been shown this shift.
+  bool _midnightWarningShown = false;
+
   TrackingNotifier(this._ref) : super(const TrackingState()) {
     _initializeListeners();
   }
@@ -253,6 +256,9 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
 
     // GPS self-healing: if no capture in 3+ minutes, ask background to recover
     _checkGpsSelfHealing();
+
+    // Midnight auto clock-out: warn at 23:55, detect closure after midnight
+    _checkMidnightClosure();
   }
 
   /// Ping the server to update shift heartbeat, independent of GPS points.
@@ -330,6 +336,31 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     }
   }
 
+  /// Check for midnight auto clock-out:
+  /// - At 23:55–23:59, show a warning notification.
+  /// - After midnight, immediately validate shift status with the server
+  ///   (the server closes all shifts at midnight via pg_cron).
+  void _checkMidnightClosure() {
+    final now = DateTime.now();
+    final hour = now.hour;
+    final minute = now.minute;
+
+    // 23:55 – 23:59: show warning (once per shift)
+    if (hour == 23 && minute >= 55 && !_midnightWarningShown) {
+      _midnightWarningShown = true;
+      NotificationService().showMidnightWarningNotification();
+      debugPrint('[Tracking] Midnight warning notification shown');
+    }
+
+    // 00:00 – 00:05: server should have closed the shift, verify immediately
+    if (hour == 0 && minute < 5 && _midnightWarningShown) {
+      _midnightWarningShown = false;
+      NotificationService().cancelMidnightWarningNotification();
+      debugPrint('[Tracking] Post-midnight: validating shift status with server');
+      _validateShiftStatus();
+    }
+  }
+
   void _handleStatusUpdate(Map<String, dynamic> data) {
     final pointCount = data['point_count'] as int? ?? state.pointsCaptured;
     final isStationary = data['is_stationary'] as bool? ?? state.isStationary;
@@ -353,7 +384,9 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
       stopTracking();
       // Clean up any active GPS gap and notifications
       _activeGpsGapId = null;
+      _midnightWarningShown = false;
       NotificationService().cancelGpsLostNotification();
+      NotificationService().cancelMidnightWarningNotification();
     }
   }
 

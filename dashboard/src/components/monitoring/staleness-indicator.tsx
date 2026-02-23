@@ -1,8 +1,21 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import type { StalenessLevel } from '@/types/monitoring';
 import { getStalenessLevel, STALENESS_THRESHOLDS } from '@/types/monitoring';
+
+// Re-render interval for relative timestamps (30 seconds)
+const TICK_INTERVAL_MS = 30_000;
+
+/** Forces a re-render every 30s so relative times stay accurate. */
+function useTick() {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), TICK_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, []);
+}
 
 interface StalenessIndicatorProps {
   capturedAt: Date | null;
@@ -51,6 +64,7 @@ export function StalenessIndicator({
   showLabel = true,
   size = 'md',
 }: StalenessIndicatorProps) {
+  useTick();
   const level = getStalenessLevel(capturedAt);
   const config = stalenessConfig[level];
 
@@ -97,6 +111,7 @@ interface LastUpdatedBadgeProps {
 }
 
 export function LastUpdatedBadge({ capturedAt, className }: LastUpdatedBadgeProps) {
+  useTick();
   const level = getStalenessLevel(capturedAt);
   const config = stalenessConfig[level];
 
