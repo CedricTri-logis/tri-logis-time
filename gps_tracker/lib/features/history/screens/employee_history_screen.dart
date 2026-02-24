@@ -320,7 +320,7 @@ class _EmployeeHistoryScreenState extends ConsumerState<EmployeeHistoryScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Échec de l'export : $e'),
+          content: Text("Échec de l'export : $e"),
           backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );

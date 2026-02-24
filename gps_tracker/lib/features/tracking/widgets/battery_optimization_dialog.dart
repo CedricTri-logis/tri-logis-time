@@ -3,12 +3,15 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
+import 'oem_battery_guide_dialog.dart';
+
 /// Dialog explaining battery optimization (Android only).
 class BatteryOptimizationDialog extends StatelessWidget {
   const BatteryOptimizationDialog({super.key});
 
   /// Show the dialog. No-op on iOS.
   /// Returns true if user allowed the optimization, false otherwise.
+  /// After AOSP dialog, chains to OEM-specific guide if applicable.
   static Future<bool> show(BuildContext context) async {
     // No-op on iOS
     if (!Platform.isAndroid) return true;
@@ -17,7 +20,14 @@ class BatteryOptimizationDialog extends StatelessWidget {
       context: context,
       builder: (_) => const BatteryOptimizationDialog(),
     );
-    return result ?? false;
+    final allowed = result ?? false;
+
+    // After AOSP dialog, show OEM-specific instructions if applicable
+    if (allowed && context.mounted) {
+      await OemBatteryGuideDialog.showIfNeeded(context);
+    }
+
+    return allowed;
   }
 
   @override

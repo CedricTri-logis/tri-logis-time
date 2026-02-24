@@ -1,10 +1,12 @@
 import 'dart:io';
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../models/location_permission_state.dart';
 import '../models/tracking_config.dart';
+import 'background_execution_service.dart';
 import 'gps_tracking_handler.dart';
 
 /// Result of a tracking operation.
@@ -30,8 +32,12 @@ class TrackingAlreadyActive extends TrackingResult {
 }
 
 /// Manages the lifecycle of background GPS tracking.
-class BackgroundTrackingService {
+///
+/// Also observes app lifecycle to call beginBackgroundTask/endBackgroundTask
+/// on iOS for the foreground-to-background transition protection.
+class BackgroundTrackingService with WidgetsBindingObserver {
   static bool _isInitialized = false;
+  static BackgroundTrackingService? _lifecycleInstance;
 
   /// Initialize the foreground task service. Must be called once during app startup.
   static Future<void> initialize() async {
@@ -207,6 +213,59 @@ class BackgroundTrackingService {
   static Future<bool> get isBatteryOptimizationDisabled async {
     if (!Platform.isAndroid) return true;
     return await FlutterForegroundTask.isIgnoringBatteryOptimizations;
+  }
+
+  /// Callback invoked when the foreground service is detected as dead on resume.
+  /// Set by TrackingNotifier to trigger auto-restart.
+  static VoidCallback? onForegroundServiceDied;
+
+  /// Start observing app lifecycle for iOS background task protection
+  /// and Android foreground service health checks.
+  static void startLifecycleObserver() {
+    if (_lifecycleInstance != null) return;
+    _lifecycleInstance = BackgroundTrackingService._();
+    WidgetsBinding.instance.addObserver(_lifecycleInstance!);
+  }
+
+  /// Stop observing app lifecycle.
+  static void stopLifecycleObserver() {
+    if (_lifecycleInstance != null) {
+      WidgetsBinding.instance.removeObserver(_lifecycleInstance!);
+      _lifecycleInstance = null;
+    }
+  }
+
+  BackgroundTrackingService._();
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused && Platform.isIOS) {
+      // iOS: request ~30s of transition protection
+      BackgroundExecutionService.beginBackgroundTask(
+        name: 'gps_tracking_background',
+      );
+    } else if (state == AppLifecycleState.resumed) {
+      if (Platform.isIOS) {
+        // iOS: end background task
+        BackgroundExecutionService.endBackgroundTask();
+      }
+      // Both platforms: check if foreground service died while backgrounded
+      _checkForegroundServiceHealth();
+    }
+  }
+
+  /// Check if the foreground service is still running. If not, notify the
+  /// TrackingNotifier to restart it (safe from foreground context on Android 12+).
+  Future<void> _checkForegroundServiceHealth() async {
+    try {
+      final isRunning = await FlutterForegroundTask.isRunningService;
+      if (!isRunning) {
+        debugPrint('[BackgroundTracking] Foreground service died — notifying for restart');
+        onForegroundServiceDied?.call();
+      }
+    } catch (e) {
+      debugPrint('[BackgroundTracking] Failed to check service health: $e');
+    }
   }
 }
 

@@ -696,7 +696,7 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Il n'y a pas encore d'utilisateurs dans le système.',
+              "Il n'y a pas encore d'utilisateurs dans le système.",
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

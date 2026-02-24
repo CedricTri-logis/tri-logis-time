@@ -118,7 +118,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.showTeamStats ? 'Statistiques d'équipe' : widget.employeeName ?? 'Statistiques'),
+            Text(widget.showTeamStats ? "Statistiques d'équipe" : widget.employeeName ?? 'Statistiques'),
             if (!widget.showTeamStats)
               Text(
                 'Statistiques',
@@ -313,7 +313,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'Aucune statistique d'équipe disponible',
+              "Aucune statistique d'équipe disponible",
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -346,7 +346,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
           // Main statistics card
           TeamStatisticsCard(
             statistics: statistics,
-            title: 'Résumé d'équipe',
+            title: "Résumé d'équipe",
           ),
           const SizedBox(height: 16),
           // Detailed breakdown
@@ -366,7 +366,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     } else if (filterState.startDate != null) {
       periodText = 'Depuis le ${dateFormat.format(filterState.startDate!)}';
     } else if (filterState.endDate != null) {
-      periodText = 'Jusqu'au ${dateFormat.format(filterState.endDate!)}';
+      periodText = "Jusqu'au ${dateFormat.format(filterState.endDate!)}";
     } else {
       periodText = 'Toutes les périodes';
     }
@@ -502,7 +502,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             _buildDetailRow(
               theme,
               icon: Icons.people,
-              label: 'Total d'employés',
+              label: "Total d'employés",
               value: statistics.totalEmployees.toString(),
             ),
             const Divider(height: 24),

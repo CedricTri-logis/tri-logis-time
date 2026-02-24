@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,8 +15,10 @@ import '../../shifts/providers/sync_provider.dart';
 import '../models/tracking_config.dart';
 import '../models/tracking_state.dart';
 import '../models/tracking_status.dart';
+import '../services/background_execution_service.dart';
 import '../services/background_tracking_service.dart';
 import '../services/significant_location_service.dart';
+import '../services/thermal_state_service.dart';
 
 /// Manages UI state for background GPS tracking.
 class TrackingNotifier extends StateNotifier<TrackingState> {
@@ -38,6 +42,13 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
 
   /// Whether the midnight warning notification has been shown this shift.
   bool _midnightWarningShown = false;
+
+  /// Whether SLC is currently active (deferred activation — only after GPS loss).
+  bool _significantLocationActive = false;
+
+  /// Current device thermal level for GPS frequency adaptation.
+  ThermalLevel _currentThermalLevel = ThermalLevel.normal;
+  StreamSubscription<ThermalLevel>? _thermalSubscription;
 
   TrackingNotifier(this._ref) : super(const TrackingState()) {
     _initializeListeners();
@@ -131,6 +142,13 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     // Show local notification
     NotificationService().showGpsLostNotification();
 
+    // Activate SLC as fallback (iOS only, deferred — not at clock-in)
+    if (!_significantLocationActive) {
+      SignificantLocationService.startMonitoring();
+      _significantLocationActive = true;
+      debugPrint('[Tracking] GPS lost — SLC activated as fallback');
+    }
+
     // Start recording the gap
     _startGpsGap(data);
   }
@@ -141,6 +159,13 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     // Cancel the persistent GPS lost notification and show brief restore
     NotificationService().cancelGpsLostNotification();
     NotificationService().showGpsRestoredNotification();
+
+    // Deactivate SLC now that GPS stream is alive again
+    if (_significantLocationActive) {
+      SignificantLocationService.stopMonitoring();
+      _significantLocationActive = false;
+      debugPrint('[Tracking] GPS restored — SLC deactivated');
+    }
 
     // Close the GPS gap record
     _closeGpsGap(data);
@@ -417,9 +442,16 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
           status: TrackingStatus.running,
           config: trackingConfig,
         );
-        // Start iOS significant location change monitoring as safety net
+        // Register SLC callback (but don't start monitoring — deferred to GPS loss)
         SignificantLocationService.onWokenByLocationChange = _onWokenByLocationChange;
-        SignificantLocationService.startMonitoring();
+        // Register FGS death callback for auto-restart on resume
+        BackgroundTrackingService.onForegroundServiceDied = _onForegroundServiceDied;
+        // Start CLBackgroundActivitySession (iOS 17+, no-op on Android/older iOS)
+        BackgroundExecutionService.startBackgroundSession();
+        // Start lifecycle observer for beginBackgroundTask + FGS health checks
+        BackgroundTrackingService.startLifecycleObserver();
+        // Subscribe to thermal state changes for GPS frequency adaptation
+        _startThermalMonitoring();
       case TrackingPermissionDenied():
         state = state.withError('Location permission required');
       case TrackingServiceError(:final message):
@@ -432,8 +464,30 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
   /// Stop background tracking.
   Future<void> stopTracking() async {
     await BackgroundTrackingService.stopTracking();
-    SignificantLocationService.stopMonitoring();
+    // Stop SLC if it was activated during GPS loss
+    if (_significantLocationActive) {
+      SignificantLocationService.stopMonitoring();
+      _significantLocationActive = false;
+    }
+    // Stop CLBackgroundActivitySession
+    BackgroundExecutionService.stopBackgroundSession();
+    // Stop lifecycle observer and clear callbacks
+    BackgroundTrackingService.onForegroundServiceDied = null;
+    BackgroundTrackingService.stopLifecycleObserver();
+    // Stop thermal monitoring
+    _stopThermalMonitoring();
     state = state.stopTracking();
+  }
+
+  /// Called when the foreground service is detected as dead on app resume.
+  /// Restarts tracking automatically (safe from foreground context on Android 12+).
+  void _onForegroundServiceDied() {
+    final shift = _ref.read(shiftProvider).activeShift;
+    if (shift == null) return;
+
+    debugPrint('[Tracking] Foreground service died — auto-restarting');
+    state = state.copyWith(status: TrackingStatus.stopped);
+    startTracking();
   }
 
   /// Called when iOS relaunches the app after a significant location change.
@@ -465,7 +519,54 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
       }
 
       debugPrint('[Tracking] Restarting GPS tracking after iOS relaunch');
+      // Re-create CLBackgroundActivitySession before restarting tracking
+      BackgroundExecutionService.startBackgroundSession();
       startTracking();
+    }
+  }
+
+  /// Start listening for thermal state changes and adapting GPS config.
+  void _startThermalMonitoring() {
+    _thermalSubscription?.cancel();
+    _currentThermalLevel = ThermalLevel.normal;
+    _thermalSubscription = ThermalStateService.levelStream.listen(
+      (level) {
+        if (level != _currentThermalLevel) {
+          _currentThermalLevel = level;
+          _applyThermalConfig(level);
+        }
+      },
+      onError: (Object error) {
+        debugPrint('[Tracking] Thermal stream error: $error');
+      },
+    );
+  }
+
+  /// Stop thermal monitoring and reset to normal.
+  void _stopThermalMonitoring() {
+    _thermalSubscription?.cancel();
+    _thermalSubscription = null;
+    _currentThermalLevel = ThermalLevel.normal;
+  }
+
+  /// Apply GPS config changes based on thermal level.
+  void _applyThermalConfig(ThermalLevel level) {
+    final (activeInterval, stationaryInterval) = switch (level) {
+      ThermalLevel.normal => (60, 300),
+      ThermalLevel.elevated => (120, 600),
+      ThermalLevel.critical => (300, 900),
+    };
+
+    debugPrint('[Tracking] Thermal adaptation: $level '
+        '(active=${activeInterval}s, stationary=${stationaryInterval}s)');
+
+    if (state.status == TrackingStatus.running) {
+      FlutterForegroundTask.sendDataToTask({
+        'command': 'updateConfig',
+        'active_interval_seconds': activeInterval,
+        'stationary_interval_seconds': stationaryInterval,
+        'distance_filter_meters': state.config.distanceFilterMeters,
+      });
     }
   }
 
@@ -516,6 +617,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
   void dispose() {
     FlutterForegroundTask.removeTaskDataCallback(_handleTaskData);
     _shiftSubscription?.close();
+    _thermalSubscription?.cancel();
     super.dispose();
   }
 }

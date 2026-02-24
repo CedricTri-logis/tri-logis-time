@@ -108,7 +108,7 @@ class ExportService {
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
             pw.Text(
-              'Rapport d'historique des quarts',
+              "Rapport d'historique des quarts",
               style: pw.TextStyle(
                 fontSize: 24,
                 fontWeight: pw.FontWeight.bold,

@@ -169,7 +169,7 @@ class _TeamSummaryCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Aperçu de l'équipe',
+                    "Aperçu de l'équipe",
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -273,7 +273,7 @@ class _ErrorState extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'Échec du chargement de l'équipe',
+              "Échec du chargement de l'équipe",
               style: theme.textTheme.titleLarge?.copyWith(
                 color: theme.colorScheme.error,
               ),
@@ -319,14 +319,14 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             Text(
-              'Aucun membre d'équipe',
+              "Aucun membre d'équipe",
               style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Vous n'avez pas encore d'employés supervisés. Contactez votre administrateur pour assigner des employés à votre équipe.',
+              "Vous n'avez pas encore d'employés supervisés. Contactez votre administrateur pour assigner des employés à votre équipe.",
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
