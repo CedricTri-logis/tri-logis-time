@@ -9,16 +9,16 @@
       "source": "/apple",
       "destination": "https://testflight.apple.com/join/mMQMnnqJ",
       "permanent": false
-    },
+    }
+  ],
+  "rewrites": [
     {
       "source": "/update",
-      "destination": "/android",
-      "permanent": false
+      "destination": "/redirect.html"
     },
     {
       "source": "/install",
-      "destination": "/android",
-      "permanent": false
+      "destination": "/redirect.html"
     }
   ]
 }
