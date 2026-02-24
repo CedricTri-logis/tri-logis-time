@@ -101,10 +101,12 @@ class HomeScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Image.asset(
-          'assets/images/logo.png',
-          height: 40,
-          fit: BoxFit.contain,
+        title: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 36, maxWidth: 160),
+          child: Image.asset(
+            'assets/images/logo.png',
+            fit: BoxFit.contain,
+          ),
         ),
         centerTitle: true,
         backgroundColor: Colors.white,

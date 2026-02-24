@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// A 6-digit OTP input field with auto-advance and paste support.
+/// A 6-digit OTP input field with iOS SMS autofill and paste support.
+///
+/// Uses a hidden TextField with [AutofillHints.oneTimeCode] to support
+/// iOS's "From Messages" paste shortcut. Visual display shows 6 separate boxes.
 class OtpInputField extends StatefulWidget {
   /// Called when all 6 digits have been entered
   final ValueChanged<String> onCompleted;
@@ -22,126 +25,134 @@ class OtpInputField extends StatefulWidget {
 class OtpInputFieldState extends State<OtpInputField> {
   static const _length = 6;
 
-  final List<TextEditingController> _controllers =
-      List.generate(_length, (_) => TextEditingController());
-  final List<FocusNode> _focusNodes =
-      List.generate(_length, (_) => FocusNode());
+  final _controller = TextEditingController();
+  final _focusNode = FocusNode();
   bool _submitted = false;
 
   @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_onTextChanged);
+  }
+
+  @override
   void dispose() {
-    for (final c in _controllers) {
-      c.dispose();
-    }
-    for (final f in _focusNodes) {
-      f.dispose();
-    }
+    _controller.removeListener(_onTextChanged);
+    _controller.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
-  /// Clear all fields and focus the first one
+  /// Clear the field and re-enable submission
   void clear() {
     _submitted = false;
-    for (final c in _controllers) {
-      c.clear();
-    }
-    _focusNodes[0].requestFocus();
+    _controller.clear();
+    _focusNode.requestFocus();
   }
 
-  String get _currentCode =>
-      _controllers.map((c) => c.text).join();
+  void _onTextChanged() {
+    // Force rebuild to update visual boxes
+    setState(() {});
 
-  void _onChanged(int index, String value) {
-    // Handle paste: if multiple digits are pasted, distribute them
-    if (value.length > 1) {
-      _handlePaste(value, index);
-      return;
-    }
-
-    // Single digit entered - auto-advance
-    if (value.length == 1 && index < _length - 1) {
-      _focusNodes[index + 1].requestFocus();
-    }
-
-    // Check if complete (guard against double-fire)
-    final code = _currentCode;
-    if (code.length == _length && !_submitted) {
+    final text = _controller.text;
+    if (text.length == _length && !_submitted) {
       _submitted = true;
-      widget.onCompleted(code);
-    }
-  }
-
-  void _handlePaste(String value, int startIndex) {
-    final digits = value.replaceAll(RegExp(r'[^\d]'), '');
-    for (var i = 0; i < digits.length && (startIndex + i) < _length; i++) {
-      _controllers[startIndex + i].text = digits[i];
-    }
-
-    // Focus the next empty field or last field
-    final nextEmpty = _controllers.indexWhere((c) => c.text.isEmpty);
-    if (nextEmpty != -1) {
-      _focusNodes[nextEmpty].requestFocus();
-    } else {
-      _focusNodes[_length - 1].requestFocus();
-    }
-
-    final code = _currentCode;
-    if (code.length == _length && !_submitted) {
-      _submitted = true;
-      widget.onCompleted(code);
-    }
-  }
-
-  void _onKeyEvent(int index, KeyEvent event) {
-    // Handle backspace: go back to previous field
-    if (event is KeyDownEvent &&
-        event.logicalKey == LogicalKeyboardKey.backspace &&
-        _controllers[index].text.isEmpty &&
-        index > 0) {
-      _controllers[index - 1].clear();
-      _focusNodes[index - 1].requestFocus();
+      // Unfocus to dismiss keyboard
+      _focusNode.unfocus();
+      widget.onCompleted(text);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final code = _controller.text;
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(_length, (index) {
-        return Container(
-          width: 48,
-          height: 56,
-          margin: EdgeInsets.only(
-            left: index == 0 ? 0 : 6,
-            right: index == _length - 1 ? 0 : 6,
-          ),
-          child: KeyboardListener(
-            focusNode: FocusNode(),
-            onKeyEvent: (event) => _onKeyEvent(index, event),
-            child: TextFormField(
-              controller: _controllers[index],
-              focusNode: _focusNodes[index],
-              enabled: widget.enabled,
-              textAlign: TextAlign.center,
-              keyboardType: TextInputType.number,
-              maxLength: 1,
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
+    return GestureDetector(
+      onTap: () => _focusNode.requestFocus(),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Hidden TextField that captures iOS SMS autofill + paste
+          Opacity(
+            opacity: 0,
+            child: SizedBox(
+              height: 56,
+              child: AutofillGroup(
+                child: TextField(
+                  controller: _controller,
+                  focusNode: _focusNode,
+                  enabled: widget.enabled,
+                  autofillHints: const [AutofillHints.oneTimeCode],
+                  keyboardType: TextInputType.number,
+                  maxLength: _length,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(_length),
+                  ],
+                  decoration: const InputDecoration(
+                    counterText: '',
+                    border: InputBorder.none,
+                  ),
+                ),
               ),
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-              ],
-              decoration: const InputDecoration(
-                counterText: '',
-                contentPadding: EdgeInsets.symmetric(vertical: 12),
-              ),
-              onChanged: (value) => _onChanged(index, value),
             ),
           ),
-        );
-      }),
+
+          // Visual 6-box display
+          IgnorePointer(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(_length, (index) {
+                final hasDigit = index < code.length;
+                final isActive = index == code.length && _focusNode.hasFocus;
+
+                return Container(
+                  width: 48,
+                  height: 56,
+                  margin: EdgeInsets.only(
+                    left: index == 0 ? 0 : 6,
+                    right: index == _length - 1 ? 0 : 6,
+                  ),
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: isActive
+                          ? theme.colorScheme.primary
+                          : hasDigit
+                              ? theme.colorScheme.outline
+                              : theme.colorScheme.outlineVariant,
+                      width: isActive ? 2 : 1,
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                    color: hasDigit
+                        ? theme.colorScheme.surfaceContainerHighest
+                        : null,
+                  ),
+                  alignment: Alignment.center,
+                  child: hasDigit
+                      ? Text(
+                          code[index],
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        )
+                      : isActive
+                          ? SizedBox(
+                              width: 2,
+                              height: 24,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.primary,
+                                ),
+                              ),
+                            )
+                          : null,
+                );
+              }),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
