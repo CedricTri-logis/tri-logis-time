@@ -7,13 +7,13 @@ class OtpResendButton extends StatefulWidget {
   /// Called when the button is pressed to resend the code
   final VoidCallback onResend;
 
-  /// Countdown duration in seconds (default: 30)
+  /// Countdown duration in seconds (default: 60)
   final int cooldownSeconds;
 
   const OtpResendButton({
     required this.onResend,
     super.key,
-    this.cooldownSeconds = 30,
+    this.cooldownSeconds = 60,
   });
 
   @override

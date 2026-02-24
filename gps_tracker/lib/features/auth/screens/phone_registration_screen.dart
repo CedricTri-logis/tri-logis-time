@@ -21,7 +21,15 @@ enum _RegistrationStep { enterPhone, verifyOtp, setupBiometric, complete }
 /// When [canSkip] is true, a "Plus tard" button lets the user defer for 7 days.
 class PhoneRegistrationScreen extends ConsumerStatefulWidget {
   final bool canSkip;
-  const PhoneRegistrationScreen({super.key, this.canSkip = false});
+
+  /// Called when registration is completed or skipped (replaces Navigator.pop).
+  final VoidCallback? onCompleted;
+
+  const PhoneRegistrationScreen({
+    super.key,
+    this.canSkip = false,
+    this.onCompleted,
+  });
 
   @override
   ConsumerState<PhoneRegistrationScreen> createState() =>
@@ -192,6 +200,15 @@ class _PhoneRegistrationScreenState
       value: DateTime.now().toIso8601String(),
     );
     if (mounted) {
+      _notifyCompleted();
+    }
+  }
+
+  /// Notify parent that registration flow is done (completed or skipped).
+  void _notifyCompleted() {
+    if (widget.onCompleted != null) {
+      widget.onCompleted!();
+    } else {
       Navigator.of(context).pop(true);
     }
   }
@@ -218,8 +235,7 @@ class _PhoneRegistrationScreenState
     if (_step == _RegistrationStep.complete) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          // Pop back - app.dart will handle navigation to HomeScreen
-          Navigator.of(context).pop(true);
+          _notifyCompleted();
         }
       });
     }
@@ -353,6 +369,14 @@ class _PhoneRegistrationScreenState
           'Code envoye au ${PhoneValidator.formatForDisplay(_normalizedPhone)}',
           style: theme.textTheme.bodyLarge?.copyWith(
             color: Colors.grey[600],
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Le SMS peut prendre jusqu\'a 2 minutes.',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: Colors.grey[500],
           ),
           textAlign: TextAlign.center,
         ),

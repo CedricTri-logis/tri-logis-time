@@ -133,20 +133,20 @@ class _PhoneRegistrationGateState
     extends ConsumerState<_PhoneRegistrationGate> {
   bool _completed = false;
 
+  void _onCompleted() {
+    setState(() => _completed = true);
+    ref.invalidate(_phoneRegistrationStatusProvider);
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_completed) {
       return const HomeScreen();
     }
 
-    return Navigator(
-      onGenerateRoute: (_) => MaterialPageRoute<bool>(
-        builder: (_) => PhoneRegistrationScreen(canSkip: widget.canSkip),
-      ),
-      onDidRemovePage: (page) {
-        setState(() => _completed = true);
-        ref.invalidate(_phoneRegistrationStatusProvider);
-      },
+    return PhoneRegistrationScreen(
+      canSkip: widget.canSkip,
+      onCompleted: _onCompleted,
     );
   }
 }
