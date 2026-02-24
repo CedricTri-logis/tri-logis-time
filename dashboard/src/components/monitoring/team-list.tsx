@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { DurationCounter } from './duration-counter';
 import { StalenessIndicator, LastUpdatedBadge } from './staleness-indicator';
 import { NoTeamEmptyState, NoResultsEmptyState } from './empty-states';
+import { formatDeviceModel } from '@/lib/utils/device-model';
 import type { MonitoredEmployee } from '@/types/monitoring';
 
 interface TeamListProps {
@@ -120,7 +121,7 @@ function TeamListItem({ employee }: TeamListItemProps) {
               {(employee.deviceModel || employee.devicePlatform) && (
                 <span className="flex items-center gap-1">
                   <Smartphone className="h-3 w-3" />
-                  {employee.deviceModel || employee.devicePlatform}
+                  {formatDeviceModel(employee.deviceModel) || employee.devicePlatform}
                 </span>
               )}
             </div>
