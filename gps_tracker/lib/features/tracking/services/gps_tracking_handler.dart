@@ -20,10 +20,12 @@ class GPSTrackingHandler extends TaskHandler {
   DateTime? _stationaryCheckTime;
   bool _isCapturing = false; // Prevent duplicate captures
 
-  // GPS loss detection
+  // GPS loss detection — 90s threshold catches silent stream death faster
+  // than the previous 2min, especially critical on iOS where the OS can
+  // suspend the app and kill the stream without an error callback.
   DateTime? _lastSuccessfulPositionAt;
   bool _gpsLostNotified = false;
-  static const _gpsLostThreshold = Duration(minutes: 2);
+  static const _gpsLostThreshold = Duration(seconds: 90);
 
   // GPS gap tracking
   DateTime? _gpsGapStartedAt;
@@ -292,11 +294,13 @@ class GPSTrackingHandler extends TaskHandler {
     final lastSuccess = _lastSuccessfulPositionAt;
     if (lastSuccess == null) return;
 
-    // Need at least 2 minutes of silence before attempting recovery.
-    if (now.difference(lastSuccess) < const Duration(minutes: 2)) return;
+    // 90s of silence before first recovery attempt (matches _gpsLostThreshold).
+    if (now.difference(lastSuccess) < const Duration(seconds: 90)) return;
 
-    // Exponential backoff between recovery attempts: 2, 4, 8, 16, 30 min cap.
-    final backoffMin = (2 * (1 << _streamRecoveryAttempts.clamp(0, 4))).clamp(2, 30);
+    // Exponential backoff between recovery attempts: 1, 2, 4, 8, 15 min cap.
+    // Starts at 1 min (not 2) so first recovery is faster; caps at 15 min
+    // instead of 30 to keep recovery aggressive.
+    final backoffMin = (1 << _streamRecoveryAttempts.clamp(0, 4)).clamp(1, 15);
     if (_lastRecoveryAttemptAt != null &&
         now.difference(_lastRecoveryAttemptAt!) < Duration(minutes: backoffMin)) {
       return;

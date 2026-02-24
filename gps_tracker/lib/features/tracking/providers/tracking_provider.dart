@@ -313,9 +313,9 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     }
   }
 
-  /// If GPS hasn't produced a point in 10+ minutes, tell the background
-  /// handler to recover its position stream. Rate-limited to once per 10 min.
-  /// The background handler manages its own recovery with backoff (Fix 4),
+  /// If GPS hasn't produced a point in 5+ minutes, tell the background
+  /// handler to recover its position stream. Rate-limited to once per 5 min.
+  /// The background handler manages its own recovery with backoff,
   /// so this is a last-resort nudge from the main isolate.
   void _checkGpsSelfHealing() {
     final lastCapture = _lastBackgroundCapture;
@@ -323,10 +323,10 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
 
     final now = DateTime.now();
     final gap = now.difference(lastCapture);
-    if (gap > const Duration(minutes: 10)) {
-      // Rate-limit: don't send recovery more than once per 10 minutes
+    if (gap > const Duration(minutes: 5)) {
+      // Rate-limit: don't send recovery more than once per 5 minutes
       if (_lastSelfHealingAt != null &&
-          now.difference(_lastSelfHealingAt!) < const Duration(minutes: 10)) {
+          now.difference(_lastSelfHealingAt!) < const Duration(minutes: 5)) {
         return;
       }
       debugPrint('[Tracking] GPS gap detected (${gap.inSeconds}s), '
