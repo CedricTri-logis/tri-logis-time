@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/config/constants.dart';
 import '../../core/config/theme.dart';
 import '../../shared/providers/supabase_provider.dart';
 import '../shifts/providers/shift_provider.dart';
