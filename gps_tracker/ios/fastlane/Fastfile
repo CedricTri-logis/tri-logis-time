@@ -11,6 +11,13 @@ def load_api_key
 end
 
 platform :ios do
+  desc "Get latest TestFlight build number"
+  lane :latest_build do
+    api_key = load_api_key
+    build_num = latest_testflight_build_number(api_key: api_key)
+    UI.message("LATEST_TF_BUILD:#{build_num}")
+  end
+
   desc "Build and upload to TestFlight"
   lane :beta do
     api_key = load_api_key
