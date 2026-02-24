@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
@@ -269,6 +270,11 @@ class ShiftService {
           reason: reason,
         );
         await _localDb.markShiftSynced(shiftId);
+
+        // Fire-and-forget trip detection for mileage tracking
+        final serverShiftId = existingShift.serverId ?? shiftId;
+        _detectTripsAsync(serverShiftId);
+
         return ClockOutResult(
           success: true,
           shiftId: shiftId,
@@ -410,5 +416,17 @@ class ShiftService {
       await _localDb.markShiftSyncError(shiftId, e.toString());
       return false;
     }
+  }
+
+  /// Fire-and-forget trip detection for mileage tracking.
+  /// Called after successful clock-out to detect vehicle trips from GPS points.
+  void _detectTripsAsync(String serverShiftId) {
+    _supabase.rpc('detect_trips', params: {
+      'p_shift_id': serverShiftId,
+    }).then((_) {
+      debugPrint('[Mileage] Trip detection completed for shift $serverShiftId');
+    }).catchError((e) {
+      debugPrint('[Mileage] Trip detection failed for shift $serverShiftId: $e');
+    });
   }
 }
