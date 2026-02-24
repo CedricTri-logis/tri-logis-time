@@ -1,7 +1,9 @@
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+
+import '../../../shared/models/diagnostic_event.dart';
+import '../../../shared/services/diagnostic_logger.dart';
 
 /// Static utility class wrapping the iOS background execution method channel.
 ///
@@ -14,6 +16,8 @@ import 'package:flutter/services.dart';
 /// All methods are no-ops on Android. All calls are fail-open (errors logged,
 /// never crash tracking).
 class BackgroundExecutionService {
+  static DiagnosticLogger? get _logger => DiagnosticLogger.isInitialized ? DiagnosticLogger.instance : null;
+
   static const _channel = MethodChannel('gps_tracker/background_execution');
   static bool _callbackRegistered = false;
 
@@ -24,9 +28,9 @@ class BackgroundExecutionService {
 
     try {
       await _channel.invokeMethod<bool>('startBackgroundSession');
-      debugPrint('[BackgroundExecution] Background session started');
+      _logger?.lifecycle(Severity.debug, 'Background session started');
     } catch (e) {
-      debugPrint('[BackgroundExecution] Failed to start session: $e');
+      _logger?.lifecycle(Severity.warn, 'Failed to start background session', metadata: {'error': e.toString()});
     }
   }
 
@@ -36,9 +40,9 @@ class BackgroundExecutionService {
 
     try {
       await _channel.invokeMethod<bool>('stopBackgroundSession');
-      debugPrint('[BackgroundExecution] Background session stopped');
+      _logger?.lifecycle(Severity.debug, 'Background session stopped');
     } catch (e) {
-      debugPrint('[BackgroundExecution] Failed to stop session: $e');
+      _logger?.lifecycle(Severity.warn, 'Failed to stop background session', metadata: {'error': e.toString()});
     }
   }
 
@@ -50,7 +54,7 @@ class BackgroundExecutionService {
       final result = await _channel.invokeMethod<bool>('isBackgroundSessionActive');
       return result ?? false;
     } catch (e) {
-      debugPrint('[BackgroundExecution] Failed to check session: $e');
+      _logger?.lifecycle(Severity.warn, 'Failed to check background session', metadata: {'error': e.toString()});
       return false;
     }
   }
@@ -64,9 +68,9 @@ class BackgroundExecutionService {
       await _channel.invokeMethod<bool>('beginBackgroundTask', {
         if (name != null) 'name': name,
       });
-      debugPrint('[BackgroundExecution] Background task started');
+      _logger?.lifecycle(Severity.debug, 'Background task started');
     } catch (e) {
-      debugPrint('[BackgroundExecution] Failed to begin task: $e');
+      _logger?.lifecycle(Severity.warn, 'Failed to begin background task', metadata: {'error': e.toString()});
     }
   }
 
@@ -76,9 +80,9 @@ class BackgroundExecutionService {
 
     try {
       await _channel.invokeMethod<bool>('endBackgroundTask');
-      debugPrint('[BackgroundExecution] Background task ended');
+      _logger?.lifecycle(Severity.debug, 'Background task ended');
     } catch (e) {
-      debugPrint('[BackgroundExecution] Failed to end task: $e');
+      _logger?.lifecycle(Severity.warn, 'Failed to end background task', metadata: {'error': e.toString()});
     }
   }
 
@@ -92,7 +96,7 @@ class BackgroundExecutionService {
   static Future<dynamic> _handleMethodCall(MethodCall call) async {
     switch (call.method) {
       case 'onBackgroundTaskExpired':
-        debugPrint('[BackgroundExecution] iOS background task expired');
+        _logger?.lifecycle(Severity.warn, 'iOS background task expired');
     }
   }
 }

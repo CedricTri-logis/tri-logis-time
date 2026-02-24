@@ -2,16 +2,26 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../shared/models/diagnostic_event.dart';
 import '../../../shared/providers/supabase_provider.dart';
+import '../../../shared/services/diagnostic_logger.dart';
 import '../models/shift_enums.dart';
 import '../models/sync_metadata.dart';
 import '../models/sync_progress.dart';
 import '../services/backoff_strategy.dart';
+import '../services/diagnostic_sync_service.dart';
 import '../services/sync_logger.dart';
 import '../services/sync_service.dart';
 import 'connectivity_provider.dart';
 import 'quarantine_provider.dart';
 import 'shift_provider.dart';
+
+/// Provider for DiagnosticSyncService.
+final diagnosticSyncServiceProvider = Provider<DiagnosticSyncService>((ref) {
+  final supabase = ref.watch(supabaseClientProvider);
+  final localDb = ref.watch(localDatabaseProvider);
+  return DiagnosticSyncService(supabase, localDb);
+});
 
 /// Provider for SyncService.
 final syncServiceProvider = Provider<SyncService>((ref) {
@@ -21,6 +31,8 @@ final syncServiceProvider = Provider<SyncService>((ref) {
   final syncService = SyncService(supabase, localDb, shiftService);
   // Inject quarantine service for orphaned GPS point handling
   syncService.setQuarantineService(ref.watch(quarantineServiceProvider));
+  // Inject diagnostic sync service for log upload
+  syncService.setDiagnosticSyncService(ref.watch(diagnosticSyncServiceProvider));
   return syncService;
 });
 
@@ -158,6 +170,10 @@ class SyncNotifier extends StateNotifier<SyncState> {
   Timer? _countdownTimer;
   StreamSubscription<SyncProgress>? _progressSub;
 
+  /// Guarded access to the diagnostic logger singleton.
+  DiagnosticLogger? get _logger =>
+      DiagnosticLogger.isInitialized ? DiagnosticLogger.instance : null;
+
   /// Delay before auto-sync on connectivity restore (cautious for flaky networks).
   static const Duration _connectivityRestoreDelay = Duration(seconds: 30);
 
@@ -248,6 +264,12 @@ class SyncNotifier extends StateNotifier<SyncState> {
       _ref.read(syncLoggerProvider).connectivityChanged(
             isConnected: isConnected,
           );
+
+      _logger?.network(
+        isConnected ? Severity.info : Severity.warn,
+        'Connectivity changed',
+        metadata: {'connected': isConnected},
+      );
 
       if (isConnected && state.hasPendingData) {
         _scheduleSyncWithDelay(delay: _connectivityRestoreDelay);

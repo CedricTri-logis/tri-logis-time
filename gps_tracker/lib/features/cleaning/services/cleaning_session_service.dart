@@ -35,6 +35,9 @@ class CleaningSessionService {
     required String qrCode,
     required String shiftId,
     String? serverShiftId,
+    double? latitude,
+    double? longitude,
+    double? accuracy,
   }) async {
     // 1. Look up studio by QR code in local cache
     Studio? studio = await _studioCache.lookupByQrCode(qrCode);
@@ -117,6 +120,9 @@ class CleaningSessionService {
       status: CleaningSessionStatus.inProgress,
       startedAt: now,
       syncStatus: SyncStatus.pending,
+      startLatitude: latitude,
+      startLongitude: longitude,
+      startAccuracy: accuracy,
       studioNumber: studio.studioNumber,
       buildingName: studio.buildingName,
       studioType: studio.studioType,
@@ -131,6 +137,9 @@ class CleaningSessionService {
         'p_employee_id': employeeId,
         'p_qr_code': qrCode,
         'p_shift_id': serverShiftId ?? shiftId,
+        if (latitude != null) 'p_latitude': latitude,
+        if (longitude != null) 'p_longitude': longitude,
+        if (accuracy != null) 'p_accuracy': accuracy,
       });
 
       if (response['success'] == true) {
@@ -156,6 +165,9 @@ class CleaningSessionService {
   Future<ScanResult> scanOut({
     required String employeeId,
     required String qrCode,
+    double? latitude,
+    double? longitude,
+    double? accuracy,
   }) async {
     // 1. Look up studio by QR code
     final studio = await _studioCache.lookupByQrCode(qrCode);
@@ -196,6 +208,9 @@ class CleaningSessionService {
       isFlagged: isFlagged,
       flagReason: flagReason,
       syncStatus: SyncStatus.pending,
+      endLatitude: latitude,
+      endLongitude: longitude,
+      endAccuracy: accuracy,
     );
     await _localDb.updateCleaningSession(completedSession);
 
@@ -206,6 +221,9 @@ class CleaningSessionService {
           await _supabase.rpc<Map<String, dynamic>>('scan_out', params: {
         'p_employee_id': employeeId,
         'p_qr_code': qrCode,
+        if (latitude != null) 'p_latitude': latitude,
+        if (longitude != null) 'p_longitude': longitude,
+        if (accuracy != null) 'p_accuracy': accuracy,
       });
 
       if (response['success'] == true) {
@@ -386,6 +404,18 @@ class CleaningSessionService {
                 'duration_minutes': session.durationMinutes,
                 'is_flagged': session.isFlagged,
                 'flag_reason': session.flagReason,
+                if (session.startLatitude != null)
+                  'start_latitude': session.startLatitude,
+                if (session.startLongitude != null)
+                  'start_longitude': session.startLongitude,
+                if (session.startAccuracy != null)
+                  'start_accuracy': session.startAccuracy,
+                if (session.endLatitude != null)
+                  'end_latitude': session.endLatitude,
+                if (session.endLongitude != null)
+                  'end_longitude': session.endLongitude,
+                if (session.endAccuracy != null)
+                  'end_accuracy': session.endAccuracy,
               })
               .select('id')
               .single();

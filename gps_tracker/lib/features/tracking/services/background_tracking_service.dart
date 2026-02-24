@@ -4,6 +4,8 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../../../shared/models/diagnostic_event.dart';
+import '../../../shared/services/diagnostic_logger.dart';
 import '../models/location_permission_state.dart';
 import '../models/tracking_config.dart';
 import 'background_execution_service.dart';
@@ -36,6 +38,8 @@ class TrackingAlreadyActive extends TrackingResult {
 /// Also observes app lifecycle to call beginBackgroundTask/endBackgroundTask
 /// on iOS for the foreground-to-background transition protection.
 class BackgroundTrackingService with WidgetsBindingObserver {
+  static DiagnosticLogger? get _logger => DiagnosticLogger.isInitialized ? DiagnosticLogger.instance : null;
+
   static bool _isInitialized = false;
   static BackgroundTrackingService? _lifecycleInstance;
 
@@ -260,11 +264,11 @@ class BackgroundTrackingService with WidgetsBindingObserver {
     try {
       final isRunning = await FlutterForegroundTask.isRunningService;
       if (!isRunning) {
-        debugPrint('[BackgroundTracking] Foreground service died — notifying for restart');
+        _logger?.gps(Severity.error, 'Foreground service died — notifying for restart');
         onForegroundServiceDied?.call();
       }
     } catch (e) {
-      debugPrint('[BackgroundTracking] Failed to check service health: $e');
+      _logger?.gps(Severity.error, 'Failed to check foreground service health', metadata: {'error': e.toString()});
     }
   }
 }

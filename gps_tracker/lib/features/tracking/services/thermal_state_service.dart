@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+
+import '../../../shared/models/diagnostic_event.dart';
+import '../../../shared/services/diagnostic_logger.dart';
 
 /// Thermal pressure level for GPS frequency adaptation.
 enum ThermalLevel {
@@ -23,6 +25,8 @@ enum ThermalLevel {
 ///
 /// Fail-open: any error returns ThermalLevel.normal.
 class ThermalStateService {
+  static DiagnosticLogger? get _logger => DiagnosticLogger.isInitialized ? DiagnosticLogger.instance : null;
+
   static const _methodChannel = MethodChannel('gps_tracker/thermal');
   static const _eventChannel = EventChannel('gps_tracker/thermal/stream');
 
@@ -40,7 +44,7 @@ class ThermalStateService {
         return _mapAndroidThermalStatus(status ?? 0);
       }
     } catch (e) {
-      debugPrint('[ThermalState] Failed to get current level: $e');
+      _logger?.thermal(Severity.warn, 'Failed to read thermal level', metadata: {'error': e.toString()});
     }
     return ThermalLevel.normal;
   }
@@ -57,7 +61,7 @@ class ThermalStateService {
           .receiveBroadcastStream()
           .map((event) => _mapAndroidThermalStatus(event as int? ?? 0))
           .handleError((Object error) {
-        debugPrint('[ThermalState] Android stream error: $error');
+        _logger?.thermal(Severity.warn, 'Thermal stream error', metadata: {'error': error.toString()});
         return ThermalLevel.normal;
       });
     }

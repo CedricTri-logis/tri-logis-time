@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/config/constants.dart';
+import '../../core/config/theme.dart';
 import '../../shared/providers/supabase_provider.dart';
 import '../shifts/providers/shift_provider.dart';
 import '../admin/screens/user_management_screen.dart';
@@ -110,7 +110,7 @@ class HomeScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 36, maxWidth: 160),
+          constraints: const BoxConstraints(maxHeight: 36, maxWidth: 140),
           child: Image.asset(
             'assets/images/logo.png',
             fit: BoxFit.contain,
@@ -128,8 +128,8 @@ class HomeScreen extends ConsumerWidget {
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  Color(0xFFD11848), // TriLogis Red
-                  Color(0xFFBA8041), // TriLogis Gold
+                  TriLogisColors.red, // TriLogis Red
+                  TriLogisColors.gold, // TriLogis Gold
                 ],
               ),
             ),
@@ -137,12 +137,20 @@ class HomeScreen extends ConsumerWidget {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.history),
+            icon: const Icon(
+              Icons.history,
+              color: TriLogisColors.red,
+              size: 28,
+            ),
             tooltip: 'Historique des quarts',
             onPressed: () => _navigateToHistory(context),
           ),
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
+            icon: const Icon(
+              Icons.more_vert,
+              color: TriLogisColors.red,
+              size: 28,
+            ),
             onSelected: (value) {
               switch (value) {
                 case 'mileage':
@@ -161,7 +169,7 @@ class HomeScreen extends ConsumerWidget {
                 value: 'mileage',
                 child: Row(
                   children: [
-                    Icon(Icons.directions_car_outlined),
+                    Icon(Icons.directions_car_outlined, color: TriLogisColors.red),
                     SizedBox(width: 12),
                     Text('Kilométrage'),
                   ],
@@ -171,7 +179,7 @@ class HomeScreen extends ConsumerWidget {
                 value: 'profile',
                 child: Row(
                   children: [
-                    Icon(Icons.person_outline),
+                    Icon(Icons.person_outline, color: TriLogisColors.red),
                     SizedBox(width: 12),
                     Text('Profil'),
                   ],
@@ -182,7 +190,7 @@ class HomeScreen extends ConsumerWidget {
                 value: 'signout',
                 child: Row(
                   children: [
-                    Icon(Icons.logout),
+                    Icon(Icons.logout, color: TriLogisColors.red),
                     SizedBox(width: 12),
                     Text('Déconnexion'),
                   ],
@@ -223,10 +231,12 @@ class _ManagerHomeScreen extends StatelessWidget {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: Image.asset(
-            'assets/images/logo.png',
-            height: 40,
-            fit: BoxFit.contain,
+          title: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 36, maxWidth: 140),
+            child: Image.asset(
+              'assets/images/logo.png',
+              fit: BoxFit.contain,
+            ),
           ),
           centerTitle: true,
           backgroundColor: Colors.white,
@@ -235,12 +245,20 @@ class _ManagerHomeScreen extends StatelessWidget {
           shadowColor: Colors.black.withValues(alpha: 0.1),
           actions: [
             IconButton(
-              icon: const Icon(Icons.history),
+              icon: const Icon(
+                Icons.history,
+                color: TriLogisColors.red,
+                size: 28,
+              ),
               tooltip: 'Historique des quarts',
               onPressed: onHistory,
             ),
             PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert),
+              icon: const Icon(
+                Icons.more_vert,
+                color: TriLogisColors.red,
+                size: 28,
+              ),
               onSelected: (value) {
                 switch (value) {
                   case 'mileage':
@@ -265,7 +283,7 @@ class _ManagerHomeScreen extends StatelessWidget {
                   value: 'mileage',
                   child: Row(
                     children: [
-                      Icon(Icons.directions_car_outlined),
+                      Icon(Icons.directions_car_outlined, color: TriLogisColors.red),
                       SizedBox(width: 12),
                       Text('Kilométrage'),
                     ],
@@ -275,7 +293,7 @@ class _ManagerHomeScreen extends StatelessWidget {
                   value: 'profile',
                   child: Row(
                     children: [
-                      Icon(Icons.person_outline),
+                      Icon(Icons.person_outline, color: TriLogisColors.red),
                       SizedBox(width: 12),
                       Text('Profil'),
                     ],
@@ -285,7 +303,7 @@ class _ManagerHomeScreen extends StatelessWidget {
                   value: 'employee_history',
                   child: Row(
                     children: [
-                      Icon(Icons.groups),
+                      Icon(Icons.groups, color: TriLogisColors.red),
                       SizedBox(width: 12),
                       Text('Historique employés'),
                     ],
@@ -296,7 +314,7 @@ class _ManagerHomeScreen extends StatelessWidget {
                     value: 'user_management',
                     child: Row(
                       children: [
-                        Icon(Icons.admin_panel_settings),
+                        Icon(Icons.admin_panel_settings, color: TriLogisColors.red),
                         SizedBox(width: 12),
                         Text('Gestion des utilisateurs'),
                       ],
@@ -307,7 +325,7 @@ class _ManagerHomeScreen extends StatelessWidget {
                   value: 'signout',
                   child: Row(
                     children: [
-                      Icon(Icons.logout),
+                      Icon(Icons.logout, color: TriLogisColors.red),
                       SizedBox(width: 12),
                       Text('Déconnexion'),
                     ],
@@ -317,9 +335,9 @@ class _ManagerHomeScreen extends StatelessWidget {
             ),
           ],
           bottom: TabBar(
-            indicatorColor: const Color(0xFFD11848), // TriLogis Red
-            labelColor: const Color(0xFFD11848),
-            unselectedLabelColor: Colors.grey,
+            indicatorColor: TriLogisColors.red, // TriLogis Red
+            labelColor: TriLogisColors.red,
+            unselectedLabelColor: Colors.grey[600],
             tabs: const [
               Tab(
                 icon: Icon(Icons.person),

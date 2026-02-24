@@ -1,6 +1,7 @@
-import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../shared/models/diagnostic_event.dart';
+import '../../../shared/services/diagnostic_logger.dart';
 import '../models/local_trip.dart';
 import '../models/trip.dart';
 import 'mileage_local_db.dart';
@@ -12,6 +13,8 @@ class TripService {
   final MileageLocalDb? _localDb;
 
   TripService(this._supabase, [this._localDb]);
+
+  DiagnosticLogger? get _logger => DiagnosticLogger.isInitialized ? DiagnosticLogger.instance : null;
 
   /// Trigger trip detection for a completed shift.
   /// Returns the list of detected trips.
@@ -52,7 +55,7 @@ class TripService {
 
       return trips;
     } catch (e) {
-      debugPrint('Trip detection failed for shift $shiftId: $e');
+      _logger?.sync(Severity.warn, 'Trip detection failed', metadata: {'shift_id': shiftId, 'error': e.toString()});
       return [];
     }
   }
@@ -60,9 +63,9 @@ class TripService {
   /// Trigger trip detection without waiting for results (fire-and-forget).
   void detectTripsAsync(String shiftId) {
     detectTrips(shiftId).then((_) {
-      debugPrint('Trip detection completed for shift $shiftId');
+      _logger?.sync(Severity.debug, 'Trip detection completed', metadata: {'shift_id': shiftId});
     }).catchError((e) {
-      debugPrint('Trip detection failed for shift $shiftId: $e');
+      _logger?.sync(Severity.warn, 'Trip detection failed', metadata: {'shift_id': shiftId, 'error': e.toString()});
     });
   }
 
@@ -85,7 +88,7 @@ class TripService {
 
       return trips;
     } catch (e) {
-      debugPrint('Failed to fetch trips for shift $shiftId: $e');
+      _logger?.sync(Severity.warn, 'Failed to fetch trips for shift', metadata: {'shift_id': shiftId, 'error': e.toString()});
       // Try local cache
       return _getLocalTripsForShift(shiftId);
     }
@@ -116,7 +119,7 @@ class TripService {
 
       return trips;
     } catch (e) {
-      debugPrint('Failed to fetch trips for period: $e');
+      _logger?.sync(Severity.warn, 'Failed to fetch trips for period', metadata: {'error': e.toString()});
       // Try local cache
       return _getLocalTripsForPeriod(employeeId, start, end);
     }
@@ -143,7 +146,7 @@ class TripService {
 
       return true;
     } catch (e) {
-      debugPrint('Failed to update trip classification: $e');
+      _logger?.sync(Severity.warn, 'Trip classification update failed', metadata: {'trip_id': tripId, 'error': e.toString()});
       // Save locally for sync later
       try {
         await _localDb?.updateTripClassification(
@@ -174,13 +177,13 @@ class TripService {
           await _localDb!.markTripSynced(localTrip.id);
           synced++;
         } catch (e) {
-          debugPrint('Failed to sync classification for trip ${localTrip.id}: $e');
+          _logger?.sync(Severity.warn, 'Failed to sync classification for trip', metadata: {'trip_id': localTrip.id, 'error': e.toString()});
         }
       }
 
       return synced;
     } catch (e) {
-      debugPrint('Failed to sync pending classifications: $e');
+      _logger?.sync(Severity.warn, 'Failed to sync pending classifications', metadata: {'error': e.toString()});
       return 0;
     }
   }
@@ -199,7 +202,7 @@ class TripService {
 
       await _supabase.from('trips').update(updates).eq('id', tripId);
     } catch (e) {
-      debugPrint('Failed to update trip address: $e');
+      _logger?.sync(Severity.warn, 'Failed to update trip address', metadata: {'trip_id': tripId, 'error': e.toString()});
     }
   }
 
@@ -210,7 +213,7 @@ class TripService {
       final localTrips = trips.map((t) => LocalTrip.fromTrip(t)).toList();
       await _localDb!.upsertTrips(localTrips);
     } catch (e) {
-      debugPrint('Failed to cache trips locally: $e');
+      _logger?.sync(Severity.warn, 'Failed to cache trips locally', metadata: {'error': e.toString()});
     }
   }
 
@@ -221,7 +224,7 @@ class TripService {
       final local = await _localDb!.getTripsForShift(shiftId);
       return local.map((lt) => lt.toTrip()).toList();
     } catch (e) {
-      debugPrint('Failed to get local trips for shift: $e');
+      _logger?.sync(Severity.warn, 'Failed to get local trips for shift', metadata: {'shift_id': shiftId, 'error': e.toString()});
       return [];
     }
   }
@@ -237,7 +240,7 @@ class TripService {
       final local = await _localDb!.getTripsForPeriod(employeeId, start, end);
       return local.map((lt) => lt.toTrip()).toList();
     } catch (e) {
-      debugPrint('Failed to get local trips for period: $e');
+      _logger?.sync(Severity.warn, 'Failed to get local trips for period', metadata: {'error': e.toString()});
       return [];
     }
   }

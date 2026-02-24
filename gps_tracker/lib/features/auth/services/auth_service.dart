@@ -135,6 +135,22 @@ class AuthService {
     }
   }
 
+  /// Check if a phone number is already registered in the system
+  /// Used before OTP login to prevent @phone.local phantom accounts
+  Future<bool> checkPhoneExists({required String phone}) async {
+    try {
+      final result = await _client.rpc<bool>(
+        'check_phone_exists',
+        params: {'p_phone': phone},
+      );
+      return result == true;
+    } catch (e) {
+      // Fail-open: if the check fails (network issue), allow OTP to proceed
+      // The server-side trigger will catch duplicates as a fail-safe
+      return true;
+    }
+  }
+
   /// Send an OTP code via SMS to the given phone number
   Future<void> sendOtp({required String phone}) async {
     try {

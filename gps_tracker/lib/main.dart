@@ -8,6 +8,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app.dart';
 import 'core/config/env_config.dart';
 import 'features/tracking/services/background_tracking_service.dart';
+import 'shared/models/diagnostic_event.dart';
+import 'shared/providers/diagnostic_provider.dart';
+import 'shared/services/diagnostic_logger.dart';
 import 'shared/services/local_database.dart';
 import 'shared/services/notification_service.dart';
 
@@ -87,6 +90,19 @@ Future<void> main() async {
         await NotificationService().initialize();
       } catch (e) {
         debugPrint('[Main] Notification init failed (non-critical): $e');
+      }
+
+      // Initialize diagnostic logger (non-critical — don't block app startup)
+      try {
+        final stopwatch = Stopwatch()..start();
+        final userId = Supabase.instance.client.auth.currentUser?.id;
+        await initializeDiagnosticLogger(employeeId: userId);
+        stopwatch.stop();
+        DiagnosticLogger.instance.lifecycle(Severity.info, 'App started', metadata: {
+          'init_duration_ms': stopwatch.elapsedMilliseconds,
+        });
+      } catch (e) {
+        debugPrint('[Main] DiagnosticLogger init failed (non-critical): $e');
       }
     } catch (e) {
       initError = 'Failed to initialize services: $e';

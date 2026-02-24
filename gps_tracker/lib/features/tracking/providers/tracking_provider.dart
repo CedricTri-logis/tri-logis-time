@@ -1,11 +1,12 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../shared/models/diagnostic_event.dart';
+import '../../../shared/services/diagnostic_logger.dart';
 import '../../../shared/services/local_database.dart';
 import '../../../shared/services/notification_service.dart';
 import '../../shifts/models/local_gps_gap.dart';
@@ -24,6 +25,10 @@ import '../services/thermal_state_service.dart';
 class TrackingNotifier extends StateNotifier<TrackingState> {
   final Ref _ref;
   ProviderSubscription<ShiftState>? _shiftSubscription;
+
+  /// Guarded access to the diagnostic logger singleton.
+  DiagnosticLogger? get _logger =>
+      DiagnosticLogger.isInitialized ? DiagnosticLogger.instance : null;
 
   /// ID of the currently open GPS gap (if any).
   String? _activeGpsGapId;
@@ -80,7 +85,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
         try {
           pointCount = await LocalDatabase().getGpsPointCountForShift(shiftId);
         } catch (e) {
-          debugPrint('[Tracking] Failed to load point count from DB: $e');
+          _logger?.gps(Severity.error, 'Failed to load point count from DB', metadata: {'error': e.toString()});
         }
         state = state.copyWith(
           status: TrackingStatus.running,
@@ -95,7 +100,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
       Future.delayed(const Duration(seconds: 2), () {
         final shift = _ref.read(shiftProvider).activeShift;
         if (shift != null && state.status != TrackingStatus.running) {
-          debugPrint('[Tracking] Startup: service dead but shift active — restarting');
+          _logger?.lifecycle(Severity.info, 'Startup: service dead, shift active — restarting');
           startTracking();
         }
       });
@@ -127,12 +132,13 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
       case 'gps_restored':
         _handleGpsRestored(data);
       case 'stream_recovered':
-        debugPrint('[Tracking] GPS stream recovered (attempt ${data['attempt']})');
+        _logger?.gps(Severity.info, 'GPS stream recovered', metadata: {'attempt': data['attempt']});
       case 'stream_recovery_failing':
-        debugPrint('[Tracking] GPS stream recovery struggling: '
-            '${data['attempts']} attempts, ${data['gap_minutes']}min gap');
+        _logger?.gps(Severity.warn, 'GPS stream recovery failing', metadata: {'attempts': data['attempts'], 'gap_minutes': data['gap_minutes']});
+      case 'diagnostic':
+        _handleDiagnosticMessage(data);
       default:
-        debugPrint('[Tracking] Unknown message type: $type');
+        _logger?.lifecycle(Severity.debug, 'Unknown background message type', metadata: {'type': type});
     }
   }
 
@@ -146,7 +152,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     if (!_significantLocationActive) {
       SignificantLocationService.startMonitoring();
       _significantLocationActive = true;
-      debugPrint('[Tracking] GPS lost — SLC activated as fallback');
+      _logger?.gps(Severity.warn, 'GPS lost — SLC activated as fallback');
     }
 
     // Start recording the gap
@@ -164,7 +170,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     if (_significantLocationActive) {
       SignificantLocationService.stopMonitoring();
       _significantLocationActive = false;
-      debugPrint('[Tracking] GPS restored — SLC deactivated');
+      _logger?.gps(Severity.info, 'GPS restored — SLC deactivated');
     }
 
     // Close the GPS gap record
@@ -231,7 +237,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
       // Store in local database
       await LocalDatabase().insertGpsPoint(point);
     } catch (e) {
-      debugPrint('[Tracking] ERROR inserting GPS point: $e');
+      _logger?.gps(Severity.error, 'Failed to insert GPS point', metadata: {'error': e.toString(), 'shift_id': point.shiftId});
       // Don't return — still update UI state and trigger sync
     }
 
@@ -304,12 +310,12 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
         _validateShiftStatus();
       }
     } catch (e) {
-      debugPrint('[Tracking] Server heartbeat failed: $e');
+      _logger?.sync(Severity.warn, 'Server heartbeat failed', metadata: {'error': e.toString()});
       _heartbeatFailures++;
 
       // After 10 consecutive failures (~15min), proactively check shift status
       if (_heartbeatFailures >= 10) {
-        debugPrint('[Tracking] 10 consecutive heartbeat failures, validating shift status');
+        _logger?.sync(Severity.error, 'Heartbeat escalation: 10 consecutive failures', metadata: {'failure_count': _heartbeatFailures});
         _validateShiftStatus();
         _heartbeatFailures = 0; // Reset to avoid spamming
       }
@@ -330,7 +336,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
           .eq('id', serverId)
           .maybeSingle();
       if (result != null && result['status'] == 'completed') {
-        debugPrint('[Tracking] Server says shift is completed, refreshing local state');
+        _logger?.shift(Severity.warn, 'Shift closed by server', metadata: {'shift_id': serverId});
         _ref.read(shiftProvider.notifier).refresh();
       }
     } catch (_) {
@@ -354,8 +360,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
           now.difference(_lastSelfHealingAt!) < const Duration(minutes: 5)) {
         return;
       }
-      debugPrint('[Tracking] GPS gap detected (${gap.inSeconds}s), '
-          'requesting stream recovery from main isolate');
+      _logger?.gps(Severity.warn, 'GPS gap detected, requesting stream recovery', metadata: {'gap_seconds': gap.inSeconds});
       FlutterForegroundTask.sendDataToTask({'command': 'recoverStream'});
       _lastSelfHealingAt = now;
     }
@@ -374,16 +379,42 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     if (hour == 23 && minute >= 55 && !_midnightWarningShown) {
       _midnightWarningShown = true;
       NotificationService().showMidnightWarningNotification();
-      debugPrint('[Tracking] Midnight warning notification shown');
+      _logger?.shift(Severity.info, 'Midnight warning notification shown');
     }
 
     // 00:00 – 00:05: server should have closed the shift, verify immediately
     if (hour == 0 && minute < 5 && _midnightWarningShown) {
       _midnightWarningShown = false;
       NotificationService().cancelMidnightWarningNotification();
-      debugPrint('[Tracking] Post-midnight: validating shift status with server');
+      _logger?.shift(Severity.info, 'Post-midnight shift validation triggered');
       _validateShiftStatus();
     }
+  }
+
+  /// Forward diagnostic messages from the background isolate to DiagnosticLogger.
+  void _handleDiagnosticMessage(Map<String, dynamic> data) {
+    if (!DiagnosticLogger.isInitialized) return;
+
+    final categoryStr = data['category'] as String? ?? 'gps';
+    final severityStr = data['severity'] as String? ?? 'info';
+    final message = data['message'] as String? ?? '';
+    final metadata = data['metadata'] as Map<String, dynamic>?;
+
+    final category = EventCategory.values.firstWhere(
+      (e) => e.value == categoryStr,
+      orElse: () => EventCategory.gps,
+    );
+    final severity = Severity.values.firstWhere(
+      (e) => e.value == severityStr,
+      orElse: () => Severity.info,
+    );
+
+    DiagnosticLogger.instance.log(
+      category: category,
+      severity: severity,
+      message: message,
+      metadata: metadata,
+    );
   }
 
   void _handleStatusUpdate(Map<String, dynamic> data) {
@@ -452,9 +483,12 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
         BackgroundTrackingService.startLifecycleObserver();
         // Subscribe to thermal state changes for GPS frequency adaptation
         _startThermalMonitoring();
+        _logger?.gps(Severity.info, 'Tracking started', metadata: {'shift_id': shift.id});
       case TrackingPermissionDenied():
+        _logger?.permission(Severity.warn, 'Location permission denied for tracking');
         state = state.withError('Location permission required');
       case TrackingServiceError(:final message):
+        _logger?.gps(Severity.error, 'Tracking service error', metadata: {'message': message});
         state = state.withError(message);
       case TrackingAlreadyActive():
         state = state.copyWith(status: TrackingStatus.running);
@@ -463,6 +497,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
 
   /// Stop background tracking.
   Future<void> stopTracking() async {
+    _logger?.gps(Severity.info, 'Tracking stopped');
     await BackgroundTrackingService.stopTracking();
     // Stop SLC if it was activated during GPS loss
     if (_significantLocationActive) {
@@ -485,7 +520,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     final shift = _ref.read(shiftProvider).activeShift;
     if (shift == null) return;
 
-    debugPrint('[Tracking] Foreground service died — auto-restarting');
+    _logger?.gps(Severity.error, 'Foreground service died — auto-restarting');
     state = state.copyWith(status: TrackingStatus.stopped);
     startTracking();
   }
@@ -493,7 +528,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
   /// Called when iOS relaunches the app after a significant location change.
   /// Validates shift is still active on server before restarting tracking.
   Future<void> _onWokenByLocationChange() async {
-    debugPrint('[Tracking] App woken by significant location change');
+    _logger?.gps(Severity.info, 'App woken by significant location change');
     if (state.status != TrackingStatus.running) {
       final shift = _ref.read(shiftProvider).activeShift;
       if (shift == null) return;
@@ -508,17 +543,17 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
               .eq('id', serverId)
               .maybeSingle();
           if (result != null && result['status'] == 'completed') {
-            debugPrint('[Tracking] iOS relaunch: shift already closed on server, cleaning up');
+            _logger?.shift(Severity.info, 'iOS relaunch: shift already closed on server', metadata: {'shift_id': serverId});
             _ref.read(shiftProvider.notifier).refresh();
             return;
           }
         } catch (_) {
           // Network unavailable — start tracking anyway (fail-open for field workers)
-          debugPrint('[Tracking] iOS relaunch: could not validate shift, starting anyway');
+          _logger?.gps(Severity.warn, 'iOS relaunch: could not validate shift, starting anyway');
         }
       }
 
-      debugPrint('[Tracking] Restarting GPS tracking after iOS relaunch');
+      _logger?.gps(Severity.info, 'Restarting GPS tracking after iOS relaunch');
       // Re-create CLBackgroundActivitySession before restarting tracking
       BackgroundExecutionService.startBackgroundSession();
       startTracking();
@@ -537,7 +572,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
         }
       },
       onError: (Object error) {
-        debugPrint('[Tracking] Thermal stream error: $error');
+        _logger?.thermal(Severity.warn, 'Thermal stream error', metadata: {'error': error.toString()});
       },
     );
   }
@@ -557,8 +592,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
       ThermalLevel.critical => (300, 900),
     };
 
-    debugPrint('[Tracking] Thermal adaptation: $level '
-        '(active=${activeInterval}s, stationary=${stationaryInterval}s)');
+    _logger?.thermal(Severity.info, 'Thermal adaptation applied', metadata: {'level': level.name, 'active_interval': activeInterval, 'stationary_interval': stationaryInterval});
 
     if (state.status == TrackingStatus.running) {
       FlutterForegroundTask.sendDataToTask({
@@ -598,7 +632,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
       if (shift != null) {
         // Active shift but tracking died (iOS killed the app/service).
         // Restart tracking automatically.
-        debugPrint('[Tracking] Service dead but shift active — restarting');
+        _logger?.gps(Severity.error, 'Service dead but shift active — restarting');
         state = state.copyWith(status: TrackingStatus.stopped);
         startTracking();
       } else if (state.status == TrackingStatus.running) {
