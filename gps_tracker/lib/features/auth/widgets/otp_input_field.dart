@@ -26,6 +26,7 @@ class OtpInputFieldState extends State<OtpInputField> {
       List.generate(_length, (_) => TextEditingController());
   final List<FocusNode> _focusNodes =
       List.generate(_length, (_) => FocusNode());
+  bool _submitted = false;
 
   @override
   void dispose() {
@@ -40,6 +41,7 @@ class OtpInputFieldState extends State<OtpInputField> {
 
   /// Clear all fields and focus the first one
   void clear() {
+    _submitted = false;
     for (final c in _controllers) {
       c.clear();
     }
@@ -61,9 +63,10 @@ class OtpInputFieldState extends State<OtpInputField> {
       _focusNodes[index + 1].requestFocus();
     }
 
-    // Check if complete
+    // Check if complete (guard against double-fire)
     final code = _currentCode;
-    if (code.length == _length) {
+    if (code.length == _length && !_submitted) {
+      _submitted = true;
       widget.onCompleted(code);
     }
   }
@@ -83,7 +86,8 @@ class OtpInputFieldState extends State<OtpInputField> {
     }
 
     final code = _currentCode;
-    if (code.length == _length) {
+    if (code.length == _length && !_submitted) {
+      _submitted = true;
       widget.onCompleted(code);
     }
   }

@@ -138,6 +138,8 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   }
 
   Future<void> _handleVerifyOtp(String code) async {
+    // Guard against double-submission
+    if (_isLoading) return;
     setState(() => _isLoading = true);
 
     try {

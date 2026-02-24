@@ -104,6 +104,8 @@ class _PhoneRegistrationScreenState
   }
 
   Future<void> _handleVerifyOtp(String code) async {
+    // Guard against double-submission (OTP widget can fire onCompleted twice)
+    if (_isLoading) return;
     setState(() => _isLoading = true);
 
     try {
