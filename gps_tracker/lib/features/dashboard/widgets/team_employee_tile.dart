@@ -117,7 +117,7 @@ class TeamEmployeeTile extends StatelessWidget {
                       )
                     else
                       Text(
-                        'Not clocked in',
+                        'Non pointé',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                         ),
@@ -130,13 +130,13 @@ class TeamEmployeeTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   _StatChip(
-                    label: 'Today',
+                    label: 'Aujourd\'hui',
                     value: employee.formattedTodayHours,
                     color: colorScheme.primary,
                   ),
                   const SizedBox(height: 4),
                   _StatChip(
-                    label: 'Month',
+                    label: 'Mois',
                     value: employee.formattedMonthlyHours,
                     color: colorScheme.secondary,
                   ),
@@ -251,7 +251,7 @@ class TeamEmployeeCompactTile extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
       ),
       subtitle: Text(
-        employee.isActive ? employee.statusText : 'Offline',
+        employee.isActive ? employee.statusText : 'Hors ligne',
         style: TextStyle(
           color: employee.isActive ? Colors.green : colorScheme.onSurfaceVariant,
         ),

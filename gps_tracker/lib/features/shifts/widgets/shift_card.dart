@@ -22,11 +22,11 @@ class ShiftCard extends StatelessWidget {
 
   String _formatDate(DateTime dateTime) {
     final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'jan.', 'fév.', 'mars', 'avr.', 'mai', 'juin',
+      'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'
     ];
-    final weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return '${weekdays[dateTime.weekday - 1]}, ${months[dateTime.month - 1]} ${dateTime.day}';
+    final weekdays = ['lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.', 'dim.'];
+    return '${weekdays[dateTime.weekday - 1]} ${dateTime.day} ${months[dateTime.month - 1]}';
   }
 
   String _formatDuration(Duration duration) {
@@ -74,7 +74,7 @@ class ShiftCard extends StatelessWidget {
               Row(
                 children: [
                   _TimeBlock(
-                    label: 'Clock In',
+                    label: 'Pointage',
                     time: _formatTime(localClockIn),
                     icon: Icons.login,
                     color: Colors.green,
@@ -82,14 +82,14 @@ class ShiftCard extends StatelessWidget {
                   const SizedBox(width: 24),
                   if (shift.isCompleted && localClockOut != null)
                     _TimeBlock(
-                      label: 'Clock Out',
+                      label: 'Dépointage',
                       time: _formatTime(localClockOut),
                       icon: Icons.logout,
                       color: Colors.red,
                     )
                   else
                     _TimeBlock(
-                      label: 'Clock Out',
+                      label: 'Dépointage',
                       time: '--:--',
                       icon: Icons.logout,
                       color: theme.colorScheme.outline,
@@ -99,7 +99,7 @@ class ShiftCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        'Duration',
+                        'Durée',
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -108,7 +108,7 @@ class ShiftCard extends StatelessWidget {
                       Text(
                         shift.isCompleted
                             ? _formatDuration(shift.duration)
-                            : 'In Progress',
+                            : 'En cours',
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                           color: shift.isCompleted

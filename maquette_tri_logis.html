@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maquette Tri-Logis - Portail Locataire</title>
+    <!-- Utilisation de polices similaires si les originales ne sont pas sur le système -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* Couleurs officielles Tri-Logis */
+            --tri-black: #000000;
+            --tri-red: #D11848;
+            --tri-dark-red: #8A110E;
+            --tri-gold: #BA8041;
+            
+            /* Couleurs utilitaires pour l'UI */
+            --bg-light: #f8f9fa;
+            --bg-white: #ffffff;
+            --text-main: #333333;
+            --text-muted: #6c757d;
+            --border-color: #e9ecef;
+            
+            /* Polices (Antenna et Helvetica Neue LT Std Thin Condensed en fallback) */
+            --font-primary: 'Arial Black', 'Impact', sans-serif; /* Fallback pour Antenna Bold */
+            --font-secondary: 'Inter', 'Helvetica Neue', sans-serif; /* Fallback pour le texte courant */
+        }
+
+        body {
+            margin: 0;
+            font-family: var(--font-secondary);
+            background-color: var(--bg-light);
+            color: var(--text-main);
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Barre latérale (Sidebar) */
+        .sidebar {
+            width: 250px;
+            background-color: var(--tri-black);
+            color: white;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .logo-container {
+            padding: 30px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--bg-white);
+            border-bottom: 4px solid var(--tri-gold);
+        }
+
+        .logo-text {
+            font-family: var(--font-primary);
+            font-size: 24px;
+            color: var(--tri-black);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        
+        .logo-text span {
+            color: var(--tri-red);
+        }
+
+        .nav-menu {
+            list-style: none;
+            padding: 0;
+            margin: 20px 0;
+        }
+
+        .nav-item {
+            padding: 15px 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 300;
+            letter-spacing: 0.5px;
+        }
+
+        .nav-item:hover, .nav-item.active {
+            background-color: var(--tri-red);
+            color: white;
+            border-left: 5px solid var(--tri-gold);
+        }
+
+        /* Contenu principal */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        /* En-tête (Header) */
+        .header {
+            background-color: var(--bg-white);
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            border-bottom: 2px solid var(--tri-dark-red);
+        }
+
+        .header h1 {
+            margin: 0;
+            font-family: var(--font-primary);
+            font-size: 20px;
+            color: var(--tri-black);
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: var(--tri-gold);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        /* Zone de contenu */
+        .dashboard-container {
+            padding: 40px;
+        }
+
+        .welcome-banner {
+            background: linear-gradient(135deg, var(--tri-red), var(--tri-dark-red));
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(209, 24, 72, 0.2);
+        }
+
+        .welcome-banner::after {
+            content: '';
+            position: absolute;
+            top: -50px;
+            right: -50px;
+            width: 200px;
+            height: 200px;
+            background-color: var(--tri-gold);
+            opacity: 0.2;
+            border-radius: 50%;
+        }
+
+        .welcome-banner h2 {
+            margin-top: 0;
+            font-family: var(--font-primary);
+            font-size: 28px;
+        }
+
+        /* Cartes (Cards) */
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .card {
+            background-color: var(--bg-white);
+            border-radius: 8px;
+            padding: 25px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            border-top: 4px solid var(--tri-gold);
+            transition: transform 0.2s;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+        }
+
+        .card.primary-card {
+            border-top-color: var(--tri-red);
+        }
+
+        .card.secondary-card {
+            border-top-color: var(--tri-dark-red);
+        }
+
+        .card h3 {
+            margin-top: 0;
+            color: var(--tri-black);
+            font-family: var(--font-primary);
+            font-size: 16px;
+        }
+
+        .card-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: var(--tri-red);
+            margin: 15px 0;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: var(--tri-red);
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .btn:hover {
+            background-color: var(--tri-dark-red);
+        }
+
+        .btn-outline {
+            background-color: transparent;
+            color: var(--tri-black);
+            border: 2px solid var(--tri-black);
+        }
+
+        .btn-outline:hover {
+            background-color: var(--tri-black);
+            color: white;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            background-color: #e9ecef;
+        }
+        
+        .status-badge.active {
+            background-color: rgba(186, 128, 65, 0.2);
+            color: var(--tri-dark-red);
+            border: 1px solid var(--tri-gold);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="logo-container">
+            <img src="/Users/cedric/Desktop/PROJECT/portail-locataire/public/TRILOGIS LOGO v2-1.png" style="height: 60px; width: auto;" alt="Tri-Logis Logo">
+        </div>
+        <ul class="nav-menu">
+            <li class="nav-item active">Tableau de bord</li>
+            <li class="nav-item">Mes baux</li>
+            <li class="nav-item">Paiements</li>
+            <li class="nav-item">Demandes de service</li>
+            <li class="nav-item">Documents</li>
+        </ul>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="header">
+            <h1>PORTAIL LOCATAIRE</h1>
+            <div class="user-profile">
+                <span>Jean Dupont</span>
+                <div class="avatar">JD</div>
+            </div>
+        </div>
+
+        <div class="dashboard-container">
+            <div class="welcome-banner">
+                <h2>Bienvenue sur votre espace, Jean.</h2>
+                <p>Retrouvez ici toutes les informations concernant votre logement.</p>
+            </div>
+
+            <div class="cards-grid">
+                <!-- Card 1 -->
+                <div class="card primary-card">
+                    <h3>Solde actuel</h3>
+                    <div class="card-value">0,00 $</div>
+                    <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">Prochain paiement: 1er Mars</p>
+                    <button class="btn">Effectuer un paiement</button>
+                </div>
+
+                <!-- Card 2 -->
+                <div class="card secondary-card">
+                    <h3>Demandes en cours</h3>
+                    <div class="card-value" style="color: var(--tri-dark-red);">1</div>
+                    <div style="margin-bottom: 20px;">
+                        <span class="status-badge active">Plomberie - En traitement</span>
+                    </div>
+                    <button class="btn btn-outline">Voir mes demandes</button>
+                </div>
+
+                <!-- Card 3 -->
+                <div class="card">
+                    <h3>Mon bail</h3>
+                    <div style="margin: 15px 0; color: var(--tri-black);">
+                        <strong>Appartement 402</strong><br>
+                        1234 Rue des Exemples<br>
+                        Montréal, QC
+                    </div>
+                    <button class="btn btn-outline" style="border-color: var(--tri-gold); color: var(--tri-dark-red);">Télécharger le bail</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

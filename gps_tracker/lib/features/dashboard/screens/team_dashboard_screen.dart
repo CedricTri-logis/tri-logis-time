@@ -77,7 +77,7 @@ class TeamDashboardScreen extends ConsumerWidget {
                       child: Row(
                         children: [
                           Text(
-                            '${state.filteredEmployees.length} of ${state.totalCount} employees',
+                            '${state.filteredEmployees.length} sur ${state.totalCount} employés',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
@@ -87,7 +87,7 @@ class TeamDashboardScreen extends ConsumerWidget {
                             onPressed: () => ref
                                 .read(teamDashboardProvider.notifier)
                                 .clearSearch(),
-                            child: const Text('Clear'),
+                            child: const Text('Effacer'),
                           ),
                         ],
                       ),
@@ -169,7 +169,7 @@ class _TeamSummaryCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Team Overview',
+                    'Aperçu de l'équipe',
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -180,7 +180,7 @@ class _TeamSummaryCard extends StatelessWidget {
                       _StatPill(
                         icon: Icons.circle,
                         iconColor: Colors.green,
-                        label: '$activeCount Active',
+                        label: '$activeCount Actifs',
                       ),
                       const SizedBox(width: 12),
                       _StatPill(
@@ -200,7 +200,7 @@ class _TeamSummaryCard extends StatelessWidget {
                   Icons.bar_chart,
                   color: colorScheme.primary,
                 ),
-                tooltip: 'View Statistics',
+                tooltip: 'Voir les statistiques',
               ),
           ],
         ),
@@ -273,7 +273,7 @@ class _ErrorState extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'Failed to load team',
+              'Échec du chargement de l'équipe',
               style: theme.textTheme.titleLarge?.copyWith(
                 color: theme.colorScheme.error,
               ),
@@ -290,7 +290,7 @@ class _ErrorState extends StatelessWidget {
             FilledButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh),
-              label: const Text('Try Again'),
+              label: const Text('Réessayer'),
             ),
           ],
         ),
@@ -319,14 +319,14 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             Text(
-              'No Team Members',
+              'Aucun membre d'équipe',
               style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'You don\'t have any supervised employees yet. Contact your administrator to assign employees to your team.',
+              'Vous n'avez pas encore d'employés supervisés. Contactez votre administrateur pour assigner des employés à votre équipe.',
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

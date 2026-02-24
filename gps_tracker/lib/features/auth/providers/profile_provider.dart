@@ -49,7 +49,7 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
   Future<void> fetchProfile() async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) {
-      state = const ProfileState(error: 'Not authenticated');
+      state = const ProfileState(error: 'Non authentifié');
       return;
     }
 
@@ -67,12 +67,12 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
     } on PostgrestException catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: 'Failed to load profile: ${e.message}',
+        error: 'Impossible de charger le profil : ${e.message}',
       );
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: 'Failed to load profile. Please try again.',
+        error: 'Impossible de charger le profil. Veuillez réessayer.',
       );
     }
   }
@@ -84,7 +84,7 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
   }) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) {
-      throw const ProfileException('Not authenticated');
+      throw const ProfileException('Non authentifié');
     }
 
     state = state.copyWith(isLoading: true, error: null);
@@ -114,13 +114,13 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
     } on PostgrestException catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: 'Failed to update profile: ${e.message}',
+        error: 'Impossible de mettre à jour le profil : ${e.message}',
       );
       rethrow;
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: 'Failed to update profile. Please try again.',
+        error: 'Impossible de mettre à jour le profil. Veuillez réessayer.',
       );
       rethrow;
     }

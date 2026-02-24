@@ -43,7 +43,7 @@ class StatisticsCard extends StatelessWidget {
                   Expanded(
                     child: _StatItem(
                       icon: Icons.schedule,
-                      label: 'Total Shifts',
+                      label: 'Total quarts',
                       value: statistics.totalShifts.toString(),
                       color: theme.colorScheme.primary,
                     ),
@@ -51,7 +51,7 @@ class StatisticsCard extends StatelessWidget {
                   Expanded(
                     child: _StatItem(
                       icon: Icons.access_time,
-                      label: 'Total Hours',
+                      label: 'Total heures',
                       value: statistics.formattedTotalHours,
                       color: theme.colorScheme.secondary,
                     ),
@@ -59,7 +59,7 @@ class StatisticsCard extends StatelessWidget {
                   Expanded(
                     child: _StatItem(
                       icon: Icons.timelapse,
-                      label: 'Avg Duration',
+                      label: 'Durée moy.',
                       value: statistics.formattedAverageDuration,
                       color: theme.colorScheme.tertiary,
                     ),
@@ -77,7 +77,7 @@ class StatisticsCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      '${statistics.totalGpsPoints} GPS points recorded',
+                      '${statistics.totalGpsPoints} points GPS enregistrés',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -91,7 +91,7 @@ class StatisticsCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     Text(
-                      'View Details',
+                      'Voir les détails',
                       style: theme.textTheme.labelMedium?.copyWith(
                         color: theme.colorScheme.primary,
                       ),
@@ -162,7 +162,7 @@ class TeamStatisticsCard extends StatelessWidget {
                   Expanded(
                     child: _StatItem(
                       icon: Icons.people,
-                      label: 'Employees',
+                      label: 'Employés',
                       value: statistics.totalEmployees.toString(),
                       color: theme.colorScheme.primary,
                     ),
@@ -170,7 +170,7 @@ class TeamStatisticsCard extends StatelessWidget {
                   Expanded(
                     child: _StatItem(
                       icon: Icons.schedule,
-                      label: 'Total Shifts',
+                      label: 'Total quarts',
                       value: statistics.totalShifts.toString(),
                       color: theme.colorScheme.secondary,
                     ),
@@ -183,7 +183,7 @@ class TeamStatisticsCard extends StatelessWidget {
                   Expanded(
                     child: _StatItem(
                       icon: Icons.access_time,
-                      label: 'Total Hours',
+                      label: 'Total heures',
                       value: statistics.formattedTotalHours,
                       color: theme.colorScheme.tertiary,
                     ),
@@ -191,7 +191,7 @@ class TeamStatisticsCard extends StatelessWidget {
                   Expanded(
                     child: _StatItem(
                       icon: Icons.person,
-                      label: 'Avg Shifts/Employee',
+                      label: 'Moy. quarts/employé',
                       value: statistics.averageShiftsPerEmployee.toStringAsFixed(1),
                       color: theme.colorScheme.primary,
                     ),
@@ -204,7 +204,7 @@ class TeamStatisticsCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     Text(
-                      'View Details',
+                      'Voir les détails',
                       style: theme.textTheme.labelMedium?.copyWith(
                         color: theme.colorScheme.primary,
                       ),
@@ -301,15 +301,15 @@ class StatisticsRow extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _CompactStatItem(
-            label: 'Shifts',
+            label: 'Quarts',
             value: statistics.totalShifts.toString(),
           ),
           _CompactStatItem(
-            label: 'Hours',
+            label: 'Heures',
             value: statistics.formattedTotalHours,
           ),
           _CompactStatItem(
-            label: 'Avg',
+            label: 'Moy.',
             value: statistics.formattedAverageDuration,
           ),
         ],

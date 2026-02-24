@@ -112,7 +112,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                 ),
                 const SizedBox(height: 24),
                 Text(
-                  'Check Your Email',
+                  'Vérifiez votre courriel',
                   style: theme.textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -120,7 +120,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'We sent a verification link to:',
+                  'Nous avons envoyé un lien de vérification à :',
                   style: theme.textTheme.bodyLarge,
                   textAlign: TextAlign.center,
                 ),
@@ -141,7 +141,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    'Click the link in your email to verify your account, then return here to sign in.',
+                    'Cliquez sur le lien dans votre courriel pour vérifier votre compte, puis revenez ici pour vous connecter.',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onPrimaryContainer,
                     ),
@@ -150,7 +150,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                 ),
                 const SizedBox(height: 32),
                 AuthButton(
-                  text: 'Back to Sign In',
+                  text: 'Retour à la connexion',
                   onPressed: _navigateToSignIn,
                 ),
               ],
@@ -163,7 +163,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     // Show registration form
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Create Account'),
+        title: const Text('Créer un compte'),
       ),
       body: SafeArea(
         child: Center(
@@ -177,7 +177,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                 children: [
                   // Title
                   Text(
-                    'Get Started',
+                    'Commençons',
                     style: theme.textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -185,7 +185,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Create your account to start tracking',
+                    'Créez votre compte pour commencer le suivi',
                     style: theme.textTheme.bodyLarge?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -266,7 +266,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
                   // Password requirements hint
                   Text(
-                    'Password must be at least 8 characters with letters and numbers',
+                    'Le mot de passe doit contenir au moins 8 caractères avec lettres et chiffres',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -277,8 +277,8 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                   AuthFormField.password(
                     controller: _confirmPasswordController,
                     focusNode: _confirmPasswordFocusNode,
-                    label: 'Confirm Password',
-                    hint: 'Re-enter your password',
+                    label: 'Confirmer le mot de passe',
+                    hint: 'Entrez à nouveau votre mot de passe',
                     obscureText: _obscureConfirmPassword,
                     onToggleVisibility: () {
                       setState(
@@ -296,8 +296,8 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
                   // Sign up button
                   AuthButton(
-                    text: 'Create Account',
-                    loadingText: 'Creating account...',
+                    text: 'Créer le compte',
+                    loadingText: 'Création du compte...',
                     isLoading: _isLoading,
                     onPressed: _handleSignUp,
                   ),
@@ -308,11 +308,11 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        'Already have an account? ',
+                        'Vous avez déjà un compte ? ',
                         style: theme.textTheme.bodyMedium,
                       ),
                       AuthTextButton(
-                        text: 'Sign In',
+                        text: 'Se connecter',
                         onPressed: _isLoading ? null : _navigateToSignIn,
                       ),
                     ],

@@ -109,8 +109,8 @@ Dart 3.x / Flutter 3.x (latest stable): Follow standard conventions
 
 ## Recent Changes
 - 017-mileage-tracking: Added Dart >=3.0.0 / Flutter >=3.29.0 (mobile), TypeScript 5.x / Node.js 18.x LTS (dashboard)
+- 017-mileage-tracking: Added Dart >=3.0.0 / Flutter >=3.29.0 (mobile), TypeScript 5.x / Node.js 18.x LTS (dashboard)
 - 016-cleaning-qr-tracking: Added Dart >=3.0.0 / Flutter >=3.29.0 (mobile), TypeScript 5.x / Node.js 18.x LTS (dashboard) + flutter_riverpod 2.5.0, supabase_flutter 2.12.0, mobile_scanner 7.1.4 (NEW), sqflite_sqlcipher 3.1.0 (mobile); Next.js 14+, Refine, shadcn/ui, Zod (dashboard)
-- 015-location-geofences: Added TypeScript 5.x / Node.js 18.x LTS (Dashboard) + Next.js 14+ (App Router), Refine (@refinedev/supabase), shadcn/ui, Tailwind CSS, Zod, react-leaflet 5.0.0, Leaflet 1.9.4, date-fns 4.1.0
 
 
 <!-- MANUAL ADDITIONS START -->

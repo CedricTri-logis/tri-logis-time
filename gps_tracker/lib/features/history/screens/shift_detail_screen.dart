@@ -67,7 +67,7 @@ class _ShiftDetailScreenState extends ConsumerState<ShiftDetailScreen> {
       });
     } catch (e) {
       setState(() {
-        _error = 'Failed to load GPS data: $e';
+        _error = 'Erreur de chargement GPS : $e';
         _isLoadingGps = false;
       });
     }
@@ -82,7 +82,7 @@ class _ShiftDetailScreenState extends ConsumerState<ShiftDetailScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Shift Details'),
+            const Text('Détails du quart'),
             Text(
               widget.employeeName,
               style: theme.textTheme.bodySmall?.copyWith(
@@ -141,7 +141,7 @@ class _ShiftDetailScreenState extends ConsumerState<ShiftDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    shift.isActive ? 'Active Shift' : 'Completed Shift',
+                    shift.isActive ? 'Quart actif' : 'Quart terminé',
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
@@ -186,7 +186,7 @@ class _ShiftDetailScreenState extends ConsumerState<ShiftDetailScreen> {
             Row(
               children: [
                 Text(
-                  'Clock Times',
+                  'Horaires',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
@@ -214,7 +214,7 @@ class _ShiftDetailScreenState extends ConsumerState<ShiftDetailScreen> {
                   child: _buildTimeSection(
                     theme,
                     icon: Icons.login,
-                    label: 'Clock In',
+                    label: 'Pointage',
                     time: shift.clockedInAt,
                     color: Colors.green,
                   ),
@@ -224,7 +224,7 @@ class _ShiftDetailScreenState extends ConsumerState<ShiftDetailScreen> {
                   child: _buildTimeSection(
                     theme,
                     icon: Icons.logout,
-                    label: 'Clock Out',
+                    label: 'Dépointage',
                     time: shift.clockedOutAt,
                     color: Colors.blue,
                     isActive: shift.isActive,
@@ -277,7 +277,7 @@ class _ShiftDetailScreenState extends ConsumerState<ShiftDetailScreen> {
             )
           else if (isActive)
             Text(
-              'Active',
+              'Actif',
               style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.w600,
                 color: Colors.green,
@@ -311,7 +311,7 @@ class _ShiftDetailScreenState extends ConsumerState<ShiftDetailScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Locations',
+              'Emplacements',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
@@ -319,7 +319,7 @@ class _ShiftDetailScreenState extends ConsumerState<ShiftDetailScreen> {
             const SizedBox(height: 16),
             _buildLocationRow(
               theme,
-              label: 'Clock In Location',
+              label: 'Position au pointage',
               location: shift.clockInLocation,
               accuracy: shift.clockInAccuracy,
             ),
@@ -327,7 +327,7 @@ class _ShiftDetailScreenState extends ConsumerState<ShiftDetailScreen> {
               const SizedBox(height: 12),
               _buildLocationRow(
                 theme,
-                label: 'Clock Out Location',
+                label: 'Position au dépointage',
                 location: shift.clockOutLocation,
                 accuracy: shift.clockOutAccuracy,
               ),
@@ -372,7 +372,7 @@ class _ShiftDetailScreenState extends ConsumerState<ShiftDetailScreen> {
                 )
               else
                 Text(
-                  'No location recorded',
+                  'Aucune position enregistrée',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -415,7 +415,7 @@ class _ShiftDetailScreenState extends ConsumerState<ShiftDetailScreen> {
                 Row(
                   children: [
                     Text(
-                      'GPS Track',
+                      'Tracé GPS',
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
@@ -500,7 +500,7 @@ class _ShiftDetailScreenState extends ConsumerState<ShiftDetailScreen> {
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
-                    'No GPS data recorded for this shift',
+                    'Aucune donnée GPS pour ce quart',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -512,7 +512,7 @@ class _ShiftDetailScreenState extends ConsumerState<ShiftDetailScreen> {
                 // Point list toggle
                 ExpansionTile(
                   title: Text(
-                    'View All Points',
+                    'Voir tous les points',
                     style: theme.textTheme.titleSmall,
                   ),
                   tilePadding: EdgeInsets.zero,
@@ -589,7 +589,7 @@ class _ShiftDetailScreenState extends ConsumerState<ShiftDetailScreen> {
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text(
-              '...and ${points.length - 10} more points',
+              '...et ${points.length - 10} points de plus',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

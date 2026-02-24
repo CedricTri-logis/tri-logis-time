@@ -61,11 +61,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
       if (mounted) {
         setState(() => _isEditing = false);
-        ErrorSnackbar.showSuccess(context, 'Profile updated successfully');
+        ErrorSnackbar.showSuccess(context, 'Profil mis à jour avec succès');
       }
     } catch (e) {
       if (mounted) {
-        ErrorSnackbar.show(context, 'Failed to update profile');
+        ErrorSnackbar.show(context, 'Échec de la mise à jour du profil');
       }
     } finally {
       if (mounted) {
@@ -82,13 +82,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profile'),
+        title: const Text('Profil'),
         actions: [
           if (!_isEditing && profileState.profile != null)
             IconButton(
               icon: const Icon(Icons.edit),
               onPressed: _startEditing,
-              tooltip: 'Edit profile',
+              tooltip: 'Modifier le profil',
             ),
         ],
       ),
@@ -123,7 +123,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               onPressed: () {
                 ref.read(profileProvider.notifier).fetchProfile();
               },
-              child: const Text('Retry'),
+              child: const Text('Réessayer'),
             ),
           ],
         ),
@@ -183,7 +183,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
           // Profile information
           Text(
-            'Account Information',
+            'Informations du compte',
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
             ),
@@ -193,8 +193,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           _buildInfoTile(
             theme,
             icon: Icons.email_outlined,
-            label: 'Email',
-            value: profile?.email ?? (currentUser?.email as String?) ?? 'Not set',
+            label: 'Courriel',
+            value: profile?.email ?? (currentUser?.email as String?) ?? 'Non défini',
             isReadOnly: true,
           ),
           const Divider(),
@@ -213,8 +213,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           _buildInfoTile(
             theme,
             icon: Icons.person_outline,
-            label: 'Full Name',
-            value: profile?.fullName ?? 'Not set',
+            label: 'Nom complet',
+            value: profile?.fullName ?? 'Non défini',
           ),
           const Divider(),
 
@@ -222,7 +222,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             _buildInfoTile(
               theme,
               icon: Icons.badge_outlined,
-              label: 'Employee ID',
+              label: 'No. employé',
               value: profile!.employeeId!,
             ),
             const Divider(),
@@ -231,10 +231,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           _buildInfoTile(
             theme,
             icon: Icons.calendar_today_outlined,
-            label: 'Member Since',
+            label: 'Membre depuis',
             value: profile != null
                 ? _formatDate(profile.createdAt)
-                : 'Unknown',
+                : 'Inconnu',
           ),
 
           const SizedBox(height: 32),
@@ -261,7 +261,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    'Account Status: ${profile.status.value.toUpperCase()}',
+                    'Statut du compte : ${profile.status.value.toUpperCase()}',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: profile.isActive
                           ? Colors.green
@@ -286,7 +286,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Edit Profile',
+              'Modifier le profil',
               style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -297,8 +297,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             TextFormField(
               controller: _fullNameController,
               decoration: const InputDecoration(
-                labelText: 'Full Name',
-                hintText: 'Enter your full name',
+                labelText: 'Nom complet',
+                hintText: 'Entrez votre nom complet',
                 prefixIcon: Icon(Icons.person_outline),
                 border: OutlineInputBorder(),
               ),
@@ -306,14 +306,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               enabled: !_isSaving,
               validator: (value) {
                 if (value != null && value.length > 255) {
-                  return 'Name is too long (max 255 characters)';
+                  return 'Le nom est trop long (max 255 caractères)';
                 }
                 return null;
               },
             ),
             const SizedBox(height: 8),
             Text(
-              'This name will be displayed in the app',
+              'Ce nom sera affiché dans l\'application',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -322,8 +322,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
             // Save button
             AuthButton(
-              text: 'Save Changes',
-              loadingText: 'Saving...',
+              text: 'Enregistrer',
+              loadingText: 'Enregistrement...',
               isLoading: _isSaving,
               onPressed: _saveProfile,
             ),
@@ -332,7 +332,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             // Cancel button
             OutlinedButton(
               onPressed: _isSaving ? null : _cancelEditing,
-              child: const Text('Cancel'),
+              child: const Text('Annuler'),
             ),
           ],
         ),
@@ -401,9 +401,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   String _formatDate(DateTime date) {
     final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'jan.', 'fév.', 'mars', 'avr.', 'mai', 'juin',
+      'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.',
     ];
-    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
 }

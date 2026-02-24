@@ -133,6 +133,11 @@ class SyncService {
       lastError = gpsResult.lastError;
     }
 
+    // Trigger trip re-detection for completed shifts that had GPS points synced
+    if (syncedGpsPoints > 0) {
+      _triggerTripDetectionForCompletedShifts(userId);
+    }
+
     // Final progress update
     progress = progress.copyWith(
       syncedGpsPoints: syncedGpsPoints,
@@ -356,6 +361,33 @@ class SyncService {
   Future<int> cleanupOldData() async {
     final threshold = DateTime.now().subtract(const Duration(days: 30));
     return await _localDb.deleteOldSyncedGpsPoints(threshold);
+  }
+
+  /// Fire-and-forget trip detection for recently completed shifts.
+  /// Called after GPS points sync to re-detect trips with new data.
+  void _triggerTripDetectionForCompletedShifts(String userId) async {
+    try {
+      // Get recently completed shifts (last 24h) to re-detect trips
+      final recentShifts = await _localDb.getShiftHistory(
+        employeeId: userId,
+        limit: 10,
+        offset: 0,
+      );
+
+      for (final shift in recentShifts) {
+        if (shift.status == 'completed' && shift.serverId != null) {
+          _supabase.rpc('detect_trips', params: {
+            'p_shift_id': shift.serverId,
+          }).then((_) {
+            debugPrint('[Mileage] Trip re-detection completed for shift ${shift.serverId}');
+          }).catchError((e) {
+            debugPrint('[Mileage] Trip re-detection failed for shift ${shift.serverId}: $e');
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('[Mileage] Failed to trigger trip re-detection: $e');
+    }
   }
 
   /// Dispose resources.

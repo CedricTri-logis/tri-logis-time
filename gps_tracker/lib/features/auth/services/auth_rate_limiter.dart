@@ -68,8 +68,8 @@ class AuthRateLimiter {
     final seconds = duration.inSeconds % 60;
 
     if (minutes > 0) {
-      return '$minutes minute${minutes == 1 ? '' : 's'} $seconds second${seconds == 1 ? '' : 's'}';
+      return '$minutes minute${minutes == 1 ? '' : 's'} $seconds seconde${seconds == 1 ? '' : 's'}';
     }
-    return '$seconds second${seconds == 1 ? '' : 's'}';
+    return '$seconds seconde${seconds == 1 ? '' : 's'}';
   }
 }

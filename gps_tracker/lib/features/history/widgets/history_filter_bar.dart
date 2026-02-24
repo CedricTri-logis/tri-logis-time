@@ -25,7 +25,7 @@ class HistoryFilterBar extends ConsumerStatefulWidget {
     this.showSearch = true,
     this.showDateRange = true,
     this.onFilterChanged,
-    this.searchHint = 'Search...',
+    this.searchHint = 'Rechercher...',
   });
 
   @override
@@ -97,7 +97,7 @@ class _HistoryFilterBarState extends ConsumerState<HistoryFilterBar> {
               children: [
                 _buildQuickFilterChip(
                   context,
-                  label: '7 Days',
+                  label: '7 jours',
                   isSelected: _isLast7DaysSelected(filterState),
                   onTap: () {
                     ref.read(historyFilterProvider.notifier).setLast7Days();
@@ -107,7 +107,7 @@ class _HistoryFilterBarState extends ConsumerState<HistoryFilterBar> {
                 const SizedBox(width: 8),
                 _buildQuickFilterChip(
                   context,
-                  label: '30 Days',
+                  label: '30 jours',
                   isSelected: _isLast30DaysSelected(filterState),
                   onTap: () {
                     ref.read(historyFilterProvider.notifier).setLast30Days();
@@ -117,7 +117,7 @@ class _HistoryFilterBarState extends ConsumerState<HistoryFilterBar> {
                 const SizedBox(width: 8),
                 _buildQuickFilterChip(
                   context,
-                  label: 'This Month',
+                  label: 'Ce mois',
                   isSelected: _isCurrentMonthSelected(filterState),
                   onTap: () {
                     ref.read(historyFilterProvider.notifier).setCurrentMonth();
@@ -131,7 +131,7 @@ class _HistoryFilterBarState extends ConsumerState<HistoryFilterBar> {
                   const SizedBox(width: 8),
                   ActionChip(
                     avatar: const Icon(Icons.clear, size: 18),
-                    label: const Text('Clear'),
+                    label: const Text('Effacer'),
                     onPressed: () {
                       ref
                           .read(historyFilterProvider.notifier)
@@ -179,7 +179,7 @@ class _HistoryFilterBarState extends ConsumerState<HistoryFilterBar> {
         color: isCustom ? theme.colorScheme.onPrimary : null,
       ),
       label: Text(
-        isCustom ? _formatDateRange(filterState) : 'Custom Range',
+        isCustom ? _formatDateRange(filterState) : 'Période personnalisée',
       ),
       backgroundColor: isCustom ? theme.colorScheme.primary : null,
       labelStyle: isCustom
@@ -269,11 +269,11 @@ class _HistoryFilterBarState extends ConsumerState<HistoryFilterBar> {
       return '${dateFormat.format(state.startDate!)} - ${dateFormat.format(state.endDate!)}';
     }
     if (state.startDate != null) {
-      return 'From ${dateFormat.format(state.startDate!)}';
+      return 'Depuis le ${dateFormat.format(state.startDate!)}';
     }
     if (state.endDate != null) {
-      return 'Until ${dateFormat.format(state.endDate!)}';
+      return 'Jusqu\'au ${dateFormat.format(state.endDate!)}';
     }
-    return 'Custom Range';
+    return 'Période personnalisée';
   }
 }

@@ -130,7 +130,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                 ),
                 const SizedBox(height: 24),
                 Text(
-                  'Password Updated',
+                  'Mot de passe mis à jour',
                   style: theme.textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -138,13 +138,13 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Your password has been successfully updated. You can now sign in with your new password.',
+                  'Votre mot de passe a été mis à jour avec succès. Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.',
                   style: theme.textTheme.bodyLarge,
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 32),
                 AuthButton(
-                  text: 'Back to Sign In',
+                  text: 'Retour à la connexion',
                   onPressed: _navigateToSignIn,
                 ),
               ],
@@ -158,7 +158,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     if (_showPasswordReset) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Set New Password'),
+          title: const Text('Nouveau mot de passe'),
         ),
         body: SafeArea(
           child: Center(
@@ -171,7 +171,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      'Create New Password',
+                      'Créer un nouveau mot de passe',
                       style: theme.textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -179,7 +179,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Enter your new password below',
+                      'Entrez votre nouveau mot de passe ci-dessous',
                       style: theme.textTheme.bodyLarge?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -190,8 +190,8 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                     // New password field
                     AuthFormField.password(
                       controller: _newPasswordController,
-                      label: 'New Password',
-                      hint: 'Enter new password',
+                      label: 'Nouveau mot de passe',
+                      hint: 'Entrez le nouveau mot de passe',
                       obscureText: _obscurePassword,
                       textInputAction: TextInputAction.next,
                       onToggleVisibility: () {
@@ -202,7 +202,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Password must be at least 8 characters with letters and numbers',
+                      'Le mot de passe doit contenir au moins 8 caractères avec lettres et chiffres',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -212,8 +212,8 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                     // Confirm password field
                     AuthFormField.password(
                       controller: _confirmPasswordController,
-                      label: 'Confirm New Password',
-                      hint: 'Re-enter new password',
+                      label: 'Confirmer le nouveau mot de passe',
+                      hint: 'Entrez à nouveau le mot de passe',
                       obscureText: _obscureConfirmPassword,
                       onToggleVisibility: () {
                         setState(
@@ -231,8 +231,8 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                     const SizedBox(height: 32),
 
                     AuthButton(
-                      text: 'Update Password',
-                      loadingText: 'Updating...',
+                      text: 'Mettre à jour',
+                      loadingText: 'Mise à jour...',
                       isLoading: _isLoading,
                       onPressed: _handleUpdatePassword,
                     ),
@@ -262,7 +262,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                 ),
                 const SizedBox(height: 24),
                 Text(
-                  'Check Your Email',
+                  'Vérifiez votre courriel',
                   style: theme.textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -270,7 +270,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'We sent a password reset link to:',
+                  'Nous avons envoyé un lien de réinitialisation à :',
                   style: theme.textTheme.bodyLarge,
                   textAlign: TextAlign.center,
                 ),
@@ -291,7 +291,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    'Click the link in your email to reset your password. The link will expire in 1 hour.',
+                    'Cliquez sur le lien dans votre courriel pour réinitialiser votre mot de passe. Le lien expirera dans 1 heure.',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onPrimaryContainer,
                     ),
@@ -300,7 +300,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                 ),
                 const SizedBox(height: 32),
                 AuthButton(
-                  text: 'Back to Sign In',
+                  text: 'Retour à la connexion',
                   onPressed: _navigateToSignIn,
                 ),
               ],
@@ -313,7 +313,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     // Show initial email input form
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Forgot Password'),
+        title: const Text('Mot de passe oublié'),
       ),
       body: SafeArea(
         child: Center(
@@ -332,7 +332,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    'Reset Password',
+                    'Réinitialiser le mot de passe',
                     style: theme.textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -340,7 +340,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Enter your email address and we\'ll send you a link to reset your password.',
+                    'Entrez votre adresse courriel et nous vous enverrons un lien pour réinitialiser votre mot de passe.',
                     style: theme.textTheme.bodyLarge?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -359,8 +359,8 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
 
                   // Send reset link button
                   AuthButton(
-                    text: 'Send Reset Link',
-                    loadingText: 'Sending...',
+                    text: 'Envoyer le lien',
+                    loadingText: 'Envoi...',
                     isLoading: _isLoading,
                     onPressed: _handleSendResetLink,
                   ),
@@ -369,7 +369,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                   // Back to sign in link
                   Center(
                     child: AuthTextButton(
-                      text: 'Back to Sign In',
+                      text: 'Retour à la connexion',
                       onPressed: _isLoading ? null : _navigateToSignIn,
                     ),
                   ),

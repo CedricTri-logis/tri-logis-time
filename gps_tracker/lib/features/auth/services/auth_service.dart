@@ -52,7 +52,7 @@ class AuthService {
         code: e.statusCode,
       );
     } catch (e) {
-      throw const AuthServiceException('Sign in failed. Please try again.');
+      throw const AuthServiceException('Connexion échouée. Veuillez réessayer.');
     }
   }
 
@@ -79,7 +79,7 @@ class AuthService {
         code: e.statusCode,
       );
     } catch (e) {
-      throw const AuthServiceException('Sign up failed. Please try again.');
+      throw const AuthServiceException('Inscription échouée. Veuillez réessayer.');
     }
   }
 
@@ -112,7 +112,7 @@ class AuthService {
         code: e.statusCode,
       );
     } catch (e) {
-      throw const AuthServiceException('Failed to send reset email. Please try again.');
+      throw const AuthServiceException('Impossible d\'envoyer le courriel de réinitialisation. Veuillez réessayer.');
     }
   }
 
@@ -131,7 +131,7 @@ class AuthService {
         code: e.statusCode,
       );
     } catch (e) {
-      throw const AuthServiceException('Failed to update password. Please try again.');
+      throw const AuthServiceException('Impossible de mettre à jour le mot de passe. Veuillez réessayer.');
     }
   }
 
@@ -286,32 +286,32 @@ class AuthService {
 
     if (lowerError.contains('invalid') && lowerError.contains('credentials') ||
         lowerError.contains('invalid login credentials')) {
-      return 'Invalid email or password';
+      return 'Courriel ou mot de passe invalide';
     }
     if (lowerError.contains('email not confirmed') ||
         lowerError.contains('email_not_confirmed')) {
-      return 'Please verify your email first';
+      return 'Veuillez d\'abord vérifier votre courriel';
     }
     if (lowerError.contains('already registered') ||
         lowerError.contains('email_exists') ||
         lowerError.contains('user already registered')) {
-      return 'An account with this email already exists';
+      return 'Un compte avec ce courriel existe déjà';
     }
     if (lowerError.contains('weak password') ||
         lowerError.contains('weak_password')) {
-      return 'Password must be at least 8 characters';
+      return 'Le mot de passe doit contenir au moins 8 caractères';
     }
     if (lowerError.contains('rate limit') ||
         lowerError.contains('over_request_rate_limit') ||
         lowerError.contains('over_email_send_rate_limit')) {
-      return 'Too many attempts. Please wait a few minutes.';
+      return 'Trop de tentatives. Veuillez patienter quelques minutes.';
     }
     if (lowerError.contains('same password') ||
         lowerError.contains('same_password')) {
-      return 'New password must be different from current password';
+      return 'Le nouveau mot de passe doit être différent de l\'ancien';
     }
     if (lowerError.contains('network') || lowerError.contains('connection')) {
-      return 'Network error. Please check your connection.';
+      return 'Erreur réseau. Vérifiez votre connexion.';
     }
     // SMS provider / Twilio errors (must be checked BEFORE OTP errors)
     if (lowerError.contains('sms_send_failed') ||

@@ -41,7 +41,7 @@ class _SupervisedEmployeesScreenState
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Employee History'),
+        title: const Text('Historique employés'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -59,7 +59,7 @@ class _SupervisedEmployeesScreenState
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Search employees...',
+                hintText: 'Rechercher un employé...',
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
@@ -117,7 +117,7 @@ class _SupervisedEmployeesScreenState
                 onPressed: () =>
                     ref.read(supervisedEmployeesProvider.notifier).refresh(),
                 icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
+                label: const Text('Réessayer'),
               ),
             ],
           ),
@@ -141,8 +141,8 @@ class _SupervisedEmployeesScreenState
             const SizedBox(height: 16),
             Text(
               _searchQuery.isEmpty
-                  ? 'No employees to supervise'
-                  : 'No employees match your search',
+                  ? 'Aucun employé à superviser'
+                  : 'Aucun employé ne correspond à votre recherche',
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

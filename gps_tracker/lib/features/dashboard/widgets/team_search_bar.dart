@@ -65,7 +65,7 @@ class _TeamSearchBarState extends State<TeamSearchBar> {
       focusNode: _focusNode,
       onChanged: widget.onSearch,
       decoration: InputDecoration(
-        hintText: widget.hintText ?? 'Search by name or employee ID...',
+        hintText: widget.hintText ?? 'Rechercher par nom ou numéro d\'employé...',
         prefixIcon: const Icon(Icons.search),
         suffixIcon: ValueListenableBuilder<TextEditingValue>(
           valueListenable: _controller,
@@ -155,7 +155,7 @@ class _TeamSearchBarCompactState extends State<TeamSearchBarCompact> {
       autofocus: true,
       style: theme.textTheme.bodyLarge,
       decoration: InputDecoration(
-        hintText: 'Search employees...',
+        hintText: 'Rechercher les employés...',
         border: InputBorder.none,
         suffixIcon: widget.onClose != null
             ? IconButton(

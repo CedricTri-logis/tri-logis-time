@@ -31,9 +31,9 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Tri-Logis Time needs continuous access to your location to track your work shifts even when the app is in the background.</string>
+	<string>Tri-Logis Time uses your location to automatically track work trips for mileage reimbursement and to record your work location during shifts.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Tri-Logis Time needs your location to track your work shifts.</string>
+	<string>Tri-Logis Time uses your location to track work trips for mileage reimbursement and record your work shifts.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIBackgroundModes</key>

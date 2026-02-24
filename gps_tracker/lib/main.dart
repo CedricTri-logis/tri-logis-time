@@ -44,7 +44,7 @@ Future<void> main() async {
               ),
               const SizedBox(height: 16),
               const Text(
-                'Loading...',
+                'Chargement...',
                 style: TextStyle(color: Colors.white70, fontSize: 14),
               ),
             ],
@@ -108,7 +108,7 @@ Future<void> main() async {
                     const Icon(Icons.error_outline, size: 64, color: Colors.red),
                     const SizedBox(height: 16),
                     const Text(
-                      'Startup Error',
+                      'Erreur de démarrage',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,

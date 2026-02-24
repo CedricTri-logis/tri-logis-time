@@ -53,7 +53,7 @@ class RecentShiftsList extends StatelessWidget {
           Center(
             child: TextButton(
               onPressed: onViewAll,
-              child: Text('View all ${shifts.length} shifts'),
+              child: Text('Voir les ${shifts.length} quarts'),
             ),
           ),
         ],
@@ -154,7 +154,7 @@ class _ShiftListItem extends StatelessWidget {
   String _formatTimeRange(Shift shift) {
     final start = DateFormat('h:mm a').format(shift.clockedInAt.toLocal());
     if (shift.clockedOutAt == null) {
-      return '$start - now';
+      return '$start - maintenant';
     }
     final end = DateFormat('h:mm a').format(shift.clockedOutAt!.toLocal());
     return '$start - $end';
@@ -187,7 +187,7 @@ class _StatusBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
-        isActive ? 'Active' : 'Completed',
+        isActive ? 'Actif' : 'Terminé',
         style: theme.textTheme.labelSmall?.copyWith(
           color: isActive ? Colors.green : theme.colorScheme.onSurfaceVariant,
           fontWeight: FontWeight.w500,
@@ -219,14 +219,14 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'No recent shifts',
+            'Aucun quart récent',
             style: theme.textTheme.titleMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 4),
           Text(
-            'Your shifts from the last 7 days will appear here',
+            'Vos quarts des 7 derniers jours apparaîtront ici',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),

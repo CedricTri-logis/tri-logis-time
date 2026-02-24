@@ -36,7 +36,7 @@ class DailySummaryCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Today',
+                  'Aujourd\'hui',
                   style: theme.textTheme.titleSmall?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                   ),
@@ -68,14 +68,14 @@ class DailySummaryCard extends StatelessWidget {
     final count = stats.completedShiftCount;
     if (count == 0) {
       if (stats.activeShiftDuration > Duration.zero) {
-        return '1 shift in progress';
+        return '1 quart en cours';
       }
-      return 'No shifts yet';
+      return 'Aucun quart pour l\'instant';
     }
     if (count == 1) {
-      return '1 shift completed';
+      return '1 quart terminé';
     }
-    return '$count shifts completed';
+    return '$count quarts terminés';
   }
 }
 

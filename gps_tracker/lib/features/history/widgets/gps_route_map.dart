@@ -96,7 +96,7 @@ class _GpsRouteMapState extends State<GpsRouteMap> {
           position: widget.clockInLocation!,
           icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
           infoWindow: InfoWindow(
-            title: 'Clock In',
+            title: 'Pointage',
             snippet: widget.clockedInAt != null
                 ? TimezoneFormatter.formatDateTimeWithTz(widget.clockedInAt!)
                 : null,
@@ -120,7 +120,7 @@ class _GpsRouteMapState extends State<GpsRouteMap> {
             position: position,
             icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
             infoWindow: InfoWindow(
-              title: 'GPS Point ${i + 1}',
+              title: 'Point GPS ${i + 1}',
               snippet: TimezoneFormatter.formatTimeWithSecondsTz(point.capturedAt),
             ),
             onTap: () {
@@ -140,7 +140,7 @@ class _GpsRouteMapState extends State<GpsRouteMap> {
           position: widget.clockOutLocation!,
           icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
           infoWindow: InfoWindow(
-            title: 'Clock Out',
+            title: 'Dépointage',
             snippet: widget.clockedOutAt != null
                 ? TimezoneFormatter.formatDateTimeWithTz(widget.clockedOutAt!)
                 : null,
@@ -265,7 +265,7 @@ class _GpsRouteMapState extends State<GpsRouteMap> {
               ),
               const SizedBox(height: 16),
               Text(
-                'No GPS data available',
+                'Aucune donnée GPS disponible',
                 style: theme.textTheme.bodyLarge?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -415,7 +415,7 @@ class _GpsRouteMapState extends State<GpsRouteMap> {
                 ),
                 if (point.accuracy != null)
                   Text(
-                    'Accuracy: ±${point.accuracy!.toStringAsFixed(0)}m',
+                    'Précision : ±${point.accuracy!.toStringAsFixed(0)}m',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onPrimaryContainer,
                     ),
@@ -438,9 +438,9 @@ class _GpsRouteMapState extends State<GpsRouteMap> {
       spacing: 16,
       runSpacing: 8,
       children: [
-        _buildLegendItem(theme, Colors.green, 'Clock In'),
-        _buildLegendItem(theme, Colors.red, 'Clock Out'),
-        _buildLegendItem(theme, Colors.blue, 'GPS Route'),
+        _buildLegendItem(theme, Colors.green, 'Pointage'),
+        _buildLegendItem(theme, Colors.red, 'Dépointage'),
+        _buildLegendItem(theme, Colors.blue, 'Tracé GPS'),
       ],
     );
   }

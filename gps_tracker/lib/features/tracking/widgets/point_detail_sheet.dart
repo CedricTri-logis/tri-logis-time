@@ -32,9 +32,9 @@ class PointDetailSheet extends StatelessWidget {
 
   String get _formattedDate {
     final local = point.capturedAt.toLocal();
-    final weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return '${weekdays[local.weekday - 1]}, ${months[local.month - 1]} ${local.day}';
+    final weekdays = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
+    final months = ['jan.', 'fév.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+    return '${weekdays[local.weekday - 1]} ${local.day} ${months[local.month - 1]}';
   }
 
   String get _formattedCoordinates {
@@ -46,10 +46,10 @@ class PointDetailSheet extends StatelessWidget {
   }
 
   String get _accuracyLabel {
-    if (point.accuracy == null) return 'Unknown';
-    if (point.isHighAccuracy) return 'High';
-    if (point.isLowAccuracy) return 'Low';
-    return 'Medium';
+    if (point.accuracy == null) return 'Inconnue';
+    if (point.isHighAccuracy) return 'Haute';
+    if (point.isLowAccuracy) return 'Basse';
+    return 'Moyenne';
   }
 
   Color _accuracyColor(BuildContext context) {
@@ -81,13 +81,13 @@ class PointDetailSheet extends StatelessWidget {
             ),
           ),
           Text(
-            'Location Point',
+            'Point de localisation',
             style: theme.textTheme.titleLarge,
           ),
           const SizedBox(height: 16),
           _DetailRow(
             icon: Icons.access_time,
-            label: 'Time',
+            label: 'Heure',
             value: _formattedTime,
           ),
           _DetailRow(
@@ -97,15 +97,15 @@ class PointDetailSheet extends StatelessWidget {
           ),
           _DetailRow(
             icon: Icons.location_on,
-            label: 'Coordinates',
+            label: 'Coordonnées',
             value: _formattedCoordinates,
           ),
           _DetailRow(
             icon: Icons.gps_fixed,
-            label: 'Accuracy',
+            label: 'Précision',
             value: point.accuracy != null
-                ? '${point.accuracy!.toStringAsFixed(1)} meters ($_accuracyLabel)'
-                : 'Unknown',
+                ? '${point.accuracy!.toStringAsFixed(1)} mètres ($_accuracyLabel)'
+                : 'Inconnue',
             valueColor: _accuracyColor(context),
           ),
           const SizedBox(height: 16),

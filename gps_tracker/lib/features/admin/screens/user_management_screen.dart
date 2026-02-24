@@ -24,12 +24,12 @@ class UserManagementScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('User Management'),
+        title: const Text('Gestion des utilisateurs'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () => ref.read(userManagementProvider.notifier).refresh(),
-            tooltip: 'Refresh',
+            tooltip: 'Actualiser',
           ),
         ],
       ),
@@ -92,7 +92,7 @@ class UserManagementScreen extends ConsumerWidget {
                       child: Row(
                         children: [
                           Text(
-                            '${state.filteredUsers.length} of ${state.users.length} users',
+                            '${state.filteredUsers.length} sur ${state.users.length} utilisateurs',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
@@ -102,7 +102,7 @@ class UserManagementScreen extends ConsumerWidget {
                             onPressed: () => ref
                                 .read(userManagementProvider.notifier)
                                 .clearSearch(),
-                            child: const Text('Clear'),
+                            child: const Text('Effacer'),
                           ),
                         ],
                       ),
@@ -149,19 +149,19 @@ class UserManagementScreen extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Confirm Role Change'),
+        title: const Text('Confirmer le changement de rôle'),
         content: Text(
-          'Change ${user.displayName}\'s role from '
-          '${user.role.displayName} to ${newRole.displayName}?',
+          'Changer le rôle de ${user.displayName} de '
+          '${user.role.displayName} à ${newRole.displayName} ?',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: const Text('Annuler'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Confirm'),
+            child: const Text('Confirmer'),
           ),
         ],
       ),
@@ -181,7 +181,7 @@ class UserManagementScreen extends ConsumerWidget {
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${user.displayName} is now ${newRole.displayName}'),
+          content: Text('${user.displayName} est maintenant ${newRole.displayName}'),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -189,7 +189,7 @@ class UserManagementScreen extends ConsumerWidget {
       final error = ref.read(userManagementErrorProvider);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(error ?? 'Failed to update role'),
+          content: Text(error ?? 'Échec de la mise à jour du rôle'),
           behavior: SnackBarBehavior.floating,
           backgroundColor: Theme.of(context).colorScheme.error,
         ),
@@ -222,7 +222,7 @@ class _RoleSummaryCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Users Overview',
+              'Aperçu des utilisateurs',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -339,7 +339,7 @@ class _SearchBarState extends State<_SearchBar> {
     return TextField(
       controller: _controller,
       decoration: InputDecoration(
-        hintText: 'Search users...',
+        hintText: 'Rechercher un utilisateur...',
         prefixIcon: const Icon(Icons.search),
         suffixIcon: _controller.text.isNotEmpty
             ? IconButton(
@@ -465,7 +465,7 @@ class _UserTile extends ConsumerWidget {
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
-                            'You',
+                            'Vous',
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: colorScheme.onPrimaryContainer,
                             ),
@@ -643,7 +643,7 @@ class _ErrorState extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'Failed to load users',
+              'Échec du chargement des utilisateurs',
               style: theme.textTheme.titleLarge?.copyWith(
                 color: theme.colorScheme.error,
               ),
@@ -660,7 +660,7 @@ class _ErrorState extends StatelessWidget {
             FilledButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh),
-              label: const Text('Try Again'),
+              label: const Text('Réessayer'),
             ),
           ],
         ),
@@ -689,14 +689,14 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             Text(
-              'No Users Found',
+              'Aucun utilisateur trouvé',
               style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'There are no users in the system yet.',
+              'Il n'y a pas encore d'utilisateurs dans le système.',
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

@@ -79,7 +79,7 @@ class EmployeeDashboardScreen extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Recent Shifts',
+                'Quarts récents',
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -122,7 +122,7 @@ class EmployeeDashboardScreen extends ConsumerWidget {
         builder: (_) => ShiftDetailScreen(
           shiftId: shift.id,
           employeeId: shift.employeeId,
-          employeeName: profile?.fullName ?? 'Employee',
+          employeeName: profile?.fullName ?? 'Employé',
         ),
       ),
     );
@@ -160,7 +160,7 @@ class _ErrorState extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'Failed to load dashboard',
+              'Impossible de charger le tableau de bord',
               style: theme.textTheme.titleLarge?.copyWith(
                 color: theme.colorScheme.error,
               ),
@@ -177,7 +177,7 @@ class _ErrorState extends StatelessWidget {
             FilledButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh),
-              label: const Text('Try Again'),
+              label: const Text('Réessayer'),
             ),
           ],
         ),
@@ -212,14 +212,14 @@ class EmptyDashboardState extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             Text(
-              'Welcome!',
+              'Bienvenue !',
               style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Start your first shift to see your work statistics here.',
+              'Commencez votre premier quart pour voir vos statistiques ici.',
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -230,7 +230,7 @@ class EmptyDashboardState extends StatelessWidget {
               FilledButton.icon(
                 onPressed: onClockIn,
                 icon: const Icon(Icons.play_arrow),
-                label: const Text('Start Your First Shift'),
+                label: const Text('Commencer votre premier quart'),
               ),
             ],
           ],

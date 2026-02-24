@@ -10,6 +10,7 @@ import '../auth/screens/profile_screen.dart';
 import '../dashboard/screens/team_dashboard_screen.dart';
 import '../history/screens/my_history_screen.dart';
 import '../history/screens/supervised_employees_screen.dart';
+import '../mileage/screens/mileage_screen.dart';
 import '../shifts/screens/shift_dashboard_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -20,16 +21,16 @@ class HomeScreen extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Sign Out'),
-        content: const Text('Are you sure you want to sign out?'),
+        title: const Text('Déconnexion'),
+        content: const Text('Voulez-vous vraiment vous déconnecter ?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: const Text('Annuler'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Sign Out'),
+            child: const Text('Déconnexion'),
           ),
         ],
       ),
@@ -66,6 +67,12 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
+  void _navigateToMileage(BuildContext context) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(builder: (_) => const MileageScreen()),
+    );
+  }
+
   void _navigateToUserManagement(BuildContext context) {
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(builder: (_) => const UserManagementScreen()),
@@ -93,6 +100,7 @@ class HomeScreen extends ConsumerWidget {
         onSignOut: () => _handleSignOut(context, ref),
         onProfile: () => _navigateToProfile(context),
         onHistory: () => _navigateToHistory(context),
+        onMileage: () => _navigateToMileage(context),
         onEmployeeHistory: () => _navigateToEmployeeHistory(context),
         onUserManagement: () => _navigateToUserManagement(context),
         isAdmin: isAdmin,
@@ -130,13 +138,16 @@ class HomeScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.history),
-            tooltip: 'Shift History',
+            tooltip: 'Historique des quarts',
             onPressed: () => _navigateToHistory(context),
           ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (value) {
               switch (value) {
+                case 'mileage':
+                  _navigateToMileage(context);
+                  break;
                 case 'profile':
                   _navigateToProfile(context);
                   break;
@@ -147,12 +158,22 @@ class HomeScreen extends ConsumerWidget {
             },
             itemBuilder: (context) => [
               const PopupMenuItem(
+                value: 'mileage',
+                child: Row(
+                  children: [
+                    Icon(Icons.directions_car_outlined),
+                    SizedBox(width: 12),
+                    Text('Kilométrage'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
                 value: 'profile',
                 child: Row(
                   children: [
                     Icon(Icons.person_outline),
                     SizedBox(width: 12),
-                    Text('Profile'),
+                    Text('Profil'),
                   ],
                 ),
               ),
@@ -163,7 +184,7 @@ class HomeScreen extends ConsumerWidget {
                   children: [
                     Icon(Icons.logout),
                     SizedBox(width: 12),
-                    Text('Sign Out'),
+                    Text('Déconnexion'),
                   ],
                 ),
               ),
@@ -181,6 +202,7 @@ class _ManagerHomeScreen extends StatelessWidget {
   final VoidCallback onSignOut;
   final VoidCallback onProfile;
   final VoidCallback onHistory;
+  final VoidCallback onMileage;
   final VoidCallback onEmployeeHistory;
   final VoidCallback onUserManagement;
   final bool isAdmin;
@@ -189,6 +211,7 @@ class _ManagerHomeScreen extends StatelessWidget {
     required this.onSignOut,
     required this.onProfile,
     required this.onHistory,
+    required this.onMileage,
     required this.onEmployeeHistory,
     required this.onUserManagement,
     required this.isAdmin,
@@ -213,13 +236,16 @@ class _ManagerHomeScreen extends StatelessWidget {
           actions: [
             IconButton(
               icon: const Icon(Icons.history),
-              tooltip: 'Shift History',
+              tooltip: 'Historique des quarts',
               onPressed: onHistory,
             ),
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert),
               onSelected: (value) {
                 switch (value) {
+                  case 'mileage':
+                    onMileage();
+                    break;
                   case 'profile':
                     onProfile();
                     break;
@@ -236,12 +262,22 @@ class _ManagerHomeScreen extends StatelessWidget {
               },
               itemBuilder: (context) => [
                 const PopupMenuItem(
+                  value: 'mileage',
+                  child: Row(
+                    children: [
+                      Icon(Icons.directions_car_outlined),
+                      SizedBox(width: 12),
+                      Text('Kilométrage'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
                   value: 'profile',
                   child: Row(
                     children: [
                       Icon(Icons.person_outline),
                       SizedBox(width: 12),
-                      Text('Profile'),
+                      Text('Profil'),
                     ],
                   ),
                 ),
@@ -251,7 +287,7 @@ class _ManagerHomeScreen extends StatelessWidget {
                     children: [
                       Icon(Icons.groups),
                       SizedBox(width: 12),
-                      Text('Employee History'),
+                      Text('Historique employés'),
                     ],
                   ),
                 ),
@@ -262,7 +298,7 @@ class _ManagerHomeScreen extends StatelessWidget {
                       children: [
                         Icon(Icons.admin_panel_settings),
                         SizedBox(width: 12),
-                        Text('User Management'),
+                        Text('Gestion des utilisateurs'),
                       ],
                     ),
                   ),
@@ -273,7 +309,7 @@ class _ManagerHomeScreen extends StatelessWidget {
                     children: [
                       Icon(Icons.logout),
                       SizedBox(width: 12),
-                      Text('Sign Out'),
+                      Text('Déconnexion'),
                     ],
                   ),
                 ),
@@ -287,11 +323,11 @@ class _ManagerHomeScreen extends StatelessWidget {
             tabs: const [
               Tab(
                 icon: Icon(Icons.person),
-                text: 'My Dashboard',
+                text: 'Mon tableau de bord',
               ),
               Tab(
                 icon: Icon(Icons.groups),
-                text: 'Team',
+                text: 'Équipe',
               ),
             ],
           ),

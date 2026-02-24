@@ -65,7 +65,7 @@ class _FullscreenMapScreenState extends State<FullscreenMapScreen> {
           position: widget.clockInLocation!,
           icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
           infoWindow: InfoWindow(
-            title: 'Clock In',
+            title: 'Pointage',
             snippet: widget.clockedInAt != null
                 ? TimezoneFormatter.formatDateTimeWithTz(widget.clockedInAt!)
                 : null,
@@ -89,7 +89,7 @@ class _FullscreenMapScreenState extends State<FullscreenMapScreen> {
             position: position,
             icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
             infoWindow: InfoWindow(
-              title: 'GPS Point ${i + 1}',
+              title: 'Point GPS ${i + 1}',
               snippet: TimezoneFormatter.formatTimeWithSecondsTz(point.capturedAt),
             ),
             onTap: () {
@@ -108,7 +108,7 @@ class _FullscreenMapScreenState extends State<FullscreenMapScreen> {
           position: widget.clockOutLocation!,
           icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
           infoWindow: InfoWindow(
-            title: 'Clock Out',
+            title: 'Dépointage',
             snippet: widget.clockedOutAt != null
                 ? TimezoneFormatter.formatDateTimeWithTz(widget.clockedOutAt!)
                 : null,
@@ -197,7 +197,7 @@ class _FullscreenMapScreenState extends State<FullscreenMapScreen> {
         backgroundColor: Colors.black54,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: Text(widget.shiftTitle ?? 'Route Map'),
+        title: Text(widget.shiftTitle ?? 'Carte du trajet'),
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () => Navigator.of(context).pop(),
@@ -205,7 +205,7 @@ class _FullscreenMapScreenState extends State<FullscreenMapScreen> {
         actions: [
           IconButton(
             icon: Icon(_showInfo ? Icons.info : Icons.info_outline),
-            tooltip: _showInfo ? 'Hide info' : 'Show info',
+            tooltip: _showInfo ? 'Masquer les infos' : 'Afficher les infos',
             onPressed: () => setState(() => _showInfo = !_showInfo),
           ),
         ],
@@ -245,7 +245,7 @@ class _FullscreenMapScreenState extends State<FullscreenMapScreen> {
               children: [
                 _buildControlButton(
                   icon: _mapType == MapType.satellite ? Icons.map : Icons.satellite_alt,
-                  label: _mapType == MapType.satellite ? 'Map' : 'Satellite',
+                  label: _mapType == MapType.satellite ? 'Carte' : 'Satellite',
                   onPressed: () {
                     setState(() {
                       _mapType = _mapType == MapType.satellite
@@ -257,19 +257,19 @@ class _FullscreenMapScreenState extends State<FullscreenMapScreen> {
                 const SizedBox(height: 12),
                 _buildControlButton(
                   icon: Icons.add,
-                  label: 'Zoom In',
+                  label: 'Agrandir',
                   onPressed: () => _controller?.animateCamera(CameraUpdate.zoomIn()),
                 ),
                 const SizedBox(height: 8),
                 _buildControlButton(
                   icon: Icons.remove,
-                  label: 'Zoom Out',
+                  label: 'Réduire',
                   onPressed: () => _controller?.animateCamera(CameraUpdate.zoomOut()),
                 ),
                 const SizedBox(height: 12),
                 _buildControlButton(
                   icon: Icons.fit_screen,
-                  label: 'Fit Route',
+                  label: 'Adapter la route',
                   onPressed: _fitBounds,
                 ),
               ],
@@ -360,10 +360,10 @@ class _FullscreenMapScreenState extends State<FullscreenMapScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _buildLegendItem(Colors.green, 'Clock In'),
-                _buildLegendItem(Colors.red, 'Clock Out'),
-                _buildLegendItem(Colors.blue, 'Route'),
-                _buildLegendItem(Colors.lightBlue, 'GPS Points'),
+                _buildLegendItem(Colors.green, 'Pointage'),
+                _buildLegendItem(Colors.red, 'Dépointage'),
+                _buildLegendItem(Colors.blue, 'Trajet'),
+                _buildLegendItem(Colors.lightBlue, 'Points GPS'),
               ],
             ),
             const SizedBox(height: 12),
@@ -380,13 +380,13 @@ class _FullscreenMapScreenState extends State<FullscreenMapScreen> {
                   _buildStatItem(
                     Icons.login,
                     TimezoneFormatter.formatTimeWithTz(widget.clockedInAt!),
-                    'Clock In',
+                    'Pointage',
                   ),
                 if (widget.clockedOutAt != null)
                   _buildStatItem(
                     Icons.logout,
                     TimezoneFormatter.formatTimeWithTz(widget.clockedOutAt!),
-                    'Clock Out',
+                    'Dépointage',
                   ),
               ],
             ),
@@ -486,7 +486,7 @@ class _FullscreenMapScreenState extends State<FullscreenMapScreen> {
                   ),
                   if (point.accuracy != null)
                     Text(
-                      'Accuracy: ±${point.accuracy!.toStringAsFixed(0)}m',
+                      'Précision : ±${point.accuracy!.toStringAsFixed(0)}m',
                       style: TextStyle(
                         fontSize: 11,
                         color: Colors.grey[500],
@@ -527,7 +527,7 @@ class _FullscreenMapScreenState extends State<FullscreenMapScreen> {
                 Icon(Icons.touch_app, color: Colors.white, size: 16),
                 SizedBox(width: 8),
                 Text(
-                  'Drag to pan • Pinch to zoom',
+                  'Glisser pour déplacer • Pincer pour zoomer',
                   style: TextStyle(color: Colors.white, fontSize: 12),
                 ),
               ],

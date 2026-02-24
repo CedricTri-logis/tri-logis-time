@@ -80,7 +80,7 @@ class _EmployeeHistoryScreenState extends ConsumerState<EmployeeHistoryScreen> {
           children: [
             Text(widget.employeeName),
             Text(
-              'Shift History',
+              'Historique des quarts',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -91,7 +91,7 @@ class _EmployeeHistoryScreenState extends ConsumerState<EmployeeHistoryScreen> {
           // Statistics button
           IconButton(
             icon: const Icon(Icons.analytics_outlined),
-            tooltip: 'Statistics',
+            tooltip: 'Statistiques',
             onPressed: _navigateToStatistics,
           ),
           // Export button
@@ -104,13 +104,13 @@ class _EmployeeHistoryScreenState extends ConsumerState<EmployeeHistoryScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.download),
-              tooltip: 'Export',
+              tooltip: 'Exporter',
               onPressed: _isExporting ? null : _handleExport,
             ),
           if (hasFilters)
             IconButton(
               icon: const Icon(Icons.filter_alt_off),
-              tooltip: 'Clear Filters',
+              tooltip: 'Effacer les filtres',
               onPressed: () {
                 ref.read(historyFilterProvider.notifier).clearAll();
                 ref
@@ -168,7 +168,7 @@ class _EmployeeHistoryScreenState extends ConsumerState<EmployeeHistoryScreen> {
               ElevatedButton.icon(
                 onPressed: _refresh,
                 icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
+                label: const Text('Réessayer'),
               ),
             ],
           ),
@@ -188,7 +188,7 @@ class _EmployeeHistoryScreenState extends ConsumerState<EmployeeHistoryScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'No shift history found',
+              'Aucun historique de quart trouvé',
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -196,7 +196,7 @@ class _EmployeeHistoryScreenState extends ConsumerState<EmployeeHistoryScreen> {
             if (state.filter.hasFilters) ...[
               const SizedBox(height: 8),
               Text(
-                'Try adjusting your filters',
+                'Essayez de modifier vos filtres',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -210,7 +210,7 @@ class _EmployeeHistoryScreenState extends ConsumerState<EmployeeHistoryScreen> {
                       .loadForEmployee(widget.employeeId);
                 },
                 icon: const Icon(Icons.filter_alt_off),
-                label: const Text('Clear Filters'),
+                label: const Text('Effacer les filtres'),
               ),
             ],
           ],
@@ -307,10 +307,10 @@ class _EmployeeHistoryScreenState extends ConsumerState<EmployeeHistoryScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Export saved: ${filePath.split('/').last}',
+            'Export sauvegardé : ${filePath.split('/').last}',
           ),
           action: SnackBarAction(
-            label: 'Share',
+            label: 'Partager',
             onPressed: () => _exportService.shareFile(filePath),
           ),
           duration: const Duration(seconds: 5),
@@ -320,7 +320,7 @@ class _EmployeeHistoryScreenState extends ConsumerState<EmployeeHistoryScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Export failed: $e'),
+          content: Text('Échec de l'export : $e'),
           backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
