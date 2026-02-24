@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// A 6-digit OTP input field with iOS SMS autofill and paste support.
+/// A 6-digit OTP input field with auto-advance, paste support, and iOS/Android
+/// SMS autofill.
 ///
-/// Overlays a transparent TextField (with [AutofillHints.oneTimeCode]) on top
-/// of 6 visual digit boxes. The TextField is technically visible to iOS so the
-/// "From Messages" autofill suggestion appears, but its text and cursor are
-/// fully transparent — the user only sees the visual boxes underneath.
+/// Uses 6 individual [TextFormField] widgets so iOS can heuristically detect
+/// the OTP pattern and show the "From Messages" autofill suggestion. The first
+/// field carries [AutofillHints.oneTimeCode] and the group is wrapped in an
+/// [AutofillGroup].
 class OtpInputField extends StatefulWidget {
   /// Called when all 6 digits have been entered
   final ValueChanged<String> onCompleted;
@@ -14,14 +15,10 @@ class OtpInputField extends StatefulWidget {
   /// Whether the field is enabled
   final bool enabled;
 
-  /// Whether to auto-focus the field when inserted (shows keyboard + autofill)
-  final bool autofocus;
-
   const OtpInputField({
     required this.onCompleted,
     super.key,
     this.enabled = true,
-    this.autofocus = true,
   });
 
   @override
@@ -31,145 +28,131 @@ class OtpInputField extends StatefulWidget {
 class OtpInputFieldState extends State<OtpInputField> {
   static const _length = 6;
 
-  final _controller = TextEditingController();
-  final _focusNode = FocusNode();
+  final List<TextEditingController> _controllers =
+      List.generate(_length, (_) => TextEditingController());
+  final List<FocusNode> _focusNodes =
+      List.generate(_length, (_) => FocusNode());
   bool _submitted = false;
 
   @override
-  void initState() {
-    super.initState();
-    _controller.addListener(_onTextChanged);
-    // Listen to focus changes to update the cursor animation on visual boxes
-    _focusNode.addListener(() => setState(() {}));
-  }
-
-  @override
   void dispose() {
-    _controller.removeListener(_onTextChanged);
-    _controller.dispose();
-    _focusNode.dispose();
+    for (final c in _controllers) {
+      c.dispose();
+    }
+    for (final f in _focusNodes) {
+      f.dispose();
+    }
     super.dispose();
   }
 
-  /// Clear the field and re-enable submission
+  /// Clear all fields and focus the first one
   void clear() {
     _submitted = false;
-    _controller.clear();
-    _focusNode.requestFocus();
+    for (final c in _controllers) {
+      c.clear();
+    }
+    _focusNodes[0].requestFocus();
   }
 
-  void _onTextChanged() {
-    // Force rebuild to update visual boxes
-    setState(() {});
+  String get _currentCode => _controllers.map((c) => c.text).join();
 
-    final text = _controller.text;
-    if (text.length == _length && !_submitted) {
+  void _onChanged(int index, String value) {
+    // Handle paste or autofill: if multiple digits arrive, distribute them
+    if (value.length > 1) {
+      _handlePaste(value, index);
+      return;
+    }
+
+    // Single digit entered — auto-advance to next field
+    if (value.length == 1 && index < _length - 1) {
+      _focusNodes[index + 1].requestFocus();
+    }
+
+    // Check if complete (guard against double-fire)
+    final code = _currentCode;
+    if (code.length == _length && !_submitted) {
       _submitted = true;
-      // Unfocus to dismiss keyboard
-      _focusNode.unfocus();
-      widget.onCompleted(text);
+      _focusNodes[index].unfocus();
+      widget.onCompleted(code);
+    }
+  }
+
+  void _handlePaste(String value, int startIndex) {
+    final digits = value.replaceAll(RegExp(r'[^\d]'), '');
+    for (var i = 0; i < digits.length && (startIndex + i) < _length; i++) {
+      _controllers[startIndex + i].text = digits[i];
+    }
+
+    // Focus the next empty field or last field
+    final nextEmpty = _controllers.indexWhere((c) => c.text.isEmpty);
+    if (nextEmpty != -1) {
+      _focusNodes[nextEmpty].requestFocus();
+    } else {
+      _focusNodes[_length - 1].unfocus();
+    }
+
+    final code = _currentCode;
+    if (code.length == _length && !_submitted) {
+      _submitted = true;
+      widget.onCompleted(code);
+    }
+  }
+
+  void _onKeyEvent(int index, KeyEvent event) {
+    // Handle backspace: go back to previous field
+    if (event is KeyDownEvent &&
+        event.logicalKey == LogicalKeyboardKey.backspace &&
+        _controllers[index].text.isEmpty &&
+        index > 0) {
+      _controllers[index - 1].clear();
+      _focusNodes[index - 1].requestFocus();
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final code = _controller.text;
 
-    // Total width of the 6 boxes: 6 * 48px + 10 gaps * 6px = 348px
-    const totalWidth = _length * 48.0 + (_length - 1) * 12.0;
-
-    return SizedBox(
-      width: totalWidth,
-      height: 56,
-      child: Stack(
-        children: [
-          // Visual 6-box display (behind the TextField)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(_length, (index) {
-              final hasDigit = index < code.length;
-              final isActive = index == code.length && _focusNode.hasFocus;
-
-              return Container(
-                width: 48,
-                height: 56,
-                margin: EdgeInsets.only(
-                  left: index == 0 ? 0 : 6,
-                  right: index == _length - 1 ? 0 : 6,
-                ),
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: isActive
-                        ? theme.colorScheme.primary
-                        : hasDigit
-                            ? theme.colorScheme.outline
-                            : theme.colorScheme.outlineVariant,
-                    width: isActive ? 2 : 1,
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                  color: hasDigit
-                      ? theme.colorScheme.surfaceContainerHighest
-                      : null,
-                ),
-                alignment: Alignment.center,
-                child: hasDigit
-                    ? Text(
-                        code[index],
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      )
-                    : isActive
-                        ? SizedBox(
-                            width: 2,
-                            height: 24,
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.primary,
-                              ),
-                            ),
-                          )
-                        : null,
-              );
-            }),
-          ),
-
-          // Transparent TextField on top — visible to iOS for autofill
-          // but text/cursor are transparent so user only sees the boxes
-          Positioned.fill(
-            child: AutofillGroup(
-              child: TextField(
-                controller: _controller,
-                focusNode: _focusNode,
+    return AutofillGroup(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: List.generate(_length, (index) {
+          return Container(
+            width: 48,
+            height: 56,
+            margin: EdgeInsets.only(
+              left: index == 0 ? 0 : 6,
+              right: index == _length - 1 ? 0 : 6,
+            ),
+            child: KeyboardListener(
+              focusNode: FocusNode(),
+              onKeyEvent: (event) => _onKeyEvent(index, event),
+              child: TextFormField(
+                controller: _controllers[index],
+                focusNode: _focusNodes[index],
                 enabled: widget.enabled,
-                autofocus: widget.autofocus,
-                autofillHints: const [AutofillHints.oneTimeCode],
+                autofocus: index == 0,
+                autofillHints: index == 0
+                    ? const [AutofillHints.oneTimeCode]
+                    : null,
+                textAlign: TextAlign.center,
                 keyboardType: TextInputType.number,
+                maxLength: 1,
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
                 inputFormatters: [
                   FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(_length),
                 ],
-                // Normal font size so iOS recognizes this as a real text field
-                // for "From Messages" autofill. Text is transparent so user
-                // only sees the visual digit boxes underneath.
-                style: const TextStyle(
-                  color: Colors.transparent,
-                  fontSize: 20,
-                ),
-                cursorColor: Colors.transparent,
-                cursorWidth: 0,
                 decoration: const InputDecoration(
                   counterText: '',
-                  border: InputBorder.none,
-                  fillColor: Colors.transparent,
-                  filled: true,
-                  contentPadding: EdgeInsets.zero,
+                  contentPadding: EdgeInsets.symmetric(vertical: 12),
                 ),
+                onChanged: (value) => _onChanged(index, value),
               ),
             ),
-          ),
-        ],
+          );
+        }),
       ),
     );
   }
