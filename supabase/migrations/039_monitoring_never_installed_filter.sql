@@ -103,9 +103,7 @@ BEGIN
       OR (p_shift_status = 'off-shift' AND s.id IS NULL AND ep.device_app_version IS NOT NULL)
       OR (p_shift_status = 'never-installed' AND ep.device_app_version IS NULL)
     )
-  ORDER BY
-    CASE WHEN s.id IS NOT NULL THEN 0 ELSE 1 END,
-    au.last_sign_in_at DESC NULLS LAST;
+  ORDER BY au.last_sign_in_at DESC NULLS LAST;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
