@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -14,10 +16,14 @@ class OtpInputField extends StatefulWidget {
   /// Whether the field is enabled
   final bool enabled;
 
+  /// Whether to auto-focus the field when inserted (shows keyboard + autofill)
+  final bool autofocus;
+
   const OtpInputField({
     required this.onCompleted,
     super.key,
     this.enabled = true,
+    this.autofocus = true,
   });
 
   @override
@@ -139,9 +145,14 @@ class OtpInputFieldState extends State<OtpInputField> {
                 controller: _controller,
                 focusNode: _focusNode,
                 enabled: widget.enabled,
+                autofocus: widget.autofocus,
                 autofillHints: const [AutofillHints.oneTimeCode],
-                keyboardType: TextInputType.number,
-                maxLength: _length,
+                // iOS: .text avoids conflict with oneTimeCode autofill
+                // (numeric keypad has no QuickType bar for "From Messages").
+                // Android: .number for proper numeric keyboard.
+                keyboardType: Platform.isIOS
+                    ? TextInputType.text
+                    : TextInputType.number,
                 inputFormatters: [
                   FilteringTextInputFormatter.digitsOnly,
                   LengthLimitingTextInputFormatter(_length),

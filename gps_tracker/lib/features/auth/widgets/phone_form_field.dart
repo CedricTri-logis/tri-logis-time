@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 /// Phone number input field with +1 prefix and auto-formatting.
 ///
 /// Displays the number as (XXX) XXX-XXXX while the user types.
+/// Wrapped in [AutofillGroup] with [AutofillHints.telephoneNumber] so the OS
+/// suggests the user's phone number in the keyboard.
 class PhoneFormField extends StatelessWidget {
   /// Controller for the text field (contains raw digits only)
   final TextEditingController controller;
@@ -31,39 +33,48 @@ class PhoneFormField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller,
-      focusNode: focusNode,
-      enabled: enabled,
-      keyboardType: TextInputType.phone,
-      textInputAction: TextInputAction.done,
-      inputFormatters: [
-        FilteringTextInputFormatter.digitsOnly,
-        LengthLimitingTextInputFormatter(10),
-        _PhoneNumberFormatter(),
-      ],
-      validator: validator,
-      onFieldSubmitted: (_) => onSubmitted?.call(),
-      decoration: const InputDecoration(
-        labelText: 'Telephone',
-        hintText: '(514) 555-1234',
-        prefixIcon: Icon(Icons.phone_outlined),
-        prefixText: '+1  ',
-        border: OutlineInputBorder(),
-        filled: true,
+    return AutofillGroup(
+      child: TextFormField(
+        controller: controller,
+        focusNode: focusNode,
+        enabled: enabled,
+        keyboardType: TextInputType.phone,
+        textInputAction: TextInputAction.done,
+        autofillHints: const [AutofillHints.telephoneNumber],
+        inputFormatters: [
+          FilteringTextInputFormatter.digitsOnly,
+          _PhoneNumberFormatter(),
+        ],
+        validator: validator,
+        onFieldSubmitted: (_) => onSubmitted?.call(),
+        decoration: const InputDecoration(
+          labelText: 'Telephone',
+          hintText: '(514) 555-1234',
+          prefixIcon: Icon(Icons.phone_outlined),
+          prefixText: '+1  ',
+          border: OutlineInputBorder(),
+          filled: true,
+        ),
       ),
     );
   }
 }
 
 /// Formats digits into (XXX) XXX-XXXX pattern.
+/// Strips leading country code '1' when 11 digits (autofill compatibility).
 class _PhoneNumberFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
-    final digits = newValue.text.replaceAll(RegExp(r'[^\d]'), '');
+    var digits = newValue.text.replaceAll(RegExp(r'[^\d]'), '');
+
+    // Strip leading country code '1' when 11 digits (autofill may include +1)
+    if (digits.length == 11 && digits.startsWith('1')) {
+      digits = digits.substring(1);
+    }
+
     final buffer = StringBuffer();
 
     for (var i = 0; i < digits.length && i < 10; i++) {

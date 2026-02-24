@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -124,6 +125,9 @@ class _PhoneRegistrationScreenState
         phone: _normalizedPhone,
         token: code,
       );
+
+      // Signal autofill framework that verification is complete
+      TextInput.finishAutofillContext();
 
       // Save to employee_profiles via RPC
       await authService.savePhoneToProfile(phone: _normalizedPhone);

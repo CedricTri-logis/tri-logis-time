@@ -31,6 +31,7 @@ Auto-generated from all feature plans. Last updated: 2026-01-08
 - PostgreSQL via Supabase (new: `locations`, `location_matches` tables), PostGIS extension for spatial queries (015-location-geofences)
 - Dart >=3.0.0 / Flutter >=3.29.0 (mobile), TypeScript 5.x / Node.js 18.x LTS (dashboard) + flutter_riverpod 2.5.0, supabase_flutter 2.12.0, mobile_scanner 7.1.4 (NEW), sqflite_sqlcipher 3.1.0 (mobile); Next.js 14+, Refine, shadcn/ui, Zod (dashboard) (016-cleaning-qr-tracking)
 - PostgreSQL via Supabase (buildings, studios, cleaning_sessions tables); SQLCipher local encrypted storage (local_studios, local_cleaning_sessions) (016-cleaning-qr-tracking)
+- PostgreSQL via Supabase (new: `trips`, `trip_gps_points`, `reimbursement_rates`, `mileage_reports` tables); SQLCipher local (new: `local_trips`) (017-mileage-tracking)
 
 - Dart 3.x / Flutter 3.x (latest stable) + flutter, supabase_flutter, flutter_riverpod, geolocator, sqflite (local storage) (001-project-foundation)
 
@@ -107,9 +108,9 @@ Dart 3.x / Flutter 3.x (latest stable): Follow standard conventions
 - `POST_NOTIFICATIONS` - Push notifications
 
 ## Recent Changes
+- 017-mileage-tracking: Added Dart >=3.0.0 / Flutter >=3.29.0 (mobile), TypeScript 5.x / Node.js 18.x LTS (dashboard)
 - 016-cleaning-qr-tracking: Added Dart >=3.0.0 / Flutter >=3.29.0 (mobile), TypeScript 5.x / Node.js 18.x LTS (dashboard) + flutter_riverpod 2.5.0, supabase_flutter 2.12.0, mobile_scanner 7.1.4 (NEW), sqflite_sqlcipher 3.1.0 (mobile); Next.js 14+, Refine, shadcn/ui, Zod (dashboard)
 - 015-location-geofences: Added TypeScript 5.x / Node.js 18.x LTS (Dashboard) + Next.js 14+ (App Router), Refine (@refinedev/supabase), shadcn/ui, Tailwind CSS, Zod, react-leaflet 5.0.0, Leaflet 1.9.4, date-fns 4.1.0
-- 013-reports-export: Added TypeScript 5.x / Node.js 18.x LTS + Next.js 14+ (App Router), Refine (@refinedev/supabase), shadcn/ui, Tailwind CSS, Zod, @tanstack/react-table, date-fns 4.1.0
 
 
 <!-- MANUAL ADDITIONS START -->
