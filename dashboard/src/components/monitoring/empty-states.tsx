@@ -79,7 +79,14 @@ export function NoResultsEmptyState({
 
   const filterParts: string[] = [];
   if (search) filterParts.push(`"${search}"`);
-  if (shiftStatus !== 'all') filterParts.push(shiftStatus === 'on-shift' ? 'on-shift only' : 'off-shift only');
+  if (shiftStatus !== 'all') {
+    const statusLabels: Record<string, string> = {
+      'on-shift': 'on-shift only',
+      'off-shift': 'off-shift only',
+      'never-installed': 'never installed only',
+    };
+    filterParts.push(statusLabels[shiftStatus] ?? shiftStatus);
+  }
 
   return (
     <EmptyStateBase

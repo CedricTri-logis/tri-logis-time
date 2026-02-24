@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ChevronRight, Clock, LogIn, MapPin, Smartphone, SmartphoneOff, User } from 'lucide-react';
+import { ChevronRight, Clock, LogIn, MapPin, MonitorSmartphone, Smartphone, User } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -165,7 +165,7 @@ function ShiftStatusBadge({ status }: ShiftStatusBadgeProps) {
   if (status === 'never-installed') {
     return (
       <Badge variant="outline" className="text-orange-500 border-orange-200 bg-orange-50">
-        <SmartphoneOff className="mr-1 h-3 w-3" />
+        <MonitorSmartphone className="mr-1 h-3 w-3" />
         Never installed
       </Badge>
     );
