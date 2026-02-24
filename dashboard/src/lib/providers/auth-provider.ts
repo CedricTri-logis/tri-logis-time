@@ -3,6 +3,9 @@ import { supabaseClient } from '@/lib/supabase/client';
 
 export const authProvider: AuthProvider = {
   login: async ({ email, password }) => {
+    // Clear any stale session before attempting fresh login
+    await supabaseClient.auth.signOut();
+
     const { data, error } = await supabaseClient.auth.signInWithPassword({
       email,
       password,
