@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -147,23 +145,20 @@ class OtpInputFieldState extends State<OtpInputField> {
                 enabled: widget.enabled,
                 autofocus: widget.autofocus,
                 autofillHints: const [AutofillHints.oneTimeCode],
-                // iOS: .text avoids conflict with oneTimeCode autofill
-                // (numeric keypad has no QuickType bar for "From Messages").
-                // Android: .number for proper numeric keyboard.
-                keyboardType: Platform.isIOS
-                    ? TextInputType.text
-                    : TextInputType.number,
+                keyboardType: TextInputType.number,
                 inputFormatters: [
                   FilteringTextInputFormatter.digitsOnly,
                   LengthLimitingTextInputFormatter(_length),
                 ],
+                // Normal font size so iOS recognizes this as a real text field
+                // for "From Messages" autofill. Text is transparent so user
+                // only sees the visual digit boxes underneath.
                 style: const TextStyle(
                   color: Colors.transparent,
-                  fontSize: 1,
+                  fontSize: 20,
                 ),
                 cursorColor: Colors.transparent,
                 cursorWidth: 0,
-                showCursor: false,
                 decoration: const InputDecoration(
                   counterText: '',
                   border: InputBorder.none,
