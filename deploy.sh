@@ -61,7 +61,27 @@ log "Current version: $CURRENT_VERSION"
 
 # -- Bump build number --------------------------------------------------------
 if [ "$BUMP" = true ]; then
-  NEW_BUILD=$((BUILD_NUMBER + 1))
+  # Query TestFlight for the actual latest build number to avoid Apple incrementing
+  if [ "$DEPLOY_IOS" = true ]; then
+    log "Querying latest TestFlight build number..."
+    export PATH="/opt/homebrew/opt/ruby/bin:/opt/homebrew/lib/ruby/gems/4.0.0/bin:$PATH"
+    TF_OUTPUT=$(cd "$PROJECT_DIR/ios" && bundle exec fastlane latest_build 2>&1 || true)
+    TF_BUILD=$(echo "$TF_OUTPUT" | grep -o 'LATEST_TF_BUILD:[0-9]*' | cut -d: -f2 || true)
+    if [ -n "$TF_BUILD" ]; then
+      log "Latest TestFlight build: $TF_BUILD"
+      # Use the higher of pubspec or TestFlight, then +1
+      if [ "$TF_BUILD" -ge "$BUILD_NUMBER" ] 2>/dev/null; then
+        NEW_BUILD=$((TF_BUILD + 1))
+      else
+        NEW_BUILD=$((BUILD_NUMBER + 1))
+      fi
+    else
+      warn "Could not query TestFlight, falling back to pubspec +1"
+      NEW_BUILD=$((BUILD_NUMBER + 1))
+    fi
+  else
+    NEW_BUILD=$((BUILD_NUMBER + 1))
+  fi
   NEW_VERSION="${VERSION_NAME}+${NEW_BUILD}"
   sed -i '' "s/^version: .*/version: ${NEW_VERSION}/" "$PUBSPEC"
   log "Bumped version to: $NEW_VERSION"
@@ -110,22 +130,6 @@ if [ -n "$IOS_PID" ]; then
     error "iOS deploy FAILED"
     error "Log: $(tail -5 "$IOS_LOG")"
     IOS_OK=false
-  fi
-fi
-
-# -- Detect actual build number from Apple ------------------------------------
-# Apple may increment the build number beyond what pubspec.yaml says
-ACTUAL_BUILD="$NEW_BUILD"
-if [ "$DEPLOY_IOS" = true ] && [ -f "$IOS_LOG" ]; then
-  # Look for "build_version: XX" in the Fastlane output
-  APPLE_BUILD=$(grep -o 'build_version: [0-9]*' "$IOS_LOG" | tail -1 | grep -o '[0-9]*' || true)
-  if [ -n "$APPLE_BUILD" ] && [ "$APPLE_BUILD" -gt "$ACTUAL_BUILD" ] 2>/dev/null; then
-    warn "Apple processed as build $APPLE_BUILD (pubspec had $NEW_BUILD)"
-    ACTUAL_BUILD="$APPLE_BUILD"
-    ACTUAL_VERSION="${VERSION_NAME}+${ACTUAL_BUILD}"
-    sed -i '' "s/^version: .*/version: ${ACTUAL_VERSION}/" "$PUBSPEC"
-    log "Synced pubspec.yaml to: $ACTUAL_VERSION"
-    NEW_VERSION="$ACTUAL_VERSION"
   fi
 fi
 
