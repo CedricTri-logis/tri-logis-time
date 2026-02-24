@@ -1,6 +1,8 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../models/diagnostic_event.dart';
+import '../services/diagnostic_logger.dart';
 
 /// Callback type for Realtime events.
 typedef RealtimeCallback = void Function(Map<String, dynamic> newRecord);
@@ -15,6 +17,8 @@ class RealtimeService {
   RealtimeChannel? _sessionChannel;
   RealtimeChannel? _shiftChannel;
   String? _subscribedEmployeeId;
+
+  DiagnosticLogger? get _logger => DiagnosticLogger.isInitialized ? DiagnosticLogger.instance : null;
 
   /// Called when the device session row is updated (e.g. device_id changed).
   RealtimeCallback? onSessionChanged;
@@ -46,13 +50,12 @@ class RealtimeService {
             value: employeeId,
           ),
           callback: (payload) {
-            debugPrint('RealtimeService: session change detected');
+            _logger?.network(Severity.info, 'Device session change detected');
             onSessionChanged?.call(payload.newRecord);
           },
         )
         .subscribe((status, [error]) {
-      debugPrint('RealtimeService: session channel status=$status'
-          '${error != null ? " error=$error" : ""}');
+      _logger?.network(Severity.debug, 'Realtime session channel status', metadata: {'status': status.toString(), if (error != null) 'error': error.toString()});
     });
 
     // Channel 2: Shift changes (server-side close, admin cleanup, zombie cleanup)
@@ -68,13 +71,12 @@ class RealtimeService {
             value: employeeId,
           ),
           callback: (payload) {
-            debugPrint('RealtimeService: shift change detected');
+            _logger?.network(Severity.info, 'Shift change detected via Realtime');
             onShiftChanged?.call(payload.newRecord);
           },
         )
         .subscribe((status, [error]) {
-      debugPrint('RealtimeService: shift channel status=$status'
-          '${error != null ? " error=$error" : ""}');
+      _logger?.network(Severity.debug, 'Realtime shift channel status', metadata: {'status': status.toString(), if (error != null) 'error': error.toString()});
     });
   }
 

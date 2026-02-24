@@ -120,6 +120,21 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
 
     try {
       final authService = ref.read(authServiceProvider);
+
+      // Check if the phone is registered before sending OTP
+      // Prevents creation of @phone.local phantom accounts
+      final exists = await authService.checkPhoneExists(phone: normalized);
+      if (!exists) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ErrorSnackbar.show(
+            context,
+            'Aucun compte associe a ce numero. Contactez votre superviseur.',
+          );
+        }
+        return;
+      }
+
       await authService.sendOtp(phone: normalized);
 
       _normalizedPhone = normalized;

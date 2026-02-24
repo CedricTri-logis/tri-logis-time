@@ -16,6 +16,7 @@ import '../../features/shifts/models/storage_metrics.dart';
 import '../../features/shifts/models/sync_log_entry.dart';
 import '../../features/shifts/models/sync_metadata.dart';
 import '../models/diagnostic_event.dart';
+import 'diagnostic_logger.dart';
 import 'local_database_exception.dart';
 
 /// Local SQLite database service with encrypted storage.
@@ -48,6 +49,7 @@ class LocalDatabase {
     try {
       // Get or create encryption key (may throw BAD_DECRYPT on Android)
       String encryptionKey;
+      bool recoveredFromBadDecrypt = false;
       try {
         final storedKey = await _secureStorage.read(key: _encryptionKeyKey);
         if (storedKey != null) {
@@ -67,6 +69,7 @@ class LocalDatabase {
           await _recoverFromCorruptKeystore();
           encryptionKey = _generateEncryptionKey();
           await _secureStorage.write(key: _encryptionKeyKey, value: encryptionKey);
+          recoveredFromBadDecrypt = true;
         } else {
           rethrow;
         }
@@ -88,6 +91,19 @@ class LocalDatabase {
       // Safety check: ensure clock_out_reason column exists
       // (covers case where DB was created at v3 without the column)
       await _ensureClockOutReasonColumn(_database!);
+
+      // Log BAD_DECRYPT recovery after DB is fully initialized
+      // (logger uses the local database internally, so it must be ready first)
+      if (recoveredFromBadDecrypt && DiagnosticLogger.isInitialized) {
+        DiagnosticLogger.instance.lifecycle(
+          Severity.critical,
+          'Database recovery from BAD_DECRYPT',
+          metadata: {
+            'reason': 'bad_decrypt',
+            'action': 'wipe_and_recreate',
+          },
+        );
+      }
     } catch (e) {
       throw LocalDatabaseException(
         'Failed to initialize database',

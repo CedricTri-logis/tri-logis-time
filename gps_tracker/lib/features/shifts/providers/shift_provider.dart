@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../shared/models/diagnostic_event.dart';
 import '../../../shared/providers/supabase_provider.dart';
+import '../../../shared/services/diagnostic_logger.dart';
 import '../../../shared/services/local_database.dart';
 import '../../../shared/services/realtime_service.dart';
 import '../../cleaning/providers/cleaning_session_provider.dart';
@@ -71,6 +73,9 @@ class ShiftNotifier extends StateNotifier<ShiftState>
   final Ref _ref;
   Timer? _serverCheckTimer;
 
+  DiagnosticLogger? get _logger =>
+      DiagnosticLogger.isInitialized ? DiagnosticLogger.instance : null;
+
   ShiftNotifier(this._shiftService, this._ref) : super(const ShiftState()) {
     WidgetsBinding.instance.addObserver(this);
     _loadActiveShift();
@@ -99,9 +104,11 @@ class ShiftNotifier extends StateNotifier<ShiftState>
     // If the active shift was closed server-side (admin, midnight cleanup, etc.)
     if (shiftId == activeShift.serverId && newStatus == 'completed') {
       final reason = record['clock_out_reason'] as String? ?? 'server_closed';
-      debugPrint(
-          'ShiftNotifier: server closed shift $shiftId '
-          '(reason: $reason)');
+      _logger?.shift(Severity.warn, 'Shift closed by server', metadata: {
+        'shift_id': shiftId,
+        'reason': reason,
+        'source': 'realtime',
+      },);
       _closeShiftLocally(activeShift, reason);
     }
   }
@@ -126,7 +133,7 @@ class ShiftNotifier extends StateNotifier<ShiftState>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) {
-      debugPrint('ShiftNotifier: app resumed, checking server shift status');
+      _logger?.shift(Severity.debug, 'App resumed, checking server shift status');
       _checkServerShiftStatus();
     }
   }
@@ -155,7 +162,11 @@ class ShiftNotifier extends StateNotifier<ShiftState>
 
       if (response == null) {
         // Shift not found on server — treat as closed
-        debugPrint('ShiftNotifier: server shift $serverId not found, closing locally');
+        _logger?.shift(Severity.warn, 'Shift closed by server', metadata: {
+          'shift_id': serverId,
+          'reason': 'server_not_found',
+          'source': 'polling',
+        },);
         _closeShiftLocally(activeShift, 'server_not_found');
         return;
       }
@@ -163,12 +174,19 @@ class ShiftNotifier extends StateNotifier<ShiftState>
       final serverStatus = response['status'] as String?;
       if (serverStatus == 'completed') {
         final reason = response['clock_out_reason'] as String? ?? 'server_closed';
-        debugPrint('ShiftNotifier: server shift $serverId is completed (reason: $reason), closing locally');
+        _logger?.shift(Severity.warn, 'Shift closed by server', metadata: {
+          'shift_id': serverId,
+          'reason': reason,
+          'source': 'polling',
+        },);
         _closeShiftLocally(activeShift, reason);
       }
     } catch (e) {
       // Fail-open: keep local state if we can't reach the server
-      debugPrint('ShiftNotifier: server check failed (ignoring): $e');
+      _logger?.shift(Severity.warn, 'Server shift check failed', metadata: {
+        'shift_id': serverId,
+        'error': e.toString(),
+      },);
     }
   }
 
@@ -185,8 +203,14 @@ class ShiftNotifier extends StateNotifier<ShiftState>
       // Mark as synced since the server already knows about the closure
       await localDb.markShiftSynced(shift.id);
     } catch (e) {
-      debugPrint('ShiftNotifier: failed to update local DB: $e');
+      _logger?.shift(Severity.error, 'Failed to update local DB on shift close', metadata: {
+        'shift_id': shift.id,
+        'reason': reason,
+        'error': e.toString(),
+      },);
     }
+
+    _logger?.setShiftId(null);
 
     // Update in-memory state
     state = state.copyWith(clearActiveShift: true);
@@ -220,6 +244,14 @@ class ShiftNotifier extends StateNotifier<ShiftState>
     required GeoPoint location,
     double? accuracy,
   }) async {
+    final employeeId = _ref.read(supabaseClientProvider).auth.currentUser?.id;
+    _logger?.shift(Severity.info, 'Clock in attempt', metadata: {
+      'employee_id': employeeId,
+      'latitude': location.latitude,
+      'longitude': location.longitude,
+      if (accuracy != null) 'accuracy': accuracy,
+    },);
+
     state = state.copyWith(isClockingIn: true, clearError: true);
 
     try {
@@ -230,10 +262,23 @@ class ShiftNotifier extends StateNotifier<ShiftState>
 
       if (result.success) {
         await _loadActiveShift();
+        final shift = state.activeShift;
+        _logger?.shift(Severity.info, 'Clock in success', metadata: {
+          'shift_id': shift?.id,
+          'server_id': shift?.serverId,
+          'employee_id': employeeId,
+        },);
+        if (shift != null) {
+          _logger?.setShiftId(shift.serverId ?? shift.id);
+        }
         DeviceInfoService(_ref.read(supabaseClientProvider)).syncDeviceInfo();
         state = state.copyWith(isClockingIn: false);
         return true;
       } else {
+        _logger?.shift(Severity.error, 'Clock in failed', metadata: {
+          'employee_id': employeeId,
+          'error': result.errorMessage,
+        },);
         state = state.copyWith(
           isClockingIn: false,
           error: result.errorMessage,
@@ -241,6 +286,10 @@ class ShiftNotifier extends StateNotifier<ShiftState>
         return false;
       }
     } catch (e) {
+      _logger?.shift(Severity.error, 'Clock in failed', metadata: {
+        'employee_id': employeeId,
+        'error': e.toString(),
+      },);
       state = state.copyWith(
         isClockingIn: false,
         error: 'Failed to clock in: $e',
@@ -261,6 +310,12 @@ class ShiftNotifier extends StateNotifier<ShiftState>
       return false;
     }
 
+    _logger?.shift(Severity.info, 'Clock out attempt', metadata: {
+      'shift_id': activeShift.id,
+      'server_id': activeShift.serverId,
+      if (reason != null) 'reason': reason,
+    },);
+
     state = state.copyWith(isClockingOut: true, clearError: true);
 
     try {
@@ -272,6 +327,16 @@ class ShiftNotifier extends StateNotifier<ShiftState>
       );
 
       if (result.success) {
+        final durationMinutes =
+            DateTime.now().toUtc().difference(activeShift.clockedInAt).inMinutes;
+        _logger?.shift(Severity.info, 'Clock out success', metadata: {
+          'shift_id': activeShift.id,
+          'server_id': activeShift.serverId,
+          'duration_minutes': durationMinutes,
+          if (reason != null) 'reason': reason,
+        },);
+        _logger?.setShiftId(null);
+
         // Auto-close any open cleaning sessions for this shift
         // Use local shift ID — sessions are stored locally with this ID
         try {
@@ -310,6 +375,10 @@ class ShiftNotifier extends StateNotifier<ShiftState>
         );
         return true;
       } else {
+        _logger?.shift(Severity.error, 'Clock out failed', metadata: {
+          'shift_id': activeShift.id,
+          'error': result.errorMessage,
+        },);
         state = state.copyWith(
           isClockingOut: false,
           error: result.errorMessage,
@@ -317,6 +386,10 @@ class ShiftNotifier extends StateNotifier<ShiftState>
         return false;
       }
     } catch (e) {
+      _logger?.shift(Severity.error, 'Clock out failed', metadata: {
+        'shift_id': activeShift.id,
+        'error': e.toString(),
+      },);
       state = state.copyWith(
         isClockingOut: false,
         error: 'Failed to clock out: $e',

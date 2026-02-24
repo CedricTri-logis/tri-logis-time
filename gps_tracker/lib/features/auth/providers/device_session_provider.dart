@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../shared/models/diagnostic_event.dart';
 import '../../../shared/providers/supabase_provider.dart';
+import '../../../shared/services/diagnostic_logger.dart';
 import '../../../shared/services/realtime_service.dart';
 import '../../shifts/providers/shift_provider.dart';
 import '../services/device_id_service.dart';
@@ -21,6 +23,8 @@ class DeviceSessionNotifier extends StateNotifier<DeviceSessionStatus>
   final Ref _ref;
   Timer? _timer;
   String? _currentDeviceId;
+
+  DiagnosticLogger? get _logger => DiagnosticLogger.isInitialized ? DiagnosticLogger.instance : null;
 
   /// Static flag checked by sign-in screen to show explanation.
   static bool wasForceLoggedOut = false;
@@ -48,8 +52,7 @@ class DeviceSessionNotifier extends StateNotifier<DeviceSessionStatus>
           _currentDeviceId != null &&
           newDeviceId != _currentDeviceId) {
         // Another device took the session — force logout
-        debugPrint(
-            'DeviceSessionNotifier: Realtime detected session takeover');
+        _logger?.auth(Severity.critical, 'Force logout: session takeover detected', metadata: {'source': 'realtime'});
         _handleForceLogout();
       }
     };
@@ -89,11 +92,12 @@ class DeviceSessionNotifier extends StateNotifier<DeviceSessionStatus>
       }
     } catch (e) {
       // Fail-open: do nothing on error
-      debugPrint('DeviceSessionNotifier: check error (ignoring): $e');
+      _logger?.auth(Severity.warn, 'Device session check failed', metadata: {'error': e.toString()});
     }
   }
 
   Future<void> _handleForceLogout() async {
+    _logger?.auth(Severity.critical, 'Force logout triggered', metadata: {'source': 'polling_or_realtime'});
     state = DeviceSessionStatus.forcedOut;
     wasForceLoggedOut = true;
 
@@ -104,7 +108,7 @@ class DeviceSessionNotifier extends StateNotifier<DeviceSessionStatus>
         await _ref.read(shiftProvider.notifier).clockOut();
       }
     } catch (e) {
-      debugPrint('DeviceSessionNotifier: clock-out during force logout failed: $e');
+      _logger?.auth(Severity.error, 'Clock-out during force logout failed', metadata: {'error': e.toString()});
     }
 
     // Sign out — navigation happens via authStateChangesProvider
@@ -112,7 +116,7 @@ class DeviceSessionNotifier extends StateNotifier<DeviceSessionStatus>
       final authService = _ref.read(authServiceProvider);
       await authService.signOut();
     } catch (e) {
-      debugPrint('DeviceSessionNotifier: sign-out during force logout failed: $e');
+      _logger?.auth(Severity.error, 'Sign-out during force logout failed', metadata: {'error': e.toString()});
     }
   }
 

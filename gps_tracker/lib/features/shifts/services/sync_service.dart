@@ -1,8 +1,9 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../shared/models/diagnostic_event.dart';
+import '../../../shared/services/diagnostic_logger.dart';
 import '../../../shared/services/local_database.dart';
 import '../models/sync_progress.dart';
 import 'diagnostic_sync_service.dart';
@@ -51,6 +52,8 @@ class SyncService {
 
   /// Stream controller for progress updates.
   final _progressController = StreamController<SyncProgress>.broadcast();
+
+  DiagnosticLogger? get _logger => DiagnosticLogger.isInitialized ? DiagnosticLogger.instance : null;
 
   SyncService(this._supabase, this._localDb, this._shiftService);
 
@@ -235,7 +238,7 @@ class SyncService {
               );
               // Mark as synced to remove from pending queue
               await _localDb.markGpsPointsSynced([point.id]);
-              debugPrint('[SyncService] Quarantined orphaned GPS point ${point.id}');
+              _logger?.sync(Severity.warn, 'GPS point quarantined', metadata: {'point_id': point.id, 'shift_id': point.shiftId, 'reason': 'orphaned_shift', 'attempt_count': attempts});
             } catch (_) {
               failedCount++;
             }
@@ -329,10 +332,10 @@ class SyncService {
       if (result['status'] == 'success') {
         await _localDb.markGpsGapsSynced(validGapIds);
       } else {
-        debugPrint('[SyncService] GPS gaps sync returned: ${result['status']} - ${result['message']}');
+        _logger?.sync(Severity.warn, 'GPS gaps sync returned non-success', metadata: {'status': result['status'], 'message': result['message']});
       }
     } catch (e) {
-      debugPrint('[SyncService] GPS gaps sync failed: $e — will retry next cycle');
+      _logger?.sync(Severity.error, 'GPS gaps sync failed', metadata: {'error': e.toString()});
     }
   }
 
@@ -393,14 +396,14 @@ class SyncService {
           _supabase.rpc('detect_trips', params: {
             'p_shift_id': shift.serverId,
           }).then((_) {
-            debugPrint('[Mileage] Trip re-detection completed for shift ${shift.serverId}');
+            _logger?.sync(Severity.debug, 'Trip re-detection completed', metadata: {'shift_id': shift.serverId});
           }).catchError((e) {
-            debugPrint('[Mileage] Trip re-detection failed for shift ${shift.serverId}: $e');
+            _logger?.sync(Severity.warn, 'Trip re-detection failed', metadata: {'shift_id': shift.serverId, 'error': e.toString()});
           });
         }
       }
     } catch (e) {
-      debugPrint('[Mileage] Failed to trigger trip re-detection: $e');
+      _logger?.sync(Severity.error, 'Failed to trigger trip re-detection', metadata: {'error': e.toString()});
     }
   }
 

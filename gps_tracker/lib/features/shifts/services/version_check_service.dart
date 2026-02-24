@@ -1,6 +1,8 @@
-import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../../shared/models/diagnostic_event.dart';
+import '../../../shared/services/diagnostic_logger.dart';
 
 /// Result of a version check before clock-in.
 class VersionCheckResult {
@@ -71,7 +73,9 @@ class VersionCheckService {
       );
     } catch (e) {
       // Fail-open: if we can't check, allow clock-in
-      debugPrint('VersionCheckService: failed to check version: $e');
+      if (DiagnosticLogger.isInitialized) {
+        DiagnosticLogger.instance.lifecycle(Severity.warn, 'Version check failed', metadata: {'error': e.toString()});
+      }
       return VersionCheckResult.error(e.toString());
     }
   }
@@ -92,7 +96,9 @@ class VersionCheckService {
       // Versions equal in major.minor.patch — compare build number
       return currentParts[3] >= minimumParts[3];
     } catch (e) {
-      debugPrint('VersionCheckService: failed to parse version: $e');
+      if (DiagnosticLogger.isInitialized) {
+        DiagnosticLogger.instance.lifecycle(Severity.warn, 'Version parse failed', metadata: {'error': e.toString()});
+      }
       return true; // Fail-open on parse error
     }
   }

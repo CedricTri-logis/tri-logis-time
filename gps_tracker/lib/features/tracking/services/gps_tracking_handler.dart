@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
@@ -33,6 +34,18 @@ class GPSTrackingHandler extends TaskHandler {
   // Stream recovery (unlimited attempts with exponential backoff)
   int _streamRecoveryAttempts = 0;
   DateTime? _lastRecoveryAttemptAt;
+
+  /// Send a diagnostic event to the main isolate for logging.
+  /// Background isolate cannot use DiagnosticLogger directly.
+  void _sendDiagnostic(String severity, String message, [Map<String, dynamic>? metadata]) {
+    FlutterForegroundTask.sendDataToMain(jsonEncode({
+      'type': 'diagnostic',
+      'category': 'gps',
+      'severity': severity,
+      'message': message,
+      if (metadata != null) 'metadata': metadata,
+    }),);
+  }
 
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
@@ -78,6 +91,7 @@ class GPSTrackingHandler extends TaskHandler {
       _onPosition(initialPosition);
     } catch (_) {
       // Stream will deliver the first position shortly
+      _sendDiagnostic('warn', 'Initial position capture timeout');
     }
 
     // Notify main isolate that tracking has started
@@ -85,6 +99,8 @@ class GPSTrackingHandler extends TaskHandler {
       'type': 'started',
       'shift_id': _shiftId,
     });
+
+    _sendDiagnostic('info', 'GPS handler started', {'shift_id': _shiftId ?? ''});
   }
 
   LocationSettings _createLocationSettings() {
@@ -249,6 +265,7 @@ class GPSTrackingHandler extends TaskHandler {
   }
 
   void _onPositionError(dynamic error) {
+    _sendDiagnostic('warn', 'Position stream error', {'error': error.toString()});
     FlutterForegroundTask.sendDataToMain({
       'type': 'error',
       'message': error.toString(),
@@ -322,6 +339,13 @@ class GPSTrackingHandler extends TaskHandler {
 
   /// Cancel and recreate the position stream.
   Future<void> _recoverPositionStream() async {
+    _sendDiagnostic('info', 'Stream recovery attempt', {
+      'attempt': _streamRecoveryAttempts,
+      'last_success_ago_sec': _lastSuccessfulPositionAt != null
+          ? DateTime.now().difference(_lastSuccessfulPositionAt!).inSeconds
+          : null,
+    });
+
     await _positionSubscription?.cancel();
     _positionSubscription = null;
 
@@ -380,8 +404,16 @@ class GPSTrackingHandler extends TaskHandler {
       // with the active position stream (unlike getCurrentPosition).
       final position = await Geolocator.getLastKnownPosition();
       if (position != null) {
+        _sendDiagnostic('debug', 'Force capture for stationary', {
+          'source': 'lastKnown',
+          'is_stationary': _isStationary,
+        });
         _capturePosition(position, DateTime.now());
       } else if (_lastPosition != null) {
+        _sendDiagnostic('debug', 'Force capture for stationary', {
+          'source': 'cached',
+          'is_stationary': _isStationary,
+        });
         _capturePosition(_lastPosition!, DateTime.now());
       }
     } catch (e) {

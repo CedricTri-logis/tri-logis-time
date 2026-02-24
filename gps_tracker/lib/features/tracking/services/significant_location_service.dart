@@ -1,7 +1,9 @@
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+
+import '../../../shared/models/diagnostic_event.dart';
+import '../../../shared/services/diagnostic_logger.dart';
 
 /// Service for iOS Significant Location Change monitoring.
 ///
@@ -11,6 +13,8 @@ import 'package:flutter/services.dart';
 ///
 /// On Android, this is a no-op (Android foreground service handles everything).
 class SignificantLocationService {
+  static DiagnosticLogger? get _logger => DiagnosticLogger.isInitialized ? DiagnosticLogger.instance : null;
+
   static const _channel = MethodChannel('gps_tracker/significant_location');
 
   static bool _callbackRegistered = false;
@@ -30,9 +34,9 @@ class SignificantLocationService {
 
     try {
       await _channel.invokeMethod<bool>('startMonitoring');
-      debugPrint('[SignificantLocation] Monitoring started');
+      _logger?.gps(Severity.info, 'Significant location monitoring started');
     } catch (e) {
-      debugPrint('[SignificantLocation] Failed to start: $e');
+      _logger?.gps(Severity.error, 'Significant location monitoring failed to start', metadata: {'error': e.toString()});
     }
   }
 
@@ -42,17 +46,18 @@ class SignificantLocationService {
 
     try {
       await _channel.invokeMethod<bool>('stopMonitoring');
-      debugPrint('[SignificantLocation] Monitoring stopped');
+      _logger?.gps(Severity.info, 'Significant location monitoring stopped');
     } catch (e) {
-      debugPrint('[SignificantLocation] Failed to stop: $e');
+      _logger?.gps(Severity.error, 'Significant location monitoring failed to stop', metadata: {'error': e.toString()});
     }
   }
 
   /// Handle method calls from native iOS.
   static Future<dynamic> _handleMethodCall(MethodCall call) async {
     if (call.method == 'onSignificantLocationChange') {
-      debugPrint('[SignificantLocation] Woken by location change: '
-          '${call.arguments}');
+      _logger?.gps(Severity.info, 'Woken by significant location change', metadata: {
+        if (call.arguments != null) 'arguments': call.arguments.toString(),
+      },);
       onWokenByLocationChange?.call();
     }
   }
