@@ -15,7 +15,7 @@ import { transformMonitoredTeamRow } from '@/types/monitoring';
 
 interface UseSupervisedTeamOptions {
   search?: string;
-  shiftStatus?: 'all' | 'on-shift' | 'off-shift';
+  shiftStatus?: 'all' | 'on-shift' | 'off-shift' | 'never-installed';
   enabled?: boolean;
 }
 

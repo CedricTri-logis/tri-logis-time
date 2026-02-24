@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { RefreshCw, Wifi, WifiOff, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,7 @@ import { TeamFilters } from '@/components/monitoring/team-filters';
 import { StalenessLegend } from '@/components/monitoring/staleness-indicator';
 import { ConnectionStatusBanner, OfflineBanner } from '@/components/monitoring/connection-status';
 import { useSupervisedTeam } from '@/lib/hooks/use-supervised-team';
-import type { ConnectionStatus } from '@/types/monitoring';
+import type { ConnectionStatus, TeamSortOption } from '@/types/monitoring';
 
 // Dynamically import the map component to avoid SSR issues with Leaflet
 const TeamMap = dynamic(
@@ -25,7 +25,8 @@ const TeamMap = dynamic(
 export default function MonitoringPage() {
   // Filter state
   const [search, setSearch] = useState('');
-  const [shiftStatus, setShiftStatus] = useState<'all' | 'on-shift' | 'off-shift'>('all');
+  const [shiftStatus, setShiftStatus] = useState<'all' | 'on-shift' | 'off-shift' | 'never-installed'>('all');
+  const [sortBy, setSortBy] = useState<TeamSortOption>('last-connection');
 
   // Fetch team data with real-time updates
   const {
@@ -39,6 +40,20 @@ export default function MonitoringPage() {
     search: search || undefined,
     shiftStatus,
   });
+
+  // Client-side sort
+  const sortedTeam = useMemo(() => {
+    if (sortBy === 'name') {
+      return [...team].sort((a, b) => a.displayName.localeCompare(b.displayName));
+    }
+    // 'last-connection': most recent first, nulls last
+    return [...team].sort((a, b) => {
+      if (!a.lastSignInAt && !b.lastSignInAt) return 0;
+      if (!a.lastSignInAt) return 1;
+      if (!b.lastSignInAt) return -1;
+      return b.lastSignInAt.getTime() - a.lastSignInAt.getTime();
+    });
+  }, [team, sortBy]);
 
   // Refresh handler
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -59,6 +74,8 @@ export default function MonitoringPage() {
 
   // Stats for header
   const onShiftCount = team.filter((e) => e.shiftStatus === 'on-shift').length;
+  const offShiftCount = team.filter((e) => e.shiftStatus === 'off-shift').length;
+  const neverInstalledCount = team.filter((e) => e.shiftStatus === 'never-installed').length;
   const totalCount = team.length;
 
   return (
@@ -112,7 +129,7 @@ export default function MonitoringPage() {
       )}
 
       {/* Summary stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
         <StatCard
           label="Total Team"
           value={totalCount}
@@ -122,12 +139,18 @@ export default function MonitoringPage() {
           label="On Shift"
           value={onShiftCount}
           isLoading={isLoading}
-          highlight
+          highlight="green"
         />
         <StatCard
           label="Off Shift"
-          value={totalCount - onShiftCount}
+          value={offShiftCount}
           isLoading={isLoading}
+        />
+        <StatCard
+          label="Never Installed"
+          value={neverInstalledCount}
+          isLoading={isLoading}
+          highlight="orange"
         />
         <LastUpdatedCard
           lastUpdated={lastUpdated}
@@ -139,8 +162,10 @@ export default function MonitoringPage() {
       <TeamFilters
         search={search}
         shiftStatus={shiftStatus}
+        sortBy={sortBy}
         onSearchChange={setSearch}
         onShiftStatusChange={setShiftStatus}
+        onSortChange={setSortBy}
         onClearFilters={handleClearFilters}
       />
 
@@ -148,7 +173,7 @@ export default function MonitoringPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Team list */}
         <TeamList
-          team={team}
+          team={sortedTeam}
           isLoading={isLoading}
           search={search}
           shiftStatus={shiftStatus}
@@ -158,7 +183,7 @@ export default function MonitoringPage() {
         {/* Map view */}
         <div className="space-y-2">
           <TeamMap
-            team={team}
+            team={sortedTeam}
             isLoading={isLoading}
           />
           <StalenessLegend />
@@ -172,7 +197,7 @@ interface StatCardProps {
   label: string;
   value: number;
   isLoading?: boolean;
-  highlight?: boolean;
+  highlight?: 'green' | 'orange';
 }
 
 function StatCard({ label, value, isLoading, highlight }: StatCardProps) {
@@ -187,11 +212,23 @@ function StatCard({ label, value, isLoading, highlight }: StatCardProps) {
     );
   }
 
+  const cardClass = highlight === 'green'
+    ? 'border-green-200 bg-green-50'
+    : highlight === 'orange'
+      ? 'border-orange-200 bg-orange-50'
+      : '';
+
+  const textClass = highlight === 'green'
+    ? 'text-green-700'
+    : highlight === 'orange'
+      ? 'text-orange-700'
+      : 'text-slate-900';
+
   return (
-    <Card className={highlight ? 'border-green-200 bg-green-50' : ''}>
+    <Card className={cardClass}>
       <CardContent className="py-4">
         <p className="text-xs text-slate-500 uppercase tracking-wide">{label}</p>
-        <p className={`text-2xl font-bold ${highlight ? 'text-green-700' : 'text-slate-900'}`}>
+        <p className={`text-2xl font-bold ${textClass}`}>
           {value}
         </p>
       </CardContent>

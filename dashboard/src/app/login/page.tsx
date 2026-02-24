@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, Suspense } from 'react';
-import { useLogin } from '@refinedev/core';
+import { useLogin, useForgotPassword } from '@refinedev/core';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -73,6 +74,14 @@ function LoginForm() {
             >
               {isSubmitting ? 'Signing in...' : 'Sign In'}
             </Button>
+            <div className="text-center">
+              <Link
+                href="/forgot-password"
+                className="text-sm text-slate-500 hover:text-slate-700 underline-offset-4 hover:underline"
+              >
+                Forgot your password?
+              </Link>
+            </div>
           </form>
         </CardContent>
       </Card>

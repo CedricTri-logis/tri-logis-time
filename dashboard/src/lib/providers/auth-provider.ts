@@ -117,6 +117,49 @@ export const authProvider: AuthProvider = {
     };
   },
 
+  forgotPassword: async ({ email }) => {
+    const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+
+    if (error) {
+      return {
+        success: false,
+        error: {
+          name: 'ForgotPasswordError',
+          message: error.message,
+        },
+      };
+    }
+
+    return {
+      success: true,
+      successNotification: {
+        message: 'Password reset email sent',
+        description: 'Check your inbox for the reset link.',
+      },
+    };
+  },
+
+  updatePassword: async ({ password }) => {
+    const { error } = await supabaseClient.auth.updateUser({ password });
+
+    if (error) {
+      return {
+        success: false,
+        error: {
+          name: 'UpdatePasswordError',
+          message: error.message,
+        },
+      };
+    }
+
+    return {
+      success: true,
+      redirectTo: '/dashboard',
+    };
+  },
+
   onError: async (error) => {
     console.error('Auth error:', error);
     return { error };

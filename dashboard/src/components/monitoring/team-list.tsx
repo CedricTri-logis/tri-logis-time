@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ChevronRight, Clock, MapPin, Smartphone, User } from 'lucide-react';
+import { ChevronRight, Clock, LogIn, MapPin, Smartphone, SmartphoneOff, User } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -15,7 +15,7 @@ interface TeamListProps {
   team: MonitoredEmployee[];
   isLoading?: boolean;
   search?: string;
-  shiftStatus?: 'all' | 'on-shift' | 'off-shift';
+  shiftStatus?: 'all' | 'on-shift' | 'off-shift' | 'never-installed';
   onClearFilters?: () => void;
 }
 
@@ -109,6 +109,12 @@ function TeamListItem({ employee }: TeamListItemProps) {
             </div>
             {/* Device & last shift info */}
             <div className="flex items-center gap-3 text-xs text-slate-400 mt-0.5">
+              {employee.lastSignInAt && (
+                <span className="flex items-center gap-1">
+                  <LogIn className="h-3 w-3" />
+                  {formatLastConnection(employee.lastSignInAt)}
+                </span>
+              )}
               {employee.lastShiftAt && (
                 <span className="flex items-center gap-1">
                   <Clock className="h-3 w-3" />
@@ -143,7 +149,7 @@ function TeamListItem({ employee }: TeamListItemProps) {
 }
 
 interface ShiftStatusBadgeProps {
-  status: 'on-shift' | 'off-shift';
+  status: 'on-shift' | 'off-shift' | 'never-installed';
 }
 
 function ShiftStatusBadge({ status }: ShiftStatusBadgeProps) {
@@ -152,6 +158,15 @@ function ShiftStatusBadge({ status }: ShiftStatusBadgeProps) {
       <Badge className="bg-green-100 text-green-700 border-green-200">
         <span className="mr-1 h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
         On shift
+      </Badge>
+    );
+  }
+
+  if (status === 'never-installed') {
+    return (
+      <Badge variant="outline" className="text-orange-500 border-orange-200 bg-orange-50">
+        <SmartphoneOff className="mr-1 h-3 w-3" />
+        Never installed
       </Badge>
     );
   }
@@ -187,6 +202,22 @@ function LocationInfo({ location }: LocationInfoProps) {
       <LastUpdatedBadge capturedAt={location.capturedAt} />
     </div>
   );
+}
+
+function formatLastConnection(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffMinutes < 5) return 'Just now';
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays}d ago`;
+
+  return date.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' });
 }
 
 function formatLastShift(date: Date): string {

@@ -2,7 +2,7 @@
 // Types for the supervisor shift monitoring feature
 
 // Shift status for monitored employees
-export type ShiftStatus = 'on-shift' | 'off-shift';
+export type ShiftStatus = 'on-shift' | 'off-shift' | 'never-installed';
 
 // GPS staleness levels (time since last update)
 export type StalenessLevel = 'fresh' | 'stale' | 'very-stale' | 'unknown';
@@ -41,6 +41,7 @@ export interface MonitoredEmployee {
   deviceAppVersion: string | null;
   deviceModel: string | null;
   devicePlatform: string | null;
+  lastSignInAt: Date | null;
 }
 
 // GPS trail point for path rendering
@@ -134,7 +135,7 @@ export interface MonitoredTeamRow {
   full_name: string;
   email: string | null;
   employee_id: string | null;
-  shift_status: 'on-shift' | 'off-shift';
+  shift_status: 'on-shift' | 'off-shift' | 'never-installed';
   current_shift_id: string | null;
   clocked_in_at: string | null;
   clock_in_latitude: number | null;
@@ -147,6 +148,7 @@ export interface MonitoredTeamRow {
   device_app_version: string | null;
   device_model: string | null;
   device_platform: string | null;
+  last_sign_in_at: string | null;
 }
 
 export interface ShiftDetailRow {
@@ -192,8 +194,11 @@ export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'er
 // Filter state for team list
 export interface MonitoringFilters {
   search: string;
-  shiftStatus: 'all' | 'on-shift' | 'off-shift';
+  shiftStatus: 'all' | 'on-shift' | 'off-shift' | 'never-installed';
 }
+
+// Sort options for team list
+export type TeamSortOption = 'name' | 'last-connection';
 
 // Utility functions for staleness calculation
 export const STALENESS_THRESHOLDS = {
@@ -252,6 +257,7 @@ export function transformMonitoredTeamRow(row: MonitoredTeamRow): MonitoredEmplo
     deviceAppVersion: row.device_app_version ?? null,
     deviceModel: row.device_model ?? null,
     devicePlatform: row.device_platform ?? null,
+    lastSignInAt: row.last_sign_in_at ? new Date(row.last_sign_in_at) : null,
   };
 }
 

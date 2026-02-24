@@ -5,6 +5,7 @@ export const ShiftStatusFilter = {
   ALL: 'all',
   ON_SHIFT: 'on-shift',
   OFF_SHIFT: 'off-shift',
+  NEVER_INSTALLED: 'never-installed',
 } as const;
 
 export type ShiftStatusFilterValue = (typeof ShiftStatusFilter)[keyof typeof ShiftStatusFilter];
@@ -12,7 +13,7 @@ export type ShiftStatusFilterValue = (typeof ShiftStatusFilter)[keyof typeof Shi
 // Schema for monitoring filters (search and status)
 export const monitoringFilterSchema = z.object({
   search: z.string().max(100, 'Search must be 100 characters or less').optional(),
-  shiftStatus: z.enum(['all', 'on-shift', 'off-shift']).default('all'),
+  shiftStatus: z.enum(['all', 'on-shift', 'off-shift', 'never-installed']).default('all'),
 });
 
 export type MonitoringFilterInput = z.infer<typeof monitoringFilterSchema>;
@@ -32,7 +33,7 @@ export const coordinateSchema = z.object({
 // RPC parameter schemas (for type-safe RPC calls)
 export const getMonitoredTeamParamsSchema = z.object({
   p_search: z.string().nullable().optional(),
-  p_shift_status: z.enum(['all', 'on-shift', 'off-shift']).default('all'),
+  p_shift_status: z.enum(['all', 'on-shift', 'off-shift', 'never-installed']).default('all'),
 });
 
 export type GetMonitoredTeamParams = z.infer<typeof getMonitoredTeamParamsSchema>;
