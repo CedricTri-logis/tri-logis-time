@@ -86,6 +86,7 @@ export const reportConfigSchema = z.object({
 });
 
 export type ReportConfigInput = z.infer<typeof reportConfigSchema>;
+export type ReportConfigFormInput = z.input<typeof reportConfigSchema>;
 
 /**
  * Generate report request schema

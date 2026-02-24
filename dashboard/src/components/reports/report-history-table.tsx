@@ -223,7 +223,7 @@ export function ReportHistoryTable({
                     </div>
                   </TableCell>
                   <TableCell className="text-sm text-slate-600">
-                    {formatDateRange(item)}
+                    {formatDateRange(item.config)}
                   </TableCell>
                   <TableCell>{getStatusBadge(item.status)}</TableCell>
                   <TableCell className="text-sm text-slate-600">

@@ -37,7 +37,7 @@ import {
 } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
-import { reportConfigSchema, type ReportConfigInput } from '@/lib/validations/reports';
+import { reportConfigSchema, type ReportConfigInput, type ReportConfigFormInput } from '@/lib/validations/reports';
 import type { ReportFormat, DateRangePreset, EmployeeOption } from '@/types/reports';
 
 interface ReportConfigFormProps {
@@ -78,7 +78,7 @@ export function ReportConfigForm({
     };
   });
 
-  const form = useForm<ReportConfigInput>({
+  const form = useForm<ReportConfigFormInput>({
     resolver: zodResolver(reportConfigSchema),
     defaultValues: {
       date_range: {
@@ -122,10 +122,7 @@ export function ReportConfigForm({
     }
 
     setDateRange({ from, to });
-
-    if (datePreset !== 'custom') {
-      form.setValue('date_range', { preset: datePreset });
-    }
+    form.setValue('date_range', { preset: datePreset });
   }, [datePreset, form]);
 
   // Update form when custom date range changes
@@ -138,10 +135,9 @@ export function ReportConfigForm({
     }
   }, [dateRange, datePreset, form]);
 
-  const handleSubmit = (data: ReportConfigInput) => {
+  const handleSubmit = (data: ReportConfigFormInput) => {
     // Ensure date range is properly set
     const finalData: ReportConfigInput = {
-      ...data,
       date_range:
         datePreset === 'custom'
           ? {
@@ -149,6 +145,13 @@ export function ReportConfigForm({
               end: format(dateRange.to, 'yyyy-MM-dd'),
             }
           : { preset: datePreset as DateRangePreset },
+      employee_filter: data.employee_filter ?? 'all',
+      format: data.format ?? 'pdf',
+      options: data.options ? {
+        include_incomplete_shifts: data.options.include_incomplete_shifts ?? false,
+        include_gps_summary: data.options.include_gps_summary ?? false,
+        group_by: data.options.group_by,
+      } : undefined,
     };
 
     onSubmit(finalData);

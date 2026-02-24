@@ -10,7 +10,7 @@ import {
   CSV_EXPECTED_HEADERS,
   type LocationCsvRowInput,
 } from '@/lib/validations/location';
-import type { CsvValidationResult, CsvImportSummary, LocationFormData } from '@/types/location';
+import type { CsvValidationResult, CsvImportSummary, LocationFormData, LocationCsvRow } from '@/types/location';
 
 /**
  * Parse result from CSV file
@@ -105,7 +105,7 @@ export function validateCsvRow(
     const data = result.data;
     return {
       valid: true,
-      row: row as unknown as Record<string, string>,
+      row: row as unknown as LocationCsvRow,
       rowIndex,
       errors: [],
       data: {
@@ -121,14 +121,14 @@ export function validateCsvRow(
     };
   }
 
-  const errors = result.error.errors.map((err) => {
+  const errors = result.error.issues.map((err) => {
     const path = err.path.join('.');
     return path ? `${path}: ${err.message}` : err.message;
   });
 
   return {
     valid: false,
-    row: row as unknown as Record<string, string>,
+    row: row as unknown as LocationCsvRow,
     rowIndex,
     errors,
   };

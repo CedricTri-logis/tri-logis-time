@@ -145,6 +145,7 @@ export interface ReportJobStatusResponse {
   failed_at?: string;
   progress_percent?: number;
   download_url?: string;
+  file_path?: string;
   file_size_bytes?: number;
   record_count?: number;
   expires_at?: string;

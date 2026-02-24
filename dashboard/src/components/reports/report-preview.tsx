@@ -111,7 +111,7 @@ export function ReportPreview({
   );
 }
 
-function renderPreviewTable(reportType: ReportType, data: unknown[]): JSX.Element {
+function renderPreviewTable(reportType: ReportType, data: unknown[]): React.JSX.Element {
   switch (reportType) {
     case 'timesheet':
       return renderTimesheetPreview(data as TimesheetReportRow[]);
@@ -126,7 +126,7 @@ function renderPreviewTable(reportType: ReportType, data: unknown[]): JSX.Elemen
   }
 }
 
-function renderTimesheetPreview(data: TimesheetReportRow[]): JSX.Element {
+function renderTimesheetPreview(data: TimesheetReportRow[]): React.JSX.Element {
   return (
     <div className="overflow-x-auto">
       <Table>
@@ -186,7 +186,7 @@ function renderTimesheetPreview(data: TimesheetReportRow[]): JSX.Element {
   );
 }
 
-function renderShiftHistoryPreview(data: unknown[]): JSX.Element {
+function renderShiftHistoryPreview(data: unknown[]): React.JSX.Element {
   const rows = data as Array<{
     employee_name: string;
     shift_id: string;
@@ -230,7 +230,7 @@ function renderShiftHistoryPreview(data: unknown[]): JSX.Element {
   );
 }
 
-function renderActivitySummaryPreview(data: unknown[]): JSX.Element {
+function renderActivitySummaryPreview(data: unknown[]): React.JSX.Element {
   const rows = data as Array<{
     period: string;
     total_hours: number;
@@ -267,7 +267,7 @@ function renderActivitySummaryPreview(data: unknown[]): JSX.Element {
   );
 }
 
-function renderAttendancePreview(data: unknown[]): JSX.Element {
+function renderAttendancePreview(data: unknown[]): React.JSX.Element {
   const rows = data as Array<{
     employee_name: string;
     total_working_days: number;

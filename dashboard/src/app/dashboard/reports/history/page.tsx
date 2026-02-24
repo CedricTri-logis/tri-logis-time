@@ -8,6 +8,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+
 import { History, RefreshCw, Filter } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -36,33 +37,26 @@ const PAGE_SIZE = 20;
 
 export default function ReportHistoryPage() {
   const [reportTypeFilter, setReportTypeFilter] = useState<ReportType | 'all'>('all');
-  const [page, setPage] = useState(0);
 
-  const { items, isLoading, error, totalCount, hasMore, fetch } = useReportHistory({
-    autoFetch: false,
+  const { items, isLoading, error, totalCount, hasMore, loadPage, loadMore, refresh } = useReportHistory({
+    pageSize: PAGE_SIZE,
+    reportType: reportTypeFilter === 'all' ? undefined : reportTypeFilter,
   });
 
   // Load data on mount and filter change
   useEffect(() => {
-    const typeFilter = reportTypeFilter === 'all' ? undefined : reportTypeFilter;
-    fetch(PAGE_SIZE, 0, typeFilter);
-    setPage(0);
-  }, [reportTypeFilter, fetch]);
+    loadPage(0);
+  }, [loadPage]);
 
   // Handle load more
   const handleLoadMore = useCallback(() => {
-    const nextPage = page + 1;
-    const typeFilter = reportTypeFilter === 'all' ? undefined : reportTypeFilter;
-    fetch(PAGE_SIZE, nextPage * PAGE_SIZE, typeFilter, true);
-    setPage(nextPage);
-  }, [page, reportTypeFilter, fetch]);
+    loadMore();
+  }, [loadMore]);
 
   // Handle refresh
   const handleRefresh = useCallback(() => {
-    const typeFilter = reportTypeFilter === 'all' ? undefined : reportTypeFilter;
-    fetch(PAGE_SIZE, 0, typeFilter);
-    setPage(0);
-  }, [reportTypeFilter, fetch]);
+    refresh();
+  }, [refresh]);
 
   return (
     <div className="space-y-6">
