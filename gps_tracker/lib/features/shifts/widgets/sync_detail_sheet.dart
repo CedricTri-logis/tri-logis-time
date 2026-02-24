@@ -56,7 +56,7 @@ class SyncDetailSheet extends ConsumerWidget {
 
                 // Title
                 Text(
-                  'Sync Status',
+                  'État de la synchronisation',
                   style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -118,28 +118,28 @@ class _SyncStatusCard extends StatelessWidget {
       SyncStatus.synced => (
           Icons.cloud_done,
           Colors.green,
-          'All Synced',
+          'Tout synchronisé',
           syncState.lastSyncTime != null
               ? 'Last sync: ${_formatDateTime(syncState.lastSyncTime!)}'
-              : 'No pending data',
+              : 'Aucune donnée en attente',
         ),
       SyncStatus.pending => (
           Icons.cloud_upload,
           Colors.orange,
-          'Pending Sync',
-          '${syncState.totalPending} items waiting to sync',
+          'En attente de sync',
+          '${syncState.totalPending} éléments en attente',
         ),
       SyncStatus.syncing => (
           Icons.sync,
           Colors.blue,
-          'Syncing...',
-          syncState.progress?.currentOperation ?? 'Processing data...',
+          'Synchronisation...',
+          syncState.progress?.currentOperation ?? 'Traitement des données...',
         ),
       SyncStatus.error => (
           Icons.cloud_off,
           Colors.red,
-          'Sync Error',
-          syncState.lastError ?? 'An error occurred during sync',
+          'Erreur de sync',
+          syncState.lastError ?? 'Une erreur est survenue lors de la synchronisation',
         ),
     };
 
@@ -198,10 +198,10 @@ class _SyncStatusCard extends StatelessWidget {
     final now = DateTime.now();
     final diff = now.difference(dt);
 
-    if (diff.inMinutes < 1) return 'Just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    return '${diff.inDays}d ago';
+    if (diff.inMinutes < 1) return 'À l\'instant';
+    if (diff.inMinutes < 60) return 'Il y a ${diff.inMinutes}m';
+    if (diff.inHours < 24) return 'Il y a ${diff.inHours}h';
+    return 'Il y a ${diff.inDays}j';
   }
 }
 
@@ -225,7 +225,7 @@ class _SyncProgressCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Progress',
+                  'Progression',
                   style: theme.textTheme.titleSmall,
                 ),
                 Text(
@@ -247,11 +247,11 @@ class _SyncProgressCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 _ProgressItem(
-                  label: 'Shifts',
+                  label: 'Quarts',
                   value: '${progress.syncedShifts}/${progress.totalShifts}',
                 ),
                 _ProgressItem(
-                  label: 'GPS Points',
+                  label: 'Points GPS',
                   value:
                       '${progress.syncedGpsPoints}/${progress.totalGpsPoints}',
                 ),
@@ -310,7 +310,7 @@ class _PendingDataCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Pending Data',
+              'Données en attente',
               style: theme.textTheme.titleSmall,
             ),
             const SizedBox(height: 12),
@@ -319,7 +319,7 @@ class _PendingDataCard extends StatelessWidget {
                 Expanded(
                   child: _DataItem(
                     icon: Icons.access_time,
-                    label: 'Shifts',
+                    label: 'Quarts',
                     value: syncState.pendingShifts.toString(),
                     color: Colors.blue,
                   ),
@@ -328,7 +328,7 @@ class _PendingDataCard extends StatelessWidget {
                 Expanded(
                   child: _DataItem(
                     icon: Icons.location_on,
-                    label: 'GPS Points',
+                    label: 'Points GPS',
                     value: syncState.pendingGpsPoints.toString(),
                     color: Colors.orange,
                   ),
@@ -414,7 +414,7 @@ class _RetryInfoCard extends StatelessWidget {
                 const Icon(Icons.refresh, color: Colors.orange, size: 20),
                 const SizedBox(width: 8),
                 Text(
-                  'Retry Scheduled',
+                  'Nouvelle tentative prévue',
                   style: theme.textTheme.titleSmall?.copyWith(
                     color: Colors.orange,
                     fontWeight: FontWeight.w500,
@@ -424,13 +424,13 @@ class _RetryInfoCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Attempt ${syncState.consecutiveFailures + 1}',
+              'Tentative ${syncState.consecutiveFailures + 1}',
               style: theme.textTheme.bodyMedium,
             ),
             if (syncState.nextRetryIn != null) ...[
               const SizedBox(height: 4),
               Text(
-                'Next retry in ${_formatDuration(syncState.nextRetryIn!)}',
+                'Prochaine tentative dans ${_formatDuration(syncState.nextRetryIn!)}',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -477,7 +477,7 @@ class _StorageCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Local Storage',
+                  'Stockage local',
                   style: theme.textTheme.titleSmall,
                 ),
                 Container(
@@ -509,7 +509,7 @@ class _StorageCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              '${metrics.formattedUsed} of ${metrics.formattedTotal} used',
+              '${metrics.formattedUsed} sur ${metrics.formattedTotal} utilisé',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -519,17 +519,17 @@ class _StorageCard extends StatelessWidget {
               const Divider(),
               const SizedBox(height: 8),
               _StorageBreakdownRow(
-                label: 'Shifts',
+                label: 'Quarts',
                 value: storageState.breakdown!.formattedShifts,
                 percent: storageState.breakdown!.shiftsPercent,
               ),
               _StorageBreakdownRow(
-                label: 'GPS Points',
+                label: 'Points GPS',
                 value: storageState.breakdown!.formattedGpsPoints,
                 percent: storageState.breakdown!.gpsPointsPercent,
               ),
               _StorageBreakdownRow(
-                label: 'Logs',
+                label: 'Journaux',
                 value: storageState.breakdown!.formattedLogs,
                 percent: storageState.breakdown!.logsPercent,
               ),
@@ -546,7 +546,7 @@ class _StorageCard extends StatelessWidget {
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Clean Up Storage'),
+                    : const Text('Nettoyer le stockage'),
               ),
             ],
           ],
@@ -616,8 +616,8 @@ class _ActionsSection extends StatelessWidget {
               icon: const Icon(Icons.sync),
               label: Text(
                 syncState.status == SyncStatus.error
-                    ? 'Retry Now'
-                    : 'Sync Now',
+                    ? 'Réessayer maintenant'
+                    : 'Synchroniser',
               ),
             ),
           ),
@@ -626,7 +626,7 @@ class _ActionsSection extends StatelessWidget {
           child: OutlinedButton.icon(
             onPressed: () => Navigator.of(context).pop(),
             icon: const Icon(Icons.close),
-            label: const Text('Close'),
+            label: const Text('Fermer'),
           ),
         ),
       ],

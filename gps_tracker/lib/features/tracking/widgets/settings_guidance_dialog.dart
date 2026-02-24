@@ -27,7 +27,7 @@ class SettingsGuidanceDialog extends StatelessWidget {
             color: theme.colorScheme.primary,
           ),
           const SizedBox(width: 8),
-          const Text('Enable Location'),
+          const Text('Activer la localisation'),
         ],
       ),
       content: Column(
@@ -35,7 +35,7 @@ class SettingsGuidanceDialog extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Location permission was denied. To enable GPS tracking during shifts, please enable location access in your device settings.',
+            'La permission de localisation a été refusée. Pour activer le suivi GPS pendant vos quarts, veuillez activer l\'accès à la localisation dans les paramètres.',
             style: theme.textTheme.bodyMedium,
           ),
           const SizedBox(height: 16),
@@ -49,20 +49,20 @@ class SettingsGuidanceDialog extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Steps to enable:',
+                  'Étapes pour activer:',
                   style: theme.textTheme.titleSmall,
                 ),
                 const SizedBox(height: 8),
                 if (Platform.isIOS) ...[
-                  _buildStep(context, '1. Open Settings'),
-                  _buildStep(context, '2. Find GPS Tracker'),
-                  _buildStep(context, '3. Tap Location'),
-                  _buildStep(context, '4. Select "Always"'),
+                  _buildStep(context, '1. Ouvrir Réglages'),
+                  _buildStep(context, '2. Trouver Tri-Logis Time'),
+                  _buildStep(context, '3. Toucher Position'),
+                  _buildStep(context, '4. Sélectionner "Toujours"'),
                 ] else ...[
-                  _buildStep(context, '1. Tap "Open Settings" below'),
-                  _buildStep(context, '2. Tap Permissions'),
-                  _buildStep(context, '3. Tap Location'),
-                  _buildStep(context, '4. Select "Allow all the time"'),
+                  _buildStep(context, '1. Toucher "Ouvrir paramètres"'),
+                  _buildStep(context, '2. Toucher Autorisations'),
+                  _buildStep(context, '3. Toucher Position'),
+                  _buildStep(context, '4. Sélectionner "Toujours autoriser"'),
                 ],
               ],
             ),
@@ -72,7 +72,7 @@ class SettingsGuidanceDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Later'),
+          child: const Text('Plus tard'),
         ),
         FilledButton.icon(
           onPressed: () async {
@@ -82,7 +82,7 @@ class SettingsGuidanceDialog extends StatelessWidget {
             }
           },
           icon: const Icon(Icons.open_in_new, size: 18),
-          label: const Text('Open Settings'),
+          label: const Text('Ouvrir paramètres'),
         ),
       ],
     );

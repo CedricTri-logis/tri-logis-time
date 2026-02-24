@@ -1,0 +1,145 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:local_auth/local_auth.dart';
+
+/// Service for biometric authentication (Face ID / Fingerprint).
+///
+/// Stores Supabase session tokens (access + refresh) in secure storage
+/// after a successful login, then restores the session via biometrics.
+class BiometricService {
+  // New token-based keys
+  static const _keyAccessToken = 'bio_access_token';
+  static const _keyRefreshToken = 'bio_refresh_token';
+  static const _keyEnabled = 'bio_enabled';
+
+  // Legacy credential keys (for migration from email+password storage)
+  static const _keyLegacyEmail = 'bio_email';
+  static const _keyLegacyPassword = 'bio_password';
+
+  final LocalAuthentication _localAuth = LocalAuthentication();
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+
+  /// Check if the device supports biometrics and has enrolled biometrics.
+  Future<bool> isAvailable() async {
+    try {
+      final canCheck = await _localAuth.canCheckBiometrics;
+      final isSupported = await _localAuth.isDeviceSupported();
+      if (!canCheck || !isSupported) return false;
+
+      final available = await _localAuth.getAvailableBiometrics();
+      return available.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Whether the user has opted in to biometric login.
+  Future<bool> isEnabled() async {
+    final value = await _storage.read(key: _keyEnabled);
+    return value == 'true';
+  }
+
+  /// Whether we have saved tokens (or legacy credentials) ready for biometric login.
+  Future<bool> hasCredentials() async {
+    final enabled = await isEnabled();
+    if (!enabled) return false;
+
+    // Check new token-based storage first
+    final refreshToken = await _storage.read(key: _keyRefreshToken);
+    if (refreshToken != null) return true;
+
+    // Fall back to legacy credentials
+    final email = await _storage.read(key: _keyLegacyEmail);
+    final password = await _storage.read(key: _keyLegacyPassword);
+    return email != null && password != null;
+  }
+
+  /// Save session tokens after a successful login and enable biometric.
+  /// Also cleans up legacy credential keys if they exist.
+  Future<void> saveSessionTokens({
+    required String accessToken,
+    required String refreshToken,
+  }) async {
+    await _storage.write(key: _keyAccessToken, value: accessToken);
+    await _storage.write(key: _keyRefreshToken, value: refreshToken);
+    await _storage.write(key: _keyEnabled, value: 'true');
+
+    // Clean up legacy keys
+    await _storage.delete(key: _keyLegacyEmail);
+    await _storage.delete(key: _keyLegacyPassword);
+  }
+
+  /// Authenticate with biometrics and return saved session tokens.
+  /// Returns null if authentication fails or is cancelled.
+  Future<({String accessToken, String refreshToken})?> authenticate() async {
+    try {
+      final authenticated = await _localAuth.authenticate(
+        localizedReason: 'Connectez-vous avec la biometrie',
+        options: const AuthenticationOptions(
+          stickyAuth: true,
+          biometricOnly: true,
+        ),
+      );
+
+      if (!authenticated) return null;
+
+      final accessToken = await _storage.read(key: _keyAccessToken);
+      final refreshToken = await _storage.read(key: _keyRefreshToken);
+
+      if (accessToken != null && refreshToken != null) {
+        return (accessToken: accessToken, refreshToken: refreshToken);
+      }
+
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Get legacy email+password credentials (for transparent migration).
+  /// Returns null if no legacy credentials exist.
+  Future<({String email, String password})?> getLegacyCredentials() async {
+    try {
+      final email = await _storage.read(key: _keyLegacyEmail);
+      final password = await _storage.read(key: _keyLegacyPassword);
+
+      if (email != null && password != null) {
+        return (email: email, password: password);
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Prompt biometric authentication only (no credential retrieval).
+  /// Used for legacy migration flow where we need bio auth first,
+  /// then handle credentials separately.
+  Future<bool> authenticateOnly() async {
+    try {
+      return await _localAuth.authenticate(
+        localizedReason: 'Connectez-vous avec la biometrie',
+        options: const AuthenticationOptions(
+          stickyAuth: true,
+          biometricOnly: true,
+        ),
+      );
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Clear all saved credentials and tokens (both legacy and new).
+  Future<void> clearCredentials() async {
+    await _storage.delete(key: _keyAccessToken);
+    await _storage.delete(key: _keyRefreshToken);
+    await _storage.delete(key: _keyEnabled);
+    await _storage.delete(key: _keyLegacyEmail);
+    await _storage.delete(key: _keyLegacyPassword);
+  }
+}
+
+/// Global provider for the biometric service.
+final biometricServiceProvider = Provider<BiometricService>((ref) {
+  return BiometricService();
+});

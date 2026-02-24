@@ -3,11 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/config/constants.dart';
 import '../../shared/providers/supabase_provider.dart';
+import '../shifts/providers/shift_provider.dart';
+import '../admin/screens/user_management_screen.dart';
 import '../auth/providers/profile_provider.dart';
 import '../auth/screens/profile_screen.dart';
 import '../dashboard/screens/team_dashboard_screen.dart';
 import '../history/screens/my_history_screen.dart';
 import '../history/screens/supervised_employees_screen.dart';
+import '../mileage/screens/mileage_screen.dart';
 import '../shifts/screens/shift_dashboard_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -18,22 +21,28 @@ class HomeScreen extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Sign Out'),
-        content: const Text('Are you sure you want to sign out?'),
+        title: const Text('Déconnexion'),
+        content: const Text('Voulez-vous vraiment vous déconnecter ?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: const Text('Annuler'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Sign Out'),
+            child: const Text('Déconnexion'),
           ),
         ],
       ),
     );
 
     if (confirmed == true) {
+      // Clock out first (auto-closes cleaning + maintenance sessions)
+      final shiftState = ref.read(shiftProvider);
+      if (shiftState.activeShift != null) {
+        await ref.read(shiftProvider.notifier).clockOut();
+      }
+
       final authService = ref.read(authServiceProvider);
       await authService.signOut();
       // Navigation handled automatically by auth state in app.dart
@@ -58,12 +67,29 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
+  void _navigateToMileage(BuildContext context) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(builder: (_) => const MileageScreen()),
+    );
+  }
+
+  void _navigateToUserManagement(BuildContext context) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(builder: (_) => const UserManagementScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Watch profile to determine if user is a manager
+    // Watch profile to determine if user is a manager or admin
     final profileAsync = ref.watch(currentProfileProvider);
     final isManager = profileAsync.when(
       data: (profile) => profile?.isManager ?? false,
+      loading: () => false,
+      error: (_, __) => false,
+    );
+    final isAdmin = profileAsync.when(
+      data: (profile) => profile?.isAdmin ?? false,
       loading: () => false,
       error: (_, __) => false,
     );
@@ -74,24 +100,54 @@ class HomeScreen extends ConsumerWidget {
         onSignOut: () => _handleSignOut(context, ref),
         onProfile: () => _navigateToProfile(context),
         onHistory: () => _navigateToHistory(context),
+        onMileage: () => _navigateToMileage(context),
         onEmployeeHistory: () => _navigateToEmployeeHistory(context),
+        onUserManagement: () => _navigateToUserManagement(context),
+        isAdmin: isAdmin,
       );
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(AppConstants.appName),
+        title: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 36, maxWidth: 160),
+          child: Image.asset(
+            'assets/images/logo.png',
+            fit: BoxFit.contain,
+          ),
+        ),
         centerTitle: true,
+        backgroundColor: Colors.white,
+        elevation: 0,
+        surfaceTintColor: Colors.white,
+        shadowColor: Colors.black.withValues(alpha: 0.1),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1.0),
+          child: Container(
+            height: 1.0,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Color(0xFFD11848), // TriLogis Red
+                  Color(0xFFBA8041), // TriLogis Gold
+                ],
+              ),
+            ),
+          ),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.history),
-            tooltip: 'Shift History',
+            tooltip: 'Historique des quarts',
             onPressed: () => _navigateToHistory(context),
           ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (value) {
               switch (value) {
+                case 'mileage':
+                  _navigateToMileage(context);
+                  break;
                 case 'profile':
                   _navigateToProfile(context);
                   break;
@@ -102,12 +158,22 @@ class HomeScreen extends ConsumerWidget {
             },
             itemBuilder: (context) => [
               const PopupMenuItem(
+                value: 'mileage',
+                child: Row(
+                  children: [
+                    Icon(Icons.directions_car_outlined),
+                    SizedBox(width: 12),
+                    Text('Kilométrage'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
                 value: 'profile',
                 child: Row(
                   children: [
                     Icon(Icons.person_outline),
                     SizedBox(width: 12),
-                    Text('Profile'),
+                    Text('Profil'),
                   ],
                 ),
               ),
@@ -118,7 +184,7 @@ class HomeScreen extends ConsumerWidget {
                   children: [
                     Icon(Icons.logout),
                     SizedBox(width: 12),
-                    Text('Sign Out'),
+                    Text('Déconnexion'),
                   ],
                 ),
               ),
@@ -136,13 +202,19 @@ class _ManagerHomeScreen extends StatelessWidget {
   final VoidCallback onSignOut;
   final VoidCallback onProfile;
   final VoidCallback onHistory;
+  final VoidCallback onMileage;
   final VoidCallback onEmployeeHistory;
+  final VoidCallback onUserManagement;
+  final bool isAdmin;
 
   const _ManagerHomeScreen({
     required this.onSignOut,
     required this.onProfile,
     required this.onHistory,
+    required this.onMileage,
     required this.onEmployeeHistory,
+    required this.onUserManagement,
+    required this.isAdmin,
   });
 
   @override
@@ -151,23 +223,37 @@ class _ManagerHomeScreen extends StatelessWidget {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text(AppConstants.appName),
+          title: Image.asset(
+            'assets/images/logo.png',
+            height: 40,
+            fit: BoxFit.contain,
+          ),
           centerTitle: true,
+          backgroundColor: Colors.white,
+          elevation: 0,
+          surfaceTintColor: Colors.white,
+          shadowColor: Colors.black.withValues(alpha: 0.1),
           actions: [
             IconButton(
               icon: const Icon(Icons.history),
-              tooltip: 'Shift History',
+              tooltip: 'Historique des quarts',
               onPressed: onHistory,
             ),
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert),
               onSelected: (value) {
                 switch (value) {
+                  case 'mileage':
+                    onMileage();
+                    break;
                   case 'profile':
                     onProfile();
                     break;
                   case 'employee_history':
                     onEmployeeHistory();
+                    break;
+                  case 'user_management':
+                    onUserManagement();
                     break;
                   case 'signout':
                     onSignOut();
@@ -176,12 +262,22 @@ class _ManagerHomeScreen extends StatelessWidget {
               },
               itemBuilder: (context) => [
                 const PopupMenuItem(
+                  value: 'mileage',
+                  child: Row(
+                    children: [
+                      Icon(Icons.directions_car_outlined),
+                      SizedBox(width: 12),
+                      Text('Kilométrage'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
                   value: 'profile',
                   child: Row(
                     children: [
                       Icon(Icons.person_outline),
                       SizedBox(width: 12),
-                      Text('Profile'),
+                      Text('Profil'),
                     ],
                   ),
                 ),
@@ -191,10 +287,21 @@ class _ManagerHomeScreen extends StatelessWidget {
                     children: [
                       Icon(Icons.groups),
                       SizedBox(width: 12),
-                      Text('Employee History'),
+                      Text('Historique employés'),
                     ],
                   ),
                 ),
+                if (isAdmin)
+                  const PopupMenuItem(
+                    value: 'user_management',
+                    child: Row(
+                      children: [
+                        Icon(Icons.admin_panel_settings),
+                        SizedBox(width: 12),
+                        Text('Gestion des utilisateurs'),
+                      ],
+                    ),
+                  ),
                 const PopupMenuDivider(),
                 const PopupMenuItem(
                   value: 'signout',
@@ -202,22 +309,25 @@ class _ManagerHomeScreen extends StatelessWidget {
                     children: [
                       Icon(Icons.logout),
                       SizedBox(width: 12),
-                      Text('Sign Out'),
+                      Text('Déconnexion'),
                     ],
                   ),
                 ),
               ],
             ),
           ],
-          bottom: const TabBar(
-            tabs: [
+          bottom: TabBar(
+            indicatorColor: const Color(0xFFD11848), // TriLogis Red
+            labelColor: const Color(0xFFD11848),
+            unselectedLabelColor: Colors.grey,
+            tabs: const [
               Tab(
                 icon: Icon(Icons.person),
-                text: 'My Dashboard',
+                text: 'Mon tableau de bord',
               ),
               Tab(
                 icon: Icon(Icons.groups),
-                text: 'Team',
+                text: 'Équipe',
               ),
             ],
           ),

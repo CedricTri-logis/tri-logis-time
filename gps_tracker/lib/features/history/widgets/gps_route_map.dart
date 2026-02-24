@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../../shared/utils/timezone_formatter.dart';
+import '../screens/fullscreen_map_screen.dart';
 import '../services/history_service.dart';
 
 /// Widget that displays GPS route on a Google Map
@@ -35,6 +36,12 @@ class GpsRouteMap extends StatefulWidget {
   /// Height of the map widget
   final double? height;
 
+  /// Whether to show the fullscreen button
+  final bool showFullscreenButton;
+
+  /// Title for the fullscreen view
+  final String? shiftTitle;
+
   const GpsRouteMap({
     super.key,
     required this.gpsPoints,
@@ -46,6 +53,8 @@ class GpsRouteMap extends StatefulWidget {
     this.initialPosition,
     this.interactive = true,
     this.height,
+    this.showFullscreenButton = true,
+    this.shiftTitle,
   });
 
   @override
@@ -57,6 +66,7 @@ class _GpsRouteMapState extends State<GpsRouteMap> {
   Set<Marker> _markers = {};
   Set<Polyline> _polylines = {};
   GpsPointData? _selectedPoint;
+  MapType _mapType = MapType.normal;
 
   @override
   void initState() {
@@ -86,7 +96,7 @@ class _GpsRouteMapState extends State<GpsRouteMap> {
           position: widget.clockInLocation!,
           icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
           infoWindow: InfoWindow(
-            title: 'Clock In',
+            title: 'Pointage',
             snippet: widget.clockedInAt != null
                 ? TimezoneFormatter.formatDateTimeWithTz(widget.clockedInAt!)
                 : null,
@@ -110,7 +120,7 @@ class _GpsRouteMapState extends State<GpsRouteMap> {
             position: position,
             icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
             infoWindow: InfoWindow(
-              title: 'GPS Point ${i + 1}',
+              title: 'Point GPS ${i + 1}',
               snippet: TimezoneFormatter.formatTimeWithSecondsTz(point.capturedAt),
             ),
             onTap: () {
@@ -130,7 +140,7 @@ class _GpsRouteMapState extends State<GpsRouteMap> {
           position: widget.clockOutLocation!,
           icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
           infoWindow: InfoWindow(
-            title: 'Clock Out',
+            title: 'Dépointage',
             snippet: widget.clockedOutAt != null
                 ? TimezoneFormatter.formatDateTimeWithTz(widget.clockedOutAt!)
                 : null,
@@ -215,6 +225,21 @@ class _GpsRouteMapState extends State<GpsRouteMap> {
     }
   }
 
+  void _openFullscreen(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => FullscreenMapScreen(
+          gpsPoints: widget.gpsPoints,
+          clockInLocation: widget.clockInLocation,
+          clockOutLocation: widget.clockOutLocation,
+          clockedInAt: widget.clockedInAt,
+          clockedOutAt: widget.clockedOutAt,
+          shiftTitle: widget.shiftTitle,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -240,7 +265,7 @@ class _GpsRouteMapState extends State<GpsRouteMap> {
               ),
               const SizedBox(height: 16),
               Text(
-                'No GPS data available',
+                'Aucune donnée GPS disponible',
                 style: theme.textTheme.bodyLarge?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -258,25 +283,90 @@ class _GpsRouteMapState extends State<GpsRouteMap> {
           borderRadius: BorderRadius.circular(12),
           child: SizedBox(
             height: widget.height ?? 300,
-            child: GoogleMap(
-              initialCameraPosition: CameraPosition(
-                target: _getInitialPosition(),
-                zoom: 15,
-              ),
-              markers: _markers,
-              polylines: _polylines,
-              onMapCreated: (controller) {
-                _controller = controller;
-                // Fit to bounds after map is created
-                Future.delayed(const Duration(milliseconds: 300), _fitBounds);
-              },
-              myLocationEnabled: false,
-              myLocationButtonEnabled: false,
-              zoomControlsEnabled: widget.interactive,
-              scrollGesturesEnabled: widget.interactive,
-              zoomGesturesEnabled: widget.interactive,
-              rotateGesturesEnabled: widget.interactive,
-              tiltGesturesEnabled: widget.interactive,
+            child: Stack(
+              children: [
+                GoogleMap(
+                  initialCameraPosition: CameraPosition(
+                    target: _getInitialPosition(),
+                    zoom: 15,
+                  ),
+                  markers: _markers,
+                  polylines: _polylines,
+                  mapType: _mapType,
+                  onMapCreated: (controller) {
+                    _controller = controller;
+                    // Fit to bounds after map is created
+                    Future.delayed(const Duration(milliseconds: 300), _fitBounds);
+                  },
+                  myLocationEnabled: false,
+                  myLocationButtonEnabled: false,
+                  zoomControlsEnabled: false, // Using custom controls
+                  scrollGesturesEnabled: widget.interactive,
+                  zoomGesturesEnabled: widget.interactive,
+                  rotateGesturesEnabled: widget.interactive,
+                  tiltGesturesEnabled: widget.interactive,
+                ),
+                // Custom map controls
+                if (widget.interactive)
+                  Positioned(
+                    right: 8,
+                    top: 8,
+                    child: Column(
+                      children: [
+                        // Satellite toggle
+                        _MapControlButton(
+                          icon: _mapType == MapType.satellite
+                              ? Icons.map
+                              : Icons.satellite_alt,
+                          tooltip: _mapType == MapType.satellite
+                              ? 'Vue normale'
+                              : 'Vue satellite',
+                          onPressed: () {
+                            setState(() {
+                              _mapType = _mapType == MapType.satellite
+                                  ? MapType.normal
+                                  : MapType.satellite;
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        // Zoom in
+                        _MapControlButton(
+                          icon: Icons.add,
+                          tooltip: 'Zoom avant',
+                          onPressed: () {
+                            _controller?.animateCamera(CameraUpdate.zoomIn());
+                          },
+                        ),
+                        const SizedBox(height: 4),
+                        // Zoom out
+                        _MapControlButton(
+                          icon: Icons.remove,
+                          tooltip: 'Zoom arrière',
+                          onPressed: () {
+                            _controller?.animateCamera(CameraUpdate.zoomOut());
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        // Fit bounds
+                        _MapControlButton(
+                          icon: Icons.fit_screen,
+                          tooltip: 'Ajuster le tracé',
+                          onPressed: _fitBounds,
+                        ),
+                        if (widget.showFullscreenButton) ...[
+                          const SizedBox(height: 8),
+                          // Fullscreen
+                          _MapControlButton(
+                            icon: Icons.fullscreen,
+                            tooltip: 'Plein écran',
+                            onPressed: () => _openFullscreen(context),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+              ],
             ),
           ),
         ),
@@ -325,7 +415,7 @@ class _GpsRouteMapState extends State<GpsRouteMap> {
                 ),
                 if (point.accuracy != null)
                   Text(
-                    'Accuracy: ±${point.accuracy!.toStringAsFixed(0)}m',
+                    'Précision : ±${point.accuracy!.toStringAsFixed(0)}m',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onPrimaryContainer,
                     ),
@@ -348,9 +438,9 @@ class _GpsRouteMapState extends State<GpsRouteMap> {
       spacing: 16,
       runSpacing: 8,
       children: [
-        _buildLegendItem(theme, Colors.green, 'Clock In'),
-        _buildLegendItem(theme, Colors.red, 'Clock Out'),
-        _buildLegendItem(theme, Colors.blue, 'GPS Route'),
+        _buildLegendItem(theme, Colors.green, 'Pointage'),
+        _buildLegendItem(theme, Colors.red, 'Dépointage'),
+        _buildLegendItem(theme, Colors.blue, 'Tracé GPS'),
       ],
     );
   }
@@ -375,6 +465,45 @@ class _GpsRouteMapState extends State<GpsRouteMap> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Custom map control button widget
+class _MapControlButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  const _MapControlButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      elevation: 2,
+      borderRadius: BorderRadius.circular(4),
+      color: Colors.white,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(4),
+        child: Tooltip(
+          message: tooltip,
+          child: Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            child: Icon(
+              icon,
+              size: 20,
+              color: Colors.grey[700],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

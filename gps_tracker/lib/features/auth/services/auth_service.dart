@@ -18,8 +18,8 @@ class AuthServiceException implements Exception {
 class AuthService {
   final SupabaseClient _client;
 
-  /// Deep link URL scheme for auth redirects
-  static const String _redirectUrl = 'ca.trilogis.gpstracker://callback';
+  /// Web redirect URL for auth (redirects to deep link)
+  static const String _redirectUrl = 'https://time.trilogis.ca/auth/callback';
 
   AuthService(this._client);
 
@@ -52,7 +52,7 @@ class AuthService {
         code: e.statusCode,
       );
     } catch (e) {
-      throw const AuthServiceException('Sign in failed. Please try again.');
+      throw const AuthServiceException('Connexion échouée. Veuillez réessayer.');
     }
   }
 
@@ -63,12 +63,14 @@ class AuthService {
   Future<AuthResponse> signUp({
     required String email,
     required String password,
+    String? fullName,
   }) async {
     try {
       final response = await _client.auth.signUp(
         email: email.trim().toLowerCase(),
         password: password,
         emailRedirectTo: _redirectUrl,
+        data: fullName != null ? {'full_name': fullName} : null,
       );
       return response;
     } on AuthException catch (e) {
@@ -77,7 +79,7 @@ class AuthService {
         code: e.statusCode,
       );
     } catch (e) {
-      throw const AuthServiceException('Sign up failed. Please try again.');
+      throw const AuthServiceException('Inscription échouée. Veuillez réessayer.');
     }
   }
 
@@ -110,7 +112,7 @@ class AuthService {
         code: e.statusCode,
       );
     } catch (e) {
-      throw const AuthServiceException('Failed to send reset email. Please try again.');
+      throw const AuthServiceException('Impossible d\'envoyer le courriel de réinitialisation. Veuillez réessayer.');
     }
   }
 
@@ -129,7 +131,141 @@ class AuthService {
         code: e.statusCode,
       );
     } catch (e) {
-      throw const AuthServiceException('Failed to update password. Please try again.');
+      throw const AuthServiceException('Impossible de mettre à jour le mot de passe. Veuillez réessayer.');
+    }
+  }
+
+  /// Send an OTP code via SMS to the given phone number
+  Future<void> sendOtp({required String phone}) async {
+    try {
+      await _client.auth.signInWithOtp(phone: phone);
+    } on AuthException catch (e) {
+      throw AuthServiceException(
+        _mapAuthErrorToMessage(e.message),
+        code: e.statusCode,
+      );
+    } catch (e) {
+      throw const AuthServiceException(
+        'Impossible d\'envoyer le code. Veuillez reessayer.',
+      );
+    }
+  }
+
+  /// Verify an SMS OTP code and sign in
+  Future<AuthResponse> verifyOtp({
+    required String phone,
+    required String token,
+  }) async {
+    try {
+      final response = await _client.auth.verifyOTP(
+        phone: phone,
+        token: token,
+        type: OtpType.sms,
+      );
+      return response;
+    } on AuthException catch (e) {
+      throw AuthServiceException(
+        _mapAuthErrorToMessage(e.message),
+        code: e.statusCode,
+      );
+    } catch (e) {
+      throw const AuthServiceException(
+        'Verification echouee. Veuillez reessayer.',
+      );
+    }
+  }
+
+  /// Restore a session from saved tokens (for biometric login)
+  Future<AuthResponse> restoreSession({
+    required String refreshToken,
+  }) async {
+    try {
+      final response = await _client.auth.setSession(refreshToken);
+      return response;
+    } on AuthException catch (e) {
+      throw AuthServiceException(
+        _mapAuthErrorToMessage(e.message),
+        code: e.statusCode,
+      );
+    } catch (e) {
+      throw const AuthServiceException(
+        'Session expiree. Reconnectez-vous.',
+      );
+    }
+  }
+
+  /// Register a phone number on the current user's auth account
+  /// (triggers phone verification OTP)
+  Future<void> registerPhone({required String phone}) async {
+    try {
+      await _client.auth.updateUser(
+        UserAttributes(phone: phone),
+      );
+    } on AuthException catch (e) {
+      throw AuthServiceException(
+        _mapAuthErrorToMessage(e.message),
+        code: e.statusCode,
+      );
+    } catch (e) {
+      throw const AuthServiceException(
+        'Impossible d\'enregistrer le telephone. Veuillez reessayer.',
+      );
+    }
+  }
+
+  /// Verify a phone change OTP (after registerPhone)
+  Future<AuthResponse> verifyPhoneChange({
+    required String phone,
+    required String token,
+  }) async {
+    try {
+      final response = await _client.auth.verifyOTP(
+        phone: phone,
+        token: token,
+        type: OtpType.phoneChange,
+      );
+      return response;
+    } on AuthException catch (e) {
+      throw AuthServiceException(
+        _mapAuthErrorToMessage(e.message),
+        code: e.statusCode,
+      );
+    } catch (e) {
+      throw const AuthServiceException(
+        'Verification echouee. Veuillez reessayer.',
+      );
+    }
+  }
+
+  /// Save phone number to employee_profiles via RPC
+  Future<void> savePhoneToProfile({required String phone}) async {
+    try {
+      await _client.rpc<void>('register_phone_number', params: {'p_phone': phone});
+    } catch (e) {
+      final msg = e.toString().toLowerCase();
+      if (msg.contains('unique_violation') || msg.contains('deja associe')) {
+        throw const AuthServiceException(
+          'Ce numero est deja associe a un autre employe.',
+        );
+      }
+      if (msg.contains('check_violation') || msg.contains('format invalide')) {
+        throw const AuthServiceException(
+          'Format de numero invalide. Utilisez le format +1XXXXXXXXXX.',
+        );
+      }
+      throw const AuthServiceException(
+        'Impossible de sauvegarder le numero. Veuillez reessayer.',
+      );
+    }
+  }
+
+  /// Check if the current user has a phone number registered
+  Future<bool> isPhoneRegistered() async {
+    try {
+      final result = await _client.rpc<bool>('check_phone_registered');
+      return result == true;
+    } catch (e) {
+      return false;
     }
   }
 
@@ -150,32 +286,58 @@ class AuthService {
 
     if (lowerError.contains('invalid') && lowerError.contains('credentials') ||
         lowerError.contains('invalid login credentials')) {
-      return 'Invalid email or password';
+      return 'Courriel ou mot de passe invalide';
     }
     if (lowerError.contains('email not confirmed') ||
         lowerError.contains('email_not_confirmed')) {
-      return 'Please verify your email first';
+      return 'Veuillez d\'abord vérifier votre courriel';
     }
     if (lowerError.contains('already registered') ||
         lowerError.contains('email_exists') ||
         lowerError.contains('user already registered')) {
-      return 'An account with this email already exists';
+      return 'Un compte avec ce courriel existe déjà';
     }
     if (lowerError.contains('weak password') ||
         lowerError.contains('weak_password')) {
-      return 'Password must be at least 8 characters';
+      return 'Le mot de passe doit contenir au moins 8 caractères';
     }
     if (lowerError.contains('rate limit') ||
         lowerError.contains('over_request_rate_limit') ||
         lowerError.contains('over_email_send_rate_limit')) {
-      return 'Too many attempts. Please wait a few minutes.';
+      return 'Trop de tentatives. Veuillez patienter quelques minutes.';
     }
     if (lowerError.contains('same password') ||
         lowerError.contains('same_password')) {
-      return 'New password must be different from current password';
+      return 'Le nouveau mot de passe doit être différent de l\'ancien';
     }
     if (lowerError.contains('network') || lowerError.contains('connection')) {
-      return 'Network error. Please check your connection.';
+      return 'Erreur réseau. Vérifiez votre connexion.';
+    }
+    // SMS provider / Twilio errors (must be checked BEFORE OTP errors)
+    if (lowerError.contains('sms_send_failed') ||
+        lowerError.contains('error sending') && lowerError.contains('otp to provider')) {
+      return 'Impossible d\'envoyer le SMS. Veuillez reessayer.';
+    }
+    // SMS OTP errors
+    if (lowerError.contains('otp_expired') ||
+        lowerError.contains('token has expired')) {
+      return 'Code expire. Demandez un nouveau code.';
+    }
+    if (lowerError.contains('otp_disabled')) {
+      return 'La verification par SMS n\'est pas activee.';
+    }
+    if (lowerError.contains('invalid_otp') ||
+        lowerError.contains('token is invalid') ||
+        lowerError.contains('otp is invalid')) {
+      return 'Code invalide. Veuillez verifier.';
+    }
+    if (lowerError.contains('over_sms_send_rate_limit') ||
+        lowerError.contains('sms send rate')) {
+      return 'Trop de SMS. Attendez 30 secondes.';
+    }
+    if (lowerError.contains('phone') && lowerError.contains('not found') ||
+        lowerError.contains('user not found')) {
+      return 'Aucun compte associe a ce numero.';
     }
 
     // Return original message if no mapping found

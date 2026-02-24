@@ -18,10 +18,10 @@ class ShiftStatusCard extends ConsumerWidget {
 
   String _formatDate(DateTime dateTime) {
     final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'jan', 'fév', 'mar', 'avr', 'mai', 'juin',
+      'juil', 'août', 'sep', 'oct', 'nov', 'déc'
     ];
-    return '${months[dateTime.month - 1]} ${dateTime.day}, ${dateTime.year}';
+    return '${dateTime.day} ${months[dateTime.month - 1]} ${dateTime.year}';
   }
 
   @override
@@ -51,14 +51,14 @@ class ShiftStatusCard extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'Ready to Start',
+              'Prêt à commencer',
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Tap the button below to clock in',
+              'Appuyez sur le bouton pour débuter',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -104,7 +104,7 @@ class ShiftStatusCard extends ConsumerWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Shift Active',
+                      'Quart actif',
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: Colors.green,
@@ -121,7 +121,7 @@ class ShiftStatusCard extends ConsumerWidget {
                 Expanded(
                   child: _InfoItem(
                     icon: Icons.login,
-                    label: 'Clocked In',
+                    label: 'Pointé à',
                     value: _formatTime(localTime),
                   ),
                 ),
@@ -145,7 +145,7 @@ class ShiftStatusCard extends ConsumerWidget {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    'Location captured',
+                    'Position enregistrée',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),

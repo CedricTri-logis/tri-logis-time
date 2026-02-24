@@ -11,7 +11,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>GPS Tracker</string>
+	<string>Tri-Logis Time</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -31,9 +31,9 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>GPS Clock-In Tracker needs continuous access to your location to track your work shifts even when the app is in the background.</string>
+	<string>Tri-Logis Time uses your location to automatically track work trips for mileage reimbursement and to record your work location during shifts.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>GPS Clock-In Tracker needs your location to track your work shifts.</string>
+	<string>Tri-Logis Time uses your location to track work trips for mileage reimbursement and record your work shifts.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIBackgroundModes</key>
@@ -58,6 +58,14 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Utilisez Face ID pour vous connecter rapidement sans entrer votre mot de passe.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Camera access is needed to scan QR codes for room check-in and check-out.</string>
+	<key>GOOGLE_MAPS_API_KEY</key>
+	<string>$(GOOGLE_MAPS_API_KEY)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
 	<!-- Deep Link URL Scheme for Supabase Auth -->

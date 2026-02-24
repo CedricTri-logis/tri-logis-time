@@ -31,6 +31,7 @@ class EmployeeProfile {
   final String email;
   final String? fullName;
   final String? employeeId;
+  final String? phoneNumber;
   final EmployeeStatus status;
   final UserRole role;
   final DateTime? privacyConsentAt;
@@ -46,6 +47,7 @@ class EmployeeProfile {
     required this.updatedAt,
     this.fullName,
     this.employeeId,
+    this.phoneNumber,
     this.privacyConsentAt,
   });
 
@@ -55,6 +57,7 @@ class EmployeeProfile {
       email: json['email'] as String,
       fullName: json['full_name'] as String?,
       employeeId: json['employee_id'] as String?,
+      phoneNumber: json['phone_number'] as String?,
       status: EmployeeStatus.fromString(json['status'] as String),
       role: UserRole.fromString(json['role'] as String? ?? 'employee'),
       privacyConsentAt: json['privacy_consent_at'] != null
@@ -71,6 +74,7 @@ class EmployeeProfile {
       'email': email,
       'full_name': fullName,
       'employee_id': employeeId,
+      'phone_number': phoneNumber,
       'status': status.value,
       'role': role.value,
       'privacy_consent_at': privacyConsentAt?.toIso8601String(),
@@ -82,6 +86,7 @@ class EmployeeProfile {
   EmployeeProfile copyWith({
     String? fullName,
     String? employeeId,
+    String? phoneNumber,
     EmployeeStatus? status,
     UserRole? role,
     DateTime? privacyConsentAt,
@@ -91,6 +96,7 @@ class EmployeeProfile {
       email: email,
       fullName: fullName ?? this.fullName,
       employeeId: employeeId ?? this.employeeId,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
       status: status ?? this.status,
       role: role ?? this.role,
       privacyConsentAt: privacyConsentAt ?? this.privacyConsentAt,
@@ -98,6 +104,9 @@ class EmployeeProfile {
       updatedAt: DateTime.now(),
     );
   }
+
+  /// Whether the user has a phone number registered
+  bool get hasPhoneNumber => phoneNumber != null && phoneNumber!.isNotEmpty;
 
   /// Whether the user has given privacy consent
   bool get hasPrivacyConsent => privacyConsentAt != null;
@@ -119,6 +128,7 @@ class EmployeeProfile {
         other.email == email &&
         other.fullName == fullName &&
         other.employeeId == employeeId &&
+        other.phoneNumber == phoneNumber &&
         other.status == status &&
         other.role == role &&
         other.privacyConsentAt == privacyConsentAt &&
@@ -133,6 +143,7 @@ class EmployeeProfile {
       email,
       fullName,
       employeeId,
+      phoneNumber,
       status,
       role,
       privacyConsentAt,

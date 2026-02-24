@@ -62,14 +62,14 @@ class PermissionGuardWrapper extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'Location Permission Required',
+              'Permission de localisation requise',
               style: theme.textTheme.titleLarge,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
-              'This feature requires location permission to function. '
-              'Please grant location access to continue.',
+              'Cette fonctionnalité nécessite la permission de localisation. '
+              "Veuillez accorder l'accès à la localisation pour continuer.",
               style: theme.textTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),
@@ -81,7 +81,7 @@ class PermissionGuardWrapper extends ConsumerWidget {
                     .requestPermission();
               },
               icon: const Icon(Icons.location_on),
-              label: const Text('Grant Permission'),
+              label: const Text('Accorder la permission'),
             ),
           ],
         ),
@@ -103,7 +103,7 @@ class PermissionGuardWrapper extends ConsumerWidget {
             SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Limited permission may affect functionality',
+                'La permission limitée peut affecter la fonctionnalité',
                 style: TextStyle(color: Colors.white),
               ),
             ),

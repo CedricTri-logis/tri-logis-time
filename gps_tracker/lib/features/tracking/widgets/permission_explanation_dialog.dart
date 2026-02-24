@@ -49,8 +49,8 @@ class PermissionExplanationDialog extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             forBackgroundPermission
-                ? 'Background Location'
-                : 'Location Permission',
+                ? 'Localisation en arrière-plan'
+                : 'Permission de localisation',
           ),
         ],
       ),
@@ -60,27 +60,27 @@ class PermissionExplanationDialog extends StatelessWidget {
         children: [
           Text(
             forBackgroundPermission
-                ? 'To track your location during shifts (even when the app is in the background), we need "Always" location permission.'
-                : 'GPS Clock-In Tracker needs your location to record where you clock in and out.',
+                ? "Pour suivre votre position pendant les quarts (même quand l'application est en arrière-plan), nous avons besoin de la permission « Toujours »."
+                : 'Tri-Logis Time a besoin de votre position pour enregistrer vos pointages.',
             style: theme.textTheme.bodyMedium,
           ),
           const SizedBox(height: 16),
           _buildInfoRow(
             context,
             icon: Icons.work,
-            text: 'Location is only tracked during active shifts',
+            text: "La localisation n'est suivie que pendant les quarts actifs",
           ),
           const SizedBox(height: 8),
           _buildInfoRow(
             context,
             icon: Icons.lock,
-            text: 'Your location data is encrypted and secure',
+            text: 'Vos données de localisation sont chiffrées et sécurisées',
           ),
           const SizedBox(height: 8),
           _buildInfoRow(
             context,
             icon: Icons.stop_circle,
-            text: 'Tracking stops automatically when you clock out',
+            text: "Le suivi s'arrête automatiquement au dépointage",
           ),
           if (forBackgroundPermission) ...[
             const SizedBox(height: 16),
@@ -95,8 +95,8 @@ class PermissionExplanationDialog extends StatelessWidget {
                 children: [
                   Text(
                     Platform.isIOS
-                        ? 'When prompted, select "Always Allow"'
-                        : 'When prompted, select "Allow all the time"',
+                        ? 'Lorsque demandé, sélectionnez « Toujours autoriser »'
+                        : 'Lorsque demandé, sélectionnez « Autoriser en permanence »',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w500,
                     ),
@@ -113,14 +113,14 @@ class PermissionExplanationDialog extends StatelessWidget {
             onCancel?.call();
             Navigator.of(context).pop(false);
           },
-          child: const Text('Not Now'),
+          child: const Text('Plus tard'),
         ),
         FilledButton(
           onPressed: () {
             onContinue?.call();
             Navigator.of(context).pop(true);
           },
-          child: const Text('Continue'),
+          child: const Text('Continuer'),
         ),
       ],
     );

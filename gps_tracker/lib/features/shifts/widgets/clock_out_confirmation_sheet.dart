@@ -41,14 +41,14 @@ class ClockOutConfirmationSheet extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'Clock Out?',
+            'Dépointage ?',
             style: theme.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Current shift duration',
+            'Durée du quart actuel',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -67,7 +67,7 @@ class ClockOutConfirmationSheet extends StatelessWidget {
               Expanded(
                 child: OutlinedButton(
                   onPressed: () => Navigator.of(context).pop(false),
-                  child: const Text('Cancel'),
+                  child: const Text('Annuler'),
                 ),
               ),
               const SizedBox(width: 16),
@@ -77,7 +77,7 @@ class ClockOutConfirmationSheet extends StatelessWidget {
                   style: FilledButton.styleFrom(
                     backgroundColor: theme.colorScheme.error,
                   ),
-                  child: const Text('Clock Out'),
+                  child: const Text('Dépointer'),
                 ),
               ),
             ],

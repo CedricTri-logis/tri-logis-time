@@ -160,11 +160,11 @@ CREATE POLICY "Managers can view all shifts"
 
 ### Success Criteria
 
-- [ ] Next.js project builds and runs
-- [ ] Refine connects to Supabase
-- [ ] Manager can log in
-- [ ] Basic layout renders (sidebar, header)
-- [ ] TypeScript types match database schema
+- [x] Next.js project builds and runs
+- [x] Refine connects to Supabase
+- [x] Manager can log in
+- [x] Basic layout renders (sidebar, header)
+- [x] TypeScript types match database schema
 
 ### Checkpoint
 
@@ -283,11 +283,11 @@ const { tableProps } = useTable<Employee>({
 
 ### Success Criteria
 
-- [ ] Employee list displays with Refine useTable
-- [ ] Real-time status updates when employee clocks in/out
-- [ ] Search filters employees by name
-- [ ] Employee detail page shows profile info
-- [ ] Accessibility: keyboard navigation works
+- [x] Employee list displays with Refine useTable
+- [x] Real-time status updates when employee clocks in/out
+- [x] Search filters employees by name
+- [x] Employee detail page shows profile info
+- [x] Accessibility: keyboard navigation works
 
 ### Checkpoint
 
@@ -406,12 +406,12 @@ const { tableProps, filters, setFilters } = useTable<Shift>({
 
 ### Success Criteria
 
-- [ ] Active shifts display with real-time updates
-- [ ] Shift history loads with pagination
-- [ ] Date range filter works correctly
-- [ ] Employee filter works correctly
-- [ ] GPS point count shows for each shift
-- [ ] Shift detail page shows full info
+- [x] Active shifts display with real-time updates
+- [x] Shift history loads with pagination
+- [x] Date range filter works correctly
+- [x] Employee filter works correctly
+- [x] GPS point count shows for each shift
+- [x] Shift detail page shows full info
 
 ### Checkpoint
 
@@ -506,11 +506,11 @@ const ShiftMap = ({ gpsPoints }: { gpsPoints: GpsPoint[] }) => {
 
 ### Success Criteria
 
-- [ ] Map displays GPS points for a shift
-- [ ] Trail line connects points chronologically
-- [ ] Clicking a point shows timestamp
-- [ ] Map auto-zooms to fit all points
-- [ ] Timeline slider highlights points
+- [x] Map displays GPS points for a shift
+- [x] Trail line connects points chronologically
+- [x] Clicking a point shows timestamp
+- [x] Map auto-zooms to fit all points
+- [x] Timeline slider highlights points
 
 ### Checkpoint
 
@@ -590,11 +590,11 @@ const exportToCSV = (shifts: Shift[]) => {
 
 ### Success Criteria
 
-- [ ] Hours report generates for date range
-- [ ] Report shows total hours per employee
-- [ ] CSV export downloads correctly
-- [ ] Exported data matches displayed data
-- [ ] Export includes all filtered shifts
+- [x] Hours report generates for date range
+- [x] Report shows total hours per employee
+- [x] CSV export downloads correctly
+- [x] Exported data matches displayed data
+- [x] Export includes all filtered shifts
 
 ### Checkpoint
 

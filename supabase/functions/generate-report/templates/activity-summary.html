@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Team Activity Summary</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        font-size: 11px;
+        line-height: 1.4;
+        color: #1e293b;
+        background: #ffffff;
+      }
+
+      .container {
+        max-width: 100%;
+        padding: 25px 30px;
+      }
+
+      .header {
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 3px solid #0f172a;
+      }
+
+      .header-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+      }
+
+      .header h1 {
+        font-size: 24px;
+        font-weight: 700;
+        color: #0f172a;
+      }
+
+      .header .subtitle {
+        font-size: 12px;
+        color: #64748b;
+        margin-top: 3px;
+      }
+
+      .header .logo {
+        font-size: 12px;
+        font-weight: 600;
+        color: #64748b;
+      }
+
+      .meta {
+        display: flex;
+        gap: 30px;
+        margin-bottom: 25px;
+        padding: 12px 15px;
+        background: #f8fafc;
+        border-radius: 6px;
+        border: 1px solid #e2e8f0;
+      }
+
+      .meta-item .label {
+        font-size: 9px;
+        font-weight: 600;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+      }
+
+      .meta-item .value {
+        font-size: 12px;
+        font-weight: 500;
+        color: #0f172a;
+      }
+
+      /* Key Metrics */
+      .metrics {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 15px;
+        margin-bottom: 30px;
+      }
+
+      .metric-card {
+        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        border-radius: 8px;
+        padding: 20px;
+        text-align: center;
+        border: 1px solid #bae6fd;
+      }
+
+      .metric-card .value {
+        font-size: 32px;
+        font-weight: 700;
+        color: #0c4a6e;
+        line-height: 1.1;
+      }
+
+      .metric-card .label {
+        font-size: 11px;
+        font-weight: 500;
+        color: #0369a1;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        margin-top: 8px;
+      }
+
+      /* Day-of-Week Breakdown */
+      .section {
+        margin-bottom: 30px;
+      }
+
+      .section-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: #0f172a;
+        margin-bottom: 15px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid #e2e8f0;
+      }
+
+      .day-chart {
+        display: flex;
+        gap: 10px;
+        align-items: flex-end;
+        height: 150px;
+        padding: 10px;
+        background: #f8fafc;
+        border-radius: 6px;
+      }
+
+      .day-bar {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .day-bar .bar {
+        width: 100%;
+        background: linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%);
+        border-radius: 4px 4px 0 0;
+        min-height: 2px;
+      }
+
+      .day-bar .value {
+        font-size: 10px;
+        font-weight: 600;
+        color: #0f172a;
+        margin-bottom: 5px;
+      }
+
+      .day-bar .label {
+        font-size: 10px;
+        color: #64748b;
+        margin-top: 8px;
+        font-weight: 500;
+      }
+
+      /* Summary Table */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11px;
+      }
+
+      thead {
+        background: #f1f5f9;
+      }
+
+      th {
+        padding: 10px 12px;
+        text-align: left;
+        font-weight: 600;
+        color: #475569;
+        text-transform: uppercase;
+        font-size: 9px;
+        letter-spacing: 0.3px;
+        border-bottom: 2px solid #cbd5e1;
+      }
+
+      td {
+        padding: 10px 12px;
+        border-bottom: 1px solid #e2e8f0;
+        color: #334155;
+      }
+
+      tr:nth-child(even) {
+        background: #f8fafc;
+      }
+
+      .highlight {
+        font-weight: 600;
+        color: #0f172a;
+      }
+
+      /* Footer */
+      .footer {
+        margin-top: 30px;
+        padding-top: 15px;
+        border-top: 1px solid #e2e8f0;
+        text-align: center;
+        color: #94a3b8;
+        font-size: 9px;
+      }
+
+      @media print {
+        body {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+      }
+
+      @page {
+        size: A4;
+        margin: 15mm;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <div class="header-top">
+          <div>
+            <h1>Team Activity Summary</h1>
+            <div class="subtitle">Aggregate Metrics and Trends</div>
+          </div>
+          <div class="logo">GPS Tracker</div>
+        </div>
+      </div>
+
+      <div class="meta">
+        <div class="meta-item">
+          <div class="label">Period</div>
+          <div class="value">{{DATE_RANGE}}</div>
+        </div>
+        <div class="meta-item">
+          <div class="label">Generated</div>
+          <div class="value">{{GENERATED_AT}}</div>
+        </div>
+        <div class="meta-item">
+          <div class="label">Team</div>
+          <div class="value">{{TEAM_NAME}}</div>
+        </div>
+      </div>
+
+      <!-- Key Metrics -->
+      <div class="metrics">
+        <div class="metric-card">
+          <div class="value">{{TOTAL_HOURS}}</div>
+          <div class="label">Total Hours</div>
+        </div>
+        <div class="metric-card">
+          <div class="value">{{TOTAL_SHIFTS}}</div>
+          <div class="label">Total Shifts</div>
+        </div>
+        <div class="metric-card">
+          <div class="value">{{ACTIVE_EMPLOYEES}}</div>
+          <div class="label">Active Employees</div>
+        </div>
+        <div class="metric-card">
+          <div class="value">{{AVG_HOURS}}</div>
+          <div class="label">Avg Hours/Employee</div>
+        </div>
+      </div>
+
+      <!-- Day-of-Week Breakdown -->
+      <div class="section">
+        <div class="section-title">Hours by Day of Week</div>
+        <div class="day-chart">
+          {{DAY_BARS}}
+        </div>
+      </div>
+
+      <!-- Details Table -->
+      <div class="section">
+        <div class="section-title">Detailed Breakdown</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Metric</th>
+              <th>Value</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Total Hours Worked</td>
+              <td class="highlight">{{TOTAL_HOURS}} hours</td>
+              <td>Sum of all completed shift hours</td>
+            </tr>
+            <tr>
+              <td>Total Shifts Completed</td>
+              <td class="highlight">{{TOTAL_SHIFTS}}</td>
+              <td>Number of clocked-out shifts</td>
+            </tr>
+            <tr>
+              <td>Active Employees</td>
+              <td class="highlight">{{ACTIVE_EMPLOYEES}}</td>
+              <td>Employees with at least one shift</td>
+            </tr>
+            <tr>
+              <td>Average Hours per Employee</td>
+              <td class="highlight">{{AVG_HOURS}} hours</td>
+              <td>Total hours / active employees</td>
+            </tr>
+            <tr>
+              <td>Busiest Day</td>
+              <td class="highlight">{{BUSIEST_DAY}}</td>
+              <td>Day with most hours worked</td>
+            </tr>
+            <tr>
+              <td>Slowest Day</td>
+              <td class="highlight">{{SLOWEST_DAY}}</td>
+              <td>Day with fewest hours worked</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="footer">
+        <div class="generated">
+          Generated on {{GENERATED_AT}} by GPS Tracker Management Dashboard
+        </div>
+        <div style="margin-top: 5px; text-transform: uppercase; letter-spacing: 0.5px; color: #cbd5e1;">
+          Confidential - For Management Use Only
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

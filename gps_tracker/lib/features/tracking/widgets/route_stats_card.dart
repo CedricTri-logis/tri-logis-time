@@ -22,7 +22,7 @@ class RouteStatsCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Route Summary',
+              'Résumé du trajet',
               style: theme.textTheme.titleMedium,
             ),
             const SizedBox(height: 16),
@@ -50,14 +50,14 @@ class RouteStatsCard extends StatelessWidget {
                 Expanded(
                   child: _StatItem(
                     icon: Icons.timer,
-                    label: 'Duration',
+                    label: 'Durée',
                     value: stats.formattedDuration,
                   ),
                 ),
                 Expanded(
                   child: _StatItem(
                     icon: Icons.gps_fixed,
-                    label: 'Accuracy',
+                    label: 'Précision',
                     value: '${stats.highAccuracyPercentage.toStringAsFixed(0)}% high',
                     valueColor: stats.highAccuracyPercentage >= 90
                         ? Colors.green

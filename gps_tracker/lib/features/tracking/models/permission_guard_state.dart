@@ -82,12 +82,13 @@ class PermissionGuardState {
   /// Computed: Whether clock-in should be blocked
   bool get shouldBlockClockIn {
     return deviceStatus == DeviceLocationStatus.disabled ||
-        !permission.hasAnyPermission;
+        !permission.hasAnyPermission ||
+        permission.level == LocationPermissionLevel.whileInUse;
   }
 
   /// Computed: Whether clock-in should show warning (but allow proceeding)
   bool get shouldWarnOnClockIn {
-    // "whileInUse" is acceptable - only warn for battery optimization
+    // Warn if battery optimization is enabled (Android)
     return !isBatteryOptimizationDisabled;
   }
 

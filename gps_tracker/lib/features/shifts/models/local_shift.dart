@@ -20,6 +20,7 @@ class LocalShift {
   final DateTime? lastSyncAttempt;
   final String? syncError;
   final String? serverId;
+  final String? clockOutReason;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -40,6 +41,7 @@ class LocalShift {
     this.lastSyncAttempt,
     this.syncError,
     this.serverId,
+    this.clockOutReason,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -62,6 +64,7 @@ class LocalShift {
         'last_sync_attempt': lastSyncAttempt?.toUtc().toIso8601String(),
         'sync_error': syncError,
         'server_id': serverId,
+        'clock_out_reason': clockOutReason,
         'created_at': createdAt.toUtc().toIso8601String(),
         'updated_at': updatedAt.toUtc().toIso8601String(),
       };
@@ -88,6 +91,7 @@ class LocalShift {
             : null,
         syncError: map['sync_error'] as String?,
         serverId: map['server_id'] as String?,
+        clockOutReason: map['clock_out_reason'] as String?,
         createdAt: DateTime.parse(map['created_at'] as String),
         updatedAt: DateTime.parse(map['updated_at'] as String),
       );
@@ -110,6 +114,7 @@ class LocalShift {
             : null,
         clockOutAccuracy: clockOutAccuracy,
         syncStatus: SyncStatus.fromJson(syncStatus),
+        serverId: serverId,
         createdAt: createdAt,
         updatedAt: updatedAt,
       );
@@ -150,6 +155,7 @@ class LocalShift {
     DateTime? lastSyncAttempt,
     String? syncError,
     String? serverId,
+    String? clockOutReason,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) =>
@@ -170,6 +176,7 @@ class LocalShift {
         lastSyncAttempt: lastSyncAttempt ?? this.lastSyncAttempt,
         syncError: syncError ?? this.syncError,
         serverId: serverId ?? this.serverId,
+        clockOutReason: clockOutReason ?? this.clockOutReason,
         createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
       );

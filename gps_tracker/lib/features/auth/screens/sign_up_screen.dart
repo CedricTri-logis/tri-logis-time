@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/providers/supabase_provider.dart';
 import '../../../shared/widgets/error_snackbar.dart';
 import '../services/auth_service.dart';
+import '../services/device_info_service.dart';
 import '../services/validators.dart';
 import '../widgets/auth_button.dart';
 import '../widgets/auth_form_field.dart';
@@ -18,9 +19,13 @@ class SignUpScreen extends ConsumerStatefulWidget {
 
 class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _firstNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _firstNameFocusNode = FocusNode();
+  final _lastNameFocusNode = FocusNode();
   final _emailFocusNode = FocusNode();
   final _passwordFocusNode = FocusNode();
   final _confirmPasswordFocusNode = FocusNode();
@@ -32,9 +37,13 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
   @override
   void dispose() {
+    _firstNameController.dispose();
+    _lastNameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _firstNameFocusNode.dispose();
+    _lastNameFocusNode.dispose();
     _emailFocusNode.dispose();
     _passwordFocusNode.dispose();
     _confirmPasswordFocusNode.dispose();
@@ -51,10 +60,17 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
     try {
       final authService = ref.read(authServiceProvider);
+      final fullName =
+          '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}';
       await authService.signUp(
         email: _emailController.text,
         password: _passwordController.text,
+        fullName: fullName,
       );
+
+      // Sync device info (fire-and-forget)
+      final client = ref.read(supabaseClientProvider);
+      DeviceInfoService(client).syncDeviceInfo();
 
       // Show success state
       if (mounted) {
@@ -96,7 +112,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                 ),
                 const SizedBox(height: 24),
                 Text(
-                  'Check Your Email',
+                  'Vérifiez votre courriel',
                   style: theme.textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -104,7 +120,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'We sent a verification link to:',
+                  'Nous avons envoyé un lien de vérification à :',
                   style: theme.textTheme.bodyLarge,
                   textAlign: TextAlign.center,
                 ),
@@ -125,7 +141,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    'Click the link in your email to verify your account, then return here to sign in.',
+                    'Cliquez sur le lien dans votre courriel pour vérifier votre compte, puis revenez ici pour vous connecter.',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onPrimaryContainer,
                     ),
@@ -134,7 +150,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                 ),
                 const SizedBox(height: 32),
                 AuthButton(
-                  text: 'Back to Sign In',
+                  text: 'Retour à la connexion',
                   onPressed: _navigateToSignIn,
                 ),
               ],
@@ -147,7 +163,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     // Show registration form
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Create Account'),
+        title: const Text('Créer un compte'),
       ),
       body: SafeArea(
         child: Center(
@@ -161,7 +177,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                 children: [
                   // Title
                   Text(
-                    'Get Started',
+                    'Commençons',
                     style: theme.textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -169,13 +185,59 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Create your account to start tracking',
+                    'Créez votre compte pour commencer le suivi',
                     style: theme.textTheme.bodyLarge?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 32),
+
+                  // First name field
+                  AuthFormField(
+                    controller: _firstNameController,
+                    focusNode: _firstNameFocusNode,
+                    label: 'Prénom',
+                    hint: 'Entrez votre prénom',
+                    prefixIcon: Icons.person_outline,
+                    textInputAction: TextInputAction.next,
+                    keyboardType: TextInputType.name,
+                    enabled: !_isLoading,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Le prénom est requis';
+                      }
+                      if (value.trim().length < 2) {
+                        return 'Le prénom doit contenir au moins 2 caractères';
+                      }
+                      return null;
+                    },
+                    onSubmitted: () => _lastNameFocusNode.requestFocus(),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Last name field
+                  AuthFormField(
+                    controller: _lastNameController,
+                    focusNode: _lastNameFocusNode,
+                    label: 'Nom de famille',
+                    hint: 'Entrez votre nom de famille',
+                    prefixIcon: Icons.person_outline,
+                    textInputAction: TextInputAction.next,
+                    keyboardType: TextInputType.name,
+                    enabled: !_isLoading,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Le nom de famille est requis';
+                      }
+                      if (value.trim().length < 2) {
+                        return 'Le nom de famille doit contenir au moins 2 caractères';
+                      }
+                      return null;
+                    },
+                    onSubmitted: () => _emailFocusNode.requestFocus(),
+                  ),
+                  const SizedBox(height: 16),
 
                   // Email field
                   AuthFormField.email(
@@ -204,7 +266,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
                   // Password requirements hint
                   Text(
-                    'Password must be at least 8 characters with letters and numbers',
+                    'Le mot de passe doit contenir au moins 8 caractères avec lettres et chiffres',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -215,8 +277,8 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                   AuthFormField.password(
                     controller: _confirmPasswordController,
                     focusNode: _confirmPasswordFocusNode,
-                    label: 'Confirm Password',
-                    hint: 'Re-enter your password',
+                    label: 'Confirmer le mot de passe',
+                    hint: 'Entrez à nouveau votre mot de passe',
                     obscureText: _obscureConfirmPassword,
                     onToggleVisibility: () {
                       setState(
@@ -234,8 +296,8 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
                   // Sign up button
                   AuthButton(
-                    text: 'Create Account',
-                    loadingText: 'Creating account...',
+                    text: 'Créer le compte',
+                    loadingText: 'Création du compte...',
                     isLoading: _isLoading,
                     onPressed: _handleSignUp,
                   ),
@@ -246,11 +308,11 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        'Already have an account? ',
+                        'Vous avez déjà un compte ? ',
                         style: theme.textTheme.bodyMedium,
                       ),
                       AuthTextButton(
-                        text: 'Sign In',
+                        text: 'Se connecter',
                         onPressed: _isLoading ? null : _navigateToSignIn,
                       ),
                     ],

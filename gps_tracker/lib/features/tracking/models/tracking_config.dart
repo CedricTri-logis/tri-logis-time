@@ -22,9 +22,9 @@ class TrackingConfig {
   final bool adaptivePolling;
 
   const TrackingConfig({
-    this.activeIntervalSeconds = 30, // 30 seconds for TESTING (change back to 300 for production)
-    this.stationaryIntervalSeconds = 60, // 1 minute for TESTING (change back to 600 for production)
-    this.distanceFilterMeters = 10, // 10m movement triggers update
+    this.activeIntervalSeconds = 60, // 1 minute — reliable tracking
+    this.stationaryIntervalSeconds = 300, // 5 minutes when not moving
+    this.distanceFilterMeters = 0, // 0 = continuous updates (filtered by interval logic)
     this.highAccuracyThreshold = 50.0, // SC-003: 95% under 50m
     this.lowAccuracyThreshold = 100.0, // Points over 100m flagged
     this.adaptivePolling = true, // FR-017, FR-018
@@ -35,9 +35,9 @@ class TrackingConfig {
 
   /// Battery-saver configuration with longer intervals.
   static const TrackingConfig batterySaver = TrackingConfig(
-    activeIntervalSeconds: 600, // 10 minutes
-    stationaryIntervalSeconds: 900, // 15 minutes
-    distanceFilterMeters: 20,
+    activeIntervalSeconds: 120, // 2 minutes
+    stationaryIntervalSeconds: 600, // 10 minutes
+    distanceFilterMeters: 10,
   );
 
   TrackingConfig copyWith({
@@ -67,9 +67,9 @@ class TrackingConfig {
       };
 
   factory TrackingConfig.fromJson(Map<String, dynamic> json) => TrackingConfig(
-        activeIntervalSeconds: json['active_interval_seconds'] as int? ?? 300,
-        stationaryIntervalSeconds: json['stationary_interval_seconds'] as int? ?? 600,
-        distanceFilterMeters: json['distance_filter_meters'] as int? ?? 10,
+        activeIntervalSeconds: json['active_interval_seconds'] as int? ?? 60,
+        stationaryIntervalSeconds: json['stationary_interval_seconds'] as int? ?? 300,
+        distanceFilterMeters: json['distance_filter_meters'] as int? ?? 0,
         highAccuracyThreshold: (json['high_accuracy_threshold'] as num?)?.toDouble() ?? 50.0,
         lowAccuracyThreshold: (json['low_accuracy_threshold'] as num?)?.toDouble() ?? 100.0,
         adaptivePolling: json['adaptive_polling'] as bool? ?? true,

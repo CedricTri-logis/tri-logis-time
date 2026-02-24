@@ -10,6 +10,7 @@ import '../services/backoff_strategy.dart';
 import '../services/sync_logger.dart';
 import '../services/sync_service.dart';
 import 'connectivity_provider.dart';
+import 'quarantine_provider.dart';
 import 'shift_provider.dart';
 
 /// Provider for SyncService.
@@ -17,7 +18,10 @@ final syncServiceProvider = Provider<SyncService>((ref) {
   final supabase = ref.watch(supabaseClientProvider);
   final localDb = ref.watch(localDatabaseProvider);
   final shiftService = ref.watch(shiftServiceProvider);
-  return SyncService(supabase, localDb, shiftService);
+  final syncService = SyncService(supabase, localDb, shiftService);
+  // Inject quarantine service for orphaned GPS point handling
+  syncService.setQuarantineService(ref.watch(quarantineServiceProvider));
+  return syncService;
 });
 
 /// Provider for SyncLogger.
@@ -154,8 +158,11 @@ class SyncNotifier extends StateNotifier<SyncState> {
   Timer? _countdownTimer;
   StreamSubscription<SyncProgress>? _progressSub;
 
-  /// Delay before auto-sync on connectivity restore (30 seconds per spec).
-  static const Duration _syncDelay = Duration(seconds: 30);
+  /// Delay before auto-sync on connectivity restore (cautious for flaky networks).
+  static const Duration _connectivityRestoreDelay = Duration(seconds: 30);
+
+  /// Delay before auto-sync when new data arrives (fast response).
+  static const Duration _newDataDelay = Duration(seconds: 5);
 
   /// Backoff strategy instance.
   late ExponentialBackoff _backoff;
@@ -177,6 +184,13 @@ class SyncNotifier extends StateNotifier<SyncState> {
 
     // Subscribe to sync progress from service
     _subscribeToProgress();
+
+    // Auto-sync on startup if there's pending data (e.g. clock-out that
+    // failed to reach the server before the app was killed/updated).
+    // _scheduleSyncWithDelay checks hasPendingData && isConnected before firing.
+    if (state.hasPendingData) {
+      _scheduleSyncWithDelay(delay: const Duration(seconds: 5));
+    }
   }
 
   /// Load sync state from persistence.
@@ -236,7 +250,7 @@ class SyncNotifier extends StateNotifier<SyncState> {
           );
 
       if (isConnected && state.hasPendingData) {
-        _scheduleSyncWithDelay();
+        _scheduleSyncWithDelay(delay: _connectivityRestoreDelay);
       } else if (!isConnected) {
         // Cancel any pending retries when disconnected
         _cancelRetryTimer();
@@ -251,19 +265,21 @@ class SyncNotifier extends StateNotifier<SyncState> {
     });
   }
 
-  /// Schedule sync after connectivity restore (30 second delay per spec).
-  void _scheduleSyncWithDelay() {
+  /// Schedule sync after a delay. Uses [_newDataDelay] by default.
+  void _scheduleSyncWithDelay({Duration? delay}) {
     _cancelRetryTimer();
 
-    _syncRetryTimer = Timer(_syncDelay, () {
+    final effectiveDelay = delay ?? _newDataDelay;
+
+    _syncRetryTimer = Timer(effectiveDelay, () {
       if (state.hasPendingData && state.isConnected) {
         syncPendingData();
       }
     });
 
     _ref.read(syncLoggerProvider).debug(
-      'Sync scheduled after connectivity restore',
-      metadata: {'delay_seconds': _syncDelay.inSeconds},
+      'Sync scheduled',
+      metadata: {'delay_seconds': effectiveDelay.inSeconds},
     );
   }
 
@@ -485,6 +501,10 @@ class SyncNotifier extends StateNotifier<SyncState> {
 
     // Only schedule sync if not already syncing and we have a connection
     if (state.status != SyncStatus.syncing && state.isConnected) {
+      // Don't override active backoff timer — let the retry schedule run
+      if (state.consecutiveFailures > 0 && _syncRetryTimer?.isActive == true) {
+        return;
+      }
       _scheduleSyncWithDelay();
     }
   }

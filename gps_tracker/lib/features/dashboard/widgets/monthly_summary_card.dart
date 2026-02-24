@@ -25,7 +25,7 @@ class MonthlySummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final monthName = DateFormat('MMMM').format(DateTime.now());
+    final monthName = DateFormat('MMMM', 'fr_CA').format(DateTime.now());
 
     return Card(
       elevation: 1,
@@ -68,7 +68,7 @@ class MonthlySummaryCard extends StatelessWidget {
             if (showAverage && stats.hasData) ...[
               const SizedBox(height: 8),
               Text(
-                'Avg: ${stats.formattedAverageDuration}/shift',
+                'Moy. : ${stats.formattedAverageDuration}/quart',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
@@ -82,9 +82,9 @@ class MonthlySummaryCard extends StatelessWidget {
 
   String get _shiftsLabel {
     final count = stats.totalShifts;
-    if (count == 0) return 'No shifts yet';
-    if (count == 1) return '1 shift';
-    return '$count shifts';
+    if (count == 0) return 'Aucun quart pour l\'instant';
+    if (count == 1) return '1 quart';
+    return '$count quarts';
   }
 }
 
@@ -118,7 +118,7 @@ class MonthlySummaryCompact extends StatelessWidget {
         ),
         const SizedBox(width: 4),
         Text(
-          'this month',
+          'ce mois-ci',
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),

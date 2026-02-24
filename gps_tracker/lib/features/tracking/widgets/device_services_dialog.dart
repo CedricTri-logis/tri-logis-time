@@ -27,7 +27,7 @@ class DeviceServicesDialog extends StatelessWidget {
             color: theme.colorScheme.error,
           ),
           const SizedBox(width: 8),
-          const Text('Enable Location Services'),
+          const Text('Activer les services de localisation'),
         ],
       ),
       content: Column(
@@ -35,8 +35,8 @@ class DeviceServicesDialog extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Location services are turned off on your device. GPS Tracker needs '
-            'location services to be enabled to track your work shifts.',
+            'Les services de localisation sont désactivés sur votre appareil. Tri-Logis Time '
+            'a besoin de la localisation pour suivre vos quarts de travail.',
             style: theme.textTheme.bodyMedium,
           ),
           const SizedBox(height: 16),
@@ -50,19 +50,19 @@ class DeviceServicesDialog extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Steps to enable:',
+                  'Étapes pour activer :',
                   style: theme.textTheme.titleSmall,
                 ),
                 const SizedBox(height: 8),
                 if (Platform.isIOS) ...[
-                  _buildStep(context, '1. Open Settings'),
-                  _buildStep(context, '2. Tap Privacy & Security'),
-                  _buildStep(context, '3. Tap Location Services'),
-                  _buildStep(context, '4. Turn on Location Services'),
+                  _buildStep(context, '1. Ouvrir Réglages'),
+                  _buildStep(context, '2. Toucher Confidentialité et sécurité'),
+                  _buildStep(context, '3. Toucher Service de localisation'),
+                  _buildStep(context, '4. Activer le service de localisation'),
                 ] else ...[
-                  _buildStep(context, '1. Tap "Open Settings" below'),
-                  _buildStep(context, '2. Tap Location'),
-                  _buildStep(context, '3. Turn on Location'),
+                  _buildStep(context, '1. Toucher « Ouvrir les paramètres » ci-dessous'),
+                  _buildStep(context, '2. Toucher Localisation'),
+                  _buildStep(context, '3. Activer la localisation'),
                 ],
               ],
             ),
@@ -72,7 +72,7 @@ class DeviceServicesDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Later'),
+          child: const Text('Plus tard'),
         ),
         FilledButton.icon(
           onPressed: () async {
@@ -82,7 +82,7 @@ class DeviceServicesDialog extends StatelessWidget {
             }
           },
           icon: const Icon(Icons.open_in_new, size: 18),
-          label: const Text('Open Settings'),
+          label: const Text('Ouvrir les paramètres'),
         ),
       ],
     );

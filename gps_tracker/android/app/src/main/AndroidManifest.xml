@@ -23,8 +23,14 @@
     <!-- Request battery optimization exemption -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
+    <!-- Biometric Authentication -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+
+    <!-- Camera Permission for QR code scanning (Spec 016) -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
     <application
-        android:label="GPS Tracker"
+        android:label="Tri-Logis Time"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -71,10 +77,10 @@
             android:name="flutterEmbedding"
             android:value="2" />
 
-        <!-- Google Maps API Key for Employee History feature (Spec 006) -->
+        <!-- Google Maps API Key (loaded from secrets.properties) -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="YOUR_GOOGLE_MAPS_API_KEY" />
+            android:value="${GOOGLE_MAPS_API_KEY}" />
 
         <!-- Foreground service for background GPS tracking -->
         <service

@@ -90,7 +90,7 @@ class ShiftHistoryCard extends StatelessWidget {
                   Expanded(
                     child: _buildTimeInfo(
                       context,
-                      label: 'Clock In',
+                      label: 'Pointage',
                       time: shift.clockedInAt,
                       hasLocation: shift.clockInLocation != null,
                     ),
@@ -106,7 +106,7 @@ class ShiftHistoryCard extends StatelessWidget {
                   Expanded(
                     child: _buildTimeInfo(
                       context,
-                      label: 'Clock Out',
+                      label: 'Dépointage',
                       time: shift.clockedOutAt,
                       hasLocation: shift.clockOutLocation != null,
                       isActive: shift.isActive,
@@ -126,7 +126,7 @@ class ShiftHistoryCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      '${shift.gpsPointCount} GPS points',
+                      '${shift.gpsPointCount} points GPS',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -177,7 +177,7 @@ class ShiftHistoryCard extends StatelessWidget {
               )
             else if (isActive)
               Text(
-                'Active',
+                'Actif',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: Colors.green,
                   fontWeight: FontWeight.w500,
@@ -214,9 +214,9 @@ class ShiftHistoryCard extends StatelessWidget {
     final shiftDate = DateTime(date.year, date.month, date.day);
 
     if (shiftDate == today) {
-      return 'Today';
+      return 'Aujourd\'hui';
     } else if (shiftDate == today.subtract(const Duration(days: 1))) {
-      return 'Yesterday';
+      return 'Hier';
     } else {
       return DateFormat.MMMd().format(date);
     }

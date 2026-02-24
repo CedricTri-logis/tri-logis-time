@@ -27,7 +27,7 @@ class _MyHistoryScreenState extends ConsumerState<MyHistoryScreen> {
   final _exportService = ExportService();
   bool _isExporting = false;
   String? _userId;
-  String _userName = 'My History';
+  String _userName = 'Mon historique';
 
   @override
   void initState() {
@@ -88,7 +88,7 @@ class _MyHistoryScreenState extends ConsumerState<MyHistoryScreen> {
           children: [
             Text(_userName),
             Text(
-              'Shift History',
+              'Historique des quarts',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -100,7 +100,7 @@ class _MyHistoryScreenState extends ConsumerState<MyHistoryScreen> {
           if (_userId != null)
             IconButton(
               icon: const Icon(Icons.analytics_outlined),
-              tooltip: 'Statistics',
+              tooltip: 'Statistiques',
               onPressed: _navigateToStatistics,
             ),
           // Export button
@@ -113,13 +113,13 @@ class _MyHistoryScreenState extends ConsumerState<MyHistoryScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.download),
-              tooltip: 'Export',
+              tooltip: 'Exporter',
               onPressed: _isExporting ? null : _handleExport,
             ),
           if (hasFilters)
             IconButton(
               icon: const Icon(Icons.filter_alt_off),
-              tooltip: 'Clear Filters',
+              tooltip: 'Effacer les filtres',
               onPressed: () {
                 ref.read(historyFilterProvider.notifier).clearAll();
                 if (_userId != null) {
@@ -183,7 +183,7 @@ class _MyHistoryScreenState extends ConsumerState<MyHistoryScreen> {
               ElevatedButton.icon(
                 onPressed: _refresh,
                 icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
+                label: const Text('Réessayer'),
               ),
             ],
           ),
@@ -203,7 +203,7 @@ class _MyHistoryScreenState extends ConsumerState<MyHistoryScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'No shift history found',
+              'Aucun historique de quart trouvé',
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -211,7 +211,7 @@ class _MyHistoryScreenState extends ConsumerState<MyHistoryScreen> {
             if (state.filter.hasFilters) ...[
               const SizedBox(height: 8),
               Text(
-                'Try adjusting your filters',
+                'Essayez de modifier vos filtres',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -227,7 +227,7 @@ class _MyHistoryScreenState extends ConsumerState<MyHistoryScreen> {
                   }
                 },
                 icon: const Icon(Icons.filter_alt_off),
-                label: const Text('Clear Filters'),
+                label: const Text('Effacer les filtres'),
               ),
             ],
           ],
@@ -330,10 +330,10 @@ class _MyHistoryScreenState extends ConsumerState<MyHistoryScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Export saved: ${filePath.split('/').last}',
+            'Export sauvegardé : ${filePath.split('/').last}',
           ),
           action: SnackBarAction(
-            label: 'Share',
+            label: 'Partager',
             onPressed: () => _exportService.shareFile(filePath),
           ),
           duration: const Duration(seconds: 5),
@@ -343,7 +343,7 @@ class _MyHistoryScreenState extends ConsumerState<MyHistoryScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Export failed: $e'),
+          content: Text('Échec de l'export : $e'),
           backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );

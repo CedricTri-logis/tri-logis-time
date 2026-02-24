@@ -39,7 +39,27 @@ app.*.symbols
 # Obfuscation related
 app.*.map.json
 
+# iOS build artifacts
+/ios/build/
+
 # Android Studio will place build artifacts here
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Secrets (API keys)
+/android/app/secrets.properties
+/ios/Runner/Secrets.xcconfig
+
+# Bundler (local gem install)
+vendor/bundle/
+.bundle/
+
+# Fastlane secrets & temp
+**/fastlane/report.xml
+**/fastlane/Preview.html
+**/fastlane/screenshots
+**/fastlane/test_output
+android/fastlane/play-store-key.json
+ios/fastlane/appstore-api-key.json
+ios/fastlane/AuthKey_*.p8

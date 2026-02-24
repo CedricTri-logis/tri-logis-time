@@ -32,7 +32,7 @@ class BatteryOptimizationDialog extends StatelessWidget {
             color: theme.colorScheme.primary,
           ),
           const SizedBox(width: 8),
-          const Text('Battery Optimization'),
+          const Text('Optimisation de la batterie'),
         ],
       ),
       content: Column(
@@ -40,35 +40,35 @@ class BatteryOptimizationDialog extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Android may pause GPS tracking to save battery when the app is in '
-            'the background. To ensure uninterrupted tracking during your shifts, '
-            'allow GPS Tracker to run without battery restrictions.',
+            'Android peut interrompre le suivi GPS pour économiser la batterie '
+            "lorsque l'application est en arrière-plan. Pour assurer un suivi continu "
+            'pendant vos quarts, autorisez Tri-Logis Time à fonctionner sans restriction de batterie.',
             style: theme.textTheme.bodyMedium,
           ),
           const SizedBox(height: 16),
           _buildInfoPoint(
             context,
             icon: Icons.work,
-            text: 'Tracking only runs during active shifts',
+            text: 'Le suivi ne fonctionne que pendant les quarts actifs',
           ),
           const SizedBox(height: 8),
           _buildInfoPoint(
             context,
             icon: Icons.timer,
-            text: 'Location data is captured every few minutes',
+            text: 'La position est enregistrée toutes les quelques minutes',
           ),
           const SizedBox(height: 8),
           _buildInfoPoint(
             context,
             icon: Icons.battery_full,
-            text: 'Battery impact is minimal',
+            text: "L'impact sur la batterie est minimal",
           ),
         ],
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('Not Now'),
+          child: const Text('Plus tard'),
         ),
         FilledButton(
           onPressed: () async {
@@ -77,7 +77,7 @@ class BatteryOptimizationDialog extends StatelessWidget {
               Navigator.of(context).pop(result);
             }
           },
-          child: const Text('Allow'),
+          child: const Text('Autoriser'),
         ),
       ],
     );

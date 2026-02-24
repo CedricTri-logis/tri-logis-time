@@ -23,7 +23,7 @@ class TeamStatisticsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Team Statistics'),
+        title: const Text("Statistiques d'équipe"),
         actions: [
           if (state.isLoading)
             const Padding(
@@ -55,7 +55,7 @@ class TeamStatisticsScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Date Range',
+                      'Plage de dates',
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -91,7 +91,7 @@ class TeamStatisticsScreen extends ConsumerWidget {
 
             // Bar chart
             Text(
-              'Hours by Employee',
+              'Heures par employé',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -113,7 +113,7 @@ class TeamStatisticsScreen extends ConsumerWidget {
             // Hours breakdown list
             if (state.employeeHours.isNotEmpty) ...[
               Text(
-                'Breakdown',
+                'Détail',
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -147,22 +147,22 @@ class _StatsGrid extends StatelessWidget {
       children: [
         _StatCard(
           icon: Icons.groups,
-          label: 'Team Members',
+          label: "Membres de l'équipe",
           value: statistics.totalEmployees.toString(),
         ),
         _StatCard(
           icon: Icons.event,
-          label: 'Total Shifts',
+          label: 'Total des quarts',
           value: statistics.totalShifts.toString(),
         ),
         _StatCard(
           icon: Icons.schedule,
-          label: 'Total Hours',
+          label: 'Heures totales',
           value: statistics.formattedTotalHours,
         ),
         _StatCard(
           icon: Icons.trending_up,
-          label: 'Avg Shifts/Person',
+          label: 'Moy. quarts/personne',
           value: statistics.averageShiftsPerEmployee.toStringAsFixed(1),
         ),
       ],
@@ -314,7 +314,7 @@ class _ErrorBanner extends StatelessWidget {
             TextButton(
               onPressed: onRetry,
               child: Text(
-                'Retry',
+                'Réessayer',
                 style: TextStyle(color: theme.colorScheme.onErrorContainer),
               ),
             ),

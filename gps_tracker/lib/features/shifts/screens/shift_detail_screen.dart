@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../mileage/providers/trip_provider.dart';
+import '../../mileage/screens/trip_detail_screen.dart';
+import '../../mileage/widgets/trip_card.dart';
 import '../../tracking/providers/route_provider.dart';
 import '../../tracking/widgets/point_detail_sheet.dart';
 import '../../tracking/widgets/route_map_widget.dart';
@@ -24,13 +27,13 @@ class ShiftDetailScreen extends ConsumerWidget {
 
   String _formatDate(DateTime dateTime) {
     final months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
+      'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+      'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'
     ];
     final weekdays = [
-      'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
+      'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'
     ];
-    return '${weekdays[dateTime.weekday - 1]}, ${months[dateTime.month - 1]} ${dateTime.day}, ${dateTime.year}';
+    return '${weekdays[dateTime.weekday - 1]} ${dateTime.day} ${months[dateTime.month - 1]} ${dateTime.year}';
   }
 
   String _formatDuration(Duration duration) {
@@ -52,7 +55,7 @@ class ShiftDetailScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Shift Details'),
+        title: const Text('Détails du quart'),
         centerTitle: true,
       ),
       body: FutureBuilder<Shift?>(
@@ -75,7 +78,7 @@ class ShiftDetailScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Shift not found',
+                    'Quart introuvable',
                     style: theme.textTheme.titleLarge,
                   ),
                 ],
@@ -120,7 +123,7 @@ class ShiftDetailScreen extends ConsumerWidget {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            shift.isCompleted ? 'Completed' : 'Active',
+                            shift.isCompleted ? 'Terminé' : 'Actif',
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: shift.isCompleted ? Colors.blue : Colors.green,
@@ -133,7 +136,7 @@ class ShiftDetailScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    'Total Duration',
+                    'Durée totale',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -200,7 +203,7 @@ class ShiftDetailScreen extends ConsumerWidget {
           // Clock In details
           _buildTimeCard(
             theme,
-            title: 'Clock In',
+            title: 'Pointage',
             time: _formatTime(localClockIn),
             icon: Icons.login,
             iconColor: Colors.green,
@@ -218,7 +221,7 @@ class ShiftDetailScreen extends ConsumerWidget {
           if (shift.isCompleted && localClockOut != null)
             _buildTimeCard(
               theme,
-              title: 'Clock Out',
+              title: 'Dépointage',
               time: _formatTime(localClockOut),
               icon: Icons.logout,
               iconColor: Colors.red,
@@ -250,7 +253,7 @@ class ShiftDetailScreen extends ConsumerWidget {
                     ),
                     const SizedBox(width: 16),
                     Text(
-                      'Shift in progress...',
+                      'Quart en cours...',
                       style: theme.textTheme.titleMedium?.copyWith(
                         color: Colors.orange,
                         fontWeight: FontWeight.w600,
@@ -264,6 +267,11 @@ class ShiftDetailScreen extends ConsumerWidget {
 
           // Route Map Section
           _buildRouteSection(context, shift.id),
+          const SizedBox(height: 16),
+
+          // Mileage Section (only for completed shifts)
+          if (shift.isCompleted)
+            _buildMileageSection(context, shift.id),
         ],
       ),
     );
@@ -290,7 +298,7 @@ class ShiftDetailScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'No GPS tracking data',
+                        'Aucune donnée GPS',
                         style: TextStyle(color: Colors.grey.shade600),
                       ),
                     ],
@@ -329,9 +337,71 @@ class ShiftDetailScreen extends ConsumerWidget {
           error: (e, _) => Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: Text('Error loading route: $e'),
+              child: Text('Erreur de chargement du tracé : $e'),
             ),
           ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMileageSection(BuildContext context, String shiftId) {
+    return Consumer(
+      builder: (context, ref, _) {
+        final tripsAsync = ref.watch(tripsForShiftProvider(shiftId));
+
+        return tripsAsync.when(
+          data: (trips) {
+            if (trips.isEmpty) return const SizedBox.shrink();
+
+            final totalKm = trips.fold<double>(
+              0,
+              (sum, trip) => sum + trip.distanceKm,
+            );
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.directions_car,
+                        size: 20,
+                        color: Colors.grey.shade600,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Kilométrage (${trips.length} trajet${trips.length == 1 ? '' : 's'} — ${totalKm.toStringAsFixed(1)} km)',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              color: Colors.grey.shade600,
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                ...trips.map(
+                  (trip) => TripCard(
+                    trip: trip,
+                    onTap: () => Navigator.of(context).push<void>(
+                      MaterialPageRoute<void>(
+                        builder: (_) => TripDetailScreen(trip: trip),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+          loading: () => const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          ),
+          error: (_, __) => const SizedBox.shrink(),
         );
       },
     );
@@ -419,7 +489,7 @@ class ShiftDetailScreen extends ConsumerWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Accuracy: ±${accuracy.toStringAsFixed(1)}m',
+                      'Précision : ±${accuracy.toStringAsFixed(1)}m',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),

@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Timesheet Report</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        font-size: 11px;
+        line-height: 1.4;
+        color: #1e293b;
+        background: #ffffff;
+      }
+
+      .container {
+        max-width: 100%;
+        padding: 25px 30px;
+      }
+
+      /* Header */
+      .header {
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 3px solid #0f172a;
+      }
+
+      .header-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+      }
+
+      .header h1 {
+        font-size: 24px;
+        font-weight: 700;
+        color: #0f172a;
+      }
+
+      .header .subtitle {
+        font-size: 12px;
+        color: #64748b;
+        margin-top: 3px;
+      }
+
+      .header .logo {
+        font-size: 12px;
+        font-weight: 600;
+        color: #64748b;
+      }
+
+      /* Metadata */
+      .meta {
+        display: flex;
+        gap: 30px;
+        margin-bottom: 20px;
+        padding: 12px 15px;
+        background: #f8fafc;
+        border-radius: 6px;
+        border: 1px solid #e2e8f0;
+      }
+
+      .meta-item .label {
+        font-size: 9px;
+        font-weight: 600;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+      }
+
+      .meta-item .value {
+        font-size: 12px;
+        font-weight: 500;
+        color: #0f172a;
+      }
+
+      /* Summary */
+      .summary {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 15px;
+        margin-bottom: 20px;
+        padding: 15px;
+        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        border-radius: 6px;
+        border: 1px solid #bae6fd;
+      }
+
+      .summary-item {
+        text-align: center;
+      }
+
+      .summary-item .value {
+        font-size: 22px;
+        font-weight: 700;
+        color: #0c4a6e;
+      }
+
+      .summary-item .label {
+        font-size: 9px;
+        font-weight: 500;
+        color: #0369a1;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        margin-top: 2px;
+      }
+
+      /* Table */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 10px;
+      }
+
+      thead {
+        background: #f1f5f9;
+      }
+
+      th {
+        padding: 8px 10px;
+        text-align: left;
+        font-weight: 600;
+        color: #475569;
+        text-transform: uppercase;
+        font-size: 9px;
+        letter-spacing: 0.3px;
+        border-bottom: 2px solid #cbd5e1;
+      }
+
+      td {
+        padding: 6px 10px;
+        border-bottom: 1px solid #e2e8f0;
+        color: #334155;
+      }
+
+      tr:nth-child(even) {
+        background: #f8fafc;
+      }
+
+      /* Status badges */
+      .status {
+        display: inline-block;
+        padding: 2px 6px;
+        border-radius: 10px;
+        font-size: 9px;
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+
+      .status-complete {
+        background: #dcfce7;
+        color: #166534;
+      }
+
+      .status-incomplete {
+        background: #fef3c7;
+        color: #92400e;
+      }
+
+      /* Hours highlighting */
+      .hours {
+        font-weight: 600;
+        color: #0f172a;
+      }
+
+      .hours-warning {
+        color: #dc2626;
+      }
+
+      /* Employee grouping */
+      .employee-header {
+        background: #f1f5f9;
+        font-weight: 600;
+        color: #0f172a;
+      }
+
+      .employee-header td {
+        padding: 10px;
+        border-bottom: 2px solid #cbd5e1;
+      }
+
+      .employee-subtotal {
+        background: #fafafa;
+        font-weight: 600;
+      }
+
+      .employee-subtotal td {
+        padding: 8px 10px;
+        border-top: 1px solid #cbd5e1;
+      }
+
+      /* Footer */
+      .footer {
+        margin-top: 25px;
+        padding-top: 15px;
+        border-top: 1px solid #e2e8f0;
+        text-align: center;
+        color: #94a3b8;
+        font-size: 9px;
+      }
+
+      .footer .generated {
+        margin-bottom: 3px;
+      }
+
+      .footer .confidential {
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #cbd5e1;
+      }
+
+      /* Print styles */
+      @media print {
+        body {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+
+        .container {
+          padding: 0;
+        }
+
+        table {
+          page-break-inside: auto;
+        }
+
+        tr {
+          page-break-inside: avoid;
+          page-break-after: auto;
+        }
+
+        thead {
+          display: table-header-group;
+        }
+
+        .employee-header {
+          page-break-after: avoid;
+        }
+      }
+
+      @page {
+        size: A4 landscape;
+        margin: 15mm 10mm;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <div class="header-top">
+          <div>
+            <h1>Timesheet Report</h1>
+            <div class="subtitle">Employee Work Hours Summary</div>
+          </div>
+          <div class="logo">GPS Tracker</div>
+        </div>
+      </div>
+
+      <div class="meta">
+        <div class="meta-item">
+          <div class="label">Pay Period</div>
+          <div class="value">{{DATE_RANGE}}</div>
+        </div>
+        <div class="meta-item">
+          <div class="label">Generated</div>
+          <div class="value">{{GENERATED_AT}}</div>
+        </div>
+        <div class="meta-item">
+          <div class="label">Total Shifts</div>
+          <div class="value">{{TOTAL_SHIFTS}}</div>
+        </div>
+        <div class="meta-item">
+          <div class="label">Generated By</div>
+          <div class="value">{{GENERATED_BY}}</div>
+        </div>
+      </div>
+
+      <div class="summary">
+        <div class="summary-item">
+          <div class="value">{{TOTAL_EMPLOYEES}}</div>
+          <div class="label">Employees</div>
+        </div>
+        <div class="summary-item">
+          <div class="value">{{TOTAL_SHIFTS}}</div>
+          <div class="label">Total Shifts</div>
+        </div>
+        <div class="summary-item">
+          <div class="value">{{TOTAL_HOURS}}</div>
+          <div class="label">Total Hours</div>
+        </div>
+        <div class="summary-item">
+          <div class="value">{{INCOMPLETE_COUNT}}</div>
+          <div class="label">Incomplete</div>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 20%">Employee</th>
+            <th style="width: 12%">Employee ID</th>
+            <th style="width: 12%">Date</th>
+            <th style="width: 12%">Clock In</th>
+            <th style="width: 12%">Clock Out</th>
+            <th style="width: 10%">Hours</th>
+            <th style="width: 10%">Status</th>
+            <th style="width: 12%">Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{TABLE_ROWS}}
+        </tbody>
+      </table>
+
+      <div class="footer">
+        <div class="generated">
+          Generated on {{GENERATED_AT}} by GPS Tracker Management Dashboard
+        </div>
+        <div class="confidential">
+          Confidential - For Payroll Processing Only
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

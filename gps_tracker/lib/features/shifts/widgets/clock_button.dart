@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/config/theme.dart';
 import '../providers/shift_provider.dart';
 
 /// Large clock-in/out button widget.
@@ -21,9 +22,20 @@ class ClockButton extends ConsumerWidget {
     final isLoading = shiftState.isClockingIn || shiftState.isClockingOut;
     final theme = Theme.of(context);
 
-    return SizedBox(
-      width: 180,
-      height: 180,
+    return Container(
+      width: 200,
+      height: 200,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: (hasActiveShift ? TriLogisColors.darkRed : TriLogisColors.red)
+                .withValues(alpha: 0.3),
+            blurRadius: 25,
+            spreadRadius: 5,
+          ),
+        ],
+      ),
       child: ElevatedButton(
         onPressed: isLoading
             ? null
@@ -37,15 +49,11 @@ class ClockButton extends ConsumerWidget {
         style: ElevatedButton.styleFrom(
           shape: const CircleBorder(),
           backgroundColor: hasActiveShift
-              ? theme.colorScheme.error
-              : theme.colorScheme.primary,
-          foregroundColor: hasActiveShift
-              ? theme.colorScheme.onError
-              : theme.colorScheme.onPrimary,
-          elevation: 8,
-          shadowColor: hasActiveShift
-              ? theme.colorScheme.error.withValues(alpha: 0.4)
-              : theme.colorScheme.primary.withValues(alpha: 0.4),
+              ? TriLogisColors.darkRed
+              : TriLogisColors.red,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          padding: const EdgeInsets.all(32),
         ),
         child: isLoading
             ? const CircularProgressIndicator(
@@ -55,18 +63,32 @@ class ClockButton extends ConsumerWidget {
             : Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    hasActiveShift ? Icons.stop : Icons.play_arrow,
-                    size: 48,
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      hasActiveShift ? Icons.timer_off_outlined : Icons.timer_outlined,
+                      size: 44,
+                    ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   Text(
-                    hasActiveShift ? 'Clock Out' : 'Clock In',
+                    hasActiveShift ? 'TERMINER' : 'DÉBUTER',
                     style: theme.textTheme.titleMedium?.copyWith(
-                      color: hasActiveShift
-                          ? theme.colorScheme.onError
-                          : theme.colorScheme.onPrimary,
-                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    hasActiveShift ? 'Le Quart' : 'Un Quart',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Colors.white70,
+                      fontWeight: FontWeight.w300,
                     ),
                   ),
                 ],

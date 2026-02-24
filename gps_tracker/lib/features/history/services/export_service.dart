@@ -28,13 +28,13 @@ class ExportService {
     // Build header
     final headers = [
       'Date',
-      'Clock In',
-      'Clock Out',
-      'Duration (hours)',
-      'Clock In Location',
-      'Clock Out Location',
-      'GPS Points',
-      'Status',
+      'Pointage',
+      'Dépointage',
+      'Durée (heures)',
+      'Position au pointage',
+      'Position au dépointage',
+      'Points GPS',
+      'Statut',
     ];
 
     // Build rows
@@ -47,7 +47,7 @@ class ExportService {
         timeFormat.format(shift.clockedInAt.toLocal()),
         shift.clockedOutAt != null
             ? timeFormat.format(shift.clockedOutAt!.toLocal())
-            : 'Active',
+            : 'Actif',
         durationHours.toStringAsFixed(2),
         shift.clockInLocation != null
             ? '${shift.clockInLocation!.latitude.toStringAsFixed(6)}, ${shift.clockInLocation!.longitude.toStringAsFixed(6)}'
@@ -108,7 +108,7 @@ class ExportService {
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
             pw.Text(
-              'Shift History Report',
+              'Rapport d'historique des quarts',
               style: pw.TextStyle(
                 fontSize: 24,
                 fontWeight: pw.FontWeight.bold,
@@ -116,16 +116,16 @@ class ExportService {
             ),
             pw.SizedBox(height: 8),
             pw.Text(
-              'Employee: $employeeName',
+              'Employé : $employeeName',
               style: const pw.TextStyle(fontSize: 14),
             ),
             if (startDate != null && endDate != null)
               pw.Text(
-                'Period: ${dateFormat.format(startDate)} - ${dateFormat.format(endDate)}',
+                'Période : ${dateFormat.format(startDate)} - ${dateFormat.format(endDate)}',
                 style: const pw.TextStyle(fontSize: 12, color: PdfColors.grey700),
               ),
             pw.Text(
-              'Generated: ${dateFormat.format(DateTime.now())}',
+              'Généré le : ${dateFormat.format(DateTime.now())}',
               style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey600),
             ),
             pw.Divider(thickness: 1),
@@ -136,11 +136,11 @@ class ExportService {
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           children: [
             pw.Text(
-              'GPS Clock-In Tracker',
+              'Tri-Logis Time',
               style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey600),
             ),
             pw.Text(
-              'Page ${context.pageNumber} of ${context.pagesCount}',
+              'Page ${context.pageNumber} sur ${context.pagesCount}',
               style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey600),
             ),
           ],
@@ -156,10 +156,10 @@ class ExportService {
             child: pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
               children: [
-                _buildSummaryItem('Total Shifts', shifts.length.toString()),
-                _buildSummaryItem('Total Hours', _formatDuration(totalDuration)),
+                _buildSummaryItem('Total quarts', shifts.length.toString()),
+                _buildSummaryItem('Total heures', _formatDuration(totalDuration)),
                 _buildSummaryItem(
-                  'Avg Duration',
+                  'Durée moy.',
                   shifts.isNotEmpty
                       ? _formatDuration(
                           Duration(
@@ -188,9 +188,9 @@ class ExportService {
                 decoration: const pw.BoxDecoration(color: PdfColors.grey200),
                 children: [
                   _buildTableCell('Date', isHeader: true),
-                  _buildTableCell('Clock In', isHeader: true),
-                  _buildTableCell('Clock Out', isHeader: true),
-                  _buildTableCell('Duration', isHeader: true),
+                  _buildTableCell('Pointage', isHeader: true),
+                  _buildTableCell('Dépointage', isHeader: true),
+                  _buildTableCell('Durée', isHeader: true),
                 ],
               ),
               // Data rows

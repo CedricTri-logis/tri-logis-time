@@ -118,10 +118,10 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.showTeamStats ? 'Team Statistics' : widget.employeeName ?? 'Statistics'),
+            Text(widget.showTeamStats ? 'Statistiques d'équipe' : widget.employeeName ?? 'Statistiques'),
             if (!widget.showTeamStats)
               Text(
-                'Statistics',
+                'Statistiques',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -132,7 +132,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
           if (hasFilters)
             IconButton(
               icon: const Icon(Icons.filter_alt_off),
-              tooltip: 'Clear Filters',
+              tooltip: 'Effacer les filtres',
               onPressed: () {
                 ref.read(historyFilterProvider.notifier).clearAll();
                 _loadStatistics();
@@ -148,7 +148,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
           ? FloatingActionButton.extended(
               onPressed: _navigateToShifts,
               icon: const Icon(Icons.list),
-              label: const Text('View Shifts'),
+              label: const Text('Voir les quarts'),
             )
           : null,
       body: Column(
@@ -199,7 +199,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
               ElevatedButton.icon(
                 onPressed: _loadStatistics,
                 icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
+                label: const Text('Réessayer'),
               ),
             ],
           ),
@@ -220,7 +220,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'No statistics available',
+              'Aucune statistique disponible',
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -228,7 +228,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             if (filterState.hasFilters) ...[
               const SizedBox(height: 8),
               Text(
-                'Try adjusting your date range',
+                'Essayez de modifier la période',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -253,7 +253,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
           // Main statistics card
           StatisticsCard(
             statistics: statistics,
-            title: 'Summary',
+            title: 'Résumé',
           ),
           const SizedBox(height: 16),
           // Detailed breakdown
@@ -292,7 +292,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
               ElevatedButton.icon(
                 onPressed: _loadStatistics,
                 icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
+                label: const Text('Réessayer'),
               ),
             ],
           ),
@@ -313,7 +313,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'No team statistics available',
+              'Aucune statistique d'équipe disponible',
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -321,7 +321,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             if (filterState.hasFilters) ...[
               const SizedBox(height: 8),
               Text(
-                'Try adjusting your date range',
+                'Essayez de modifier la période',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -346,7 +346,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
           // Main statistics card
           TeamStatisticsCard(
             statistics: statistics,
-            title: 'Team Summary',
+            title: 'Résumé d'équipe',
           ),
           const SizedBox(height: 16),
           // Detailed breakdown
@@ -364,11 +364,11 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
       periodText =
           '${dateFormat.format(filterState.startDate!)} - ${dateFormat.format(filterState.endDate!)}';
     } else if (filterState.startDate != null) {
-      periodText = 'From ${dateFormat.format(filterState.startDate!)}';
+      periodText = 'Depuis le ${dateFormat.format(filterState.startDate!)}';
     } else if (filterState.endDate != null) {
-      periodText = 'Until ${dateFormat.format(filterState.endDate!)}';
+      periodText = 'Jusqu'au ${dateFormat.format(filterState.endDate!)}';
     } else {
-      periodText = 'All time';
+      periodText = 'Toutes les périodes';
     }
 
     return Container(
@@ -409,7 +409,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             Row(
               children: [
                 Text(
-                  'Details',
+                  'Détails',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
@@ -434,21 +434,21 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             _buildDetailRow(
               theme,
               icon: Icons.schedule,
-              label: 'Total Shifts',
+              label: 'Total de quarts',
               value: statistics.totalShifts.toString(),
             ),
             const Divider(height: 24),
             _buildDetailRow(
               theme,
               icon: Icons.access_time,
-              label: 'Total Hours Worked',
+              label: 'Heures travaillées',
               value: statistics.formattedTotalHours,
             ),
             const Divider(height: 24),
             _buildDetailRow(
               theme,
               icon: Icons.timelapse,
-              label: 'Average Shift Duration',
+              label: 'Durée moyenne',
               value: statistics.formattedAverageDuration,
             ),
             if (statistics.totalGpsPoints != null && statistics.totalGpsPoints > 0) ...[
@@ -456,7 +456,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
               _buildDetailRow(
                 theme,
                 icon: Icons.location_on,
-                label: 'GPS Points Recorded',
+                label: 'Points GPS enregistrés',
                 value: statistics.totalGpsPoints.toString(),
               ),
             ],
@@ -465,7 +465,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
               _buildDetailRow(
                 theme,
                 icon: Icons.first_page,
-                label: 'First Shift',
+                label: 'Premier quart',
                 value: DateFormat.yMMMd().format(statistics.earliestShift!),
               ),
             ],
@@ -474,7 +474,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
               _buildDetailRow(
                 theme,
                 icon: Icons.last_page,
-                label: 'Latest Shift',
+                label: 'Dernier quart',
                 value: DateFormat.yMMMd().format(statistics.latestShift!),
               ),
             ],
@@ -493,7 +493,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Details',
+              'Détails',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
@@ -502,28 +502,28 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             _buildDetailRow(
               theme,
               icon: Icons.people,
-              label: 'Total Employees',
+              label: 'Total d'employés',
               value: statistics.totalEmployees.toString(),
             ),
             const Divider(height: 24),
             _buildDetailRow(
               theme,
               icon: Icons.schedule,
-              label: 'Total Shifts',
+              label: 'Total de quarts',
               value: statistics.totalShifts.toString(),
             ),
             const Divider(height: 24),
             _buildDetailRow(
               theme,
               icon: Icons.access_time,
-              label: 'Total Hours Worked',
+              label: 'Heures travaillées',
               value: statistics.formattedTotalHours,
             ),
             const Divider(height: 24),
             _buildDetailRow(
               theme,
               icon: Icons.person,
-              label: 'Avg Shifts per Employee',
+              label: 'Moy. quarts par employé',
               value: statistics.averageShiftsPerEmployee.toStringAsFixed(1),
             ),
           ],

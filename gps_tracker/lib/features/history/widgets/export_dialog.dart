@@ -52,34 +52,34 @@ class _ExportDialogState extends State<ExportDialog> {
     final theme = Theme.of(context);
 
     return AlertDialog(
-      title: const Text('Export Shifts'),
+      title: const Text('Exporter les quarts'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Export ${widget.shiftCount} shifts for ${widget.employeeName}',
+            'Exporter ${widget.shiftCount} quarts pour ${widget.employeeName}',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 24),
           Text(
-            'Select format:',
+            'Choisir le format :',
             style: theme.textTheme.labelLarge,
           ),
           const SizedBox(height: 12),
           _buildFormatOption(
             format: ExportFormat.csv,
             title: 'CSV',
-            subtitle: 'Spreadsheet format for Excel, Google Sheets',
+            subtitle: 'Format tableur pour Excel, Google Sheets',
             icon: Icons.table_chart,
           ),
           const SizedBox(height: 8),
           _buildFormatOption(
             format: ExportFormat.pdf,
             title: 'PDF',
-            subtitle: 'Formatted report for printing and sharing',
+            subtitle: 'Rapport formaté pour impression et partage',
             icon: Icons.picture_as_pdf,
           ),
         ],
@@ -87,12 +87,12 @@ class _ExportDialogState extends State<ExportDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: const Text('Annuler'),
         ),
         FilledButton.icon(
           onPressed: () => widget.onExport?.call(_selectedFormat),
           icon: const Icon(Icons.download, size: 18),
-          label: const Text('Export'),
+          label: const Text('Exporter'),
         ),
       ],
     );

@@ -1,0 +1,43 @@
+default_platform(:android)
+
+platform :android do
+  desc "Build and upload to Google Play closed testing (alpha)"
+  lane :alpha do
+    sh("cd ../.. && flutter build appbundle --release")
+    upload_to_play_store(
+      track: "alpha",
+      aab: "../build/app/outputs/bundle/release/app-release.aab",
+      skip_upload_metadata: true,
+      skip_upload_changelogs: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+
+  desc "Build and upload to Google Play open testing (beta)"
+  lane :beta do
+    sh("cd ../.. && flutter build appbundle --release")
+    upload_to_play_store(
+      track: "beta",
+      aab: "../build/app/outputs/bundle/release/app-release.aab",
+      skip_upload_metadata: true,
+      skip_upload_changelogs: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+
+  desc "Build and upload to Google Play production (draft for manual review)"
+  lane :production do
+    sh("cd ../.. && flutter build appbundle --release")
+    upload_to_play_store(
+      track: "production",
+      release_status: "draft",
+      aab: "../build/app/outputs/bundle/release/app-release.aab",
+      skip_upload_metadata: true,
+      skip_upload_changelogs: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+end

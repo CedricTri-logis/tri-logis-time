@@ -22,15 +22,15 @@ enum TrackingStatus {
   String get displayName {
     switch (this) {
       case TrackingStatus.stopped:
-        return 'Stopped';
+        return 'Arrêté';
       case TrackingStatus.starting:
-        return 'Starting...';
+        return 'Démarrage...';
       case TrackingStatus.running:
-        return 'Tracking Active';
+        return 'Suivi actif';
       case TrackingStatus.paused:
-        return 'Paused';
+        return 'En pause';
       case TrackingStatus.error:
-        return 'Error';
+        return 'Erreur';
     }
   }
 }

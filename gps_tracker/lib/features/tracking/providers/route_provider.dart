@@ -1,21 +1,57 @@
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../shared/providers/supabase_provider.dart';
 import '../../shifts/providers/shift_provider.dart';
 import '../models/route_point.dart';
 import '../models/route_stats.dart';
 import 'tracking_provider.dart';
 
 /// Provides GPS points for a specific shift's route.
+/// Fetches from Supabase server first (source of truth), falls back to local DB.
 final routeProvider =
     FutureProvider.family<List<RoutePoint>, String>((ref, shiftId) async {
   final db = ref.read(localDatabaseProvider);
-  final points = await db.getGpsPointsForShift(shiftId);
 
+  // Try to get the shift's server ID for server-side fetch
+  final shift = await db.getShiftById(shiftId);
+  final serverId = shift?.serverId;
+
+  // If we have a server ID, fetch from Supabase (source of truth)
+  if (serverId != null) {
+    try {
+      final supabase = ref.read(supabaseClientProvider);
+      final response = await supabase
+          .from('gps_points')
+          .select('id, latitude, longitude, accuracy, captured_at')
+          .eq('shift_id', serverId)
+          .order('captured_at', ascending: true);
+
+      final serverPoints = (response as List)
+          .map((row) => RoutePoint(
+                id: row['id'].toString(),
+                latitude: (row['latitude'] as num).toDouble(),
+                longitude: (row['longitude'] as num).toDouble(),
+                accuracy: (row['accuracy'] as num?)?.toDouble(),
+                capturedAt: DateTime.parse(row['captured_at'] as String),
+              ),)
+          .toList();
+
+      if (serverPoints.isNotEmpty) {
+        return serverPoints;
+      }
+    } catch (e) {
+      debugPrint('RouteProvider: server fetch failed, falling back to local: $e');
+    }
+  }
+
+  // Fallback: local database
+  final points = await db.getGpsPointsForShift(shiftId);
   return points
       .map((p) => RoutePoint.fromLocalGpsPoint(p))
       .toList()

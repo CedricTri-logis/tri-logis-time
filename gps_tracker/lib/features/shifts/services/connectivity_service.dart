@@ -19,6 +19,7 @@ enum NetworkType {
 class ConnectivityService {
   final Connectivity _connectivity;
   StreamController<NetworkType>? _networkTypeController;
+  StreamSubscription<List<ConnectivityResult>>? _networkTypeSub;
 
   ConnectivityService() : _connectivity = Connectivity();
 
@@ -54,12 +55,12 @@ class ConnectivityService {
 
   /// Stream of network type changes.
   Stream<NetworkType> get onNetworkTypeChanged {
-    _networkTypeController ??= StreamController<NetworkType>.broadcast();
-
-    _connectivity.onConnectivityChanged.listen((results) {
-      _networkTypeController?.add(_getNetworkType(results));
-    });
-
+    if (_networkTypeController == null) {
+      _networkTypeController = StreamController<NetworkType>.broadcast();
+      _networkTypeSub = _connectivity.onConnectivityChanged.listen((results) {
+        _networkTypeController?.add(_getNetworkType(results));
+      });
+    }
     return _networkTypeController!.stream;
   }
 
@@ -100,6 +101,7 @@ class ConnectivityService {
 
   /// Dispose resources.
   void dispose() {
+    _networkTypeSub?.cancel();
     _networkTypeController?.close();
   }
 }

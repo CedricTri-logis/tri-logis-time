@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
@@ -8,6 +9,7 @@ import 'app.dart';
 import 'core/config/env_config.dart';
 import 'features/tracking/services/background_tracking_service.dart';
 import 'shared/services/local_database.dart';
+import 'shared/services/notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,7 +31,7 @@ Future<void> main() async {
               ),
               const SizedBox(height: 24),
               const Text(
-                'GPS Tracker',
+                'Tri-Logis Time',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 24,
@@ -42,7 +44,7 @@ Future<void> main() async {
               ),
               const SizedBox(height: 16),
               const Text(
-                'Loading...',
+                'Chargement...',
                 style: TextStyle(color: Colors.white70, fontSize: 14),
               ),
             ],
@@ -75,11 +77,17 @@ Future<void> main() async {
 
   if (initError == null) {
     try {
-      // Initialize database and tracking in parallel (they're independent)
+      // Initialize critical services in parallel
       await Future.wait([
         LocalDatabase().initialize(),
         _initializeTracking(),
       ]);
+      // Initialize notifications separately (non-critical — don't block app startup)
+      try {
+        await NotificationService().initialize();
+      } catch (e) {
+        debugPrint('[Main] Notification init failed (non-critical): $e');
+      }
     } catch (e) {
       initError = 'Failed to initialize services: $e';
     }
@@ -100,7 +108,7 @@ Future<void> main() async {
                     const Icon(Icons.error_outline, size: 64, color: Colors.red),
                     const SizedBox(height: 16),
                     const Text(
-                      'Startup Error',
+                      'Erreur de démarrage',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,

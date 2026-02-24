@@ -1,9 +1,16 @@
+import 'dart:async';
+
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/providers/supabase_provider.dart';
 import '../../../shared/services/local_database.dart';
+import '../../../shared/services/realtime_service.dart';
+import '../../cleaning/providers/cleaning_session_provider.dart';
+import '../../maintenance/providers/maintenance_provider.dart';
 import '../models/geo_point.dart';
 import '../models/shift.dart';
+import '../../auth/services/device_info_service.dart';
 import '../services/shift_service.dart';
 
 /// Provider for the LocalDatabase instance.
@@ -54,11 +61,135 @@ class ShiftState {
 }
 
 /// Notifier for managing active shift state.
-class ShiftNotifier extends StateNotifier<ShiftState> {
+///
+/// Uses a dual-layer approach for detecting server-side shift closures:
+/// 1. Realtime WebSocket for instant detection (~1-2s)
+/// 2. Polling every 60s + check on app resume as fallback
+class ShiftNotifier extends StateNotifier<ShiftState>
+    with WidgetsBindingObserver {
   final ShiftService _shiftService;
+  final Ref _ref;
+  Timer? _serverCheckTimer;
 
-  ShiftNotifier(this._shiftService) : super(const ShiftState()) {
+  ShiftNotifier(this._shiftService, this._ref) : super(const ShiftState()) {
+    WidgetsBinding.instance.addObserver(this);
     _loadActiveShift();
+    _setupRealtimeListener();
+    _startServerShiftCheck();
+  }
+
+  /// Listen to Realtime shift updates from the server.
+  ///
+  /// Detects when a shift is closed server-side (admin action, zombie cleanup)
+  /// and updates local state accordingly.
+  void _setupRealtimeListener() {
+    final realtimeService = _ref.read(realtimeServiceProvider);
+    realtimeService.onShiftChanged = (newRecord) {
+      _handleServerShiftUpdate(newRecord);
+    };
+  }
+
+  void _handleServerShiftUpdate(Map<String, dynamic> record) {
+    final activeShift = state.activeShift;
+    if (activeShift == null) return;
+
+    final newStatus = record['status'] as String?;
+    final shiftId = record['id'] as String?;
+
+    // If the active shift was closed server-side (admin, midnight cleanup, etc.)
+    if (shiftId == activeShift.serverId && newStatus == 'completed') {
+      final reason = record['clock_out_reason'] as String? ?? 'server_closed';
+      debugPrint(
+          'ShiftNotifier: server closed shift $shiftId '
+          '(reason: $reason)');
+      _closeShiftLocally(activeShift, reason);
+    }
+  }
+
+  /// Start periodic server-side shift status checks.
+  ///
+  /// Mirrors the pattern used by DeviceSessionNotifier: polls every 60 seconds
+  /// and checks on app resume, to catch server-side closures missed by Realtime
+  /// (e.g. phone sleeping at midnight, WebSocket disconnected).
+  void _startServerShiftCheck() {
+    // Initial check after 10 seconds (let auth and shift load settle)
+    Future.delayed(const Duration(seconds: 10), () {
+      if (mounted) _checkServerShiftStatus();
+    });
+
+    // Poll every 60 seconds
+    _serverCheckTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+      if (mounted) _checkServerShiftStatus();
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      debugPrint('ShiftNotifier: app resumed, checking server shift status');
+      _checkServerShiftStatus();
+    }
+  }
+
+  /// Query the server to verify the active shift is still open.
+  ///
+  /// If the local DB thinks a shift is active but the server says it's
+  /// completed (midnight cleanup, admin action, dashboard close), update
+  /// local state to match.
+  Future<void> _checkServerShiftStatus() async {
+    final activeShift = state.activeShift;
+    if (activeShift == null) return;
+
+    final serverId = activeShift.serverId;
+    if (serverId == null) return; // Not synced yet, skip
+
+    try {
+      final client = _ref.read(supabaseClientProvider);
+      if (client.auth.currentUser == null) return;
+
+      final response = await client
+          .from('shifts')
+          .select('id, status, clock_out_reason')
+          .eq('id', serverId)
+          .maybeSingle();
+
+      if (response == null) {
+        // Shift not found on server — treat as closed
+        debugPrint('ShiftNotifier: server shift $serverId not found, closing locally');
+        _closeShiftLocally(activeShift, 'server_not_found');
+        return;
+      }
+
+      final serverStatus = response['status'] as String?;
+      if (serverStatus == 'completed') {
+        final reason = response['clock_out_reason'] as String? ?? 'server_closed';
+        debugPrint('ShiftNotifier: server shift $serverId is completed (reason: $reason), closing locally');
+        _closeShiftLocally(activeShift, reason);
+      }
+    } catch (e) {
+      // Fail-open: keep local state if we can't reach the server
+      debugPrint('ShiftNotifier: server check failed (ignoring): $e');
+    }
+  }
+
+  /// Close the shift in both local DB and in-memory state.
+  Future<void> _closeShiftLocally(Shift shift, String reason) async {
+    // Update SQLite so the closure persists across app restarts
+    try {
+      final localDb = _ref.read(localDatabaseProvider);
+      await localDb.updateShiftClockOut(
+        shiftId: shift.id,
+        clockedOutAt: DateTime.now().toUtc(),
+        reason: reason,
+      );
+      // Mark as synced since the server already knows about the closure
+      await localDb.markShiftSynced(shift.id);
+    } catch (e) {
+      debugPrint('ShiftNotifier: failed to update local DB: $e');
+    }
+
+    // Update in-memory state
+    state = state.copyWith(clearActiveShift: true);
   }
 
   /// Load the current active shift.
@@ -84,9 +215,9 @@ class ShiftNotifier extends StateNotifier<ShiftState> {
     await _loadActiveShift();
   }
 
-  /// Clock in with optional location.
+  /// Clock in with required GPS location.
   Future<bool> clockIn({
-    GeoPoint? location,
+    required GeoPoint location,
     double? accuracy,
   }) async {
     state = state.copyWith(isClockingIn: true, clearError: true);
@@ -99,6 +230,7 @@ class ShiftNotifier extends StateNotifier<ShiftState> {
 
       if (result.success) {
         await _loadActiveShift();
+        DeviceInfoService(_ref.read(supabaseClientProvider)).syncDeviceInfo();
         state = state.copyWith(isClockingIn: false);
         return true;
       } else {
@@ -121,6 +253,7 @@ class ShiftNotifier extends StateNotifier<ShiftState> {
   Future<bool> clockOut({
     GeoPoint? location,
     double? accuracy,
+    String? reason,
   }) async {
     final activeShift = state.activeShift;
     if (activeShift == null) {
@@ -135,9 +268,42 @@ class ShiftNotifier extends StateNotifier<ShiftState> {
         shiftId: activeShift.id,
         location: location,
         accuracy: accuracy,
+        reason: reason,
       );
 
       if (result.success) {
+        // Auto-close any open cleaning sessions for this shift
+        // Use local shift ID — sessions are stored locally with this ID
+        try {
+          final cleaningService = _ref.read(cleaningSessionServiceProvider);
+          final userId = _ref.read(supabaseClientProvider).auth.currentUser?.id;
+          if (userId != null) {
+            await cleaningService.autoCloseSessions(
+              shiftId: activeShift.id,
+              employeeId: userId,
+              closedAt: DateTime.now().toUtc(),
+            );
+          }
+        } catch (_) {
+          // Don't fail clock-out if auto-close fails
+        }
+
+        // Auto-close any open maintenance sessions for this shift
+        try {
+          final maintenanceService =
+              _ref.read(maintenanceSessionServiceProvider);
+          final userId = _ref.read(supabaseClientProvider).auth.currentUser?.id;
+          if (userId != null) {
+            await maintenanceService.autoCloseSessions(
+              shiftId: activeShift.id,
+              employeeId: userId,
+              closedAt: DateTime.now().toUtc(),
+            );
+          }
+        } catch (_) {
+          // Don't fail clock-out if auto-close fails
+        }
+
         state = state.copyWith(
           isClockingOut: false,
           clearActiveShift: true,
@@ -163,12 +329,22 @@ class ShiftNotifier extends StateNotifier<ShiftState> {
   void clearError() {
     state = state.copyWith(clearError: true);
   }
+
+  @override
+  void dispose() {
+    _serverCheckTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
 }
 
 /// Provider for shift state management.
+/// Rebuilds when the authenticated user changes (logout/login).
 final shiftProvider = StateNotifierProvider<ShiftNotifier, ShiftState>((ref) {
+  // Watch auth state stream so provider rebuilds on login/logout
+  ref.watch(authStateChangesProvider);
   final shiftService = ref.watch(shiftServiceProvider);
-  return ShiftNotifier(shiftService);
+  return ShiftNotifier(shiftService, ref);
 });
 
 /// Provider for checking if user has an active shift.

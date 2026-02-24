@@ -54,24 +54,24 @@ class PermissionChangeAlert extends StatelessWidget {
     final Color iconColor;
 
     if (isRevoked) {
-      title = 'Location Permission Revoked';
-      body = 'Location tracking has stopped because permission was revoked. '
-          'Your shift is still active but location data will not be recorded.';
-      fixLabel = 'Fix Now';
+      title = 'Permission de localisation révoquée';
+      body = 'Le suivi de localisation a été arrêté car la permission a été révoquée. '
+          'Votre quart est toujours actif mais les données de localisation ne seront pas enregistrées.';
+      fixLabel = 'Corriger maintenant';
       icon = Icons.location_off;
       iconColor = theme.colorScheme.error;
     } else if (isDowngraded) {
-      title = 'Background Tracking Limited';
-      body = 'Background location permission was changed. Tracking may be '
-          'interrupted when the app is not visible.';
-      fixLabel = 'Restore';
+      title = 'Suivi en arrière-plan limité';
+      body = "La permission de localisation en arrière-plan a été modifiée. Le suivi peut être "
+          "interrompu lorsque l'application n'est pas visible.";
+      fixLabel = 'Restaurer';
       icon = Icons.warning_amber;
       iconColor = Colors.orange;
     } else {
       // Generic downgrade case
-      title = 'Permission Changed';
-      body = 'Your location permission has changed. This may affect GPS tracking.';
-      fixLabel = 'Fix';
+      title = 'Permission modifiée';
+      body = 'Votre permission de localisation a changé. Cela peut affecter le suivi GPS.';
+      fixLabel = 'Corriger';
       icon = Icons.info_outline;
       iconColor = theme.colorScheme.primary;
     }

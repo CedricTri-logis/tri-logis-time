@@ -20,7 +20,7 @@ class ErrorSnackbar {
           backgroundColor: Theme.of(context).colorScheme.error,
           behavior: SnackBarBehavior.floating,
           action: SnackBarAction(
-            label: 'Dismiss',
+            label: 'Fermer',
             textColor: Colors.white,
             onPressed: () {
               ScaffoldMessenger.of(context).hideCurrentSnackBar();

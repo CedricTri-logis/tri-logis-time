@@ -1,9 +1,11 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../shared/services/local_database.dart';
 import '../models/sync_progress.dart';
+import 'quarantine_service.dart';
 import 'shift_service.dart';
 
 /// Result of a sync operation.
@@ -35,13 +37,25 @@ class SyncService {
   final SupabaseClient _supabase;
   final LocalDatabase _localDb;
   final ShiftService _shiftService;
+  QuarantineService? _quarantineService;
 
   static const int _gpsPointBatchSize = 100;
+
+  /// Max sync attempts for orphaned GPS points before quarantine.
+  static const int _maxOrphanSyncAttempts = 3;
+
+  /// Track per-shift orphan sync attempts (shift_id -> attempt count).
+  final Map<String, int> _orphanAttempts = {};
 
   /// Stream controller for progress updates.
   final _progressController = StreamController<SyncProgress>.broadcast();
 
   SyncService(this._supabase, this._localDb, this._shiftService);
+
+  /// Set the quarantine service (injected to avoid circular dependencies).
+  void setQuarantineService(QuarantineService service) {
+    _quarantineService = service;
+  }
 
   /// Stream of sync progress updates.
   Stream<SyncProgress> get progressStream => _progressController.stream;
@@ -98,6 +112,9 @@ class SyncService {
       _progressController.add(progress);
     }
 
+    // Sync GPS gaps
+    await _syncGpsGaps();
+
     // Sync pending GPS points with progress
     final gpsResult = await _syncGpsPointsWithProgress(
       totalPending: totalPendingGps,
@@ -114,6 +131,11 @@ class SyncService {
     failedGpsPoints = gpsResult.failedGpsPoints;
     if (gpsResult.lastError != null) {
       lastError = gpsResult.lastError;
+    }
+
+    // Trigger trip re-detection for completed shifts that had GPS points synced
+    if (syncedGpsPoints > 0) {
+      _triggerTripDetectionForCompletedShifts(userId);
     }
 
     // Final progress update
@@ -161,22 +183,59 @@ class SyncService {
       // Map local shift IDs to server IDs, skipping points without valid server IDs
       final mappedPoints = <Map<String, dynamic>>[];
       final validPointIds = <String>[];
+      // Track point ID → local point for potential quarantine
+      final pointsByClientId = <String, dynamic>{};
+
+      int skippedOrphanCount = 0;
 
       for (final point in pendingPoints) {
-        final shift = await _localDb.getShiftById(point.shiftId);
+        var shift = await _localDb.getShiftById(point.shiftId);
 
-        // Only sync if shift exists AND has a server ID
+        // If shift has no server ID, attempt inline shift sync
+        if (shift != null && shift.serverId == null) {
+          final synced = await _shiftService.syncShift(shift.id);
+          if (synced) {
+            // Re-fetch to get the new serverId
+            shift = await _localDb.getShiftById(point.shiftId);
+          }
+        }
+
         if (shift != null && shift.serverId != null) {
           final pointJson = point.toJson();
           pointJson['shift_id'] = shift.serverId; // Use server ID
           mappedPoints.add(pointJson);
           validPointIds.add(point.id);
+          pointsByClientId[point.id] = point;
+        } else {
+          // Track orphan attempts per shift and quarantine after threshold
+          skippedOrphanCount++;
+          final attempts = (_orphanAttempts[point.shiftId] ?? 0) + 1;
+          _orphanAttempts[point.shiftId] = attempts;
+
+          if (attempts >= _maxOrphanSyncAttempts && _quarantineService != null) {
+            try {
+              await _quarantineService!.quarantineGpsPoint(
+                point: point,
+                errorCode: 'orphaned_shift',
+                errorMessage: 'Shift ${point.shiftId} has no server ID after $attempts sync attempts',
+              );
+              // Mark as synced to remove from pending queue
+              await _localDb.markGpsPointsSynced([point.id]);
+              debugPrint('[SyncService] Quarantined orphaned GPS point ${point.id}');
+            } catch (_) {
+              failedCount++;
+            }
+          } else {
+            failedCount++;
+          }
         }
-        // Points without valid server shift ID are skipped and will be retried later
       }
 
-      // If all points were skipped (no valid server IDs), break to avoid infinite loop
+      // If all points were orphaned (no valid server IDs), report as error to trigger retry
       if (mappedPoints.isEmpty) {
+        if (skippedOrphanCount > 0) {
+          lastError = '$skippedOrphanCount GPS points orphaned (shift not synced)';
+        }
         break;
       }
 
@@ -189,10 +248,25 @@ class SyncService {
         );
         if (result['status'] == 'success') {
           final inserted = result['inserted'] as int? ?? 0;
-          syncedCount += inserted;
+          final duplicates = result['duplicates'] as int? ?? 0;
+          final serverErrors = result['errors'] as int? ?? 0;
+          final failedIds = (result['failed_ids'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toSet() ?? <String>{};
 
-          // Mark only successfully synced points as synced
-          await _localDb.markGpsPointsSynced(validPointIds);
+          syncedCount += inserted + duplicates;
+
+          // Mark only non-failed points as synced
+          if (failedIds.isEmpty) {
+            await _localDb.markGpsPointsSynced(validPointIds);
+          } else {
+            final succeededIds = validPointIds
+                .where((id) => !failedIds.contains(id))
+                .toList();
+            await _localDb.markGpsPointsSynced(succeededIds);
+            failedCount += serverErrors;
+            lastError = '$serverErrors GPS points rejected by server';
+          }
         } else {
           failedCount += validPointIds.length;
           lastError = result['message'] as String?;
@@ -209,6 +283,43 @@ class SyncService {
       failedGpsPoints: failedCount,
       lastError: lastError,
     );
+  }
+
+  /// Sync pending GPS gaps to Supabase.
+  Future<void> _syncGpsGaps() async {
+    final pendingGaps = await _localDb.getPendingGpsGaps();
+    if (pendingGaps.isEmpty) return;
+
+    // Map local shift IDs to server IDs
+    final mappedGaps = <Map<String, dynamic>>[];
+    final validGapIds = <String>[];
+
+    for (final gap in pendingGaps) {
+      final shift = await _localDb.getShiftById(gap.shiftId);
+      if (shift != null && shift.serverId != null) {
+        final gapJson = gap.toJson();
+        gapJson['shift_id'] = shift.serverId;
+        gapJson['employee_id'] = gap.employeeId;
+        mappedGaps.add(gapJson);
+        validGapIds.add(gap.id);
+      }
+    }
+
+    if (mappedGaps.isEmpty) return;
+
+    try {
+      final result = await _supabase.rpc<Map<String, dynamic>>(
+        'sync_gps_gaps',
+        params: {'p_gaps': mappedGaps},
+      );
+      if (result['status'] == 'success') {
+        await _localDb.markGpsGapsSynced(validGapIds);
+      } else {
+        debugPrint('[SyncService] GPS gaps sync returned: ${result['status']} - ${result['message']}');
+      }
+    } catch (e) {
+      debugPrint('[SyncService] GPS gaps sync failed: $e — will retry next cycle');
+    }
   }
 
   /// Sync a single shift.
@@ -250,6 +361,33 @@ class SyncService {
   Future<int> cleanupOldData() async {
     final threshold = DateTime.now().subtract(const Duration(days: 30));
     return await _localDb.deleteOldSyncedGpsPoints(threshold);
+  }
+
+  /// Fire-and-forget trip detection for recently completed shifts.
+  /// Called after GPS points sync to re-detect trips with new data.
+  void _triggerTripDetectionForCompletedShifts(String userId) async {
+    try {
+      // Get recently completed shifts (last 24h) to re-detect trips
+      final recentShifts = await _localDb.getShiftHistory(
+        employeeId: userId,
+        limit: 10,
+        offset: 0,
+      );
+
+      for (final shift in recentShifts) {
+        if (shift.status == 'completed' && shift.serverId != null) {
+          _supabase.rpc('detect_trips', params: {
+            'p_shift_id': shift.serverId,
+          }).then((_) {
+            debugPrint('[Mileage] Trip re-detection completed for shift ${shift.serverId}');
+          }).catchError((e) {
+            debugPrint('[Mileage] Trip re-detection failed for shift ${shift.serverId}: $e');
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('[Mileage] Failed to trigger trip re-detection: $e');
+    }
   }
 
   /// Dispose resources.

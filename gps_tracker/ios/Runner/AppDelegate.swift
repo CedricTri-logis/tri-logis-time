@@ -9,10 +9,15 @@ import GoogleMaps
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    // Google Maps API Key for Employee History feature (Spec 006)
-    GMSServices.provideAPIKey("YOUR_GOOGLE_MAPS_API_KEY")
+    // Google Maps API Key (loaded from Secrets.xcconfig via Info.plist)
+    if let apiKey = Bundle.main.object(forInfoDictionaryKey: "GOOGLE_MAPS_API_KEY") as? String, !apiKey.isEmpty {
+      GMSServices.provideAPIKey(apiKey)
+    }
 
     GeneratedPluginRegistrant.register(with: self)
+
+    // Register Significant Location Change plugin (safety net for terminated app)
+    SignificantLocationPlugin.register(with: self.registrar(forPlugin: "SignificantLocationPlugin")!)
 
     // Required for flutter_foreground_task
     SwiftFlutterForegroundTaskPlugin.setPluginRegistrantCallback { registry in

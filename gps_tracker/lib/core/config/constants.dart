@@ -3,7 +3,7 @@ class AppConstants {
   AppConstants._();
 
   /// App name displayed in UI
-  static const String appName = 'GPS Clock-In Tracker';
+  static const String appName = 'Tri-Logis Pointage';
 
   /// GPS tracking interval in minutes during active shift
   static const int gpsTrackingIntervalMinutes = 5;

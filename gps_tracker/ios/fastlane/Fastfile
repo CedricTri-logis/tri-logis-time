@@ -1,0 +1,52 @@
+default_platform(:ios)
+
+def load_api_key
+  config = JSON.parse(File.read(File.join(Dir.pwd, "appstore-api-key.json")))
+  key_content = File.read(File.join(Dir.pwd, config["key_filepath"]))
+  app_store_connect_api_key(
+    key_id: config["key_id"],
+    issuer_id: config["issuer_id"],
+    key_content: key_content
+  )
+end
+
+platform :ios do
+  desc "Build and upload to TestFlight"
+  lane :beta do
+    api_key = load_api_key
+
+    # Clean bundler env so xcodebuild doesn't inherit Ruby 4.0 settings
+    Bundler.with_unbundled_env do
+      sh("cd ../.. && flutter build ipa --release")
+    end
+
+    upload_to_testflight(
+      api_key: api_key,
+      ipa: "../build/ios/ipa/gps_tracker.ipa",
+      groups: ["Employee"],
+      distribute_external: true,
+      notify_external_testers: true,
+      changelog: ENV["CHANGELOG"] || "Bug fixes and improvements."
+      # Note: "Tri-Logis" is internal with auto-distribution enabled
+      # and receives all builds automatically.
+    )
+  end
+
+  desc "Upload to App Store for review"
+  lane :production do
+    api_key = load_api_key
+
+    Bundler.with_unbundled_env do
+      sh("cd ../.. && flutter build ipa --release")
+    end
+
+    upload_to_app_store(
+      api_key: api_key,
+      ipa: "../build/ios/ipa/gps_tracker.ipa",
+      submit_for_review: true,
+      automatic_release: false,
+      skip_metadata: true,
+      skip_screenshots: true
+    )
+  end
+end
