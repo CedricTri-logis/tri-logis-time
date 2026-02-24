@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../shared/services/local_database.dart';
 import '../models/sync_progress.dart';
+import 'diagnostic_sync_service.dart';
 import 'quarantine_service.dart';
 import 'shift_service.dart';
 
@@ -38,6 +39,7 @@ class SyncService {
   final LocalDatabase _localDb;
   final ShiftService _shiftService;
   QuarantineService? _quarantineService;
+  DiagnosticSyncService? _diagnosticSyncService;
 
   static const int _gpsPointBatchSize = 100;
 
@@ -55,6 +57,11 @@ class SyncService {
   /// Set the quarantine service (injected to avoid circular dependencies).
   void setQuarantineService(QuarantineService service) {
     _quarantineService = service;
+  }
+
+  /// Set the diagnostic sync service (injected to avoid circular dependencies).
+  void setDiagnosticSyncService(DiagnosticSyncService service) {
+    _diagnosticSyncService = service;
   }
 
   /// Stream of sync progress updates.
@@ -136,6 +143,13 @@ class SyncService {
     // Trigger trip re-detection for completed shifts that had GPS points synced
     if (syncedGpsPoints > 0) {
       _triggerTripDetectionForCompletedShifts(userId);
+    }
+
+    // Sync diagnostic events (lowest priority — never blocks GPS/shift sync)
+    try {
+      await _diagnosticSyncService?.syncDiagnosticEvents();
+    } catch (_) {
+      // Never let diagnostic sync failures affect the main sync result
     }
 
     // Final progress update

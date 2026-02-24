@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/providers/supabase_provider.dart';
 import '../../cleaning/providers/cleaning_session_provider.dart';
 import '../../shifts/providers/connectivity_provider.dart';
+import '../../shifts/providers/location_provider.dart';
 import '../../shifts/providers/shift_provider.dart';
 import '../models/maintenance_session.dart';
 import '../services/maintenance_local_db.dart';
@@ -157,6 +158,10 @@ class MaintenanceSessionNotifier
     state = state.copyWith(isLoading: true, clearError: true);
 
     try {
+      // Capture GPS position at session start
+      final locationService = _ref.read(locationServiceProvider);
+      final position = await locationService.getCurrentPosition();
+
       final result = await _service.startSession(
         employeeId: employeeId,
         shiftId: shiftId,
@@ -165,6 +170,9 @@ class MaintenanceSessionNotifier
         apartmentId: apartmentId,
         unitNumber: unitNumber,
         serverShiftId: serverShiftId,
+        latitude: position?.latitude,
+        longitude: position?.longitude,
+        accuracy: position?.accuracy,
       );
 
       if (result.success && result.session != null) {
@@ -201,7 +209,16 @@ class MaintenanceSessionNotifier
     state = state.copyWith(isLoading: true, clearError: true);
 
     try {
-      final result = await _service.completeSession(employeeId: employeeId);
+      // Capture GPS position at session end
+      final locationService = _ref.read(locationServiceProvider);
+      final position = await locationService.getCurrentPosition();
+
+      final result = await _service.completeSession(
+        employeeId: employeeId,
+        latitude: position?.latitude,
+        longitude: position?.longitude,
+        accuracy: position?.accuracy,
+      );
       if (result.success) {
         state = state.copyWith(
           isLoading: false,

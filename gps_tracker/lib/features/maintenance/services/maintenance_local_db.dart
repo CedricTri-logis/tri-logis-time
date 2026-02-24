@@ -49,10 +49,27 @@ class MaintenanceLocalDb {
             notes TEXT,
             sync_status TEXT NOT NULL DEFAULT 'pending',
             server_id TEXT,
+            start_latitude REAL,
+            start_longitude REAL,
+            start_accuracy REAL,
+            end_latitude REAL,
+            end_longitude REAL,
+            end_accuracy REAL,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
           )
         ''');
+
+        // Add GPS columns to existing tables (safe to run multiple times)
+        for (final col in ['start_latitude', 'start_longitude', 'start_accuracy',
+                           'end_latitude', 'end_longitude', 'end_accuracy']) {
+          try {
+            await txn.execute(
+              'ALTER TABLE local_maintenance_sessions ADD COLUMN $col REAL');
+          } catch (_) {
+            // Column already exists
+          }
+        }
 
         await txn.execute('''
           CREATE INDEX IF NOT EXISTS idx_local_ms_employee_status
@@ -256,16 +273,27 @@ class MaintenanceLocalDb {
     try {
       final now = DateTime.now().toUtc().toIso8601String();
       await _localDb.transaction((txn) async {
-        await txn.update(
-          'local_maintenance_sessions',
-          {
+        final values = <String, dynamic>{
             'status': session.status.toJson(),
             'completed_at': session.completedAt?.toUtc().toIso8601String(),
             'duration_minutes': session.durationMinutes,
             'notes': session.notes,
             'sync_status': session.syncStatus.toJson(),
             'updated_at': now,
-          },
+          };
+        if (session.startLatitude != null) {
+          values['start_latitude'] = session.startLatitude;
+          values['start_longitude'] = session.startLongitude;
+          values['start_accuracy'] = session.startAccuracy;
+        }
+        if (session.endLatitude != null) {
+          values['end_latitude'] = session.endLatitude;
+          values['end_longitude'] = session.endLongitude;
+          values['end_accuracy'] = session.endAccuracy;
+        }
+        await txn.update(
+          'local_maintenance_sessions',
+          values,
           where: 'id = ?',
           whereArgs: [session.id],
         );

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/providers/supabase_provider.dart';
 import '../../shifts/providers/connectivity_provider.dart';
+import '../../shifts/providers/location_provider.dart';
 import '../../shifts/providers/shift_provider.dart';
 import '../models/cleaning_session.dart';
 import '../models/scan_result.dart';
@@ -175,11 +176,18 @@ class CleaningSessionNotifier extends StateNotifier<CleaningSessionState> {
     state = state.copyWith(isScanning: true, clearError: true);
 
     try {
+      // Capture GPS position at scan-in
+      final locationService = _ref.read(locationServiceProvider);
+      final position = await locationService.getCurrentPosition();
+
       final result = await _service.scanIn(
         employeeId: employeeId,
         qrCode: qrCode,
         shiftId: shiftId,
         serverShiftId: serverShiftId,
+        latitude: position?.latitude,
+        longitude: position?.longitude,
+        accuracy: position?.accuracy,
       );
 
       if (result.success && result.session != null) {
@@ -215,9 +223,16 @@ class CleaningSessionNotifier extends StateNotifier<CleaningSessionState> {
     state = state.copyWith(isScanning: true, clearError: true);
 
     try {
+      // Capture GPS position at scan-out
+      final locationService = _ref.read(locationServiceProvider);
+      final position = await locationService.getCurrentPosition();
+
       final result = await _service.scanOut(
         employeeId: employeeId,
         qrCode: qrCode,
+        latitude: position?.latitude,
+        longitude: position?.longitude,
+        accuracy: position?.accuracy,
       );
 
       if (result.success) {

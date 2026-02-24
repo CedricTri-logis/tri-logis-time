@@ -7,11 +7,19 @@ import '../models/shift_enums.dart';
 import '../models/sync_metadata.dart';
 import '../models/sync_progress.dart';
 import '../services/backoff_strategy.dart';
+import '../services/diagnostic_sync_service.dart';
 import '../services/sync_logger.dart';
 import '../services/sync_service.dart';
 import 'connectivity_provider.dart';
 import 'quarantine_provider.dart';
 import 'shift_provider.dart';
+
+/// Provider for DiagnosticSyncService.
+final diagnosticSyncServiceProvider = Provider<DiagnosticSyncService>((ref) {
+  final supabase = ref.watch(supabaseClientProvider);
+  final localDb = ref.watch(localDatabaseProvider);
+  return DiagnosticSyncService(supabase, localDb);
+});
 
 /// Provider for SyncService.
 final syncServiceProvider = Provider<SyncService>((ref) {
@@ -21,6 +29,8 @@ final syncServiceProvider = Provider<SyncService>((ref) {
   final syncService = SyncService(supabase, localDb, shiftService);
   // Inject quarantine service for orphaned GPS point handling
   syncService.setQuarantineService(ref.watch(quarantineServiceProvider));
+  // Inject diagnostic sync service for log upload
+  syncService.setDiagnosticSyncService(ref.watch(diagnosticSyncServiceProvider));
   return syncService;
 });
 

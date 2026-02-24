@@ -15,12 +15,13 @@ import '../../features/shifts/models/quarantined_record.dart';
 import '../../features/shifts/models/storage_metrics.dart';
 import '../../features/shifts/models/sync_log_entry.dart';
 import '../../features/shifts/models/sync_metadata.dart';
+import '../models/diagnostic_event.dart';
 import 'local_database_exception.dart';
 
 /// Local SQLite database service with encrypted storage.
 class LocalDatabase {
   static const String _databaseName = 'gps_tracker.db';
-  static const int _databaseVersion = 3;
+  static const int _databaseVersion = 4;
   static const String _encryptionKeyKey = 'local_db_encryption_key';
 
   static LocalDatabase? _instance;
@@ -193,6 +194,9 @@ class LocalDatabase {
 
     // Create GPS gaps table
     await _createGpsGapsTable(db);
+
+    // Create diagnostic events table
+    await _createDiagnosticEventsTable(db);
   }
 
   /// Create tables for offline resilience feature.
@@ -312,6 +316,39 @@ class LocalDatabase {
     ''');
   }
 
+  /// Create diagnostic events table for structured app-wide logging.
+  Future<void> _createDiagnosticEventsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS diagnostic_events (
+        id TEXT PRIMARY KEY,
+        employee_id TEXT NOT NULL,
+        shift_id TEXT,
+        device_id TEXT NOT NULL,
+        event_category TEXT NOT NULL CHECK (event_category IN ('gps', 'shift', 'sync', 'auth', 'permission', 'lifecycle', 'thermal', 'error', 'network')),
+        severity TEXT NOT NULL CHECK (severity IN ('debug', 'info', 'warn', 'error', 'critical')),
+        message TEXT NOT NULL,
+        metadata TEXT,
+        app_version TEXT NOT NULL,
+        platform TEXT NOT NULL,
+        os_version TEXT,
+        sync_status TEXT NOT NULL DEFAULT 'pending' CHECK (sync_status IN ('pending', 'synced')),
+        created_at TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_diag_sync_status ON diagnostic_events(sync_status)
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_diag_created_at ON diagnostic_events(created_at)
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_diag_category_severity ON diagnostic_events(event_category, severity)
+    ''');
+  }
+
   /// Ensure clock_out_reason column exists on local_shifts.
   /// Covers edge case where DB was freshly created at v3 without the column.
   Future<void> _ensureClockOutReasonColumn(Database db) async {
@@ -336,6 +373,10 @@ class LocalDatabase {
       await db.execute(
         'ALTER TABLE local_shifts ADD COLUMN clock_out_reason TEXT',
       );
+    }
+    // Migration from v3 to v4: Add diagnostic events table
+    if (oldVersion < 4) {
+      await _createDiagnosticEventsTable(db);
     }
   }
 
@@ -1532,6 +1573,104 @@ class LocalDatabase {
         operation: 'clearEmployeeDashboardCache',
         originalError: e,
       );
+    }
+  }
+
+  // ============ DIAGNOSTIC EVENT OPERATIONS ============
+
+  /// Insert a diagnostic event (fire-and-forget, never throws).
+  Future<void> insertDiagnosticEvent(DiagnosticEvent event) async {
+    try {
+      await _db.insert(
+        'diagnostic_events',
+        event.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (_) {
+      // Fire-and-forget: never crash the app for logging failures
+    }
+  }
+
+  /// Get pending diagnostic events for server sync.
+  /// Excludes debug-level events (local-only).
+  Future<List<DiagnosticEvent>> getPendingDiagnosticEvents({
+    int limit = 200,
+  }) async {
+    try {
+      final results = await _db.query(
+        'diagnostic_events',
+        where: "sync_status = ? AND severity != ?",
+        whereArgs: ['pending', 'debug'],
+        orderBy: 'created_at ASC',
+        limit: limit,
+      );
+      return results.map((map) => DiagnosticEvent.fromMap(map)).toList();
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to get pending diagnostic events',
+        operation: 'getPendingDiagnosticEvents',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Mark diagnostic events as synced.
+  Future<void> markDiagnosticEventsSynced(List<String> ids) async {
+    if (ids.isEmpty) return;
+
+    try {
+      await _db.transaction((txn) async {
+        for (final id in ids) {
+          await txn.update(
+            'diagnostic_events',
+            {'sync_status': 'synced'},
+            where: 'id = ?',
+            whereArgs: [id],
+          );
+        }
+      });
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to mark diagnostic events synced',
+        operation: 'markDiagnosticEventsSynced',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Prune old synced diagnostic events to stay under storage limit.
+  Future<int> pruneDiagnosticEvents({int maxCount = 5000}) async {
+    try {
+      final countResult = await _db.rawQuery(
+        'SELECT COUNT(*) as count FROM diagnostic_events',
+      );
+      final count = countResult.first['count'] as int;
+      if (count <= maxCount) return 0;
+
+      final excess = count - maxCount;
+      // Delete oldest synced events first
+      return await _db.rawDelete('''
+        DELETE FROM diagnostic_events WHERE id IN (
+          SELECT id FROM diagnostic_events
+          WHERE sync_status = 'synced'
+          ORDER BY created_at ASC
+          LIMIT ?
+        )
+      ''', [excess]);
+    } catch (_) {
+      return 0; // Best-effort pruning
+    }
+  }
+
+  /// Get total diagnostic event count.
+  Future<int> getDiagnosticEventCount() async {
+    try {
+      final result = await _db.rawQuery(
+        'SELECT COUNT(*) as count FROM diagnostic_events',
+      );
+      return result.first['count'] as int;
+    } catch (_) {
+      return 0;
     }
   }
 }

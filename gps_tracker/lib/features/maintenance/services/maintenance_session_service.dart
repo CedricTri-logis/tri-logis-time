@@ -28,6 +28,9 @@ class MaintenanceSessionService {
     String? apartmentId,
     String? unitNumber,
     String? serverShiftId,
+    double? latitude,
+    double? longitude,
+    double? accuracy,
   }) async {
     // 1. Check for active cleaning session (cross-feature)
     final activeCleaning =
@@ -60,6 +63,9 @@ class MaintenanceSessionService {
       status: MaintenanceSessionStatus.inProgress,
       startedAt: now,
       syncStatus: SyncStatus.pending,
+      startLatitude: latitude,
+      startLongitude: longitude,
+      startAccuracy: accuracy,
       buildingName: buildingName,
       unitNumber: unitNumber,
     );
@@ -107,6 +113,9 @@ class MaintenanceSessionService {
   /// Complete the active maintenance session.
   Future<MaintenanceSessionResult> completeSession({
     required String employeeId,
+    double? latitude,
+    double? longitude,
+    double? accuracy,
   }) async {
     final activeSession =
         await _localDb.getActiveSessionForEmployee(employeeId);
@@ -124,6 +133,9 @@ class MaintenanceSessionService {
       completedAt: now,
       durationMinutes: durationMinutes,
       syncStatus: SyncStatus.pending,
+      endLatitude: latitude,
+      endLongitude: longitude,
+      endAccuracy: accuracy,
     );
     await _localDb.updateMaintenanceSession(completedSession);
 
@@ -285,6 +297,18 @@ class MaintenanceSessionService {
             'completed_at':
                 session.completedAt?.toUtc().toIso8601String(),
             'duration_minutes': session.durationMinutes,
+            if (session.startLatitude != null)
+              'start_latitude': session.startLatitude,
+            if (session.startLongitude != null)
+              'start_longitude': session.startLongitude,
+            if (session.startAccuracy != null)
+              'start_accuracy': session.startAccuracy,
+            if (session.endLatitude != null)
+              'end_latitude': session.endLatitude,
+            if (session.endLongitude != null)
+              'end_longitude': session.endLongitude,
+            if (session.endAccuracy != null)
+              'end_accuracy': session.endAccuracy,
           });
 
           await _localDb.markMaintenanceSessionSynced(session.id);

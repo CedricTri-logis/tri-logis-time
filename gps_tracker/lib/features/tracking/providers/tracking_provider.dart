@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../shared/models/diagnostic_event.dart';
+import '../../../shared/services/diagnostic_logger.dart';
 import '../../../shared/services/local_database.dart';
 import '../../../shared/services/notification_service.dart';
 import '../../shifts/models/local_gps_gap.dart';
@@ -24,6 +26,10 @@ import '../services/thermal_state_service.dart';
 class TrackingNotifier extends StateNotifier<TrackingState> {
   final Ref _ref;
   ProviderSubscription<ShiftState>? _shiftSubscription;
+
+  /// Guarded access to the diagnostic logger singleton.
+  DiagnosticLogger? get _logger =>
+      DiagnosticLogger.isInitialized ? DiagnosticLogger.instance : null;
 
   /// ID of the currently open GPS gap (if any).
   String? _activeGpsGapId;
@@ -80,7 +86,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
         try {
           pointCount = await LocalDatabase().getGpsPointCountForShift(shiftId);
         } catch (e) {
-          debugPrint('[Tracking] Failed to load point count from DB: $e');
+          _logger?.gps(Severity.error, 'Failed to load point count from DB', metadata: {'error': e.toString()});
         }
         state = state.copyWith(
           status: TrackingStatus.running,
@@ -95,7 +101,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
       Future.delayed(const Duration(seconds: 2), () {
         final shift = _ref.read(shiftProvider).activeShift;
         if (shift != null && state.status != TrackingStatus.running) {
-          debugPrint('[Tracking] Startup: service dead but shift active — restarting');
+          _logger?.lifecycle(Severity.info, 'Startup: service dead, shift active — restarting');
           startTracking();
         }
       });
@@ -127,12 +133,13 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
       case 'gps_restored':
         _handleGpsRestored(data);
       case 'stream_recovered':
-        debugPrint('[Tracking] GPS stream recovered (attempt ${data['attempt']})');
+        _logger?.gps(Severity.info, 'GPS stream recovered', metadata: {'attempt': data['attempt']});
       case 'stream_recovery_failing':
-        debugPrint('[Tracking] GPS stream recovery struggling: '
-            '${data['attempts']} attempts, ${data['gap_minutes']}min gap');
+        _logger?.gps(Severity.warn, 'GPS stream recovery failing', metadata: {'attempts': data['attempts'], 'gap_minutes': data['gap_minutes']});
+      case 'diagnostic':
+        _handleDiagnosticMessage(data);
       default:
-        debugPrint('[Tracking] Unknown message type: $type');
+        _logger?.lifecycle(Severity.debug, 'Unknown background message type', metadata: {'type': type});
     }
   }
 
@@ -146,7 +153,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     if (!_significantLocationActive) {
       SignificantLocationService.startMonitoring();
       _significantLocationActive = true;
-      debugPrint('[Tracking] GPS lost — SLC activated as fallback');
+      _logger?.gps(Severity.warn, 'GPS lost — SLC activated as fallback');
     }
 
     // Start recording the gap
@@ -384,6 +391,32 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
       debugPrint('[Tracking] Post-midnight: validating shift status with server');
       _validateShiftStatus();
     }
+  }
+
+  /// Forward diagnostic messages from the background isolate to DiagnosticLogger.
+  void _handleDiagnosticMessage(Map<String, dynamic> data) {
+    if (!DiagnosticLogger.isInitialized) return;
+
+    final categoryStr = data['category'] as String? ?? 'gps';
+    final severityStr = data['severity'] as String? ?? 'info';
+    final message = data['message'] as String? ?? '';
+    final metadata = data['metadata'] as Map<String, dynamic>?;
+
+    final category = EventCategory.values.firstWhere(
+      (e) => e.value == categoryStr,
+      orElse: () => EventCategory.gps,
+    );
+    final severity = Severity.values.firstWhere(
+      (e) => e.value == severityStr,
+      orElse: () => Severity.info,
+    );
+
+    DiagnosticLogger.instance.log(
+      category: category,
+      severity: severity,
+      message: message,
+      metadata: metadata,
+    );
   }
 
   void _handleStatusUpdate(Map<String, dynamic> data) {

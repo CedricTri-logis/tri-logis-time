@@ -64,6 +64,14 @@ class CleaningSession {
   final String? flagReason;
   final SyncStatus syncStatus;
 
+  // GPS capture at start/end
+  final double? startLatitude;
+  final double? startLongitude;
+  final double? startAccuracy;
+  final double? endLatitude;
+  final double? endLongitude;
+  final double? endAccuracy;
+
   // Denormalized for display
   final String? studioNumber;
   final String? buildingName;
@@ -81,6 +89,12 @@ class CleaningSession {
     this.isFlagged = false,
     this.flagReason,
     this.syncStatus = SyncStatus.pending,
+    this.startLatitude,
+    this.startLongitude,
+    this.startAccuracy,
+    this.endLatitude,
+    this.endLongitude,
+    this.endAccuracy,
     this.studioNumber,
     this.buildingName,
     this.studioType,
@@ -120,6 +134,12 @@ class CleaningSession {
     bool? isFlagged,
     String? flagReason,
     SyncStatus? syncStatus,
+    double? startLatitude,
+    double? startLongitude,
+    double? startAccuracy,
+    double? endLatitude,
+    double? endLongitude,
+    double? endAccuracy,
     String? studioNumber,
     String? buildingName,
     StudioType? studioType,
@@ -137,6 +157,12 @@ class CleaningSession {
       isFlagged: isFlagged ?? this.isFlagged,
       flagReason: flagReason ?? this.flagReason,
       syncStatus: syncStatus ?? this.syncStatus,
+      startLatitude: startLatitude ?? this.startLatitude,
+      startLongitude: startLongitude ?? this.startLongitude,
+      startAccuracy: startAccuracy ?? this.startAccuracy,
+      endLatitude: endLatitude ?? this.endLatitude,
+      endLongitude: endLongitude ?? this.endLongitude,
+      endAccuracy: endAccuracy ?? this.endAccuracy,
       studioNumber: studioNumber ?? this.studioNumber,
       buildingName: buildingName ?? this.buildingName,
       studioType: studioType ?? this.studioType,
@@ -160,6 +186,24 @@ class CleaningSession {
       isFlagged: (map['is_flagged'] as int?) == 1,
       flagReason: map['flag_reason'] as String?,
       syncStatus: SyncStatus.fromJson(map['sync_status'] as String? ?? 'pending'),
+      startLatitude: map['start_latitude'] != null
+          ? (map['start_latitude'] as num).toDouble()
+          : null,
+      startLongitude: map['start_longitude'] != null
+          ? (map['start_longitude'] as num).toDouble()
+          : null,
+      startAccuracy: map['start_accuracy'] != null
+          ? (map['start_accuracy'] as num).toDouble()
+          : null,
+      endLatitude: map['end_latitude'] != null
+          ? (map['end_latitude'] as num).toDouble()
+          : null,
+      endLongitude: map['end_longitude'] != null
+          ? (map['end_longitude'] as num).toDouble()
+          : null,
+      endAccuracy: map['end_accuracy'] != null
+          ? (map['end_accuracy'] as num).toDouble()
+          : null,
       studioNumber: map['studio_number'] as String?,
       buildingName: map['building_name'] as String?,
       studioType: map['studio_type'] != null
@@ -180,6 +224,12 @@ class CleaningSession {
         'is_flagged': isFlagged ? 1 : 0,
         'flag_reason': flagReason,
         'sync_status': syncStatus.toJson(),
+        'start_latitude': startLatitude,
+        'start_longitude': startLongitude,
+        'start_accuracy': startAccuracy,
+        'end_latitude': endLatitude,
+        'end_longitude': endLongitude,
+        'end_accuracy': endAccuracy,
         'created_at': DateTime.now().toUtc().toIso8601String(),
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       };
