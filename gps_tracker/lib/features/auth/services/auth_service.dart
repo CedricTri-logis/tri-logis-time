@@ -158,7 +158,10 @@ class AuthService {
   /// Send an OTP code via SMS to the given phone number
   Future<void> sendOtp({required String phone}) async {
     try {
-      await _client.auth.signInWithOtp(phone: phone);
+      await _client.auth.signInWithOtp(
+        phone: phone,
+        shouldCreateUser: false,
+      );
     } on AuthException catch (e) {
       throw AuthServiceException(
         _mapAuthErrorToMessage(e.message),
@@ -346,8 +349,9 @@ class AuthService {
         lowerError.contains('token has expired')) {
       return 'Code expire. Demandez un nouveau code.';
     }
-    if (lowerError.contains('otp_disabled')) {
-      return 'La verification par SMS n\'est pas activee.';
+    if (lowerError.contains('otp_disabled') ||
+        lowerError.contains('signups not allowed')) {
+      return 'Aucun compte associe a ce numero.';
     }
     if (lowerError.contains('invalid_otp') ||
         lowerError.contains('token is invalid') ||
@@ -361,6 +365,11 @@ class AuthService {
     if (lowerError.contains('phone') && lowerError.contains('not found') ||
         lowerError.contains('user not found')) {
       return 'Aucun compte associe a ce numero.';
+    }
+    // SDK could not parse error response (non-JSON body from proxy/CDN)
+    if (lowerError.contains('failed to decode') ||
+        lowerError.contains('authunknownexception')) {
+      return 'Erreur de communication avec le serveur. Veuillez reessayer.';
     }
 
     // Return original message if no mapping found
