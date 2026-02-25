@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/config/theme.dart';
 import '../../shared/providers/supabase_provider.dart';
+import '../auth/services/biometric_service.dart';
 import '../shifts/providers/shift_provider.dart';
 import '../admin/screens/user_management_screen.dart';
 import '../auth/providers/profile_provider.dart';
@@ -41,6 +42,22 @@ class HomeScreen extends ConsumerWidget {
       final shiftState = ref.read(shiftProvider);
       if (shiftState.activeShift != null) {
         await ref.read(shiftProvider.notifier).clockOut();
+      }
+
+      // Preserve the latest session tokens for biometric before signing out.
+      // Refresh tokens rotate during the session, so the ones saved at login
+      // are stale by now — grab the current ones before they're cleared.
+      final bio = ref.read(biometricServiceProvider);
+      if (await bio.isEnabled()) {
+        final session = ref.read(supabaseClientProvider).auth.currentSession;
+        if (session != null) {
+          final phone = ref.read(supabaseClientProvider).auth.currentUser?.phone;
+          await bio.saveSessionTokens(
+            accessToken: session.accessToken,
+            refreshToken: session.refreshToken!,
+            phone: (phone != null && phone.isNotEmpty) ? phone : null,
+          );
+        }
       }
 
       final authService = ref.read(authServiceProvider);

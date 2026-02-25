@@ -97,10 +97,29 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
       // Service not running at startup — if there's an active shift, restart tracking.
       // This handles the case where iOS killed the app and it's relaunched.
       // Use a short delay to let shiftProvider initialize from local DB first.
-      Future.delayed(const Duration(seconds: 2), () {
+      Future.delayed(const Duration(seconds: 2), () async {
         final shift = _ref.read(shiftProvider).activeShift;
         if (shift != null && state.status != TrackingStatus.running) {
-          _logger?.lifecycle(Severity.info, 'Startup: service dead, shift active — restarting');
+          // Calculate how long the tracking was dead
+          DateTime? lastPointTime;
+          try {
+            final db = LocalDatabase();
+            final points = await db.getGpsPointsForShift(shift.id);
+            if (points.isNotEmpty) {
+              lastPointTime = points.last.capturedAt; // ordered ASC, last = most recent
+            }
+          } catch (_) {}
+
+          final deadDuration = lastPointTime != null
+              ? DateTime.now().difference(lastPointTime)
+              : null;
+
+          _logger?.lifecycle(Severity.error, 'iOS killed app while tracking — restarting', metadata: {
+            'shift_id': shift.id,
+            'shift_started_at': shift.clockedInAt.toUtc().toIso8601String(),
+            if (lastPointTime != null) 'last_gps_point_at': lastPointTime.toUtc().toIso8601String(),
+            if (deadDuration != null) 'dead_duration_minutes': deadDuration.inMinutes,
+          });
           startTracking();
         }
       });
@@ -148,7 +167,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     // Show local notification
     NotificationService().showGpsLostNotification();
 
-    // Activate SLC as fallback (iOS only, deferred — not at clock-in)
+    // SLC should already be active from clock-in, but ensure it's running
     if (!_significantLocationActive) {
       SignificantLocationService.startMonitoring();
       _significantLocationActive = true;
@@ -503,8 +522,11 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
           status: TrackingStatus.running,
           config: trackingConfig,
         );
-        // Register SLC callback (but don't start monitoring — deferred to GPS loss)
+        // Register SLC callback and start monitoring immediately at clock-in.
+        // SLC can relaunch the app after iOS terminates it (~500m movement).
         SignificantLocationService.onWokenByLocationChange = _onWokenByLocationChange;
+        SignificantLocationService.startMonitoring();
+        _significantLocationActive = true;
         // Register FGS death callback for auto-restart on resume
         BackgroundTrackingService.onForegroundServiceDied = _onForegroundServiceDied;
         // Start CLBackgroundActivitySession (iOS 17+, no-op on Android/older iOS)
