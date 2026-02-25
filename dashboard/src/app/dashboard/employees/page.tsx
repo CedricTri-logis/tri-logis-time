@@ -2,7 +2,8 @@
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useList } from '@refinedev/core';
-import { Users } from 'lucide-react';
+import { Users, UserPlus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Pagination,
@@ -16,6 +17,7 @@ import { EmployeeTable } from '@/components/dashboard/employees/employee-table';
 import { EmployeeFilters } from '@/components/dashboard/employees/employee-filters';
 import { EmptyState } from '@/components/dashboard/employees/empty-state';
 import type { EmployeeListItem } from '@/types/employee';
+import { CreateEmployeeDialog } from '@/components/dashboard/employees/create-employee-dialog';
 import type { EmployeeRoleType, EmployeeStatusType } from '@/lib/validations/employee';
 
 const PAGE_SIZE = 50;
@@ -25,6 +27,7 @@ export default function EmployeesPage() {
   const [role, setRole] = useState<EmployeeRoleType | ''>('');
   const [status, setStatus] = useState<EmployeeStatusType | ''>('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
 
   // Debounced search with page reset
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -134,6 +137,10 @@ export default function EmployeesPage() {
             </p>
           </div>
         </div>
+        <Button onClick={() => setShowCreateDialog(true)}>
+          <UserPlus className="mr-2 h-4 w-4" />
+          Add Employee
+        </Button>
       </div>
 
       {/* Filters */}
@@ -225,6 +232,12 @@ export default function EmployeesPage() {
           </Pagination>
         </div>
       )}
+
+      <CreateEmployeeDialog
+        isOpen={showCreateDialog}
+        onClose={() => setShowCreateDialog(false)}
+        onCreated={() => query.refetch()}
+      />
     </div>
   );
 }
