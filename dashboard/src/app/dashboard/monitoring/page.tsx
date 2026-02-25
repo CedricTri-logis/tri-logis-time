@@ -25,7 +25,7 @@ const TeamMap = dynamic(
 export default function MonitoringPage() {
   // Filter state
   const [search, setSearch] = useState('');
-  const [shiftStatus, setShiftStatus] = useState<'all' | 'on-shift' | 'off-shift' | 'never-installed'>('all');
+  const [shiftStatus, setShiftStatus] = useState<'all' | 'on-shift' | 'off-shift' | 'never-installed'>('on-shift');
   const [sortBy, setSortBy] = useState<TeamSortOption>('last-connection');
 
   // Fetch team data with real-time updates
