@@ -150,6 +150,38 @@ class BackgroundTrackingService with WidgetsBindingObserver {
     await FlutterForegroundTask.removeData(key: 'clocked_in_at_ms');
   }
 
+  /// Restart background GPS tracking (stop old service, start new one).
+  ///
+  /// Handles the race condition where the old shift's foreground service
+  /// is still running when a new shift tries to start tracking.
+  static Future<TrackingResult> restartTracking({
+    required String shiftId,
+    required String employeeId,
+    DateTime? clockedInAt,
+    TrackingConfig config = const TrackingConfig(),
+  }) async {
+    _logger?.gps(
+      Severity.info,
+      'Restart tracking: stopping old service before starting new one',
+      metadata: {'new_shift_id': shiftId},
+    );
+
+    // Stop the old service if it's still running
+    if (await FlutterForegroundTask.isRunningService) {
+      await stopTracking();
+      // Wait for iOS to fully release the foreground service
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+    }
+
+    // Start tracking with the new shift params
+    return startTracking(
+      shiftId: shiftId,
+      employeeId: employeeId,
+      clockedInAt: clockedInAt,
+      config: config,
+    );
+  }
+
   /// Check if background tracking is currently active.
   static Future<bool> get isTracking async {
     return await FlutterForegroundTask.isRunningService;

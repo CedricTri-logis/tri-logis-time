@@ -9,6 +9,10 @@ import ActivityKit
 import WidgetKit
 import SwiftUI
 
+/// Shared UserDefaults for reading data written by the live_activities Flutter plugin.
+let sharedDefault = UserDefaults(suiteName: "group.com.cedriclajoie.gpstracker.liveactivities")!
+
+@available(iOSApplicationExtension 16.1, *)
 struct ShiftActivityWidgetLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: LiveActivitiesAppAttributes.self) { context in
@@ -114,14 +118,17 @@ struct ShiftActivityWidgetLiveActivity: Widget {
 
     // MARK: - Helpers
 
+    /// Read clockedInAtMs from UserDefaults (written by the live_activities Flutter plugin).
     private func clockedInDate(from context: ActivityViewContext<LiveActivitiesAppAttributes>) -> Date? {
-        guard let ms = context.state.clockedInAtMs, ms > 0 else { return nil }
+        let ms = sharedDefault.integer(forKey: context.attributes.prefixedKey("clockedInAtMs"))
+        guard ms > 0 else { return nil }
         return Date(timeIntervalSince1970: Double(ms) / 1000.0)
     }
 
+    /// Read GPS status from UserDefaults.
     @ViewBuilder
     private func gpsStatusIcon(context: ActivityViewContext<LiveActivitiesAppAttributes>) -> some View {
-        let status = context.state.status ?? "active"
+        let status = sharedDefault.string(forKey: context.attributes.prefixedKey("status")) ?? "active"
         if status == "gps_lost" {
             Image(systemName: "location.slash.fill")
                 .foregroundColor(.orange)

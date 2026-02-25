@@ -184,7 +184,7 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
       }
     }
 
-    // Show loading indicator and capture location
+    // Show loading indicator
     if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -200,28 +200,29 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
               ),
             ),
             SizedBox(width: 16),
-            Text('Obtention de votre position...'),
+            Text('Vérification du GPS...'),
           ],
         ),
-        duration: Duration(seconds: 2),
+        duration: Duration(seconds: 12),
       ),
     );
 
-    // Capture location
-    final locationData = await locationService.captureClockLocation();
+    // Strict GPS health check — requires fresh position, no stale fallback
+    final gpsResult = await locationService.verifyGpsForClockIn();
 
-    // Validate GPS location was captured - clock-in requires location
-    if (locationData.location == null) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      _showLocationCaptureFailedDialog();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+    // Block clock-in if GPS is not working
+    if (gpsResult.failureReason != null) {
+      _showGpsNotWorkingDialog(gpsResult.failureReason!);
       return;
     }
 
     // Clock in (location is guaranteed non-null after validation above)
     final success = await shiftNotifier.clockIn(
-      location: locationData.location!,
-      accuracy: locationData.accuracy,
+      location: gpsResult.location!,
+      accuracy: gpsResult.accuracy,
     );
 
     if (!mounted) return;
@@ -722,36 +723,40 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
     );
   }
 
-  void _showLocationCaptureFailedDialog() {
+  void _showGpsNotWorkingDialog(String reason) {
+    final String title;
+    final String message;
+
+    switch (reason) {
+      case 'timeout':
+        title = 'GPS non disponible';
+        message = 'Impossible d\'obtenir votre position GPS. '
+            'Assurez-vous d\'être dans un endroit avec un signal GPS '
+            '(à l\'extérieur ou près d\'une fenêtre) et réessayez.';
+      case 'poor_accuracy':
+        title = 'Signal GPS faible';
+        message = 'Le signal GPS est trop faible pour démarrer le quart. '
+            'Attendez quelques secondes pour un meilleur signal ou '
+            'déplacez-vous vers un endroit plus ouvert.';
+      case 'permission_denied':
+        title = 'Permission GPS requise';
+        message = 'L\'accès à la localisation est nécessaire pour '
+            'démarrer un quart de travail.';
+      default:
+        title = 'Erreur GPS';
+        message = 'Une erreur est survenue avec le GPS. '
+            'Veuillez réessayer dans quelques instants.';
+    }
+
     showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.location_off, color: Colors.red),
-            SizedBox(width: 8),
-            Text('Position introuvable'),
-          ],
-        ),
-        content: const Text(
-          'Impossible d\'obtenir votre position GPS. Veuillez vérifier:\n\n'
-          '• Les services de localisation sont activés\n'
-          '• Vous êtes dans une zone avec signal GPS\n'
-          '• L\'app a la permission de localisation\n\n'
-          'Une position GPS valide est requise pour débuter.',
-        ),
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Annuler'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              Navigator.of(context).pop();
-              // Retry clock-in
-              _handleClockIn();
-            },
-            child: const Text('Réessayer'),
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('OK'),
           ),
         ],
       ),
@@ -1018,6 +1023,10 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
           children: [
             // Permission status banner at top
             const PermissionStatusBanner(),
+            // Tracking verification failure banner
+            _TrackingFailureBanner(
+              hasActiveShift: hasActiveShift,
+            ),
             Expanded(
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -1239,6 +1248,44 @@ class _ClockOutConfirmationSheet extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+}
+
+/// Banner shown when background GPS tracking fails to start within 15 seconds.
+class _TrackingFailureBanner extends ConsumerWidget {
+  final bool hasActiveShift;
+
+  const _TrackingFailureBanner({required this.hasActiveShift});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final trackingState = ref.watch(trackingProvider);
+    if (!hasActiveShift || !trackingState.trackingStartFailed) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade100,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.orange),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.warning_amber_rounded, color: Colors.orange),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Le suivi GPS ne fonctionne pas. Vos déplacements ne sont pas enregistrés. '
+              'Essayez de fermer et rouvrir l\'application.',
+              style: TextStyle(color: Colors.orange.shade900, fontSize: 13),
+            ),
+          ),
         ],
       ),
     );

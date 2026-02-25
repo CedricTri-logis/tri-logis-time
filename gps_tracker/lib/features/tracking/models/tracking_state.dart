@@ -39,6 +39,12 @@ class TrackingState {
   /// Whether GPS signal has been lost (background handler detected no position).
   final bool gpsSignalLost;
 
+  /// Whether background GPS tracking has been verified (first point received).
+  final bool trackingVerified;
+
+  /// Whether tracking start failed (no GPS point received within timeout).
+  final bool trackingStartFailed;
+
   const TrackingState({
     this.status = TrackingStatus.stopped,
     this.activeShiftId,
@@ -51,6 +57,8 @@ class TrackingState {
     this.errorMessage,
     this.isStationary = false,
     this.gpsSignalLost = false,
+    this.trackingVerified = false,
+    this.trackingStartFailed = false,
   });
 
   /// Initial state before any tracking.
@@ -79,6 +87,8 @@ class TrackingState {
     String? errorMessage,
     bool? isStationary,
     bool? gpsSignalLost,
+    bool? trackingVerified,
+    bool? trackingStartFailed,
     bool clearError = false,
     bool clearActiveShift = false,
   }) =>
@@ -94,6 +104,8 @@ class TrackingState {
         errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
         isStationary: isStationary ?? this.isStationary,
         gpsSignalLost: gpsSignalLost ?? this.gpsSignalLost,
+        trackingVerified: trackingVerified ?? this.trackingVerified,
+        trackingStartFailed: trackingStartFailed ?? this.trackingStartFailed,
       );
 
   /// Create state indicating tracking has started for a shift.
@@ -105,6 +117,8 @@ class TrackingState {
         lastLatitude: null,
         lastLongitude: null,
         lastAccuracy: null,
+        trackingVerified: false,
+        trackingStartFailed: false,
         clearError: true,
       );
 
@@ -122,6 +136,8 @@ class TrackingState {
         lastLatitude: latitude,
         lastLongitude: longitude,
         lastAccuracy: accuracy,
+        trackingVerified: true,
+        trackingStartFailed: false,
         clearError: true,
       );
 

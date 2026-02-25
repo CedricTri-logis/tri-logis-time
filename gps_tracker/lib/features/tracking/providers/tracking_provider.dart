@@ -11,6 +11,7 @@ import '../../../shared/services/local_database.dart';
 import '../../../shared/services/notification_service.dart';
 import '../../shifts/models/local_gps_gap.dart';
 import '../../shifts/models/local_gps_point.dart';
+import '../../shifts/models/shift.dart';
 import '../../shifts/providers/shift_provider.dart';
 import '../../shifts/providers/sync_provider.dart';
 import '../models/tracking_config.dart';
@@ -51,6 +52,9 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
 
   /// Whether SLC is currently active (deferred activation — only after GPS loss).
   bool _significantLocationActive = false;
+
+  /// Timer to verify that background tracking actually starts producing GPS points.
+  Timer? _verificationTimer;
 
   /// Current device thermal level for GPS frequency adaptation.
   ThermalLevel _currentThermalLevel = ThermalLevel.normal;
@@ -120,7 +124,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
             'shift_started_at': shift.clockedInAt.toUtc().toIso8601String(),
             if (lastPointTime != null) 'last_gps_point_at': lastPointTime.toUtc().toIso8601String(),
             if (deadDuration != null) 'dead_duration_minutes': deadDuration.inMinutes,
-          });
+          },);
           startTracking();
         }
       });
@@ -267,6 +271,17 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
       // Don't return — still update UI state and trigger sync
     }
 
+    // Cancel verification timer on first GPS point
+    if (!state.trackingVerified) {
+      _verificationTimer?.cancel();
+      _verificationTimer = null;
+      _logger?.gps(
+        Severity.info,
+        'Tracking verified: first GPS point received',
+        metadata: {'shift_id': point.shiftId},
+      );
+    }
+
     // Update state
     state = state.recordPoint(
       latitude: point.latitude,
@@ -396,7 +411,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
         'gap_seconds': gap.inSeconds,
         'last_background_capture_at': lastCapture.toUtc().toIso8601String(),
         'actual_gap_seconds': gap.inSeconds,
-      });
+      },);
       FlutterForegroundTask.sendDataToTask({'command': 'recoverStream'});
       _lastSelfHealingAt = now;
     }
@@ -508,21 +523,150 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     }
   }
 
+  /// Post-start setup shared by fresh start and restart paths.
+  /// Initializes Live Activity, SLC, background execution, lifecycle observer,
+  /// and thermal monitoring.
+  void _onTrackingStarted({
+    required Shift shift,
+    required TrackingConfig trackingConfig,
+  }) {
+    state = state.copyWith(
+      status: TrackingStatus.running,
+      config: trackingConfig,
+    );
+    // Start iOS Live Activity (no-op on Android)
+    ShiftActivityService.instance.startActivity(shift);
+    // Register SLC callback and start monitoring immediately at clock-in.
+    // SLC can relaunch the app after iOS terminates it (~500m movement).
+    SignificantLocationService.onWokenByLocationChange =
+        _onWokenByLocationChange;
+    SignificantLocationService.startMonitoring();
+    _significantLocationActive = true;
+    // Register FGS death callback for auto-restart on resume
+    BackgroundTrackingService.onForegroundServiceDied =
+        _onForegroundServiceDied;
+    // Start CLBackgroundActivitySession (iOS 17+, no-op on Android/older iOS)
+    BackgroundExecutionService.startBackgroundSession();
+    // Start lifecycle observer for beginBackgroundTask + FGS health checks
+    BackgroundTrackingService.startLifecycleObserver();
+    // Subscribe to thermal state changes for GPS frequency adaptation
+    _startThermalMonitoring();
+    // Start verification timer to detect tracking start failures
+    _startTrackingVerification();
+  }
+
+  /// Start a 15-second timer to verify that background tracking is producing GPS points.
+  /// If no point is received within the timeout, marks tracking as failed.
+  void _startTrackingVerification() {
+    _verificationTimer?.cancel();
+    _verificationTimer = Timer(const Duration(seconds: 15), () {
+      if (state.status == TrackingStatus.running && !state.trackingVerified) {
+        state = state.copyWith(trackingStartFailed: true);
+        _logger?.gps(
+          Severity.error,
+          'Tracking verification failed: no GPS point received within 15s',
+          metadata: {'shift_id': state.activeShiftId},
+        );
+      }
+    });
+  }
+
+  /// Handle a [TrackingResult] from either startTracking or restartTracking.
+  /// Returns true if tracking is now running.
+  bool _handleTrackingResult({
+    required TrackingResult result,
+    required Shift shift,
+    required TrackingConfig trackingConfig,
+    required String logAction,
+  }) {
+    switch (result) {
+      case TrackingSuccess():
+        _onTrackingStarted(shift: shift, trackingConfig: trackingConfig);
+        _logger?.gps(
+          Severity.info,
+          'Tracking $logAction',
+          metadata: {'shift_id': shift.id},
+        );
+        return true;
+      case TrackingPermissionDenied():
+        _logger?.permission(
+          Severity.warn,
+          'Location permission denied for tracking',
+        );
+        state = state.withError('Location permission required');
+        return false;
+      case TrackingServiceError(:final message):
+        _logger?.gps(
+          Severity.error,
+          'Tracking service error',
+          metadata: {'message': message},
+        );
+        state = state.withError(message);
+        return false;
+      case TrackingAlreadyActive():
+        // Should not happen after restart, but handle gracefully
+        _logger?.gps(
+          Severity.warn,
+          'Tracking still active after $logAction attempt',
+        );
+        state = state.copyWith(status: TrackingStatus.running);
+        return true;
+    }
+  }
+
   /// Begin background tracking for the active shift.
   Future<void> startTracking({TrackingConfig? config}) async {
     final shiftState = _ref.read(shiftProvider);
     final shift = shiftState.activeShift;
     if (shift == null) return;
 
-    // Don't start if already tracking
+    // Determine if we need a restart (old shift still tracked)
+    var needsRestart = false;
+
     if (state.status == TrackingStatus.running ||
         state.status == TrackingStatus.starting) {
-      return;
+      if (state.activeShiftId == shift.id) {
+        // Already tracking the same shift — nothing to do
+        _logger?.gps(
+          Severity.debug,
+          'startTracking skipped: already tracking same shift',
+          metadata: {'shift_id': shift.id},
+        );
+        return;
+      }
+      // Tracking a different shift — need to restart
+      needsRestart = true;
+      _logger?.gps(
+        Severity.warn,
+        'startTracking: different shift detected, will restart',
+        metadata: {
+          'old_shift_id': state.activeShiftId,
+          'new_shift_id': shift.id,
+        },
+      );
     }
 
     state = state.startTracking(shift.id);
 
     final trackingConfig = config ?? state.config;
+
+    if (needsRestart) {
+      // Stop old service, wait, then start new one
+      final result = await BackgroundTrackingService.restartTracking(
+        shiftId: shift.id,
+        employeeId: shift.employeeId,
+        clockedInAt: shift.clockedInAt,
+        config: trackingConfig,
+      );
+      _handleTrackingResult(
+        result: result,
+        shift: shift,
+        trackingConfig: trackingConfig,
+        logAction: 'restarted (different shift)',
+      );
+      return;
+    }
+
     final result = await BackgroundTrackingService.startTracking(
       shiftId: shift.id,
       employeeId: shift.employeeId,
@@ -531,35 +675,32 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     );
 
     switch (result) {
-      case TrackingSuccess():
-        state = state.copyWith(
-          status: TrackingStatus.running,
+      case TrackingAlreadyActive():
+        // Foreground service still alive from a previous shift — restart it
+        _logger?.gps(
+          Severity.warn,
+          'Foreground service still running, restarting for new shift',
+          metadata: {'shift_id': shift.id},
+        );
+        final restartResult = await BackgroundTrackingService.restartTracking(
+          shiftId: shift.id,
+          employeeId: shift.employeeId,
+          clockedInAt: shift.clockedInAt,
           config: trackingConfig,
         );
-        // Start iOS Live Activity (no-op on Android)
-        ShiftActivityService.instance.startActivity(shift);
-        // Register SLC callback and start monitoring immediately at clock-in.
-        // SLC can relaunch the app after iOS terminates it (~500m movement).
-        SignificantLocationService.onWokenByLocationChange = _onWokenByLocationChange;
-        SignificantLocationService.startMonitoring();
-        _significantLocationActive = true;
-        // Register FGS death callback for auto-restart on resume
-        BackgroundTrackingService.onForegroundServiceDied = _onForegroundServiceDied;
-        // Start CLBackgroundActivitySession (iOS 17+, no-op on Android/older iOS)
-        BackgroundExecutionService.startBackgroundSession();
-        // Start lifecycle observer for beginBackgroundTask + FGS health checks
-        BackgroundTrackingService.startLifecycleObserver();
-        // Subscribe to thermal state changes for GPS frequency adaptation
-        _startThermalMonitoring();
-        _logger?.gps(Severity.info, 'Tracking started', metadata: {'shift_id': shift.id});
-      case TrackingPermissionDenied():
-        _logger?.permission(Severity.warn, 'Location permission denied for tracking');
-        state = state.withError('Location permission required');
-      case TrackingServiceError(:final message):
-        _logger?.gps(Severity.error, 'Tracking service error', metadata: {'message': message});
-        state = state.withError(message);
-      case TrackingAlreadyActive():
-        state = state.copyWith(status: TrackingStatus.running);
+        _handleTrackingResult(
+          result: restartResult,
+          shift: shift,
+          trackingConfig: trackingConfig,
+          logAction: 'restarted (service was active)',
+        );
+      default:
+        _handleTrackingResult(
+          result: result,
+          shift: shift,
+          trackingConfig: trackingConfig,
+          logAction: 'started',
+        );
     }
   }
 
@@ -571,9 +712,11 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
   /// - `app_close` — app was closed
   /// - `shift_closed_by_server` — server closed the shift
   Future<void> stopTracking({String? reason}) async {
+    _verificationTimer?.cancel();
+    _verificationTimer = null;
     _logger?.gps(Severity.info, 'Tracking stopped', metadata: {
       if (reason != null) 'reason': reason,
-    });
+    },);
     await BackgroundTrackingService.stopTracking();
     // End iOS Live Activity (no-op on Android)
     ShiftActivityService.instance.endActivity();
@@ -675,7 +818,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     _logger?.thermal(Severity.info, 'Thermal adaptation applied', metadata: {
       'level': level.name,
       'multiplier': thermalMultiplier,
-    });
+    },);
 
     if (state.status == TrackingStatus.running) {
       FlutterForegroundTask.sendDataToTask({
@@ -739,6 +882,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
 
   @override
   void dispose() {
+    _verificationTimer?.cancel();
     FlutterForegroundTask.removeTaskDataCallback(_handleTaskData);
     _shiftSubscription?.close();
     _thermalSubscription?.cancel();

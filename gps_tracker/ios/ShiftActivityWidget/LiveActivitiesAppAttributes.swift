@@ -9,15 +9,24 @@ import ActivityKit
 import Foundation
 
 /// ActivityAttributes required by the `live_activities` Flutter package.
-/// The package maps Dart `Map<String, dynamic>` values to `ContentState` properties
-/// via UserDefaults (App Group).
 ///
-/// The name `LiveActivitiesAppAttributes` is required by the package convention.
-struct LiveActivitiesAppAttributes: ActivityAttributes {
+/// IMPORTANT: This struct MUST mirror the one inside SwiftLiveActivitiesPlugin.swift.
+/// The package stores Dart data in UserDefaults (App Group), NOT in ContentState.
+/// ContentState only carries the appGroupId so the widget knows which UserDefaults to read.
+struct LiveActivitiesAppAttributes: ActivityAttributes, Identifiable {
+    public typealias LiveDeliveryData = ContentState
+
     public struct ContentState: Codable, Hashable {
-        // Epoch milliseconds of clock-in time
-        var clockedInAtMs: Int?
-        // "active" or "gps_lost"
-        var status: String?
+        var appGroupId: String
+    }
+
+    var id = UUID()
+}
+
+extension LiveActivitiesAppAttributes {
+    /// Generate a prefixed key to read data from UserDefaults.
+    /// The plugin stores each Dart map entry as: "{activityUUID}_{dartKey}"
+    func prefixedKey(_ key: String) -> String {
+        return "\(id)_\(key)"
     }
 }

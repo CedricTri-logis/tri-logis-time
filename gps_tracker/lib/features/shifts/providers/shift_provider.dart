@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:uuid/uuid.dart';
+
 import '../../../shared/models/diagnostic_event.dart';
 import '../../../shared/providers/supabase_provider.dart';
 import '../../../shared/services/diagnostic_logger.dart';
@@ -12,8 +14,12 @@ import '../../cleaning/providers/cleaning_session_provider.dart';
 import '../../maintenance/providers/maintenance_provider.dart';
 import '../../../shared/services/shift_activity_service.dart';
 import '../models/geo_point.dart';
+import '../models/local_gps_point.dart';
 import '../models/shift.dart';
 import '../../auth/services/device_info_service.dart';
+import '../../tracking/providers/tracking_provider.dart';
+import '../../tracking/services/background_tracking_service.dart';
+import '../providers/sync_provider.dart';
 import '../services/shift_service.dart';
 
 /// Provider for the LocalDatabase instance.
@@ -275,6 +281,57 @@ class ShiftNotifier extends StateNotifier<ShiftState>
         if (shift != null) {
           _logger?.setShiftId(shift.serverId ?? shift.id);
         }
+
+        // Save clock-in location as first GPS point immediately.
+        // Guarantees every shift has ≥1 GPS point even if background
+        // tracking fails to start (iOS kills service, permission issue, etc.)
+        if (shift != null && employeeId != null) {
+          try {
+            final localDb = _ref.read(localDatabaseProvider);
+            final now = DateTime.now().toUtc();
+            final point = LocalGpsPoint(
+              id: const Uuid().v4(),
+              shiftId: shift.id,
+              employeeId: employeeId,
+              latitude: location.latitude,
+              longitude: location.longitude,
+              accuracy: accuracy,
+              capturedAt: now,
+              syncStatus: 'pending',
+              createdAt: now,
+            );
+            await localDb.insertGpsPoint(point);
+            _logger?.gps(Severity.info, 'Clock-in GPS point saved', metadata: {
+              'shift_id': shift.id,
+              'accuracy': accuracy,
+            },);
+          } catch (e) {
+            // Best-effort — don't fail clock-in if GPS point insert fails
+            _logger?.gps(Severity.warn, 'Failed to save clock-in GPS point', metadata: {
+              'error': e.toString(),
+            },);
+          }
+        }
+
+        // Log tracking state at handoff for remote diagnostics
+        final trackingState = _ref.read(trackingProvider);
+        bool? fgsRunning;
+        try {
+          fgsRunning = await BackgroundTrackingService.isTracking;
+        } catch (_) {}
+        _logger?.shift(Severity.info, 'Clock in — tracking state at handoff', metadata: {
+          'tracking_status': trackingState.status.name,
+          'tracking_shift_id': trackingState.activeShiftId,
+          'foreground_service_running': fgsRunning,
+        },);
+
+        // Trigger immediate sync to flush diagnostic logs to server.
+        // Normally sync is triggered by GPS points, but if tracking fails
+        // to start, logs would be stuck on-device.
+        try {
+          _ref.read(syncProvider.notifier).notifyPendingData();
+        } catch (_) {}
+
         DeviceInfoService(_ref.read(supabaseClientProvider)).syncDeviceInfo();
         state = state.copyWith(isClockingIn: false);
         return true;

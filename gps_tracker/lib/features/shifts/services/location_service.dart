@@ -92,6 +92,53 @@ class LocationService {
     );
   }
 
+  /// Strict GPS health check for clock-in validation.
+  /// Returns a fresh GPS fix or null if GPS is not working.
+  /// Unlike [captureClockLocation], this does NOT fall back to last known position.
+  Future<({GeoPoint? location, double? accuracy, String? failureReason})>
+      verifyGpsForClockIn() async {
+    final hasPermission = await ensureLocationPermission();
+    if (!hasPermission) {
+      return (
+        location: null,
+        accuracy: null,
+        failureReason: 'permission_denied',
+      );
+    }
+
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 10),
+      );
+
+      // Reject positions with very poor accuracy (GPS not locked)
+      if (position.accuracy > 100) {
+        return (
+          location: GeoPoint(
+            latitude: position.latitude,
+            longitude: position.longitude,
+          ),
+          accuracy: position.accuracy,
+          failureReason: 'poor_accuracy',
+        );
+      }
+
+      return (
+        location: GeoPoint(
+          latitude: position.latitude,
+          longitude: position.longitude,
+        ),
+        accuracy: position.accuracy,
+        failureReason: null,
+      );
+    } on TimeoutException {
+      return (location: null, accuracy: null, failureReason: 'timeout');
+    } catch (e) {
+      return (location: null, accuracy: null, failureReason: 'error:$e');
+    }
+  }
+
   /// Open device location settings.
   Future<bool> openLocationSettings() async {
     return await Geolocator.openLocationSettings();

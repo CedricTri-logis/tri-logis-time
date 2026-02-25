@@ -26,11 +26,22 @@ class ShiftActivityService {
     if (!Platform.isIOS) return;
 
     try {
+      debugPrint('[ShiftActivityService] Initializing Live Activities...');
       _liveActivities = LiveActivities();
       await _liveActivities!.init(
         appGroupId: 'group.com.cedriclajoie.gpstracker.liveactivities',
       );
-    } catch (e) {
+      debugPrint('[ShiftActivityService] Init SUCCESS');
+
+      // Check if Live Activities are enabled in iOS Settings
+      final enabled = await _liveActivities!.areActivitiesEnabled();
+      debugPrint('[ShiftActivityService] areActivitiesEnabled = $enabled');
+      if (!enabled) {
+        _logger?.lifecycle(Severity.warn, 'Live Activities disabled in iOS Settings');
+      }
+    } catch (e, stack) {
+      debugPrint('[ShiftActivityService] Init FAILED: $e');
+      debugPrint('[ShiftActivityService] Stack: $stack');
       _logger?.lifecycle(Severity.warn, 'Live Activities init failed', metadata: {'error': e.toString()});
       _liveActivities = null;
     }
@@ -38,28 +49,43 @@ class ShiftActivityService {
 
   /// Start a Live Activity for the given shift. No-op on Android.
   Future<void> startActivity(Shift shift) async {
+    debugPrint('[ShiftActivityService] startActivity called — iOS=${Platform.isIOS}, plugin=${_liveActivities != null}');
     if (!Platform.isIOS || _liveActivities == null) return;
 
     try {
+      // Check if activities are enabled before creating
+      final enabled = await _liveActivities!.areActivitiesEnabled();
+      debugPrint('[ShiftActivityService] areActivitiesEnabled = $enabled');
+      if (!enabled) {
+        _logger?.shift(Severity.warn, 'Live Activities disabled — cannot start');
+        return;
+      }
+
       // End any stale activity first
       await _endAllActivities();
 
+      final data = {
+        'clockedInAtMs': shift.clockedInAt.millisecondsSinceEpoch,
+        'status': 'active',
+      };
+      debugPrint('[ShiftActivityService] Creating activity with data: $data');
+
       final activityId = await _liveActivities!.createActivity(
-        {
-          'clockedInAtMs': shift.clockedInAt.millisecondsSinceEpoch,
-          'status': 'active',
-        },
+        data,
         removeWhenAppIsKilled: true,
       );
 
       _currentActivityId = activityId;
       _activityStartedAt = DateTime.now();
 
+      debugPrint('[ShiftActivityService] Activity created — id=$activityId');
       _logger?.shift(Severity.info, 'Live Activity started', metadata: {
         'activity_id': activityId,
         'shift_id': shift.id,
       },);
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('[ShiftActivityService] startActivity FAILED: $e');
+      debugPrint('[ShiftActivityService] Stack: $stack');
       _logger?.shift(Severity.warn, 'Failed to start Live Activity', metadata: {'error': e.toString()});
     }
   }
