@@ -211,26 +211,29 @@ class GPSTrackingHandler extends TaskHandler {
   }
 
   /// Compute capture interval using speed-based adaptive logic (B6).
-  /// Falls back to stationary/active binary if speed is unavailable.
+  /// When speed data is unreliable or low, falls back to distance-based
+  /// stationary detection (5-minute confirmation threshold).
   /// Applies thermal multiplier.
   Duration _computeInterval(Position position) {
     final speed = position.speed;
+    final speedAccuracy = position.speedAccuracy;
     int intervalSec;
 
-    // Use speed-based tiers if speed data is available and valid
-    if (speed >= 0) {
-      if (speed < 0.5) {
-        intervalSec = _stationaryIntervalSeconds;
-      } else if (speed < 2.0) {
-        intervalSec = 30; // Walking
-      } else if (speed < 8.0) {
-        intervalSec = 15; // Vehicle/city
-      } else {
-        intervalSec = 10; // Vehicle/highway
-      }
+    // Speed data is reliable when: speed > 0, OR speed == 0 with valid
+    // speedAccuracy (> 0). When both speed and speedAccuracy are 0, the GPS
+    // chipset cannot determine speed — fall back to distance-based detection.
+    final hasReliableSpeed = speed > 0 || (speed == 0 && speedAccuracy > 0);
+
+    if (!hasReliableSpeed || speed < 0.5) {
+      // Speed unknown or near-zero — rely on 5-minute stationary confirmation.
+      // Default to 15s (assume moving) until confirmed stationary.
+      intervalSec = _isStationary ? _stationaryIntervalSeconds : 15;
+    } else if (speed < 2.0) {
+      intervalSec = 30; // Walking
+    } else if (speed < 8.0) {
+      intervalSec = 15; // Vehicle/city
     } else {
-      // No valid speed — fall back to stationary detection
-      intervalSec = _isStationary ? _stationaryIntervalSeconds : _activeIntervalSeconds;
+      intervalSec = 10; // Vehicle/highway
     }
 
     // Apply thermal multiplier
@@ -254,18 +257,28 @@ class GPSTrackingHandler extends TaskHandler {
       position.longitude,
     );
 
-    // If moved more than 10m, reset stationary check
-    if (distance > 10) {
+    // Movement threshold must account for GPS accuracy — a 50m jump with
+    // 200m accuracy is noise, not real movement. Use the worse (larger)
+    // accuracy of the two positions to avoid false movement detection.
+    final worstAccuracy = position.accuracy > _lastPosition!.accuracy
+        ? position.accuracy
+        : _lastPosition!.accuracy;
+    final movementThreshold = worstAccuracy > 10 ? worstAccuracy : 10.0;
+
+    // If moved more than the accuracy-aware threshold, reset stationary check
+    if (distance > movementThreshold) {
       _isStationary = false;
       _stationaryCheckTime = now;
       _lastPosition = position;
       return;
     }
 
-    // If haven't moved much for 30 seconds, mark as stationary
+    // Only mark as stationary after 5 minutes at the same spot — this prevents
+    // premature slowdown (e.g. traffic lights, brief stops) and ensures we keep
+    // capturing at 15s intervals until we're certain the person has truly stopped.
     if (_stationaryCheckTime != null) {
       final stationaryDuration = now.difference(_stationaryCheckTime!);
-      if (stationaryDuration.inSeconds >= 30) {
+      if (stationaryDuration.inMinutes >= 5) {
         _isStationary = true;
       }
     }
