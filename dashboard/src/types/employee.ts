@@ -6,6 +6,7 @@ export interface EmployeeProfile {
   email: string;
   full_name: string | null;
   employee_id: string | null;
+  phone_number: string | null;
   role: EmployeeRoleType;
   status: EmployeeStatusType;
   privacy_consent_at: string | null;
@@ -154,4 +155,31 @@ export interface RemoveSupervisorResponse {
     code: string;
     message: string;
   };
+}
+
+// Request/response for phone update
+export interface UpdatePhoneParams {
+  p_user_id: string;
+  p_phone: string | null;
+}
+
+// Request for email update (API route)
+export interface UpdateEmailRequest {
+  employee_id: string;
+  email: string;
+}
+
+// Request for employee creation (API route)
+export interface CreateEmployeeRequest {
+  email: string;
+  full_name?: string;
+  role?: EmployeeRoleType;
+  supervisor_id?: string;
+}
+
+// Generic API response
+export interface ApiResponse {
+  success: boolean;
+  error?: string;
+  employee_id?: string;
 }

@@ -75,3 +75,40 @@ export const employeeFilterSchema = z.object({
 });
 
 export type EmployeeFilterInput = z.infer<typeof employeeFilterSchema>;
+
+// Schema for editing employee profile (extended with phone and email)
+export const employeeEditExtendedSchema = z.object({
+  full_name: z
+    .string()
+    .max(100, 'Name must be 100 characters or less')
+    .nullable()
+    .optional(),
+  employee_id: z
+    .string()
+    .max(50, 'Employee ID must be 50 characters or less')
+    .regex(/^[a-zA-Z0-9-]*$/, 'Only letters, numbers, and dashes allowed')
+    .nullable()
+    .optional(),
+  phone_number: z
+    .string()
+    .max(20)
+    .nullable()
+    .optional(),
+  email: z
+    .string()
+    .email('Invalid email address')
+    .max(255)
+    .optional(),
+});
+
+export type EmployeeEditExtendedInput = z.infer<typeof employeeEditExtendedSchema>;
+
+// Schema for creating an employee
+export const createEmployeeSchema = z.object({
+  email: z.string().email('Invalid email address').max(255),
+  full_name: z.string().max(100).optional(),
+  role: z.enum(['employee', 'manager', 'admin', 'super_admin']).default('employee'),
+  supervisor_id: z.string().uuid().optional(),
+});
+
+export type CreateEmployeeInput = z.infer<typeof createEmployeeSchema>;
