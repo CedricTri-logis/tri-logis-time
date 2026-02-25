@@ -226,21 +226,48 @@ class ShiftNotifier extends StateNotifier<ShiftState>
     state = state.copyWith(clearActiveShift: true);
   }
 
-  /// Load the current active shift.
+  /// Load the current active shift, reconciling with server state.
+  ///
+  /// On first load after startup/login, queries the server to detect
+  /// orphaned shifts (app reinstalled, server-side closure missed).
+  /// Fail-open: if server unreachable, uses local state only.
   Future<void> _loadActiveShift() async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      final shift = await _shiftService.getActiveShift();
+      final reconciledShift = await _shiftService.reconcileShiftState();
+      final shift = reconciledShift?.toShift();
+
+      if (shift != null) {
+        _logger?.shift(Severity.info, 'Shift reconciled', metadata: {
+          'shift_id': shift.id,
+          'server_id': shift.serverId,
+          'status': shift.status.toJson(),
+        },);
+      }
+
       state = state.copyWith(
         activeShift: shift,
         isLoading: false,
         clearActiveShift: shift == null,
       );
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: 'Failed to load active shift',
-      );
+      _logger?.shift(Severity.error, 'Shift reconciliation failed', metadata: {
+        'error': e.toString(),
+      },);
+      // Fallback: load local state only
+      try {
+        final shift = await _shiftService.getActiveShift();
+        state = state.copyWith(
+          activeShift: shift,
+          isLoading: false,
+          clearActiveShift: shift == null,
+        );
+      } catch (_) {
+        state = state.copyWith(
+          isLoading: false,
+          error: 'Failed to load active shift',
+        );
+      }
     }
   }
 
