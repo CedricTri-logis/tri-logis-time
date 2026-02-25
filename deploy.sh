@@ -16,7 +16,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$SCRIPT_DIR/gps_tracker"
 PUBSPEC="$PROJECT_DIR/pubspec.yaml"
-SUPABASE_URL="https://api.trilogis.ca"
+SUPABASE_URL="https://xdyzdclwvhkfwbkrdsiz.supabase.co"
 SUPABASE_SERVICE_ROLE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhkeXpkY2x3dmhrZndia3Jkc2l6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NzgzNTUwOSwiZXhwIjoyMDgzNDExNTA5fQ.VG_jEsaI0NL-V58ZRnaAasothRdPOxFg3JqJNkWRogY"
 
 # Homebrew Ruby (required for Fastlane)
