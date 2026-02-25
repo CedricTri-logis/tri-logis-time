@@ -60,8 +60,8 @@ export function useSupervisedTeam({
     },
     queryOptions: {
       enabled,
-      refetchInterval: 60000, // Fallback polling every 60 seconds
-      staleTime: 30000,
+      refetchInterval: 30000, // Fallback polling every 30 seconds
+      staleTime: 15000,
     },
   });
 
@@ -78,8 +78,8 @@ export function useSupervisedTeam({
   // Update local team when query data changes
   useEffect(() => {
     if (rawTeam && Array.isArray(rawTeam)) {
-      // Only update if data actually changed (compare by IDs)
-      const dataKey = JSON.stringify((rawTeam as MonitoredTeamRow[]).map((r) => r.id));
+      // Only update if data actually changed (compare full payload including GPS)
+      const dataKey = JSON.stringify(rawTeam);
       if (prevRawTeamRef.current !== dataKey) {
         prevRawTeamRef.current = dataKey;
         const transformed = (rawTeam as MonitoredTeamRow[]).map(transformMonitoredTeamRow);

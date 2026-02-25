@@ -5,10 +5,9 @@ import { supabaseClient } from '@/lib/supabase/client';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { ConnectionStatus, ShiftRealtimePayload } from '@/types/monitoring';
 
-// Reconnection config
+// Reconnection config (no max attempts — monitoring dashboard must stay live)
 const RECONNECT_BASE_DELAY = 2000;
 const RECONNECT_MAX_DELAY = 30000;
-const RECONNECT_MAX_ATTEMPTS = 10;
 
 interface UseRealtimeShiftsOptions {
   supervisedEmployeeIds: string[];
@@ -121,18 +120,13 @@ export function useRealtimeShifts({
       clearTimeout(retryTimerRef.current);
     }
 
-    if (retryCountRef.current >= RECONNECT_MAX_ATTEMPTS) {
-      console.warn(`Shifts realtime: max reconnect attempts (${RECONNECT_MAX_ATTEMPTS}) reached`);
-      return;
-    }
-
     const delay = Math.min(
       RECONNECT_BASE_DELAY * Math.pow(2, retryCountRef.current),
       RECONNECT_MAX_DELAY
     );
     retryCountRef.current += 1;
 
-    console.log(`Shifts realtime: reconnecting in ${delay}ms (attempt ${retryCountRef.current}/${RECONNECT_MAX_ATTEMPTS})`);
+    console.log(`Shifts realtime: reconnecting in ${delay}ms (attempt ${retryCountRef.current})`);
 
     retryTimerRef.current = setTimeout(() => {
       if (mountedRef.current) {
