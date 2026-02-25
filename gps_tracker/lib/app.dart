@@ -8,6 +8,7 @@ import 'features/auth/providers/app_lock_provider.dart';
 import 'features/auth/providers/device_session_provider.dart';
 import 'features/auth/screens/phone_registration_screen.dart';
 import 'features/auth/screens/sign_in_screen.dart';
+import 'features/auth/services/biometric_service.dart';
 import 'features/home/home_screen.dart';
 import 'shared/providers/supabase_provider.dart';
 import 'features/auth/services/device_info_service.dart';
@@ -68,6 +69,25 @@ class GpsTrackerApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authStateChangesProvider);
+
+    // Keep biometric tokens in sync with the current session.
+    // Without this, Supabase refresh-token rotation (on app restart or
+    // background refresh) invalidates the token stored in biometric
+    // secure storage, causing Face ID login to always fall through to OTP.
+    ref.listen<AsyncValue<AuthState>>(authStateChangesProvider, (_, next) {
+      next.whenData((state) async {
+        if (state.session?.refreshToken == null) return;
+        final bio = ref.read(biometricServiceProvider);
+        final enabled = await bio.isEnabled();
+        if (!enabled) return;
+        final phone = Supabase.instance.client.auth.currentUser?.phone;
+        await bio.saveSessionTokens(
+          accessToken: state.session!.accessToken,
+          refreshToken: state.session!.refreshToken!,
+          phone: (phone != null && phone.isNotEmpty) ? phone : null,
+        );
+      });
+    });
 
     return MaterialApp(
       title: 'Tri-Logis Time',
