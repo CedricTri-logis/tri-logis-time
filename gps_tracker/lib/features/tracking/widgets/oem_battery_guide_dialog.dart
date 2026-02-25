@@ -22,6 +22,7 @@ class OemBatteryGuideDialog extends StatelessWidget {
     'samsung',
     'xiaomi',
     'huawei',
+    'honor',
     'oneplus',
     'oppo',
     'realme',
@@ -57,6 +58,8 @@ class OemBatteryGuideDialog extends StatelessWidget {
         return 'Configuration Xiaomi';
       case 'huawei':
         return 'Configuration Huawei';
+      case 'honor':
+        return 'Configuration Honor';
       case 'oneplus':
         return 'Configuration OnePlus';
       case 'oppo':
@@ -86,6 +89,13 @@ class OemBatteryGuideDialog extends StatelessWidget {
           'Appuyez Économie de batterie > Aucune restriction',
         ];
       case 'huawei':
+        return [
+          'Ouvrez Paramètres > Batterie > Lancement d\'applications',
+          'Trouvez Tri-Logis Time',
+          'Désactivez la gestion automatique',
+          'Activez les 3 options : Lancement auto, Lancement secondaire, Exécution en arrière-plan',
+        ];
+      case 'honor':
         return [
           'Ouvrez Paramètres > Batterie > Lancement d\'applications',
           'Trouvez Tri-Logis Time',

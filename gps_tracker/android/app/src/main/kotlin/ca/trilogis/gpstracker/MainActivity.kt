@@ -108,6 +108,21 @@ class MainActivity : FlutterActivity() {
                     "com.huawei.systemmanager.power.ui.HwPowerManagerActivity"
                 ))
             )
+            "honor" -> listOf(
+                Intent().setComponent(ComponentName(
+                    "com.hihonor.systemmanager",
+                    "com.hihonor.systemmanager.startupmgr.ui.StartupNormalAppListActivity"
+                )),
+                Intent().setComponent(ComponentName(
+                    "com.hihonor.systemmanager",
+                    "com.hihonor.systemmanager.optimize.process.ProtectActivity"
+                )),
+                Intent().setComponent(ComponentName(
+                    "com.hihonor.systemmanager",
+                    "com.hihonor.systemmanager.power.ui.HwPowerManagerActivity"
+                )),
+                Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS)
+            )
             "oneplus", "oppo", "realme" -> listOf(
                 Intent().setComponent(ComponentName(
                     "com.oneplus.security",
