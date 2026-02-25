@@ -133,7 +133,7 @@ class DeviceSessionNotifier extends StateNotifier<DeviceSessionStatus>
     // Sign out — navigation happens via authStateChangesProvider
     try {
       final authService = _ref.read(authServiceProvider);
-      await authService.signOut();
+      await authService.signOut(revokeSession: true);
     } catch (e) {
       _logger?.auth(Severity.error, 'Sign-out during force logout failed', metadata: {'error': e.toString()});
     }

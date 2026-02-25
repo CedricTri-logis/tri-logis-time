@@ -36,6 +36,7 @@ export default function MonitoringPage() {
     refetch,
     lastUpdated,
     connectionStatus,
+    retryConnection,
   } = useSupervisedTeam({
     search: search || undefined,
     shiftStatus,
@@ -81,7 +82,7 @@ export default function MonitoringPage() {
   return (
     <div className="space-y-6">
       {/* Connection status banners */}
-      <ConnectionStatusBanner status={connectionStatus} lastUpdated={lastUpdated} />
+      <ConnectionStatusBanner status={connectionStatus} lastUpdated={lastUpdated} onRetry={retryConnection} />
       <OfflineBanner />
 
       {/* Page header */}

@@ -28,6 +28,7 @@ interface UseSupervisedTeamReturn {
   connectionStatus: ConnectionStatus;
   shiftsConnectionStatus: ConnectionStatus;
   gpsConnectionStatus: ConnectionStatus;
+  retryConnection: () => void;
 }
 
 /**
@@ -171,14 +172,14 @@ export function useSupervisedTeam({
   }, []);
 
   // Subscribe to real-time shift updates
-  const { connectionStatus: shiftsConnectionStatus } = useRealtimeShifts({
+  const { connectionStatus: shiftsConnectionStatus, retry: retryShifts } = useRealtimeShifts({
     supervisedEmployeeIds: employeeIds,
     onShiftChange: handleShiftChange,
     enabled: enabled && employeeIds.length > 0,
   });
 
   // Subscribe to real-time GPS updates with batching for performance
-  const { connectionStatus: gpsConnectionStatus } = useRealtimeGps({
+  const { connectionStatus: gpsConnectionStatus, retry: retryGps } = useRealtimeGps({
     supervisedEmployeeIds: employeeIds,
     onGpsPoint: handleGpsPoint,
     onBatchGpsPoints: handleBatchGpsPoints,
@@ -186,13 +187,24 @@ export function useSupervisedTeam({
     batchUpdates: true, // Enable batching for high-frequency updates
   });
 
+  // Manual retry for both channels
+  const retryConnection = useCallback(() => {
+    retryShifts();
+    retryGps();
+  }, [retryShifts, retryGps]);
+
   // Determine overall connection status
+  // Only show 'error' when BOTH channels fail — if one works, polling covers the other
   const connectionStatus: ConnectionStatus = useMemo(() => {
-    if (shiftsConnectionStatus === 'error' || gpsConnectionStatus === 'error') {
-      return 'error';
-    }
     if (shiftsConnectionStatus === 'connected' && gpsConnectionStatus === 'connected') {
       return 'connected';
+    }
+    if (shiftsConnectionStatus === 'connected' || gpsConnectionStatus === 'connected') {
+      // At least one channel is working — partial connectivity, treat as connected
+      return 'connected';
+    }
+    if (shiftsConnectionStatus === 'error' && gpsConnectionStatus === 'error') {
+      return 'error';
     }
     if (shiftsConnectionStatus === 'disconnected' && gpsConnectionStatus === 'disconnected') {
       return 'disconnected';
@@ -214,5 +226,6 @@ export function useSupervisedTeam({
     connectionStatus,
     shiftsConnectionStatus,
     gpsConnectionStatus,
+    retryConnection,
   };
 }

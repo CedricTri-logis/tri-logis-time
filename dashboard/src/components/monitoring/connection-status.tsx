@@ -1,14 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Wifi, WifiOff, AlertTriangle } from 'lucide-react';
+import { Wifi, WifiOff, AlertTriangle, RefreshCw } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { ConnectionStatus } from '@/types/monitoring';
 
 interface ConnectionStatusBannerProps {
   status: ConnectionStatus;
   lastUpdated?: Date | null;
+  onRetry?: () => void;
   className?: string;
 }
 
@@ -19,6 +21,7 @@ interface ConnectionStatusBannerProps {
 export function ConnectionStatusBanner({
   status,
   lastUpdated,
+  onRetry,
   className,
 }: ConnectionStatusBannerProps) {
   // Only show for error or disconnected states
@@ -33,7 +36,7 @@ export function ConnectionStatusBanner({
       iconColor: 'text-yellow-600',
       textColor: 'text-yellow-800',
       title: 'Connection Lost',
-      message: 'Real-time updates unavailable. Data may be stale.',
+      message: 'Real-time updates unavailable. Data refreshes every 60s.',
     },
     error: {
       icon: AlertTriangle,
@@ -41,7 +44,7 @@ export function ConnectionStatusBanner({
       iconColor: 'text-red-600',
       textColor: 'text-red-800',
       title: 'Connection Error',
-      message: 'Unable to establish real-time connection. Please check your network.',
+      message: 'Unable to establish real-time connection. Data refreshes every 60s.',
     },
   };
 
@@ -62,6 +65,17 @@ export function ConnectionStatusBanner({
             )}
           </p>
         </div>
+        {onRetry && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onRetry}
+            className={cn('flex-shrink-0 gap-1.5', textColor, 'border-current/20 hover:bg-current/5')}
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Retry
+          </Button>
+        )}
       </CardContent>
     </Card>
   );

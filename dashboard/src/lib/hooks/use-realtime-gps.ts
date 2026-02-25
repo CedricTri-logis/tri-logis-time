@@ -8,6 +8,11 @@ import type { ConnectionStatus, GpsPointRealtimePayload, LocationPoint } from '@
 // Batch interval for flushing GPS updates (in milliseconds)
 const GPS_BATCH_INTERVAL = 1000;
 
+// Reconnection config
+const RECONNECT_BASE_DELAY = 2000;
+const RECONNECT_MAX_DELAY = 30000;
+const RECONNECT_MAX_ATTEMPTS = 10;
+
 interface UseRealtimeGpsOptions {
   supervisedEmployeeIds: string[];
   onGpsPoint: (employeeId: string, location: LocationPoint) => void;
@@ -19,6 +24,7 @@ interface UseRealtimeGpsOptions {
 interface UseRealtimeGpsReturn {
   connectionStatus: ConnectionStatus;
   lastEventAt: Date | null;
+  retry: () => void;
 }
 
 /**
@@ -29,6 +35,8 @@ interface UseRealtimeGpsReturn {
  * - When batchUpdates=true, collects updates and flushes every second
  * - Uses onBatchGpsPoints for batched updates, falls back to onGpsPoint
  * - Keeps only latest location per employee in batch (deduplication)
+ *
+ * Includes automatic reconnection with exponential backoff on errors.
  */
 export function useRealtimeGps({
   supervisedEmployeeIds,
@@ -41,6 +49,9 @@ export function useRealtimeGps({
   const [lastEventAt, setLastEventAt] = useState<Date | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const employeeIdsRef = useRef<Set<string>>(new Set(supervisedEmployeeIds));
+  const retryCountRef = useRef(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(true);
 
   // Batching state - keeps latest update per employee
   const pendingUpdatesRef = useRef<Map<string, LocationPoint>>(new Map());
@@ -73,12 +84,10 @@ export function useRealtimeGps({
   // Set up batch flushing interval
   useEffect(() => {
     if (!batchUpdates || !enabled) {
-      // Clear any pending updates when batching is disabled
       if (flushIntervalRef.current) {
         clearInterval(flushIntervalRef.current);
         flushIntervalRef.current = null;
       }
-      // Flush any remaining updates
       if (pendingUpdatesRef.current.size > 0) {
         flushBatchedUpdates();
       }
@@ -92,7 +101,6 @@ export function useRealtimeGps({
         clearInterval(flushIntervalRef.current);
         flushIntervalRef.current = null;
       }
-      // Flush remaining updates on cleanup
       if (pendingUpdatesRef.current.size > 0) {
         flushBatchedUpdates();
       }
@@ -104,7 +112,6 @@ export function useRealtimeGps({
     (payload: GpsPointRealtimePayload) => {
       const employeeId = payload.new?.employee_id;
 
-      // Only process events for supervised employees
       if (!employeeId || !employeeIdsRef.current.has(employeeId)) {
         return;
       }
@@ -114,14 +121,12 @@ export function useRealtimeGps({
         longitude: payload.new.longitude,
         accuracy: payload.new.accuracy,
         capturedAt: new Date(payload.new.captured_at),
-        isStale: false, // New points are always fresh
+        isStale: false,
       };
 
       if (batchUpdates) {
-        // Queue update for batching - only keep latest per employee
         pendingUpdatesRef.current.set(employeeId, location);
       } else {
-        // Immediate update
         setLastEventAt(new Date());
         onGpsPoint(employeeId, location);
       }
@@ -129,55 +134,122 @@ export function useRealtimeGps({
     [onGpsPoint, batchUpdates]
   );
 
+  // Use a ref for handleGpsPoint so subscribe() always has the latest without re-creating
+  const handleGpsPointRef = useRef(handleGpsPoint);
   useEffect(() => {
-    if (!enabled || supervisedEmployeeIds.length === 0) {
-      setConnectionStatus('disconnected');
-      return;
+    handleGpsPointRef.current = handleGpsPoint;
+  }, [handleGpsPoint]);
+
+  // Subscribe to GPS channel — uses refs to avoid circular deps with reconnect
+  const subscribe = useCallback(() => {
+    if (!mountedRef.current) return;
+
+    // Clean up existing channel
+    if (channelRef.current) {
+      supabaseClient.removeChannel(channelRef.current);
+      channelRef.current = null;
     }
 
     setConnectionStatus('connecting');
 
-    // Create the realtime channel for GPS points
     const channel = supabaseClient
-      .channel('gps-monitoring')
+      .channel(`gps-monitoring-${Date.now()}`)
       .on(
         'postgres_changes',
         {
-          event: 'INSERT', // GPS points are immutable, only INSERT events
+          event: 'INSERT',
           schema: 'public',
           table: 'gps_points',
         },
         (payload) => {
-          handleGpsPoint(payload as unknown as GpsPointRealtimePayload);
+          handleGpsPointRef.current(payload as unknown as GpsPointRealtimePayload);
         }
       )
       .subscribe((status, err) => {
+        if (!mountedRef.current) return;
+
         if (status === 'SUBSCRIBED') {
           setConnectionStatus('connected');
+          retryCountRef.current = 0;
         } else if (status === 'CHANNEL_ERROR') {
           console.error('GPS realtime subscription error:', err);
           setConnectionStatus('error');
+          scheduleReconnect();
         } else if (status === 'TIMED_OUT') {
-          console.warn('GPS realtime subscription timed out, retrying...');
-          setConnectionStatus('connecting');
+          console.warn('GPS realtime subscription timed out');
+          setConnectionStatus('error');
+          scheduleReconnect();
         } else if (status === 'CLOSED') {
           setConnectionStatus('disconnected');
         }
       });
 
     channelRef.current = channel;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-    // Cleanup on unmount or when dependencies change
+  // Schedule a reconnection with exponential backoff
+  const scheduleReconnect = useCallback(() => {
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+    }
+
+    if (retryCountRef.current >= RECONNECT_MAX_ATTEMPTS) {
+      console.warn(`GPS realtime: max reconnect attempts (${RECONNECT_MAX_ATTEMPTS}) reached`);
+      return;
+    }
+
+    const delay = Math.min(
+      RECONNECT_BASE_DELAY * Math.pow(2, retryCountRef.current),
+      RECONNECT_MAX_DELAY
+    );
+    retryCountRef.current += 1;
+
+    console.log(`GPS realtime: reconnecting in ${delay}ms (attempt ${retryCountRef.current}/${RECONNECT_MAX_ATTEMPTS})`);
+
+    retryTimerRef.current = setTimeout(() => {
+      if (mountedRef.current) {
+        subscribe();
+      }
+    }, delay);
+  }, [subscribe]);
+
+  // Manual retry exposed to consumers — resets attempt counter
+  const retry = useCallback(() => {
+    retryCountRef.current = 0;
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
+    subscribe();
+  }, [subscribe]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+
+    if (!enabled || supervisedEmployeeIds.length === 0) {
+      setConnectionStatus('disconnected');
+      return;
+    }
+
+    subscribe();
+
     return () => {
+      mountedRef.current = false;
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
       if (channelRef.current) {
         supabaseClient.removeChannel(channelRef.current);
         channelRef.current = null;
       }
     };
-  }, [enabled, supervisedEmployeeIds.length, handleGpsPoint]);
+  }, [enabled, supervisedEmployeeIds.length, subscribe]);
 
   return {
     connectionStatus,
     lastEventAt,
+    retry,
   };
 }

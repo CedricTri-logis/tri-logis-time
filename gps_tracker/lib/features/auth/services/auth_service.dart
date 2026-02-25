@@ -85,11 +85,15 @@ class AuthService {
 
   /// Sign out the current user
   ///
-  /// Clears local session. Does not throw on network failure
-  /// as local session is cleared regardless.
-  Future<void> signOut() async {
+  /// Uses local scope by default so the server-side session (and its
+  /// refresh token) stays valid for biometric re-login.
+  /// Pass [revokeSession] = true for force-logout scenarios where the
+  /// server session must be invalidated.
+  Future<void> signOut({bool revokeSession = false}) async {
     try {
-      await _client.auth.signOut();
+      await _client.auth.signOut(
+        scope: revokeSession ? SignOutScope.global : SignOutScope.local,
+      );
     } catch (e) {
       // Sign out should still clear local session even if network fails
       // Supabase SDK handles this automatically

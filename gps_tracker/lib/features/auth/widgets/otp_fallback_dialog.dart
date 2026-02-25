@@ -130,7 +130,10 @@ class _OtpFallbackDialogState extends State<OtpFallbackDialog> {
   Widget build(BuildContext context) {
     final displayPhone = PhoneValidator.formatForDisplay(widget.phone);
 
+    // Use small horizontal insets so the 6 OTP boxes fit without clipping.
     return AlertDialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      contentPadding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: const Text(
         'Verification requise',

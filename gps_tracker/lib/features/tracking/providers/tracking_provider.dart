@@ -439,10 +439,36 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
       startTracking();
     }
 
-    // Auto-stop on clock out
+    // Auto-stop on clock out — but guard against transient null from provider rebuild.
+    // When authStateChangesProvider triggers a shiftProvider rebuild (e.g. token refresh),
+    // the new ShiftNotifier starts with activeShift=null before async DB load completes.
+    // We must verify the shift is truly completed in SQLCipher before stopping tracking.
     if (previous?.activeShift != null && next.activeShift == null) {
+      _verifyAndStopTracking(previous!.activeShift!.id);
+    }
+  }
+
+  /// Verify the shift is truly completed in the local DB before stopping tracking.
+  /// Prevents false stops caused by Riverpod provider rebuilds.
+  Future<void> _verifyAndStopTracking(String shiftId) async {
+    try {
+      final shift = await LocalDatabase().getShiftById(shiftId);
+      if (shift == null || shift.status == 'completed') {
+        // Shift is truly gone or completed — stop tracking
+        _logger?.gps(Severity.info, 'Shift confirmed completed, stopping tracking', metadata: {'shift_id': shiftId});
+        stopTracking(reason: 'clock_out');
+        _activeGpsGapId = null;
+        _midnightWarningShown = false;
+        NotificationService().cancelGpsLostNotification();
+        NotificationService().cancelMidnightWarningNotification();
+      } else {
+        // Shift still active in DB — this was a transient provider rebuild
+        _logger?.gps(Severity.warn, 'Ignoring transient shift null (shift still active in DB)', metadata: {'shift_id': shiftId, 'shift_status': shift.status});
+      }
+    } catch (e) {
+      // If DB check fails, err on the side of stopping (fail-safe)
+      _logger?.gps(Severity.error, 'DB check failed during shift verify, stopping tracking', metadata: {'error': e.toString()});
       stopTracking(reason: 'clock_out');
-      // Clean up any active GPS gap and notifications
       _activeGpsGapId = null;
       _midnightWarningShown = false;
       NotificationService().cancelGpsLostNotification();
