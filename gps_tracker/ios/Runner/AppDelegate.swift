@@ -22,6 +22,9 @@ import GoogleMaps
     // Register Background Task plugin (CLBackgroundActivitySession + beginBackgroundTask + thermal)
     BackgroundTaskPlugin.register(with: self.registrar(forPlugin: "BackgroundTaskPlugin")!)
 
+    // Register Live Activity plugin (iOS 16.1+ shift status on Lock Screen)
+    LiveActivityPlugin.register(with: self.registrar(forPlugin: "LiveActivityPlugin")!)
+
     // Required for flutter_foreground_task
     SwiftFlutterForegroundTaskPlugin.setPluginRegistrantCallback { registry in
       GeneratedPluginRegistrant.register(with: registry)

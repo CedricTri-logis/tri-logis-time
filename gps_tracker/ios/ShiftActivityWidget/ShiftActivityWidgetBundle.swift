@@ -11,6 +11,8 @@ import SwiftUI
 @main
 struct ShiftActivityWidgetBundle: WidgetBundle {
     var body: some Widget {
-        ShiftActivityWidgetLiveActivity()
+        if #available(iOS 16.1, *) {
+            ShiftActivityWidgetLiveActivity()
+        }
     }
 }
