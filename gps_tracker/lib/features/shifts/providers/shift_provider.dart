@@ -10,6 +10,7 @@ import '../../../shared/services/local_database.dart';
 import '../../../shared/services/realtime_service.dart';
 import '../../cleaning/providers/cleaning_session_provider.dart';
 import '../../maintenance/providers/maintenance_provider.dart';
+import '../../../shared/services/shift_activity_service.dart';
 import '../models/geo_point.dart';
 import '../models/shift.dart';
 import '../../auth/services/device_info_service.dart';
@@ -192,6 +193,9 @@ class ShiftNotifier extends StateNotifier<ShiftState>
 
   /// Close the shift in both local DB and in-memory state.
   Future<void> _closeShiftLocally(Shift shift, String reason) async {
+    // End iOS Live Activity (server-side closures: midnight cleanup, admin, zombie)
+    ShiftActivityService.instance.endActivity();
+
     // Update SQLite so the closure persists across app restarts
     try {
       final localDb = _ref.read(localDatabaseProvider);

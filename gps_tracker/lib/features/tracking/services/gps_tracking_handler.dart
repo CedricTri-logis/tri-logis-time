@@ -40,6 +40,9 @@ class GPSTrackingHandler extends TaskHandler {
   DateTime? _trackingStartedAt;
   static const _gracePeriod = Duration(seconds: 60);
 
+  // Shift clock-in time for elapsed display in notifications
+  DateTime? _clockedInAt;
+
   /// Send a diagnostic event to the main isolate for logging.
   /// Background isolate cannot use DiagnosticLogger directly.
   void _sendDiagnostic(String severity, String message, [Map<String, dynamic>? metadata]) {
@@ -63,6 +66,12 @@ class GPSTrackingHandler extends TaskHandler {
         await FlutterForegroundTask.getData<int>(key: 'stationary_interval_seconds') ?? 120;
     _distanceFilterMeters =
         await FlutterForegroundTask.getData<int>(key: 'distance_filter_meters') ?? 0;
+
+    // Load clock-in time for elapsed display
+    final clockedInAtMs = await FlutterForegroundTask.getData<int>(key: 'clocked_in_at_ms');
+    if (clockedInAtMs != null) {
+      _clockedInAt = DateTime.fromMillisecondsSinceEpoch(clockedInAtMs);
+    }
 
     // If started by system (boot), verify we have an active shift
     if (starter == TaskStarter.system && _shiftId == null) {
@@ -158,9 +167,10 @@ class GPSTrackingHandler extends TaskHandler {
       final gapStart = _gpsGapStartedAt;
       _gpsGapStartedAt = null;
 
-      // Restore normal notification
+      // Restore normal notification with elapsed time
+      final elapsedStr = _formatElapsedShift(now);
       FlutterForegroundTask.updateService(
-        notificationTitle: 'Suivi de position actif',
+        notificationTitle: elapsedStr.isNotEmpty ? 'Quart actif — $elapsedStr' : 'Suivi de position actif',
         notificationText: 'Points: $_pointCount | GPS restauré',
       );
 
@@ -300,10 +310,11 @@ class GPSTrackingHandler extends TaskHandler {
       },
     });
 
-    // Update notification with speed info
+    // Update notification with elapsed shift time
+    final elapsedStr = _formatElapsedShift(now);
     final speedKmh = speed != null ? (speed * 3.6).toStringAsFixed(0) : '?';
     FlutterForegroundTask.updateService(
-      notificationTitle: 'Suivi de position actif',
+      notificationTitle: elapsedStr.isNotEmpty ? 'Quart actif — $elapsedStr' : 'Suivi de position actif',
       notificationText:
           'Points: $_pointCount | ${_formatTime(now)} | $speedKmh km/h${_isStationary ? ' (S)' : ''}',
     );
@@ -313,6 +324,18 @@ class GPSTrackingHandler extends TaskHandler {
     final hour = time.hour.toString().padLeft(2, '0');
     final minute = time.minute.toString().padLeft(2, '0');
     return '$hour:$minute';
+  }
+
+  /// Format the elapsed shift duration as "2h 34m" or "45m".
+  String _formatElapsedShift(DateTime now) {
+    if (_clockedInAt == null) return '';
+    final elapsed = now.difference(_clockedInAt!);
+    final hours = elapsed.inHours;
+    final minutes = elapsed.inMinutes % 60;
+    if (hours > 0) {
+      return '${hours}h ${minutes.toString().padLeft(2, '0')}m';
+    }
+    return '${minutes}m';
   }
 
   void _onPositionError(dynamic error) {
@@ -333,6 +356,16 @@ class GPSTrackingHandler extends TaskHandler {
       'is_stationary': _isStationary,
       'last_capture': _lastCaptureTime?.toIso8601String(),
     });
+
+    // Refresh notification title with elapsed time (even without new GPS point)
+    if (!_gpsLostNotified && _clockedInAt != null) {
+      final elapsedStr = _formatElapsedShift(timestamp);
+      FlutterForegroundTask.updateService(
+        notificationTitle: 'Quart actif — $elapsedStr',
+        notificationText:
+            'Points: $_pointCount | ${_formatTime(timestamp)}${_isStationary ? ' (S)' : ''}',
+      );
+    }
 
     // GPS loss detection (with grace period — A5)
     _checkGpsLoss(timestamp);
@@ -435,8 +468,9 @@ class GPSTrackingHandler extends TaskHandler {
       _gpsLostNotified = true;
       _gpsGapStartedAt = lastSuccess; // Gap started when we last had GPS
 
+      final elapsedStr = _formatElapsedShift(now);
       FlutterForegroundTask.updateService(
-        notificationTitle: 'GPS PERDU',
+        notificationTitle: elapsedStr.isNotEmpty ? 'GPS PERDU — $elapsedStr' : 'GPS PERDU',
         notificationText: 'Le suivi continue mais sans points GPS',
       );
       FlutterForegroundTask.sendDataToMain({
@@ -444,10 +478,11 @@ class GPSTrackingHandler extends TaskHandler {
         'gap_started_at': lastSuccess.toUtc().toIso8601String(),
       });
     } else if (_gpsLostNotified) {
-      // Update notification with elapsed time
+      // Update notification with elapsed shift time + lost duration
       final lostMinutes = elapsed.inMinutes;
+      final elapsedStr = _formatElapsedShift(now);
       FlutterForegroundTask.updateService(
-        notificationTitle: 'GPS PERDU',
+        notificationTitle: elapsedStr.isNotEmpty ? 'GPS PERDU — $elapsedStr' : 'GPS PERDU',
         notificationText: 'Signal perdu depuis $lostMinutes min — le quart continue',
       );
     }

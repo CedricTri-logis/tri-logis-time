@@ -13,6 +13,7 @@ import 'shared/providers/diagnostic_provider.dart';
 import 'shared/services/diagnostic_logger.dart';
 import 'shared/services/local_database.dart';
 import 'shared/services/notification_service.dart';
+import 'shared/services/shift_activity_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -84,6 +85,7 @@ Future<void> main() async {
       await Future.wait([
         LocalDatabase().initialize(),
         _initializeTracking(),
+        ShiftActivityService.instance.initialize(),
       ]);
       // Initialize notifications separately (non-critical — don't block app startup)
       try {

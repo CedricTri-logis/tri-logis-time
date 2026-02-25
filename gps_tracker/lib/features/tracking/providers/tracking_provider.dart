@@ -20,6 +20,7 @@ import '../services/background_execution_service.dart';
 import '../services/background_tracking_service.dart';
 import '../services/significant_location_service.dart';
 import '../services/thermal_state_service.dart';
+import '../../../shared/services/shift_activity_service.dart';
 
 /// Manages UI state for background GPS tracking.
 class TrackingNotifier extends StateNotifier<TrackingState> {
@@ -164,6 +165,9 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
   void _handleGpsLost(Map<String, dynamic> data) {
     state = state.copyWith(gpsSignalLost: true);
 
+    // Update iOS Live Activity to show GPS lost status
+    ShiftActivityService.instance.updateStatus('gps_lost');
+
     // Show local notification
     NotificationService().showGpsLostNotification();
 
@@ -180,6 +184,9 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
 
   void _handleGpsRestored(Map<String, dynamic> data) {
     state = state.copyWith(gpsSignalLost: false);
+
+    // Update iOS Live Activity to show active status
+    ShiftActivityService.instance.updateStatus('active');
 
     // Cancel the persistent GPS lost notification and show brief restore
     NotificationService().cancelGpsLostNotification();
@@ -295,6 +302,12 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
 
     // Trigger sync check on every heartbeat (debounced by 5s delay in sync provider)
     _ref.read(syncProvider.notifier).notifyPendingData();
+
+    // Check if iOS Live Activity needs restart (8h Apple limit)
+    final shift = _ref.read(shiftProvider).activeShift;
+    if (shift != null) {
+      ShiftActivityService.instance.checkAndRestartIfNeeded(shift);
+    }
 
     // App-level server heartbeat — independent of GPS points.
     // Sends every 3rd heartbeat (~90s) so the server knows the app is alive
@@ -513,6 +526,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     final result = await BackgroundTrackingService.startTracking(
       shiftId: shift.id,
       employeeId: shift.employeeId,
+      clockedInAt: shift.clockedInAt,
       config: trackingConfig,
     );
 
@@ -522,6 +536,8 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
           status: TrackingStatus.running,
           config: trackingConfig,
         );
+        // Start iOS Live Activity (no-op on Android)
+        ShiftActivityService.instance.startActivity(shift);
         // Register SLC callback and start monitoring immediately at clock-in.
         // SLC can relaunch the app after iOS terminates it (~500m movement).
         SignificantLocationService.onWokenByLocationChange = _onWokenByLocationChange;
@@ -559,6 +575,8 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
       if (reason != null) 'reason': reason,
     });
     await BackgroundTrackingService.stopTracking();
+    // End iOS Live Activity (no-op on Android)
+    ShiftActivityService.instance.endActivity();
     // Stop SLC if it was activated during GPS loss
     if (_significantLocationActive) {
       SignificantLocationService.stopMonitoring();

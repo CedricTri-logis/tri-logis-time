@@ -76,6 +76,7 @@ class BackgroundTrackingService with WidgetsBindingObserver {
   static Future<TrackingResult> startTracking({
     required String shiftId,
     required String employeeId,
+    DateTime? clockedInAt,
     TrackingConfig config = const TrackingConfig(),
   }) async {
     // Check if already tracking
@@ -109,6 +110,12 @@ class BackgroundTrackingService with WidgetsBindingObserver {
         key: 'distance_filter_meters',
         value: config.distanceFilterMeters,
       );
+      if (clockedInAt != null) {
+        await FlutterForegroundTask.saveData(
+          key: 'clocked_in_at_ms',
+          value: clockedInAt.millisecondsSinceEpoch,
+        );
+      }
 
       // Start the foreground service
       final result = await FlutterForegroundTask.startService(
@@ -140,6 +147,7 @@ class BackgroundTrackingService with WidgetsBindingObserver {
     await FlutterForegroundTask.removeData(key: 'active_interval_seconds');
     await FlutterForegroundTask.removeData(key: 'stationary_interval_seconds');
     await FlutterForegroundTask.removeData(key: 'distance_filter_meters');
+    await FlutterForegroundTask.removeData(key: 'clocked_in_at_ms');
   }
 
   /// Check if background tracking is currently active.
