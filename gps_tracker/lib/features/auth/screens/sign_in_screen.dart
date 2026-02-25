@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/config/theme.dart';
 import '../../../shared/providers/supabase_provider.dart';
 import '../../../shared/widgets/error_snackbar.dart';
+import '../providers/app_lock_provider.dart';
 import '../providers/device_session_provider.dart';
 import '../services/auth_rate_limiter.dart';
 import '../services/auth_service.dart';
@@ -260,6 +261,35 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   // ── Biometric Flow ──
 
   Future<void> _handleBiometricSignIn() async {
+    // Fast path: app is locked (session still alive), just unlock with biometric
+    final isLocked = ref.read(appLockProvider);
+    if (isLocked) {
+      setState(() => _isLoading = true);
+      try {
+        final bio = ref.read(biometricServiceProvider);
+        final authenticated = await bio.authenticateOnly();
+        if (!authenticated) {
+          if (mounted) setState(() => _isLoading = false);
+          return;
+        }
+
+        // Unlock the app
+        ref.read(appLockProvider.notifier).state = false;
+
+        // If session is still alive, app.dart routes to HomeScreen automatically
+        final client = ref.read(supabaseClientProvider);
+        if (client.auth.currentSession != null) {
+          if (mounted) setState(() => _isLoading = false);
+          return;
+        }
+
+        // Session died while locked → fall through to existing token restore flow
+      } catch (_) {
+        // Fall through to normal biometric flow
+      }
+      if (mounted) setState(() => _isLoading = false);
+    }
+
     setState(() => _isLoading = true);
 
     try {

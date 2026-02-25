@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/config/theme.dart';
 import '../../shared/providers/supabase_provider.dart';
+import '../auth/providers/app_lock_provider.dart';
 import '../auth/services/biometric_service.dart';
 import '../shifts/providers/shift_provider.dart';
 import '../admin/screens/user_management_screen.dart';
@@ -18,6 +19,9 @@ class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   Future<void> _handleSignOut(BuildContext context, WidgetRef ref) async {
+    final bio = ref.read(biometricServiceProvider);
+    final biometricEnabled = await bio.isEnabled();
+
     // Show confirmation dialog
     final confirmed = await showDialog<bool>(
       context: context,
@@ -44,11 +48,9 @@ class HomeScreen extends ConsumerWidget {
         await ref.read(shiftProvider.notifier).clockOut();
       }
 
-      // Preserve the latest session tokens for biometric before signing out.
-      // Refresh tokens rotate during the session, so the ones saved at login
-      // are stale by now — grab the current ones before they're cleared.
-      final bio = ref.read(biometricServiceProvider);
-      if (await bio.isEnabled()) {
+      if (biometricEnabled) {
+        // App-lock pattern: save fresh tokens, then lock the app
+        // WITHOUT calling signOut() (which would revoke the refresh token).
         final session = ref.read(supabaseClientProvider).auth.currentSession;
         if (session != null) {
           final phone = ref.read(supabaseClientProvider).auth.currentUser?.phone;
@@ -58,11 +60,15 @@ class HomeScreen extends ConsumerWidget {
             phone: (phone != null && phone.isNotEmpty) ? phone : null,
           );
         }
-      }
 
-      final authService = ref.read(authServiceProvider);
-      await authService.signOut();
-      // Navigation handled automatically by auth state in app.dart
+        // Lock the app → app.dart shows SignInScreen, session stays alive
+        ref.read(appLockProvider.notifier).state = true;
+      } else {
+        // No biometric → regular sign-out (revokes session)
+        final authService = ref.read(authServiceProvider);
+        await authService.signOut();
+      }
+      // Navigation handled automatically by auth/lock state in app.dart
     }
   }
 

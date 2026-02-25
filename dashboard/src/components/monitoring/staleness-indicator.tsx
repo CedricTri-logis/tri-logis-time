@@ -5,10 +5,10 @@ import { cn } from '@/lib/utils';
 import type { StalenessLevel } from '@/types/monitoring';
 import { getStalenessLevel, STALENESS_THRESHOLDS } from '@/types/monitoring';
 
-// Re-render interval for relative timestamps (30 seconds)
-const TICK_INTERVAL_MS = 30_000;
+// Re-render interval for relative timestamps (1 second)
+const TICK_INTERVAL_MS = 1_000;
 
-/** Forces a re-render every 30s so relative times stay accurate. */
+/** Forces a re-render every second so relative times stay accurate. */
 function useTick() {
   const [, setTick] = useState(0);
   useEffect(() => {

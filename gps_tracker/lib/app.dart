@@ -4,6 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/config/theme.dart';
+import 'features/auth/providers/app_lock_provider.dart';
 import 'features/auth/providers/device_session_provider.dart';
 import 'features/auth/screens/phone_registration_screen.dart';
 import 'features/auth/screens/sign_in_screen.dart';
@@ -77,16 +78,20 @@ class GpsTrackerApp extends ConsumerWidget {
       home: authState.when(
         data: (state) {
           if (state.session != null) {
-            // Keep device session monitor alive while authenticated
-            ref.watch(deviceSessionProvider);
-            // Keep Realtime subscriptions alive and subscribe for current user
-            final realtimeService = ref.watch(realtimeServiceProvider);
-            final userId = Supabase.instance.client.auth.currentUser?.id;
-            if (userId != null) {
-              realtimeService.subscribe(userId);
-              DeviceInfoService(Supabase.instance.client).syncDeviceInfo();
+            final isLocked = ref.watch(appLockProvider);
+            if (!isLocked) {
+              // Keep device session monitor alive while authenticated
+              ref.watch(deviceSessionProvider);
+              // Keep Realtime subscriptions alive and subscribe for current user
+              final realtimeService = ref.watch(realtimeServiceProvider);
+              final userId = Supabase.instance.client.auth.currentUser?.id;
+              if (userId != null) {
+                realtimeService.subscribe(userId);
+                DeviceInfoService(Supabase.instance.client).syncDeviceInfo();
+              }
+              return const _PhoneCheckGate();
             }
-            return const _PhoneCheckGate();
+            // Locked → show sign-in screen (session stays alive)
           }
           return const SignInScreen();
         },
