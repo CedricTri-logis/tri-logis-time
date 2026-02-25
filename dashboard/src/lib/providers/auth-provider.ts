@@ -122,7 +122,7 @@ export const authProvider: AuthProvider = {
 
   forgotPassword: async ({ email }) => {
     const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
     });
 
     if (error) {

@@ -17,7 +17,6 @@ import '../widgets/auth_form_field.dart';
 import '../widgets/otp_input_field.dart';
 import '../widgets/otp_resend_button.dart';
 import '../widgets/phone_form_field.dart';
-import '../widgets/otp_fallback_dialog.dart';
 import 'forgot_password_screen.dart';
 
 /// Sign-in modes for the state machine
@@ -327,31 +326,27 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         return;
       }
 
-      // Fallback: use saved phone to re-authenticate via OTP
+      // Fallback: use saved phone to re-authenticate via OTP.
+      // Instead of a dialog, switch to the full-screen OTP mode
+      // which already has proper layout for the 6 digit boxes.
       final savedPhone = await bio.getSavedPhone();
       if (savedPhone != null && mounted) {
-        setState(() => _isLoading = false);
-
-        final response = await OtpFallbackDialog.show(
-          context: context,
-          phone: savedPhone,
-          authService: authService,
-        );
-
-        if (response?.session != null) {
-          await bio.saveSessionTokens(
-            accessToken: response!.session!.accessToken,
-            refreshToken: response.session!.refreshToken!,
-            phone: savedPhone,
+        try {
+          await authService.sendOtp(phone: savedPhone);
+          _normalizedPhone = savedPhone;
+          setState(() {
+            _mode = SignInMode.otp;
+            _isLoading = false;
+          });
+          ErrorSnackbar.show(
+            context,
+            'Session expiree. Un code a ete envoye au ${PhoneValidator.formatForDisplay(savedPhone)}',
           );
-
-          // Sync device info (fire-and-forget)
-          final client = ref.read(supabaseClientProvider);
-          DeviceInfoService(client).syncDeviceInfo();
-          return;
+        } on AuthServiceException {
+          // OTP send failed — let user sign in manually
+          setState(() => _isLoading = false);
+          ErrorSnackbar.show(context, 'Session expiree. Reconnectez-vous.');
         }
-
-        // User cancelled the OTP dialog — stay on sign-in screen
         return;
       }
 

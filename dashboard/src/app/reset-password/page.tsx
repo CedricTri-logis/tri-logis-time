@@ -16,12 +16,21 @@ export default function ResetPasswordPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Supabase handles the token exchange from the URL hash automatically
-    supabaseClient.auth.onAuthStateChange((event) => {
+    // Check if session already exists (PKCE flow: code exchanged server-side in /auth/callback)
+    supabaseClient.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setReady(true);
+      }
+    });
+
+    // Also listen for PASSWORD_RECOVERY event (implicit flow fallback)
+    const { data: { subscription } } = supabaseClient.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
         setReady(true);
       }
     });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
