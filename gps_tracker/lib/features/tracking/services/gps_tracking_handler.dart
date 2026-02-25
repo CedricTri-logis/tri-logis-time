@@ -12,7 +12,7 @@ class GPSTrackingHandler extends TaskHandler {
   String? _shiftId;
   String? _employeeId;
   int _activeIntervalSeconds = 60;
-  int _stationaryIntervalSeconds = 300;
+  int _stationaryIntervalSeconds = 120;
   int _distanceFilterMeters = 0;
   int _pointCount = 0;
   DateTime? _lastCaptureTime;
@@ -21,12 +21,13 @@ class GPSTrackingHandler extends TaskHandler {
   DateTime? _stationaryCheckTime;
   bool _isCapturing = false; // Prevent duplicate captures
 
-  // GPS loss detection — 90s threshold catches silent stream death faster
-  // than the previous 2min, especially critical on iOS where the OS can
-  // suspend the app and kill the stream without an error callback.
+  // Thermal multiplier (received from main isolate)
+  int _thermalMultiplier = 1;
+
+  // GPS loss detection — 45s threshold for faster SLC activation (C1)
   DateTime? _lastSuccessfulPositionAt;
   bool _gpsLostNotified = false;
-  static const _gpsLostThreshold = Duration(seconds: 90);
+  static const _gpsLostThreshold = Duration(seconds: 45);
 
   // GPS gap tracking
   DateTime? _gpsGapStartedAt;
@@ -34,6 +35,10 @@ class GPSTrackingHandler extends TaskHandler {
   // Stream recovery (unlimited attempts with exponential backoff)
   int _streamRecoveryAttempts = 0;
   DateTime? _lastRecoveryAttemptAt;
+
+  // Grace period post-restart: inhibit GPS loss detection for 60s (A5)
+  DateTime? _trackingStartedAt;
+  static const _gracePeriod = Duration(seconds: 60);
 
   /// Send a diagnostic event to the main isolate for logging.
   /// Background isolate cannot use DiagnosticLogger directly.
@@ -55,7 +60,7 @@ class GPSTrackingHandler extends TaskHandler {
     _activeIntervalSeconds =
         await FlutterForegroundTask.getData<int>(key: 'active_interval_seconds') ?? 60;
     _stationaryIntervalSeconds =
-        await FlutterForegroundTask.getData<int>(key: 'stationary_interval_seconds') ?? 300;
+        await FlutterForegroundTask.getData<int>(key: 'stationary_interval_seconds') ?? 120;
     _distanceFilterMeters =
         await FlutterForegroundTask.getData<int>(key: 'distance_filter_meters') ?? 0;
 
@@ -70,6 +75,9 @@ class GPSTrackingHandler extends TaskHandler {
       await FlutterForegroundTask.stopService();
       return;
     }
+
+    // Record start time for grace period (A5)
+    _trackingStartedAt = DateTime.now();
 
     // Configure platform-specific location settings
     final locationSettings = _createLocationSettings();
@@ -166,7 +174,7 @@ class GPSTrackingHandler extends TaskHandler {
       });
     }
 
-    // Check for stationary state
+    // Check for stationary state (distance-based fallback)
     _checkStationaryState(position, now);
 
     // Skip if already capturing
@@ -175,10 +183,8 @@ class GPSTrackingHandler extends TaskHandler {
       return;
     }
 
-    // Determine current interval based on movement state
-    final currentInterval = _isStationary
-        ? Duration(seconds: _stationaryIntervalSeconds)
-        : Duration(seconds: _activeIntervalSeconds);
+    // Determine current interval: speed-based adaptive or distance-based fallback
+    final currentInterval = _computeInterval(position);
 
     // Check if we should capture based on interval
     if (_lastCaptureTime != null) {
@@ -192,6 +198,35 @@ class GPSTrackingHandler extends TaskHandler {
 
     // Capture this position
     _capturePosition(position, now);
+  }
+
+  /// Compute capture interval using speed-based adaptive logic (B6).
+  /// Falls back to stationary/active binary if speed is unavailable.
+  /// Applies thermal multiplier.
+  Duration _computeInterval(Position position) {
+    final speed = position.speed;
+    int intervalSec;
+
+    // Use speed-based tiers if speed data is available and valid
+    if (speed >= 0) {
+      if (speed < 0.5) {
+        intervalSec = _stationaryIntervalSeconds;
+      } else if (speed < 2.0) {
+        intervalSec = 30; // Walking
+      } else if (speed < 8.0) {
+        intervalSec = 15; // Vehicle/city
+      } else {
+        intervalSec = 10; // Vehicle/highway
+      }
+    } else {
+      // No valid speed — fall back to stationary detection
+      intervalSec = _isStationary ? _stationaryIntervalSeconds : _activeIntervalSeconds;
+    }
+
+    // Apply thermal multiplier
+    intervalSec *= _thermalMultiplier;
+
+    return Duration(seconds: intervalSec);
   }
 
   void _checkStationaryState(Position position, DateTime now) {
@@ -234,6 +269,14 @@ class GPSTrackingHandler extends TaskHandler {
     // Generate a unique ID for this point
     final pointId = const Uuid().v4();
 
+    // Extract extended GPS data (B4)
+    final speed = position.speed >= 0 ? position.speed : null;
+    final speedAccuracy = position.speedAccuracy >= 0 ? position.speedAccuracy : null;
+    final heading = position.heading >= 0 ? position.heading : null;
+    final headingAccuracy = position.headingAccuracy >= 0 ? position.headingAccuracy : null;
+    final altitude = position.altitude != 0 ? position.altitude : null;
+    final altitudeAccuracy = position.altitudeAccuracy >= 0 ? position.altitudeAccuracy : null;
+
     // Send position data to main isolate
     FlutterForegroundTask.sendDataToMain({
       'type': 'position',
@@ -247,14 +290,22 @@ class GPSTrackingHandler extends TaskHandler {
         'captured_at': position.timestamp.toUtc().toIso8601String(),
         'sync_status': 'pending',
         'created_at': now.toUtc().toIso8601String(),
+        if (speed != null) 'speed': speed,
+        if (speedAccuracy != null) 'speed_accuracy': speedAccuracy,
+        if (heading != null) 'heading': heading,
+        if (headingAccuracy != null) 'heading_accuracy': headingAccuracy,
+        if (altitude != null) 'altitude': altitude,
+        if (altitudeAccuracy != null) 'altitude_accuracy': altitudeAccuracy,
+        'is_mocked': position.isMocked ? 1 : 0,
       },
     });
 
-    // Update notification
+    // Update notification with speed info
+    final speedKmh = speed != null ? (speed * 3.6).toStringAsFixed(0) : '?';
     FlutterForegroundTask.updateService(
       notificationTitle: 'Suivi de position actif',
       notificationText:
-          'Points: $_pointCount | Last: ${_formatTime(now)}${_isStationary ? ' (Stationary)' : ''}',
+          'Points: $_pointCount | ${_formatTime(now)} | $speedKmh km/h${_isStationary ? ' (S)' : ''}',
     );
   }
 
@@ -283,7 +334,7 @@ class GPSTrackingHandler extends TaskHandler {
       'last_capture': _lastCaptureTime?.toIso8601String(),
     });
 
-    // GPS loss detection
+    // GPS loss detection (with grace period — A5)
     _checkGpsLoss(timestamp);
 
     // Stream health check — detects silently dead streams
@@ -294,9 +345,7 @@ class GPSTrackingHandler extends TaskHandler {
     if (_lastCaptureTime != null && _lastPosition != null) {
       final now = DateTime.now();
       final timeSinceLast = now.difference(_lastCaptureTime!);
-      final currentInterval = _isStationary
-          ? Duration(seconds: _stationaryIntervalSeconds)
-          : Duration(seconds: _activeIntervalSeconds);
+      final currentInterval = _computeInterval(_lastPosition!);
 
       if (timeSinceLast >= currentInterval) {
         // Get current position and capture it
@@ -311,8 +360,14 @@ class GPSTrackingHandler extends TaskHandler {
     final lastSuccess = _lastSuccessfulPositionAt;
     if (lastSuccess == null) return;
 
-    // 90s of silence before first recovery attempt (matches _gpsLostThreshold).
-    if (now.difference(lastSuccess) < const Duration(seconds: 90)) return;
+    // Use the same threshold as GPS loss (45s) for stream health
+    if (now.difference(lastSuccess) < _gpsLostThreshold) return;
+
+    // Grace period: don't try recovery immediately after start (A5)
+    if (_trackingStartedAt != null &&
+        now.difference(_trackingStartedAt!) < _gracePeriod) {
+      return;
+    }
 
     // Exponential backoff between recovery attempts: 1, 2, 4, 8, 15 min cap.
     // Starts at 1 min (not 2) so first recovery is faster; caps at 15 min
@@ -367,9 +422,15 @@ class GPSTrackingHandler extends TaskHandler {
     final lastSuccess = _lastSuccessfulPositionAt;
     if (lastSuccess == null) return; // No position yet — still initializing
 
+    // Grace period after start: don't flag GPS loss while stream stabilizes (A5)
+    if (_trackingStartedAt != null &&
+        now.difference(_trackingStartedAt!) < _gracePeriod) {
+      return;
+    }
+
     final elapsed = now.difference(lastSuccess);
 
-    // 2-minute threshold: notify GPS lost (no auto clock-out)
+    // 45s threshold: notify GPS lost (C1 — reduced from 90s)
     if (elapsed >= _gpsLostThreshold && !_gpsLostNotified) {
       _gpsLostNotified = true;
       _gpsGapStartedAt = lastSuccess; // Gap started when we last had GPS
@@ -446,6 +507,7 @@ class GPSTrackingHandler extends TaskHandler {
         _stationaryIntervalSeconds =
             data['stationary_interval_seconds'] as int? ?? _stationaryIntervalSeconds;
         _distanceFilterMeters = data['distance_filter_meters'] as int? ?? _distanceFilterMeters;
+        _thermalMultiplier = data['thermal_multiplier'] as int? ?? _thermalMultiplier;
       } else if (command == 'recoverStream') {
         // Main isolate detected GPS gap — force one immediate recovery attempt
         _lastRecoveryAttemptAt = null; // Allow immediate attempt

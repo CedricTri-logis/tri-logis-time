@@ -22,7 +22,7 @@ import 'local_database_exception.dart';
 /// Local SQLite database service with encrypted storage.
 class LocalDatabase {
   static const String _databaseName = 'gps_tracker.db';
-  static const int _databaseVersion = 4;
+  static const int _databaseVersion = 5;
   static const String _encryptionKeyKey = 'local_db_encryption_key';
 
   static LocalDatabase? _instance;
@@ -193,6 +193,13 @@ class LocalDatabase {
         device_id TEXT,
         sync_status TEXT NOT NULL DEFAULT 'pending' CHECK (sync_status IN ('pending', 'synced')),
         created_at TEXT NOT NULL,
+        speed REAL,
+        speed_accuracy REAL,
+        heading REAL,
+        heading_accuracy REAL,
+        altitude REAL,
+        altitude_accuracy REAL,
+        is_mocked INTEGER,
         FOREIGN KEY (shift_id) REFERENCES local_shifts(id) ON DELETE CASCADE
       )
     ''');
@@ -394,6 +401,21 @@ class LocalDatabase {
     if (oldVersion < 4) {
       await _createDiagnosticEventsTable(db);
     }
+    // Migration from v4 to v5: Add extended GPS data columns
+    if (oldVersion < 5) {
+      await _addExtendedGpsColumns(db);
+    }
+  }
+
+  /// Add extended GPS data columns to local_gps_points.
+  Future<void> _addExtendedGpsColumns(Database db) async {
+    await db.execute('ALTER TABLE local_gps_points ADD COLUMN speed REAL');
+    await db.execute('ALTER TABLE local_gps_points ADD COLUMN speed_accuracy REAL');
+    await db.execute('ALTER TABLE local_gps_points ADD COLUMN heading REAL');
+    await db.execute('ALTER TABLE local_gps_points ADD COLUMN heading_accuracy REAL');
+    await db.execute('ALTER TABLE local_gps_points ADD COLUMN altitude REAL');
+    await db.execute('ALTER TABLE local_gps_points ADD COLUMN altitude_accuracy REAL');
+    await db.execute('ALTER TABLE local_gps_points ADD COLUMN is_mocked INTEGER');
   }
 
   /// Ensure database is available.

@@ -344,8 +344,8 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     }
   }
 
-  /// If GPS hasn't produced a point in 5+ minutes, tell the background
-  /// handler to recover its position stream. Rate-limited to once per 5 min.
+  /// If GPS hasn't produced a point in 2+ minutes, tell the background
+  /// handler to recover its position stream. Rate-limited to once per 2 min (C2).
   /// The background handler manages its own recovery with backoff,
   /// so this is a last-resort nudge from the main isolate.
   void _checkGpsSelfHealing() {
@@ -354,13 +354,17 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
 
     final now = DateTime.now();
     final gap = now.difference(lastCapture);
-    if (gap > const Duration(minutes: 5)) {
-      // Rate-limit: don't send recovery more than once per 5 minutes
+    if (gap > const Duration(minutes: 2)) {
+      // Rate-limit: don't send recovery more than once per 2 minutes
       if (_lastSelfHealingAt != null &&
-          now.difference(_lastSelfHealingAt!) < const Duration(minutes: 5)) {
+          now.difference(_lastSelfHealingAt!) < const Duration(minutes: 2)) {
         return;
       }
-      _logger?.gps(Severity.warn, 'GPS gap detected, requesting stream recovery', metadata: {'gap_seconds': gap.inSeconds});
+      _logger?.gps(Severity.warn, 'GPS gap detected, requesting stream recovery', metadata: {
+        'gap_seconds': gap.inSeconds,
+        'last_background_capture_at': lastCapture.toUtc().toIso8601String(),
+        'actual_gap_seconds': gap.inSeconds,
+      });
       FlutterForegroundTask.sendDataToTask({'command': 'recoverStream'});
       _lastSelfHealingAt = now;
     }
@@ -437,7 +441,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
 
     // Auto-stop on clock out
     if (previous?.activeShift != null && next.activeShift == null) {
-      stopTracking();
+      stopTracking(reason: 'clock_out');
       // Clean up any active GPS gap and notifications
       _activeGpsGapId = null;
       _midnightWarningShown = false;
@@ -496,8 +500,16 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
   }
 
   /// Stop background tracking.
-  Future<void> stopTracking() async {
-    _logger?.gps(Severity.info, 'Tracking stopped');
+  ///
+  /// [reason] indicates why tracking stopped:
+  /// - `clock_out` — user clocked out normally
+  /// - `force_logout` — force-logged out by another device
+  /// - `app_close` — app was closed
+  /// - `shift_closed_by_server` — server closed the shift
+  Future<void> stopTracking({String? reason}) async {
+    _logger?.gps(Severity.info, 'Tracking stopped', metadata: {
+      if (reason != null) 'reason': reason,
+    });
     await BackgroundTrackingService.stopTracking();
     // Stop SLC if it was activated during GPS loss
     if (_significantLocationActive) {
@@ -585,21 +597,27 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
   }
 
   /// Apply GPS config changes based on thermal level.
+  /// Uses a multiplier approach: speed-based intervals are multiplied by the
+  /// thermal factor, so adaptive frequency is preserved at all thermal levels.
   void _applyThermalConfig(ThermalLevel level) {
-    final (activeInterval, stationaryInterval) = switch (level) {
-      ThermalLevel.normal => (60, 300),
-      ThermalLevel.elevated => (120, 600),
-      ThermalLevel.critical => (300, 900),
+    final thermalMultiplier = switch (level) {
+      ThermalLevel.normal => 1,
+      ThermalLevel.elevated => 2,
+      ThermalLevel.critical => 4,
     };
 
-    _logger?.thermal(Severity.info, 'Thermal adaptation applied', metadata: {'level': level.name, 'active_interval': activeInterval, 'stationary_interval': stationaryInterval});
+    _logger?.thermal(Severity.info, 'Thermal adaptation applied', metadata: {
+      'level': level.name,
+      'multiplier': thermalMultiplier,
+    });
 
     if (state.status == TrackingStatus.running) {
       FlutterForegroundTask.sendDataToTask({
         'command': 'updateConfig',
-        'active_interval_seconds': activeInterval,
-        'stationary_interval_seconds': stationaryInterval,
+        'active_interval_seconds': state.config.activeIntervalSeconds,
+        'stationary_interval_seconds': state.config.stationaryIntervalSeconds,
         'distance_filter_meters': state.config.distanceFilterMeters,
+        'thermal_multiplier': thermalMultiplier,
       });
     }
   }
@@ -610,11 +628,17 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
 
     // Send config to background task if running
     if (state.status == TrackingStatus.running) {
+      final thermalMultiplier = switch (_currentThermalLevel) {
+        ThermalLevel.normal => 1,
+        ThermalLevel.elevated => 2,
+        ThermalLevel.critical => 4,
+      };
       FlutterForegroundTask.sendDataToTask({
         'command': 'updateConfig',
         'active_interval_seconds': config.activeIntervalSeconds,
         'stationary_interval_seconds': config.stationaryIntervalSeconds,
         'distance_filter_meters': config.distanceFilterMeters,
+        'thermal_multiplier': thermalMultiplier,
       });
     }
   }

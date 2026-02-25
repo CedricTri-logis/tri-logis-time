@@ -214,8 +214,11 @@ class AuthService {
   /// (triggers phone verification OTP)
   Future<void> registerPhone({required String phone}) async {
     try {
+      // Strip leading '+' — GoTrue normalizes input for lookup but stores as-is.
+      // Phones stored WITH '+' won't match GoTrue's normalized OTP lookup.
+      final storedPhone = phone.startsWith('+') ? phone.substring(1) : phone;
       await _client.auth.updateUser(
-        UserAttributes(phone: phone),
+        UserAttributes(phone: storedPhone),
       );
     } on AuthException catch (e) {
       throw AuthServiceException(

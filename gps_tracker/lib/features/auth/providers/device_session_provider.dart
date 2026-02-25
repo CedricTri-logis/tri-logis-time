@@ -52,8 +52,11 @@ class DeviceSessionNotifier extends StateNotifier<DeviceSessionStatus>
           _currentDeviceId != null &&
           newDeviceId != _currentDeviceId) {
         // Another device took the session — force logout
-        _logger?.auth(Severity.critical, 'Force logout: session takeover detected', metadata: {'source': 'realtime'});
-        _handleForceLogout();
+        _handleForceLogout(
+          detectionMethod: 'realtime',
+          expectedDeviceId: _currentDeviceId!,
+          actualDeviceId: newDeviceId,
+        );
       }
     };
   }
@@ -72,11 +75,11 @@ class DeviceSessionNotifier extends StateNotifier<DeviceSessionStatus>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) {
-      _checkSession();
+      _checkSession(trigger: 'app_resume');
     }
   }
 
-  Future<void> _checkSession() async {
+  Future<void> _checkSession({String trigger = 'polling'}) async {
     if (state == DeviceSessionStatus.forcedOut) return;
 
     try {
@@ -88,7 +91,11 @@ class DeviceSessionNotifier extends StateNotifier<DeviceSessionStatus>
       final isActive = await service.isDeviceSessionActive();
 
       if (!isActive && mounted) {
-        await _handleForceLogout();
+        await _handleForceLogout(
+          detectionMethod: trigger,
+          expectedDeviceId: _currentDeviceId ?? 'unknown',
+          actualDeviceId: 'different_or_force_logout',
+        );
       }
     } catch (e) {
       // Fail-open: do nothing on error
@@ -96,8 +103,20 @@ class DeviceSessionNotifier extends StateNotifier<DeviceSessionStatus>
     }
   }
 
-  Future<void> _handleForceLogout() async {
-    _logger?.auth(Severity.critical, 'Force logout triggered', metadata: {'source': 'polling_or_realtime'});
+  Future<void> _handleForceLogout({
+    required String detectionMethod,
+    required String expectedDeviceId,
+    required String actualDeviceId,
+  }) async {
+    _logger?.auth(
+      Severity.critical,
+      'Force logout triggered',
+      metadata: {
+        'detection_method': detectionMethod,
+        'expected_device_id': expectedDeviceId,
+        'actual_device_id': actualDeviceId,
+      },
+    );
     state = DeviceSessionStatus.forcedOut;
     wasForceLoggedOut = true;
 
