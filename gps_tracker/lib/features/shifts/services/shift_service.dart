@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../shared/models/diagnostic_event.dart';
+import '../../../shared/services/diagnostic_logger.dart';
 import '../../../shared/services/local_database.dart';
 import '../models/geo_point.dart';
 import '../models/local_shift.dart';
@@ -104,6 +106,9 @@ class ShiftService {
 
   /// Get the current user ID.
   String? get _currentUserId => _supabase.auth.currentUser?.id;
+
+  DiagnosticLogger? get _logger =>
+      DiagnosticLogger.isInitialized ? DiagnosticLogger.instance : null;
 
   /// Clock in - requires server confirmation before showing success.
   /// Creates a local shift, then waits for server to confirm.
@@ -300,6 +305,186 @@ class ShiftService {
 
     final localShift = await _localDb.getActiveShift(userId);
     return localShift?.toShift();
+  }
+
+  /// Reconcile local shift state with the server.
+  ///
+  /// Handles scenarios where local and server state diverge:
+  /// - App reinstalled while shift active → resume server shift locally
+  /// - Server closed shift (midnight cleanup, admin) → close local shift
+  /// - Stale server shift (before last midnight) → close on server
+  ///
+  /// Fail-open: if server is unreachable, returns local state unchanged.
+  Future<LocalShift?> reconcileShiftState() async {
+    final userId = _currentUserId;
+    if (userId == null) return null;
+
+    // 1. Load local active shift
+    final localShift = await _localDb.getActiveShift(userId);
+
+    // 2. Query server for active shift (fail-open)
+    Map<String, dynamic>? serverShift;
+    try {
+      serverShift = await _supabase
+          .from('shifts')
+          .select('id, employee_id, status, clocked_in_at, clock_in_location, clock_in_accuracy, created_at, updated_at')
+          .eq('employee_id', userId)
+          .eq('status', 'active')
+          .maybeSingle();
+    } catch (e) {
+      _logger?.shift(Severity.debug, 'Reconciliation skipped: server unreachable', metadata: {
+        'error': e.toString(),
+      },);
+      return localShift;
+    }
+
+    // 3. Both null → nothing to do
+    if (localShift == null && serverShift == null) return null;
+
+    // 4. Local active, server matches → already synced
+    if (localShift != null && serverShift != null && localShift.serverId == serverShift['id']) {
+      return localShift;
+    }
+
+    // 5. No local shift, server has active shift → resume or close
+    if (localShift == null && serverShift != null) {
+      final clockedInAt = DateTime.parse(serverShift['clocked_in_at'] as String);
+      final lastMidnight = _lastMidnightET();
+
+      if (clockedInAt.isAfter(lastMidnight)) {
+        // Recent shift — resume locally
+        _logger?.shift(Severity.info, 'Resumed orphaned server shift', metadata: {
+          'server_id': serverShift['id'],
+          'clocked_in_at': clockedInAt.toIso8601String(),
+        },);
+        return await _resumeServerShift(userId, serverShift);
+      } else {
+        // Stale shift (before midnight) — close on server
+        _logger?.shift(Severity.warn, 'Closed stale server shift', metadata: {
+          'server_id': serverShift['id'],
+          'clocked_in_at': clockedInAt.toIso8601String(),
+          'last_midnight': lastMidnight.toIso8601String(),
+        },);
+        await _closeStaleServerShift(serverShift['id'] as String);
+        return null;
+      }
+    }
+
+    // 6. Local active, no server shift (or server completed) → close local
+    if (localShift != null && serverShift == null) {
+      _logger?.shift(Severity.warn, 'Closed orphaned local shift', metadata: {
+        'shift_id': localShift.id,
+        'server_id': localShift.serverId,
+      },);
+      await _localDb.updateShiftClockOut(
+        shiftId: localShift.id,
+        clockedOutAt: DateTime.now().toUtc(),
+        reason: 'server_reconciliation',
+      );
+      await _localDb.markShiftSynced(localShift.id);
+      return null;
+    }
+
+    // 7. Local active, server active but different shift → close local, handle server shift
+    if (localShift != null && serverShift != null && localShift.serverId != serverShift['id']) {
+      // Close the local orphan
+      _logger?.shift(Severity.warn, 'Closed orphaned local shift', metadata: {
+        'shift_id': localShift.id,
+        'server_id': localShift.serverId,
+      },);
+      await _localDb.updateShiftClockOut(
+        shiftId: localShift.id,
+        clockedOutAt: DateTime.now().toUtc(),
+        reason: 'server_reconciliation',
+      );
+      await _localDb.markShiftSynced(localShift.id);
+
+      // Resume the server shift if recent
+      final clockedInAt = DateTime.parse(serverShift['clocked_in_at'] as String);
+      final lastMidnight = _lastMidnightET();
+      if (clockedInAt.isAfter(lastMidnight)) {
+        _logger?.shift(Severity.info, 'Resumed orphaned server shift', metadata: {
+          'server_id': serverShift['id'],
+          'clocked_in_at': clockedInAt.toIso8601String(),
+        },);
+        return await _resumeServerShift(userId, serverShift);
+      } else {
+        _logger?.shift(Severity.warn, 'Closed stale server shift', metadata: {
+          'server_id': serverShift['id'],
+          'clocked_in_at': clockedInAt.toIso8601String(),
+          'last_midnight': lastMidnight.toIso8601String(),
+        },);
+        await _closeStaleServerShift(serverShift['id'] as String);
+        return null;
+      }
+    }
+
+    return localShift;
+  }
+
+  /// Calculate last midnight in America/Montreal timezone (Eastern).
+  DateTime _lastMidnightET() {
+    final now = DateTime.now().toUtc();
+    // Eastern Time is UTC-5 (EST) or UTC-4 (EDT)
+    // Use -5 (EST) as conservative offset — worst case we resume a shift
+    // that's slightly older, which is safer than closing a valid one
+    const etOffset = Duration(hours: -5);
+    final nowET = now.add(etOffset);
+    final midnightET = DateTime(nowET.year, nowET.month, nowET.day);
+    // Convert back to UTC
+    return midnightET.subtract(etOffset);
+  }
+
+  /// Resume a server shift by creating a local copy.
+  Future<LocalShift> _resumeServerShift(String userId, Map<String, dynamic> serverShift) async {
+    final serverId = serverShift['id'] as String;
+    final clockedInAt = DateTime.parse(serverShift['clocked_in_at'] as String);
+    final now = DateTime.now().toUtc();
+
+    // Parse clock-in location if available
+    double? lat, lng;
+    final locJson = serverShift['clock_in_location'];
+    if (locJson is Map<String, dynamic>) {
+      lat = (locJson['latitude'] as num?)?.toDouble();
+      lng = (locJson['longitude'] as num?)?.toDouble();
+    }
+    final accuracy = (serverShift['clock_in_accuracy'] as num?)?.toDouble();
+
+    final localShift = LocalShift(
+      id: _uuid.v4(), // New local ID
+      employeeId: userId,
+      status: 'active',
+      clockedInAt: clockedInAt,
+      clockInLatitude: lat,
+      clockInLongitude: lng,
+      clockInAccuracy: accuracy,
+      syncStatus: 'synced', // Already exists on server
+      serverId: serverId,
+      createdAt: now,
+      updatedAt: now,
+    );
+
+    await _localDb.insertShift(localShift);
+    debugPrint('[ShiftService] Resumed server shift $serverId locally as ${localShift.id}');
+    return localShift;
+  }
+
+  /// Close a stale server shift (clocked in before last midnight).
+  Future<void> _closeStaleServerShift(String serverId) async {
+    try {
+      await _supabase
+          .from('shifts')
+          .update({
+            'status': 'completed',
+            'clocked_out_at': DateTime.now().toUtc().toIso8601String(),
+            'clock_out_reason': 'stale_reconciliation',
+          })
+          .eq('id', serverId)
+          .eq('status', 'active');
+      debugPrint('[ShiftService] Closed stale server shift $serverId');
+    } catch (e) {
+      debugPrint('[ShiftService] Failed to close stale server shift $serverId: $e');
+    }
   }
 
   /// Get shift history with pagination.
