@@ -28,7 +28,27 @@
       ]
     }
   ],
+  "redirects": [
+    {
+      "source": "/android",
+      "destination": "https://play.google.com/apps/testing/ca.trilogis.gpstracker",
+      "permanent": false
+    },
+    {
+      "source": "/apple",
+      "destination": "https://testflight.apple.com/join/mMQMnnqJ",
+      "permanent": false
+    }
+  ],
   "rewrites": [
+    {
+      "source": "/update",
+      "destination": "/update.html"
+    },
+    {
+      "source": "/install",
+      "destination": "/install.html"
+    },
     {
       "source": "/api/:path*",
       "destination": "/api/:path*"

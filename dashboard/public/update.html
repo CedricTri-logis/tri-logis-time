@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tri-Logis Time - Télécharger</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container { text-align: center; max-width: 400px; }
+        h1 { font-size: 1.8rem; margin-bottom: 8px; }
+        .subtitle { color: #a0a0a0; margin-bottom: 40px; }
+        .btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            width: 100%;
+            padding: 18px 24px;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            text-decoration: none;
+            color: white;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-bottom: 16px;
+        }
+        .btn:hover { transform: translateY(-2px); }
+        .btn-android {
+            background: linear-gradient(135deg, #3ddc84 0%, #2ea66a 100%);
+            box-shadow: 0 10px 30px rgba(61, 220, 132, 0.3);
+        }
+        .btn-apple {
+            background: linear-gradient(135deg, #007aff 0%, #0055cc 100%);
+            box-shadow: 0 10px 30px rgba(0, 122, 255, 0.3);
+        }
+        .btn svg { width: 28px; height: 28px; fill: currentColor; }
+    </style>
+    <script>
+        var ua = navigator.userAgent || '';
+        if (/android/i.test(ua)) {
+            window.location.replace('https://play.google.com/apps/testing/ca.trilogis.gpstracker');
+        } else if (/iPad|iPhone|iPod/.test(ua)) {
+            window.location.replace('itms-beta://testflight.apple.com/join/mMQMnnqJ');
+        }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>Tri-Logis Time</h1>
+        <p class="subtitle">Choisissez votre plateforme</p>
+        <a href="https://play.google.com/apps/testing/ca.trilogis.gpstracker" class="btn btn-android">
+            <svg viewBox="0 0 24 24"><path d="M17.523 2.237c-.29-.29-.763-.29-1.053 0l-1.462 1.462C13.895 3.252 12.645 3 11.5 3S9.105 3.252 7.992 3.699L6.53 2.237c-.29-.29-.763-.29-1.053 0s-.29.763 0 1.053l1.234 1.234C5.055 5.988 4 8.128 4 10.5v.5h15v-.5c0-2.372-1.055-4.512-2.711-5.976l1.234-1.234c.29-.29.29-.763 0-1.053zM8.5 8c-.552 0-1-.448-1-1s.448-1 1-1 1 .448 1 1-.448 1-1 1zm6 0c-.552 0-1-.448-1-1s.448-1 1-1 1 .448 1 1-.448 1-1 1zM4 12v7c0 1.1.9 2 2 2h1v3h2v-3h5v3h2v-3h1c1.1 0 2-.9 2-2v-7H4zm-2-1h2v7H2c-.55 0-1-.45-1-1v-5c0-.55.45-1 1-1zm18 0h2c.55 0 1 .45 1 1v5c0 .55-.45 1-1 1h-2v-7z"/></svg>
+            Android (Google Play)
+        </a>
+        <a href="https://testflight.apple.com/join/mMQMnnqJ" class="btn btn-apple">
+            <svg viewBox="0 0 24 24"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+            iPhone (TestFlight)
+        </a>
+    </div>
+</body>
+</html>
