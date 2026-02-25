@@ -523,13 +523,14 @@ class GPSTrackingHandler extends TaskHandler {
   }
 
   @override
-  Future<void> onDestroy(DateTime timestamp) async {
+  Future<void> onDestroy(DateTime timestamp, bool isTimeout) async {
     await _positionSubscription?.cancel();
     _positionSubscription = null;
 
     FlutterForegroundTask.sendDataToMain({
       'type': 'stopped',
       'point_count': _pointCount,
+      'is_timeout': isTimeout,
     });
   }
 

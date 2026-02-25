@@ -312,6 +312,10 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
           ],
         ),
       );
+    } else if (!guardState.isBatteryOptimizationDisabled) {
+      // Battery optimization must be disabled for reliable background tracking
+      if (!mounted) return;
+      await BatteryOptimizationDialog.show(context);
     } else {
       // Permission not granted yet
       final proceed = await PermissionExplanationDialog.show(context);

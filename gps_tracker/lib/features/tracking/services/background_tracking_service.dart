@@ -283,6 +283,6 @@ class BackgroundTrackingService with WidgetsBindingObserver {
 
 /// Callback to start the task handler in background isolate.
 @pragma('vm:entry-point')
-void startCallback() {
+Future<void> startCallback() async {
   FlutterForegroundTask.setTaskHandler(GPSTrackingHandler());
 }

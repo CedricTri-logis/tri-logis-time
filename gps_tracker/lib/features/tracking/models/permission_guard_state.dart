@@ -83,13 +83,14 @@ class PermissionGuardState {
   bool get shouldBlockClockIn {
     return deviceStatus == DeviceLocationStatus.disabled ||
         !permission.hasAnyPermission ||
-        permission.level == LocationPermissionLevel.whileInUse;
+        permission.level == LocationPermissionLevel.whileInUse ||
+        !isBatteryOptimizationDisabled;
   }
 
   /// Computed: Whether clock-in should show warning (but allow proceeding)
   bool get shouldWarnOnClockIn {
-    // Warn if battery optimization is enabled (Android)
-    return !isBatteryOptimizationDisabled;
+    // Battery optimization is now a blocking requirement (moved to shouldBlockClockIn)
+    return false;
   }
 
   /// Computed: Whether real-time monitoring is needed

@@ -165,12 +165,16 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         token: code,
       );
 
+      // Clear app lock so navigation proceeds (lock may be set from a
+      // previous biometric "sign-out" that kept the session alive).
+      ref.read(appLockProvider.notifier).state = false;
+
       // Save tokens for biometric login (with phone for OTP fallback)
       if (response.session != null && _biometricAvailable) {
         final bio = ref.read(biometricServiceProvider);
         await bio.saveSessionTokens(
           accessToken: response.session!.accessToken,
-          refreshToken: response.session!.refreshToken!,
+          refreshToken: response.session!.refreshToken ?? '',
           phone: _normalizedPhone,
         );
       }
@@ -183,9 +187,12 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       // Navigation handled by auth state listener in app.dart
     } on AuthServiceException catch (e) {
       if (mounted) {
-        setState(() => _isLoading = false);
         _otpKey.currentState?.clear();
         ErrorSnackbar.show(context, e.message);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
     }
   }
