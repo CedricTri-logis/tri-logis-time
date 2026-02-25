@@ -11,6 +11,7 @@ export default function ResetPasswordPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
   const [ready, setReady] = useState(false);
   const { mutate: updatePassword, isPending } = useUpdatePassword();
   const router = useRouter();
@@ -47,7 +48,15 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    updatePassword({ password });
+    updatePassword({ password }, {
+      onSuccess: () => {
+        setSuccess(true);
+      },
+      onError: (err: unknown) => {
+        const message = err instanceof Error ? err.message : 'Failed to update password.';
+        setError(message);
+      },
+    });
   };
 
   return (
@@ -60,54 +69,78 @@ export default function ResetPasswordPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-600">
-              {error}
+          {success ? (
+            <div className="space-y-4">
+              <div className="p-3 bg-green-50 border border-green-200 rounded-md text-sm text-green-700">
+                Your password has been updated successfully.
+              </div>
+              <a
+                href="ca.trilogis.gpstracker://login"
+                className="block w-full text-center bg-slate-900 text-white py-2 px-4 rounded-md text-sm font-medium hover:bg-slate-800 transition-colors"
+              >
+                Open Tri-Logis Time App
+              </a>
+              <div className="text-center">
+                <a
+                  href="/login"
+                  className="text-sm text-slate-500 hover:text-slate-700 underline-offset-4 hover:underline"
+                >
+                  Or sign in on the web
+                </a>
+              </div>
             </div>
+          ) : (
+            <>
+              {error && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-600">
+                  {error}
+                </div>
+              )}
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="password" className="text-sm font-medium text-slate-700">
+                    New Password
+                  </label>
+                  <input
+                    id="password"
+                    name="new-password"
+                    type="password"
+                    autoComplete="new-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter new password"
+                    required
+                    minLength={6}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="confirmPassword" className="text-sm font-medium text-slate-700">
+                    Confirm Password
+                  </label>
+                  <input
+                    id="confirmPassword"
+                    name="confirm-password"
+                    type="password"
+                    autoComplete="new-password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm new password"
+                    required
+                    minLength={6}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={isPending}
+                >
+                  {isPending ? 'Updating...' : 'Update Password'}
+                </Button>
+              </form>
+            </>
           )}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="password" className="text-sm font-medium text-slate-700">
-                New Password
-              </label>
-              <input
-                id="password"
-                name="new-password"
-                type="password"
-                autoComplete="new-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter new password"
-                required
-                minLength={6}
-                className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
-              />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="confirmPassword" className="text-sm font-medium text-slate-700">
-                Confirm Password
-              </label>
-              <input
-                id="confirmPassword"
-                name="confirm-password"
-                type="password"
-                autoComplete="new-password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Confirm new password"
-                required
-                minLength={6}
-                className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
-              />
-            </div>
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={isPending}
-            >
-              {isPending ? 'Updating...' : 'Update Password'}
-            </Button>
-          </form>
         </CardContent>
       </Card>
     </div>
