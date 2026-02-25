@@ -15,11 +15,11 @@ Steps:
 6. Update the minimum app version in Supabase so older builds are blocked from clocking in:
    - Use Supabase MCP tool `execute_sql`: `UPDATE app_config SET value = '<actual_version>', updated_at = NOW() WHERE key = 'minimum_app_version';`
    - Project ID: `xdyzdclwvhkfwbkrdsiz`
-7. Commit and push all changes to GitHub:
-   - Stage all modified files (pubspec.yaml, build configs, code changes, migrations, etc.)
-   - Create a commit with message: `chore: Deploy v<version>+<build> to TestFlight & Google Play`
-   - Push to the current branch on origin
-   - Only commit+push if at least one deploy succeeded
+7. **Push (run the full /push workflow)** — only if at least one deploy succeeded:
+   - **Apply pending migrations**: Check `git status --short supabase/migrations/` and `git diff --name-only HEAD supabase/migrations/` for new/modified migration files. If any are found, list them and run `supabase db push --linked` from the project root. If it fails, stop and report the error.
+   - **Commit**: Stage all modified files (pubspec.yaml, build configs, code changes, migrations, etc.). Create a commit with message: `chore: Deploy v<version>+<build> to TestFlight & Google Play` (using HEREDOC, with `Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>`).
+   - **Push**: `git push` (or `git push -u origin HEAD` if no upstream).
+   - **Vercel deployment**: Run `npx vercel --prod --yes` to trigger and watch the production deployment. Report the deployment URL and status.
 8. Report the summary: which deploys succeeded/failed, what build number was deployed, what minimum version is now enforced, and the git push status.
 
 Important notes:

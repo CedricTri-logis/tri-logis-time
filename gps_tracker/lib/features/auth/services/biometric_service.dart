@@ -11,6 +11,7 @@ class BiometricService {
   static const _keyAccessToken = 'bio_access_token';
   static const _keyRefreshToken = 'bio_refresh_token';
   static const _keyEnabled = 'bio_enabled';
+  static const _keyPhone = 'bio_phone';
 
   // Legacy credential keys (for migration from email+password storage)
   static const _keyLegacyEmail = 'bio_email';
@@ -59,14 +60,23 @@ class BiometricService {
   Future<void> saveSessionTokens({
     required String accessToken,
     required String refreshToken,
+    String? phone,
   }) async {
     await _storage.write(key: _keyAccessToken, value: accessToken);
     await _storage.write(key: _keyRefreshToken, value: refreshToken);
     await _storage.write(key: _keyEnabled, value: 'true');
+    if (phone != null) {
+      await _storage.write(key: _keyPhone, value: phone);
+    }
 
     // Clean up legacy keys
     await _storage.delete(key: _keyLegacyEmail);
     await _storage.delete(key: _keyLegacyPassword);
+  }
+
+  /// Get the saved phone number for OTP fallback when refresh token expires.
+  Future<String?> getSavedPhone() async {
+    return _storage.read(key: _keyPhone);
   }
 
   /// Authenticate with biometrics and return saved session tokens.
@@ -134,6 +144,7 @@ class BiometricService {
     await _storage.delete(key: _keyAccessToken);
     await _storage.delete(key: _keyRefreshToken);
     await _storage.delete(key: _keyEnabled);
+    await _storage.delete(key: _keyPhone);
     await _storage.delete(key: _keyLegacyEmail);
     await _storage.delete(key: _keyLegacyPassword);
   }

@@ -132,13 +132,14 @@ class _PhoneRegistrationScreenState
       // Save to employee_profiles via RPC
       await authService.savePhoneToProfile(phone: _normalizedPhone);
 
-      // Save biometric tokens now that phone is verified
+      // Save biometric tokens now that phone is verified (with phone for OTP fallback)
       final session = ref.read(supabaseClientProvider).auth.currentSession;
       if (session != null) {
         final bio = ref.read(biometricServiceProvider);
         await bio.saveSessionTokens(
           accessToken: session.accessToken,
           refreshToken: session.refreshToken!,
+          phone: _normalizedPhone,
         );
       }
 
@@ -185,6 +186,7 @@ class _PhoneRegistrationScreenState
       await bio.saveSessionTokens(
         accessToken: session.accessToken,
         refreshToken: session.refreshToken!,
+        phone: _normalizedPhone.isNotEmpty ? _normalizedPhone : null,
       );
     }
     if (mounted) {

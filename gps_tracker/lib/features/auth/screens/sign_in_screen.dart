@@ -17,6 +17,7 @@ import '../widgets/auth_form_field.dart';
 import '../widgets/otp_input_field.dart';
 import '../widgets/otp_resend_button.dart';
 import '../widgets/phone_form_field.dart';
+import '../widgets/otp_fallback_dialog.dart';
 import 'forgot_password_screen.dart';
 
 /// Sign-in modes for the state machine
@@ -164,12 +165,13 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         token: code,
       );
 
-      // Save tokens for biometric login
+      // Save tokens for biometric login (with phone for OTP fallback)
       if (response.session != null && _biometricAvailable) {
         final bio = ref.read(biometricServiceProvider);
         await bio.saveSessionTokens(
           accessToken: response.session!.accessToken,
           refreshToken: response.session!.refreshToken!,
+          phone: _normalizedPhone,
         );
       }
 
@@ -228,12 +230,14 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         password: _passwordController.text,
       );
 
-      // Save tokens for biometric login
+      // Save tokens for biometric login (fetch phone from user metadata for OTP fallback)
       if (response.session != null && _biometricAvailable) {
         final bio = ref.read(biometricServiceProvider);
+        final userPhone = response.user?.phone;
         await bio.saveSessionTokens(
           accessToken: response.session!.accessToken,
           refreshToken: response.session!.refreshToken!,
+          phone: (userPhone != null && userPhone.isNotEmpty) ? userPhone : null,
         );
       }
 
@@ -261,6 +265,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
 
     try {
       final bio = ref.read(biometricServiceProvider);
+      final authService = ref.read(authServiceProvider);
 
       // Try new token-based auth first
       final tokens = await bio.authenticate();
@@ -268,7 +273,6 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       if (tokens != null) {
         // Token-based biometric login
         try {
-          final authService = ref.read(authServiceProvider);
           final response = await authService.restoreSession(
             refreshToken: tokens.refreshToken,
           );
@@ -286,30 +290,34 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
           DeviceInfoService(client).syncDeviceInfo();
           return;
         } on AuthServiceException {
-          // Tokens expired, fall through to try legacy
+          // Tokens expired, fall through to OTP fallback or legacy
         }
       }
 
-      // Try legacy credential migration
-      final biometricAuthenticated = tokens != null || await bio.authenticateOnly();
+      // Ensure biometric was authenticated (either from token flow or prompt now)
+      final biometricAuthenticated =
+          tokens != null || await bio.authenticateOnly();
       if (!biometricAuthenticated) {
         if (mounted) setState(() => _isLoading = false);
         return;
       }
 
+      // Try legacy credential migration
       final legacyCredentials = await bio.getLegacyCredentials();
       if (legacyCredentials != null) {
-        // Migrate from legacy: sign in with email+password, then save tokens
-        final authService = ref.read(authServiceProvider);
         final response = await authService.signIn(
           email: legacyCredentials.email,
           password: legacyCredentials.password,
         );
 
         if (response.session != null) {
+          final userPhone = response.user?.phone;
           await bio.saveSessionTokens(
             accessToken: response.session!.accessToken,
             refreshToken: response.session!.refreshToken!,
+            phone: (userPhone != null && userPhone.isNotEmpty)
+                ? userPhone
+                : null,
           );
         }
 
@@ -319,7 +327,35 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         return;
       }
 
-      // Nothing worked — clear biometric and inform user
+      // Fallback: use saved phone to re-authenticate via OTP
+      final savedPhone = await bio.getSavedPhone();
+      if (savedPhone != null && mounted) {
+        setState(() => _isLoading = false);
+
+        final response = await OtpFallbackDialog.show(
+          context: context,
+          phone: savedPhone,
+          authService: authService,
+        );
+
+        if (response?.session != null) {
+          await bio.saveSessionTokens(
+            accessToken: response!.session!.accessToken,
+            refreshToken: response.session!.refreshToken!,
+            phone: savedPhone,
+          );
+
+          // Sync device info (fire-and-forget)
+          final client = ref.read(supabaseClientProvider);
+          DeviceInfoService(client).syncDeviceInfo();
+          return;
+        }
+
+        // User cancelled the OTP dialog — stay on sign-in screen
+        return;
+      }
+
+      // No phone saved and no legacy credentials — clear and inform user
       await bio.clearCredentials();
       if (mounted) {
         setState(() => _biometricReady = false);
