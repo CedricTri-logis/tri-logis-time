@@ -172,9 +172,6 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     // Update iOS Live Activity to show GPS lost status
     ShiftActivityService.instance.updateStatus('gps_lost');
 
-    // Show local notification
-    NotificationService().showGpsLostNotification();
-
     // SLC should already be active from clock-in, but ensure it's running
     if (!_significantLocationActive) {
       SignificantLocationService.startMonitoring();
@@ -191,10 +188,6 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
 
     // Update iOS Live Activity to show active status
     ShiftActivityService.instance.updateStatus('active');
-
-    // Cancel the persistent GPS lost notification and show brief restore
-    NotificationService().cancelGpsLostNotification();
-    NotificationService().showGpsRestoredNotification();
 
     // Deactivate SLC now that GPS stream is alive again
     if (_significantLocationActive) {
@@ -506,7 +499,6 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
         stopTracking(reason: 'clock_out');
         _activeGpsGapId = null;
         _midnightWarningShown = false;
-        NotificationService().cancelGpsLostNotification();
         NotificationService().cancelMidnightWarningNotification();
       } else {
         // Shift still active in DB — this was a transient provider rebuild
@@ -518,7 +510,6 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
       stopTracking(reason: 'clock_out');
       _activeGpsGapId = null;
       _midnightWarningShown = false;
-      NotificationService().cancelGpsLostNotification();
       NotificationService().cancelMidnightWarningNotification();
     }
   }
