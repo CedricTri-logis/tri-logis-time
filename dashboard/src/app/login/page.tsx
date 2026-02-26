@@ -24,7 +24,7 @@ function LoginForm() {
       options: {
         redirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
         queryParams: {
-          hd: 'trilogis.ca',
+          hd: 'tri-logis.ca',
         },
       },
     });
