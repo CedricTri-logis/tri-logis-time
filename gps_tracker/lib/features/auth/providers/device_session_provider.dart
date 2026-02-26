@@ -151,7 +151,9 @@ class DeviceSessionNotifier extends StateNotifier<DeviceSessionStatus>
 /// Should be watched in the authenticated branch of app.dart.
 final deviceSessionProvider =
     StateNotifierProvider<DeviceSessionNotifier, DeviceSessionStatus>((ref) {
-  // Rebuild when auth state changes
-  ref.watch(authStateChangesProvider);
+  // Only rebuild on user change (login/logout), not token refresh.
+  ref.watch(authStateChangesProvider.select(
+    (asyncValue) => asyncValue.valueOrNull?.session?.user.id,
+  ));
   return DeviceSessionNotifier(ref);
 });

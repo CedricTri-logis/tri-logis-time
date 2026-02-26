@@ -665,9 +665,20 @@ class ShiftNotifier extends StateNotifier<ShiftState>
 
 /// Provider for shift state management.
 /// Rebuilds when the authenticated user changes (logout/login).
+///
+/// IMPORTANT: We select only the user ID from auth state so that token
+/// refresh events do NOT trigger a provider rebuild. A rebuild during
+/// clockIn() destroys the in-flight ShiftNotifier before it can set
+/// activeShift, causing TrackingNotifier to never start GPS tracking.
+/// See: Fabrice GPS gap bug (2026-02-26).
 final shiftProvider = StateNotifierProvider<ShiftNotifier, ShiftState>((ref) {
-  // Watch auth state stream so provider rebuilds on login/logout
-  ref.watch(authStateChangesProvider);
+  // Only rebuild when the user changes (login/logout), NOT on token refresh.
+  // Token refresh keeps the same user.id, so .select() filters it out.
+  ref.watch(
+    authStateChangesProvider.select(
+      (asyncValue) => asyncValue.valueOrNull?.session?.user.id,
+    ),
+  );
   final shiftService = ref.watch(shiftServiceProvider);
   return ShiftNotifier(shiftService, ref);
 });
