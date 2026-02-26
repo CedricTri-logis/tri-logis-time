@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -61,6 +62,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
   /// Current device thermal level for GPS frequency adaptation.
   ThermalLevel _currentThermalLevel = ThermalLevel.normal;
   StreamSubscription<ThermalLevel>? _thermalSubscription;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
 
   TrackingNotifier(this._ref) : super(const TrackingState()) {
     _initializeListeners();
@@ -80,6 +82,10 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
 
     // Check if service is already running (app restart scenario)
     _refreshServiceState();
+
+    // Listen for connectivity changes to verify service health
+    _connectivitySubscription =
+        Connectivity().onConnectivityChanged.listen(_handleConnectivityChange);
   }
 
   Future<void> _refreshServiceState() async {
@@ -470,6 +476,31 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
       message: message,
       metadata: metadata,
     );
+  }
+
+  void _handleConnectivityChange(List<ConnectivityResult> results) {
+    // Only act when connectivity is restored (not on disconnect)
+    if (results.contains(ConnectivityResult.none) || results.isEmpty) return;
+
+    // Only check if we think we're tracking
+    if (state.status != TrackingStatus.running) return;
+
+    _logger?.network(Severity.info, 'Connectivity restored — verifying service');
+
+    // Verify the foreground service is still alive
+    BackgroundTrackingService.isTracking.then((isRunning) {
+      if (!isRunning && state.activeShiftId != null) {
+        _logger?.lifecycle(
+          Severity.warn,
+          'Watchdog: service dead, restarting (connectivity)',
+          metadata: {'shift_id': state.activeShiftId},
+        );
+        _onForegroundServiceDied();
+      }
+    });
+
+    // Trigger sync of any pending local data
+    _ref.read(syncProvider.notifier).notifyPendingData();
   }
 
   void _handleStatusUpdate(Map<String, dynamic> data) {
@@ -914,6 +945,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     FlutterForegroundTask.removeTaskDataCallback(_handleTaskData);
     _shiftSubscription?.close();
     _thermalSubscription?.cancel();
+    _connectivitySubscription?.cancel();
     super.dispose();
   }
 }
