@@ -152,8 +152,10 @@ class DeviceSessionNotifier extends StateNotifier<DeviceSessionStatus>
 final deviceSessionProvider =
     StateNotifierProvider<DeviceSessionNotifier, DeviceSessionStatus>((ref) {
   // Only rebuild on user change (login/logout), not token refresh.
-  ref.watch(authStateChangesProvider.select(
-    (asyncValue) => asyncValue.valueOrNull?.session?.user.id,
-  ));
+  ref.watch(
+    authStateChangesProvider.select(
+      (asyncValue) => asyncValue.valueOrNull?.session?.user.id,
+    ),
+  );
   return DeviceSessionNotifier(ref);
 });

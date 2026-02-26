@@ -1,0 +1,45 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="master-bg" cx="50%" cy="40%" r="75%">
+      <stop offset="0%" stop-color="#1A1A24" />
+      <stop offset="100%" stop-color="#05050A" />
+    </radialGradient>
+    <linearGradient id="v8-pulse-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#D11848" />
+      <stop offset="100%" stop-color="#BA8041" />
+    </linearGradient>
+    <filter id="premium-glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="15" flood-color="#000" flood-opacity="0.8"/>
+    </filter>
+  </defs>
+
+  <!-- Fond Premium -->
+  <rect width="512" height="512" rx="112" fill="url(#master-bg)" />
+
+  <!-- Cadran de la montre (Style Luxe) -->
+  <circle cx="256" cy="180" r="140" stroke="#FFFFFF" stroke-width="1.5" opacity="0.3" />
+  <!-- Index Or -->
+  <rect x="254" y="45" width="4" height="20" rx="2" fill="#BA8041" opacity="0.8" />
+  <rect x="254" y="295" width="4" height="20" rx="2" fill="#BA8041" opacity="0.8" />
+  <rect x="371" y="178" width="20" height="4" rx="2" fill="#BA8041" opacity="0.8" />
+  <rect x="121" y="178" width="20" height="4" rx="2" fill="#BA8041" opacity="0.8" />
+
+  <g filter="url(#premium-glow)">
+    <!-- LE T DE LA V8 (Aiguilles de la montre) -->
+    <!-- Barre Horizontale (Blanche) -->
+    <rect x="156" y="166" width="200" height="28" rx="14" fill="#FFFFFF" />
+    <!-- Barre Verticale (Dégradé Pulse) -->
+    <rect x="242" y="166" width="28" height="180" rx="14" fill="url(#v8-pulse-grad)" />
+    
+    <!-- Axe central -->
+    <circle cx="256" cy="180" r="12" fill="#FFFFFF" stroke="#111" stroke-width="2" />
+  </g>
+
+  <!-- TYPOGRAPHIE BASSE (Héritage Timeless) -->
+  <text x="50%" y="435" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="36" font-weight="900" letter-spacing="8" fill="#FFFFFF">
+    TRI<tspan fill="#D11848">LOGIS</tspan>
+  </text>
+  <text x="50%" y="470" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600" letter-spacing="16" fill="#BA8041" opacity="0.9">
+    MANAGEMENT SOLUTIONS
+  </text>
+</svg>

@@ -17,6 +17,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Tableau de bord Tri-Logis Time",
   description: "Tableau de bord administrateur pour la gestion de l'organisation Tri-Logis Time",
+  icons: {
+    icon: "/favicon.svg",
+    apple: "/favicon.svg",
+  },
 };
 
 export const viewport: Viewport = {
