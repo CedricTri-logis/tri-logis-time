@@ -131,6 +131,7 @@ RETURNS TABLE (
     confidence_score DECIMAL(3, 2),
     gps_point_count INTEGER
 ) AS $$
+#variable_conflict use_column
 DECLARE
     v_shift RECORD;
     v_employee_id UUID;
