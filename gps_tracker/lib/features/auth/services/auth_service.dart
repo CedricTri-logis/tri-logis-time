@@ -1,5 +1,8 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../shared/models/diagnostic_event.dart';
+import '../../../shared/services/diagnostic_logger.dart';
+
 /// Exception thrown for authentication errors
 class AuthServiceException implements Exception {
   final String message;
@@ -17,6 +20,8 @@ class AuthServiceException implements Exception {
 /// error handling and user-friendly error messages.
 class AuthService {
   final SupabaseClient _client;
+  DiagnosticLogger? get _logger =>
+      DiagnosticLogger.isInitialized ? DiagnosticLogger.instance : null;
 
   /// Web redirect URL for auth (redirects to deep link)
   static const String _redirectUrl = 'https://time.trilogis.ca/auth/callback';
@@ -302,7 +307,20 @@ class AuthService {
     try {
       await _client.auth.refreshSession();
     } catch (e) {
-      // Silent failure - session will be refreshed when network is available
+      final error = e.toString();
+      final lowerError = error.toLowerCase();
+      final looksLikeInvalidRefreshToken =
+          lowerError.contains('invalid refresh token') ||
+          lowerError.contains('refresh token not found') ||
+          lowerError.contains('refresh_token_not_found');
+
+      _logger?.auth(
+        looksLikeInvalidRefreshToken ? Severity.critical : Severity.warn,
+        looksLikeInvalidRefreshToken
+            ? 'Auth refresh failed: refresh token invalid'
+            : 'Auth refresh failed',
+        metadata: {'error': error},
+      );
     }
   }
 

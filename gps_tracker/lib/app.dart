@@ -12,6 +12,8 @@ import 'features/auth/services/biometric_service.dart';
 import 'features/home/home_screen.dart';
 import 'shared/providers/supabase_provider.dart';
 import 'features/auth/services/device_info_service.dart';
+import 'shared/models/diagnostic_event.dart';
+import 'shared/services/diagnostic_logger.dart';
 import 'shared/services/realtime_service.dart';
 
 /// Grace period for skipping phone registration (7 days).
@@ -76,16 +78,45 @@ class GpsTrackerApp extends ConsumerWidget {
     // secure storage, causing Face ID login to always fall through to OTP.
     ref.listen<AsyncValue<AuthState>>(authStateChangesProvider, (_, next) {
       next.whenData((state) async {
+        final logger = DiagnosticLogger.isInitialized
+            ? DiagnosticLogger.instance
+            : null;
+        final eventName = state.event.toString();
+        final session = state.session;
+        logger?.auth(Severity.info, 'Auth state changed', metadata: {
+          'event': eventName,
+          'has_session': session != null,
+          'has_refresh_token': session?.refreshToken != null,
+          'session_user_id': session?.user.id,
+          'expires_at': session?.expiresAt,
+        },);
+
+        if (state.event == AuthChangeEvent.signedOut) {
+          logger?.auth(
+            Severity.warn,
+            'Auth signed out',
+            metadata: {'source': 'auth_state_stream'},
+          );
+        }
+
         if (state.session?.refreshToken == null) return;
         final bio = ref.read(biometricServiceProvider);
         final enabled = await bio.isEnabled();
         if (!enabled) return;
         final phone = Supabase.instance.client.auth.currentUser?.phone;
-        await bio.saveSessionTokens(
-          accessToken: state.session!.accessToken,
-          refreshToken: state.session!.refreshToken!,
-          phone: (phone != null && phone.isNotEmpty) ? phone : null,
-        );
+        try {
+          await bio.saveSessionTokens(
+            accessToken: state.session!.accessToken,
+            refreshToken: state.session!.refreshToken!,
+            phone: (phone != null && phone.isNotEmpty) ? phone : null,
+          );
+        } catch (e) {
+          logger?.auth(
+            Severity.warn,
+            'Failed to persist biometric session tokens',
+            metadata: {'error': e.toString()},
+          );
+        }
       });
     });
 
