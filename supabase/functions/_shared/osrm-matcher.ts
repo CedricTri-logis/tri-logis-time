@@ -148,11 +148,13 @@ export async function matchTripToRoad(
     .map((p) => Math.floor(new Date(p.captured_at).getTime() / 1000))
     .join(";");
 
-  // Build radiuses (GPS accuracy, clamped to 5-100m, default 30m)
+  // Build radiuses (GPS accuracy, clamped to 20-100m, default 30m)
+  // Minimum 20m accounts for OSM road geometry offset from real-world GPS positions,
+  // especially in rural areas where OSM data may be less precisely aligned
   const radiuses = trace
     .map((p) => {
       const acc = p.accuracy ?? 30;
-      return Math.max(5, Math.min(100, acc));
+      return Math.max(20, Math.min(100, acc));
     })
     .join(";");
 
