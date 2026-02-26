@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { EmployeeForm, parsePhoneToE164 } from '@/components/dashboard/employees/employee-form';
+import { EmployeeForm } from '@/components/dashboard/employees/employee-form';
 import { StatusBadge, RoleBadge } from '@/components/dashboard/employees/status-badge';
 import { RoleSelector } from '@/components/dashboard/employees/role-selector';
 import { StatusSelector } from '@/components/dashboard/employees/status-selector';
@@ -86,8 +86,8 @@ export default function EmployeeDetailPage() {
           return;
         }
 
-        // 2. Update phone if changed
-        const newPhone = parsePhoneToE164(formData.phone_number ?? '');
+        // 2. Update phone if changed (PhoneInput returns E.164 directly)
+        const newPhone = formData.phone_number?.trim() || null;
         if (newPhone !== employee?.phone_number && (newPhone || employee?.phone_number)) {
           const { data: phoneResult, error: phoneError } = await supabaseClient.rpc('admin_update_phone_number', {
             p_user_id: employeeId,
