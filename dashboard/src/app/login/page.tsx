@@ -19,7 +19,7 @@ function LoginForm() {
 
   const handleGoogleLogin = async () => {
     setLoginError(null);
-    await supabaseClient.auth.signInWithOAuth({
+    const { error } = await supabaseClient.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
@@ -28,6 +28,9 @@ function LoginForm() {
         },
       },
     });
+    if (error) {
+      setLoginError(error.message);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
