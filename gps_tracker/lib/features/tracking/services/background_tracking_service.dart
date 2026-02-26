@@ -159,36 +159,50 @@ class BackgroundTrackingService with WidgetsBindingObserver {
         );
       }
 
-      // Start the foreground service
-      final result = await FlutterForegroundTask.startService(
-        notificationTitle: 'Suivi de position actif',
-        notificationText: 'Suivi de votre position pendant le quart',
-        notificationIcon: null,
-        notificationButtons: [
-          const NotificationButton(id: 'stop', text: 'Stop'),
-        ],
-        callback: startCallback,
-      );
-
-      if (result is ServiceRequestSuccess) {
-        _logger?.gps(
-          Severity.info,
-          'Foreground service start success',
-          metadata: {'shift_id': shiftId},
+      // Start the foreground service with retry (up to 3 attempts).
+      // Transient failures on Android (resource exhaustion, timing) are common
+      // on Samsung/Android 14+ devices — a retry usually succeeds.
+      for (int attempt = 1; attempt <= 3; attempt++) {
+        final result = await FlutterForegroundTask.startService(
+          notificationTitle: 'Suivi de position actif',
+          notificationText: 'Suivi de votre position pendant le quart',
+          notificationIcon: null,
+          notificationButtons: [
+            const NotificationButton(id: 'stop', text: 'Stop'),
+          ],
+          callback: startCallback,
         );
-        await TrackingWatchdogService.startAlarm();
-        return const TrackingSuccess();
-      } else {
+
+        if (result is ServiceRequestSuccess) {
+          _logger?.gps(
+            Severity.info,
+            'Foreground service start success',
+            metadata: {'shift_id': shiftId, 'attempt': attempt},
+          );
+          await TrackingWatchdogService.startAlarm();
+          return const TrackingSuccess();
+        }
+
         _logger?.gps(
-          Severity.error,
-          'Foreground service start failed',
+          Severity.warn,
+          'Foreground service start failed, attempt $attempt/3',
           metadata: {
             'shift_id': shiftId,
-            'result': result.runtimeType.toString()
+            'result': result.runtimeType.toString(),
           },
         );
-        return const TrackingServiceError('Failed to start tracking service');
+
+        if (attempt < 3) {
+          await Future<void>.delayed(Duration(milliseconds: 500 * attempt));
+        }
       }
+
+      _logger?.gps(
+        Severity.error,
+        'Foreground service start failed after 3 attempts',
+        metadata: {'shift_id': shiftId},
+      );
+      return const TrackingServiceError('Failed to start tracking service after 3 attempts');
     } catch (e) {
       _logger?.gps(
         Severity.error,

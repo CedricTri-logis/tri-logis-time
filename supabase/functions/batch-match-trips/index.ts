@@ -159,7 +159,7 @@ serve(async (req: Request) => {
         // Fetch trip details
         const { data: trip, error: tripError } = await supabase
           .from("trips")
-          .select("id, distance_km, match_attempts, match_status")
+          .select("id, distance_km, match_attempts, match_status, transport_mode")
           .eq("id", tripId)
           .single();
 
@@ -172,6 +172,19 @@ serve(async (req: Request) => {
             error: "Trip not found",
           });
           failed++;
+          continue;
+        }
+
+        // Skip walking trips — OSRM only has driving profiles
+        if (trip.transport_mode === "walking") {
+          results.push({
+            trip_id: tripId,
+            status: "skipped",
+            road_distance_km: null,
+            match_confidence: null,
+            error: null,
+          });
+          skipped++;
           continue;
         }
 

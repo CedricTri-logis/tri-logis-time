@@ -49,7 +49,7 @@ serve(async (req: Request) => {
     // Fetch trip details
     const { data: trip, error: tripError } = await supabase
       .from("trips")
-      .select("id, distance_km, match_attempts, match_status")
+      .select("id, distance_km, match_attempts, match_status, transport_mode")
       .eq("id", trip_id)
       .single();
 
@@ -61,6 +61,19 @@ serve(async (req: Request) => {
           code: "TRIP_NOT_FOUND",
         }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Skip walking trips — OSRM only has driving profiles
+    if (trip.transport_mode === "walking") {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          trip_id,
+          match_status: "skipped",
+          reason: "Walking trips do not require road matching",
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 

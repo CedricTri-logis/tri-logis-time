@@ -152,13 +152,17 @@ class GPSTrackingHandler extends TaskHandler {
 
   LocationSettings _createLocationSettings() {
     if (Platform.isAndroid) {
+      // On Android 14+, FusedLocationProvider treats intervalDuration as a hint
+      // and may batch/delay updates aggressively for battery savings.
+      // Use a shorter interval (15s) so batched deliveries arrive frequently
+      // enough to keep the tracking service alive and visible.
+      // The actual capture rate is still controlled by _computeInterval().
+      final androidInterval = _activeIntervalSeconds > 15 ? 15 : _activeIntervalSeconds;
       return AndroidSettings(
         accuracy: LocationAccuracy.high,
         distanceFilter: _distanceFilterMeters,
         forceLocationManager: false,
-        // intervalDuration controls how often FusedLocationProvider delivers.
-        // Use a short interval so Android batches are frequent enough.
-        intervalDuration: Duration(seconds: _activeIntervalSeconds),
+        intervalDuration: Duration(seconds: androidInterval),
         // No foregroundNotificationConfig — flutter_foreground_task manages
         // the foreground service already (background_tracking_service.dart).
       );
