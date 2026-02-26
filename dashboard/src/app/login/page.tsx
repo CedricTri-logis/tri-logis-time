@@ -11,6 +11,7 @@ function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
   const { mutate: login } = useLogin();
   const searchParams = useSearchParams();
   const error = searchParams.get('error');
@@ -18,8 +19,14 @@ function LoginForm() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setLoginError(null);
     login({ email, password }, {
       onSettled: () => setIsSubmitting(false),
+      onSuccess: (data) => {
+        if (!data.success && data.error) {
+          setLoginError(data.error.message);
+        }
+      },
     });
   };
 
@@ -71,6 +78,11 @@ function LoginForm() {
                 className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
               />
             </div>
+            {loginError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-600">
+                {loginError}
+              </div>
+            )}
             <Button
               type="submit"
               className="w-full"
