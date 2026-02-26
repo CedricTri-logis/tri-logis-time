@@ -156,7 +156,7 @@ export async function matchTripToRoad(
     })
     .join(";");
 
-  const url = `${osrmBaseUrl}/match/v1/driving/${coordinates}?timestamps=${timestamps}&radiuses=${radiuses}&geometries=polyline6&overview=full&gaps=split`;
+  const url = `${osrmBaseUrl}/match/v1/driving/${coordinates}?timestamps=${timestamps}&radiuses=${radiuses}&geometries=polyline6&overview=full&gaps=ignore`;
 
   const osrmResponse = await fetch(url);
 
@@ -186,26 +186,35 @@ export async function matchTripToRoad(
     };
   }
 
-  // Combine matchings if gaps=split produced multiple
+  // Combine matchings (normally just one with gaps=ignore, but handle edge cases)
   let totalDistance = 0;
-  let totalConfidence = 0;
+  let weightedConfidence = 0;
   const geometries: string[] = [];
 
   for (const matching of osrmData.matchings) {
     totalDistance += matching.distance; // meters
-    totalConfidence += matching.confidence;
+    weightedConfidence += matching.confidence * matching.distance;
     geometries.push(matching.geometry);
   }
 
+  // Distance-weighted confidence (avoids tiny segments dragging down the score)
   const avgConfidence =
-    totalConfidence / osrmData.matchings.length;
+    totalDistance > 0
+      ? weightedConfidence / totalDistance
+      : osrmData.matchings[0].confidence;
   const roadDistanceKm = totalDistance / 1000;
 
-  // Use first geometry if single matching, combine label if multiple
-  const routeGeometry =
-    geometries.length === 1 ? geometries[0] : geometries[0];
-  // Note: For multiple matchings, we store the first one and adjust distance.
-  // A more sophisticated approach would combine polylines, but this covers 95%+ of cases.
+  // Use the geometry from the longest matching segment (covers most of the route)
+  let routeGeometry = geometries[0];
+  if (geometries.length > 1) {
+    let maxDist = 0;
+    for (const matching of osrmData.matchings) {
+      if (matching.distance > maxDist) {
+        maxDist = matching.distance;
+        routeGeometry = matching.geometry;
+      }
+    }
+  }
 
   const geometryPoints = countPolylinePoints(routeGeometry);
 
