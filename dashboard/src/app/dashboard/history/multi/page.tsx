@@ -21,7 +21,7 @@ import {
   useShiftHistory,
   useMultiShiftTrails,
 } from '@/lib/hooks/use-historical-gps';
-import { MultiShiftMap } from '@/components/history/multi-shift-map';
+import { GoogleMultiShiftMap } from '@/components/history/google-multi-shift-map';
 import { ShiftLegend } from '@/components/history/shift-legend';
 import { ExportDialog } from '@/components/history/export-dialog';
 import { MapErrorBoundary } from '@/components/history/map-error-boundary';
@@ -204,7 +204,7 @@ export default function MultiShiftViewPage() {
       {!isLoading && shifts.length > 0 && (
         <div className="grid gap-6 md:grid-cols-[1fr_300px]">
           <MapErrorBoundary>
-            <MultiShiftMap
+            <GoogleMultiShiftMap
               trailsByShift={trailsByShift}
               colorMappings={colorMappings}
               highlightedShiftId={highlightedShiftId}

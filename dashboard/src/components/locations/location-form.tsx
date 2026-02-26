@@ -27,9 +27,9 @@ import {
 } from '@/components/ui/form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-// Dynamic import to avoid SSR issues with Leaflet
+// Dynamic import to avoid SSR issues
 const LocationMap = dynamic(
-  () => import('./location-map').then((mod) => mod.LocationMap),
+  () => import('./google-location-map').then((mod) => mod.GoogleLocationMap),
   {
     ssr: false,
     loading: () => <Skeleton className="h-[300px] w-full rounded-lg" />,

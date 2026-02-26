@@ -21,6 +21,9 @@ class PermissionGuardState {
   /// Whether precise/exact location is enabled (Android 12+, always true on iOS).
   final bool isPreciseLocationEnabled;
 
+  /// Whether Android has placed the app in restricted/rare standby bucket.
+  final bool isAppStandbyRestricted;
+
   /// Set of warning types the user has dismissed this session.
   final Set<DismissibleWarningType> dismissedWarnings;
 
@@ -35,6 +38,7 @@ class PermissionGuardState {
     required this.deviceStatus,
     required this.isBatteryOptimizationDisabled,
     required this.isPreciseLocationEnabled,
+    required this.isAppStandbyRestricted,
     required this.dismissedWarnings,
     required this.hasActiveShift,
     required this.lastChecked,
@@ -46,6 +50,7 @@ class PermissionGuardState {
         deviceStatus: DeviceLocationStatus.unknown,
         isBatteryOptimizationDisabled: true,
         isPreciseLocationEnabled: true,
+        isAppStandbyRestricted: false,
         dismissedWarnings: const {},
         hasActiveShift: false,
         lastChecked: DateTime.now(),
@@ -111,6 +116,7 @@ class PermissionGuardState {
     DeviceLocationStatus? deviceStatus,
     bool? isBatteryOptimizationDisabled,
     bool? isPreciseLocationEnabled,
+    bool? isAppStandbyRestricted,
     Set<DismissibleWarningType>? dismissedWarnings,
     bool? hasActiveShift,
     DateTime? lastChecked,
@@ -122,6 +128,8 @@ class PermissionGuardState {
             isBatteryOptimizationDisabled ?? this.isBatteryOptimizationDisabled,
         isPreciseLocationEnabled:
             isPreciseLocationEnabled ?? this.isPreciseLocationEnabled,
+        isAppStandbyRestricted:
+            isAppStandbyRestricted ?? this.isAppStandbyRestricted,
         dismissedWarnings: dismissedWarnings ?? this.dismissedWarnings,
         hasActiveShift: hasActiveShift ?? this.hasActiveShift,
         lastChecked: lastChecked ?? this.lastChecked,

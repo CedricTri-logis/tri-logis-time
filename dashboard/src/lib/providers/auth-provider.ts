@@ -164,7 +164,12 @@ export const authProvider: AuthProvider = {
   },
 
   onError: async (error) => {
-    console.error('Auth error:', error);
-    return { error };
+    // Only log meaningful auth errors (skip empty objects from silent RPC failures)
+    const status = (error as any)?.statusCode ?? (error as any)?.status;
+    if (status === 401 || status === 403) {
+      console.error('Auth error:', error);
+      return { logout: true, redirectTo: '/login', error };
+    }
+    return {};
   },
 };

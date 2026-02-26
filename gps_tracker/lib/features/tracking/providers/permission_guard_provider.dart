@@ -4,15 +4,20 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../../../shared/models/diagnostic_event.dart';
+import '../../../shared/services/diagnostic_logger.dart';
 import '../models/device_location_status.dart';
 import '../models/dismissible_warning_type.dart';
 import '../models/permission_guard_state.dart';
 import '../models/permission_guard_status.dart';
+import '../services/android_battery_health_service.dart';
 import '../services/background_tracking_service.dart';
 
 /// Manages permission guard state for tracking.
 class PermissionGuardNotifier extends StateNotifier<PermissionGuardState> {
   Timer? _debounceTimer;
+  DiagnosticLogger? get _logger =>
+      DiagnosticLogger.isInitialized ? DiagnosticLogger.instance : null;
 
   PermissionGuardNotifier() : super(PermissionGuardState.initial()) {
     checkStatus();
@@ -46,6 +51,9 @@ class PermissionGuardNotifier extends StateNotifier<PermissionGuardState> {
       final batteryOpt =
           await BackgroundTrackingService.isBatteryOptimizationDisabled;
 
+      final standbyBucket =
+          await AndroidBatteryHealthService.getAppStandbyBucket();
+
       // Check precise location accuracy (Android 12+, always precise on iOS)
       bool preciseLocation = true;
       if (Platform.isAndroid) {
@@ -67,10 +75,22 @@ class PermissionGuardNotifier extends StateNotifier<PermissionGuardState> {
             deviceStatus: deviceStatus,
             isBatteryOptimizationDisabled: batteryOpt,
             isPreciseLocationEnabled: preciseLocation,
+            isAppStandbyRestricted: standbyBucket.isRestricted,
             lastChecked: DateTime.now(),
           );
         }
       });
+
+      if (standbyBucket.isRestricted) {
+        _logger?.permission(
+          Severity.warn,
+          'App standby bucket is restricted',
+          metadata: {
+            'standby_bucket': standbyBucket.bucketName,
+            'standby_bucket_value': standbyBucket.bucket,
+          },
+        );
+      }
     } catch (e) {
       // Set to unknown/error state
       state = state.copyWith(
@@ -110,7 +130,7 @@ class PermissionGuardNotifier extends StateNotifier<PermissionGuardState> {
   /// Requests battery optimization exemption (Android only).
   Future<void> requestBatteryOptimization() async {
     if (!Platform.isAndroid) return;
-    await BackgroundTrackingService.requestBatteryOptimization();
+    await AndroidBatteryHealthService.requestIgnoreBatteryOptimization();
     await checkStatus();
   }
 }

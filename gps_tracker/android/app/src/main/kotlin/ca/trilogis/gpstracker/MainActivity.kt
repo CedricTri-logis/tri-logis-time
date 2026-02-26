@@ -3,9 +3,11 @@ package ca.trilogis.gpstracker
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import android.app.usage.UsageStatsManager
 import androidx.annotation.NonNull
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -29,6 +31,17 @@ class MainActivity : FlutterActivity() {
                     "openOemBatterySettings" -> {
                         val manufacturer = call.argument<String>("manufacturer") ?: ""
                         val opened = openOemBatterySettings(manufacturer)
+                        result.success(opened)
+                    }
+                    "getAppStandbyBucket" -> {
+                        result.success(getAppStandbyBucket())
+                    }
+                    "openBatteryOptimizationSettings" -> {
+                        val opened = openBatteryOptimizationSettings()
+                        result.success(opened)
+                    }
+                    "openAppBatterySettings" -> {
+                        val opened = openAppBatterySettings()
                         result.success(opened)
                     }
                     else -> result.notImplemented()
@@ -140,6 +153,85 @@ class MainActivity : FlutterActivity() {
             else -> return false
         }
 
+        for (intent in intents) {
+            try {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(intent)
+                return true
+            } catch (_: Exception) {
+                // Intent not resolved — try next
+            }
+        }
+        return false
+    }
+
+    /**
+     * Returns the current app standby bucket for this app on API 28+.
+     */
+    private fun getAppStandbyBucket(): Map<String, Any?> {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+            return mapOf(
+                "supported" to false,
+                "bucket" to null,
+                "bucketName" to null
+            )
+        }
+
+        return try {
+            val usageStatsManager =
+                getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+            val bucket = usageStatsManager.appStandbyBucket
+            mapOf(
+                "supported" to true,
+                "bucket" to bucket,
+                "bucketName" to standbyBucketName(bucket)
+            )
+        } catch (_: Exception) {
+            mapOf(
+                "supported" to false,
+                "bucket" to null,
+                "bucketName" to null
+            )
+        }
+    }
+
+    private fun standbyBucketName(bucket: Int): String {
+        return when (bucket) {
+            UsageStatsManager.STANDBY_BUCKET_ACTIVE -> "ACTIVE"
+            UsageStatsManager.STANDBY_BUCKET_WORKING_SET -> "WORKING_SET"
+            UsageStatsManager.STANDBY_BUCKET_FREQUENT -> "FREQUENT"
+            UsageStatsManager.STANDBY_BUCKET_RARE -> "RARE"
+            UsageStatsManager.STANDBY_BUCKET_RESTRICTED -> "RESTRICTED"
+            else -> "UNKNOWN"
+        }
+    }
+
+    /**
+     * Opens Android battery optimization settings list.
+     */
+    private fun openBatteryOptimizationSettings(): Boolean {
+        val intents = listOf(
+            Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS),
+            Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS),
+            Intent(Settings.ACTION_SETTINGS)
+        )
+        return tryStartIntents(intents)
+    }
+
+    /**
+     * Opens this app's details settings where battery restrictions can be adjusted.
+     */
+    private fun openAppBatterySettings(): Boolean {
+        val intents = listOf(
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.fromParts("package", packageName, null)
+            },
+            Intent(Settings.ACTION_SETTINGS)
+        )
+        return tryStartIntents(intents)
+    }
+
+    private fun tryStartIntents(intents: List<Intent>): Boolean {
         for (intent in intents) {
             try {
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

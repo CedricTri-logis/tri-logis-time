@@ -10,9 +10,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useHistoricalTrail } from '@/lib/hooks/use-historical-gps';
 import { usePlaybackAnimation } from '@/lib/hooks/use-playback-animation';
 
-// Dynamically import the GPS trail map to avoid SSR issues with Leaflet
+// Dynamically import the GPS trail map to avoid SSR issues
 const GpsTrailMap = dynamic(
-  () => import('@/components/monitoring/gps-trail-map').then((mod) => mod.GpsTrailMap),
+  () => import('@/components/monitoring/google-gps-trail-map').then((mod) => mod.GoogleGpsTrailMap),
   {
     ssr: false,
     loading: () => <Skeleton className="h-[400px] w-full rounded-lg" />,

@@ -30,13 +30,18 @@ class OemBatteryGuideDialog extends StatelessWidget {
 
   /// Show the OEM guide if the device is a known problematic OEM and the user
   /// hasn't completed setup yet. No-op on iOS.
-  static Future<void> showIfNeeded(BuildContext context) async {
+  static Future<void> showIfNeeded(
+    BuildContext context, {
+    bool force = false,
+  }) async {
     if (!Platform.isAndroid) return;
 
-    final completed = await FlutterForegroundTask.getData<bool>(
-      key: 'oem_setup_completed',
-    );
-    if (completed == true) return;
+    if (!force) {
+      final completed = await FlutterForegroundTask.getData<bool>(
+        key: 'oem_setup_completed',
+      );
+      if (completed == true) return;
+    }
 
     final androidInfo = await DeviceInfoPlugin().androidInfo;
     final manufacturer = androidInfo.manufacturer.lowercase();

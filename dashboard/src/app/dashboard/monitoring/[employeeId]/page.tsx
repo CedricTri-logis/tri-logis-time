@@ -24,18 +24,18 @@ import type {
 import { transformGpsTrailRow } from '@/types/monitoring';
 import type { TimelineSegment } from '@/types/location';
 
-// Dynamically import the GPS trail map to avoid SSR issues
+// Dynamically import the Google GPS trail map
 const GpsTrailMap = dynamic(
-  () => import('@/components/monitoring/gps-trail-map').then((mod) => mod.GpsTrailMap),
+  () => import('@/components/monitoring/google-gps-trail-map').then((mod) => mod.GoogleGpsTrailMap),
   {
     ssr: false,
     loading: () => <MapSkeleton />,
   }
 );
 
-// Dynamically import the segmented trail map
+// Dynamically import the Google segmented trail map
 const SegmentedTrailMap = dynamic(
-  () => import('@/components/timeline/segmented-trail-map').then((mod) => mod.SegmentedTrailMap),
+  () => import('@/components/monitoring/google-segmented-trail-map').then((mod) => mod.GoogleSegmentedTrailMap),
   {
     ssr: false,
     loading: () => <MapSkeleton />,

@@ -21,8 +21,11 @@ Steps:
    - **NEVER leave iOS and Android on different build numbers.** This is the #1 rule of this workflow.
 5. **Verify build number parity**: After both deploys succeed, confirm the deployed build numbers match. If they don't, redeploy the lagging platform.
 6. Sync pubspec.yaml to match the actual deployed build number (so it stays in sync for next deploy).
-7. Update the minimum app version in Supabase so older builds are blocked from clocking in:
-   - Use Supabase MCP tool `execute_sql`: `UPDATE app_config SET value = '<actual_version>', updated_at = NOW() WHERE key = 'minimum_app_version';`
+7. **Ask before enforcing minimum version**: After both deploys succeed, ASK the user before updating the minimum app version. Remind them that Google Play review can delay availability (builds may take hours to become downloadable even after a successful upload). Present the options:
+   - Set minimum to the NEW build number (if they're confident it's available on both stores)
+   - Set minimum to the PREVIOUS build number (safer — avoids locking out users while Google Play reviews)
+   - Skip the minimum version update entirely
+   - Once the user confirms, use Supabase MCP tool `execute_sql`: `UPDATE app_config SET value = '<chosen_version>', updated_at = NOW() WHERE key = 'minimum_app_version';`
    - Project ID: `xdyzdclwvhkfwbkrdsiz`
 8. **Push (run the full /push workflow)** — only if both deploys succeeded:
    - **Apply pending migrations**: Check `git status --short supabase/migrations/` and `git diff --name-only HEAD supabase/migrations/` for new/modified migration files. If any are found, list them and run `supabase db push --linked` from the project root. If it fails, stop and report the error.

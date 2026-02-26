@@ -46,6 +46,17 @@ export interface Trip {
   };
 }
 
+export interface TripGpsPoint {
+  sequence_order: number;
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+  speed: number | null;
+  heading: number | null;
+  altitude: number | null;
+  captured_at: string;
+}
+
 export interface MileageSummary {
   total_distance_km: number;
   business_distance_km: number;

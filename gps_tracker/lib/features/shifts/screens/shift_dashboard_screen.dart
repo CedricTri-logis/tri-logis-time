@@ -17,12 +17,15 @@ import '../../tracking/models/permission_change_event.dart';
 import '../../tracking/models/permission_guard_state.dart';
 import '../../tracking/providers/permission_guard_provider.dart';
 import '../../tracking/providers/tracking_provider.dart';
+import '../../tracking/screens/battery_health_screen.dart';
 import '../../tracking/services/background_execution_service.dart';
+import '../../tracking/services/android_battery_health_service.dart';
 import '../../tracking/services/background_tracking_service.dart';
 import '../../tracking/services/permission_monitor_service.dart';
 import '../../tracking/services/significant_location_service.dart';
 import '../../tracking/widgets/battery_optimization_dialog.dart';
 import '../../tracking/widgets/device_services_dialog.dart';
+import '../../tracking/widgets/oem_battery_guide_dialog.dart';
 import '../../tracking/widgets/permission_change_alert.dart';
 import '../../tracking/widgets/permission_explanation_dialog.dart';
 import '../../cleaning/providers/cleaning_session_provider.dart';
@@ -90,7 +93,8 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
       final connectivityService = ref.read(connectivityServiceProvider);
       final packageInfo = await PackageInfo.fromPlatform();
       final permission = await locationService.checkPermission();
-      final locationServiceEnabled = await locationService.isLocationServiceEnabled();
+      final locationServiceEnabled =
+          await locationService.isLocationServiceEnabled();
       final networkConnected = await connectivityService.isConnected();
       final networkType = await connectivityService.getNetworkType();
       final guardState = ref.read(permissionGuardProvider);
@@ -175,9 +179,30 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
       ref.read(trackingProvider.notifier).refreshState();
       // Re-check permission status on resume (e.g., after returning from settings)
       ref.read(permissionGuardProvider.notifier).checkStatus();
+      unawaited(_checkBatteryHealthOnResume());
       // Verify shift is still active server-side (catches changes missed while backgrounded)
       _reconcileShiftWithServer();
     }
+  }
+
+  Future<void> _checkBatteryHealthOnResume() async {
+    if (!Platform.isAndroid || !mounted) return;
+
+    final lostExemption =
+        await AndroidBatteryHealthService.hasLostBatteryOptimizationExemption();
+    if (!lostExemption || !mounted) return;
+
+    await _logger?.permission(
+      Severity.warn,
+      'Battery optimization exemption lost on resume',
+    );
+
+    await BatteryOptimizationDialog.show(context);
+    if (!mounted) return;
+    await OemBatteryGuideDialog.showIfNeeded(context, force: true);
+    if (!mounted) return;
+
+    await ref.read(permissionGuardProvider.notifier).checkStatus();
   }
 
   /// Check with Supabase that the active shift hasn't been closed server-side
@@ -214,8 +239,10 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
       };
     } else {
       return switch (locale) {
-        'en' => 'Go to:\nSettings > Apps > Tri-Logis Time > Permissions > Location > Allow all the time',
-        _ => 'Allez dans :\nParamètres > Applications > Tri-Logis Time > Autorisations > Position > Toujours autoriser',
+        'en' =>
+          'Go to:\nSettings > Apps > Tri-Logis Time > Permissions > Location > Allow all the time',
+        _ =>
+          'Allez dans :\nParamètres > Applications > Tri-Logis Time > Autorisations > Position > Toujours autoriser',
       };
     }
   }
@@ -505,7 +532,8 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
   }
 
   /// Show warning dialog for partial permission and allow user to proceed or fix.
-  Future<bool> _showClockInWarningDialog(PermissionGuardState guardState) async {
+  Future<bool> _showClockInWarningDialog(
+      PermissionGuardState guardState) async {
     final theme = Theme.of(context);
 
     // Determine warning type
@@ -971,7 +999,8 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
           final remaining = _gracePeriodSecondsRemaining;
           final minutes = remaining ~/ 60;
           final seconds = remaining % 60;
-          final timeString = '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+          final timeString =
+              '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
 
           // Update dialog every second
           Future.delayed(const Duration(seconds: 1), () {
@@ -1004,7 +1033,8 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
                   decoration: BoxDecoration(
                     color: Colors.red.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                    border:
+                        Border.all(color: Colors.red.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -1157,6 +1187,8 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
           children: [
             // Permission status banner at top
             const PermissionStatusBanner(),
+            // Battery health quick status
+            const _BatteryHealthQuickIndicator(),
             // Tracking verification failure banner
             _TrackingFailureBanner(
               hasActiveShift: hasActiveShift,
@@ -1200,8 +1232,7 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
                       // Active session — always visible regardless of tab
                       const SizedBox(height: 16),
                       if (hasActiveCleaning) const ActiveSessionCard(),
-                      if (hasActiveMaintenance)
-                        const ActiveMaintenanceCard(),
+                      if (hasActiveMaintenance) const ActiveMaintenanceCard(),
 
                       // Tab-specific content
                       const SizedBox(height: 16),
@@ -1233,9 +1264,12 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
                           child: Text(
                             'v${info.version} (${info.buildNumber})',
                             textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).colorScheme.outline,
-                            ),
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(context).colorScheme.outline,
+                                ),
                           ),
                         );
                       },
@@ -1299,6 +1333,99 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
         child: const Icon(Icons.handyman),
       );
     }
+  }
+}
+
+class _BatteryHealthQuickIndicator extends ConsumerWidget {
+  const _BatteryHealthQuickIndicator();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!Platform.isAndroid) return const SizedBox.shrink();
+
+    final guardState = ref.watch(permissionGuardProvider);
+    final optimizationOk = guardState.isBatteryOptimizationDisabled;
+    final standbyOk = !guardState.isAppStandbyRestricted;
+    final isHealthy = optimizationOk && standbyOk;
+
+    final bgColor = isHealthy
+        ? Colors.green.withValues(alpha: 0.08)
+        : Colors.red.withValues(alpha: 0.08);
+    final borderColor = isHealthy
+        ? Colors.green.withValues(alpha: 0.25)
+        : Colors.red.withValues(alpha: 0.25);
+    final iconColor = isHealthy ? Colors.green.shade800 : Colors.red.shade800;
+
+    final subtitle = isHealthy
+        ? 'Optimisation desactivee et app non restreinte'
+        : _buildIssueSubtitle(
+            optimizationOk: optimizationOk, standbyOk: standbyOk);
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isHealthy ? Icons.check_circle : Icons.error,
+            color: iconColor,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isHealthy
+                      ? 'Sante batterie: OK'
+                      : 'Sante batterie: A corriger',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: iconColor,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: iconColor.withValues(alpha: 0.9),
+                      ),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const BatteryHealthScreen(),
+                ),
+              );
+            },
+            child: const Text('Verifier'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _buildIssueSubtitle({
+    required bool optimizationOk,
+    required bool standbyOk,
+  }) {
+    if (!optimizationOk && !standbyOk) {
+      return 'Optimisation active et app restreinte par Android';
+    }
+    if (!optimizationOk) {
+      return 'Optimisation batterie active';
+    }
+    return 'Android a place l app en mode restreint';
   }
 }
 

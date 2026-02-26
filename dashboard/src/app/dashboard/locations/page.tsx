@@ -55,9 +55,9 @@ import {
 import type { Location, LocationType } from '@/types/location';
 import { format } from 'date-fns';
 
-// Dynamically import the locations map to avoid SSR issues with Leaflet
+// Dynamically import the locations map to avoid SSR issues
 const LocationsOverviewMap = dynamic(
-  () => import('@/components/locations/locations-overview-map').then((mod) => mod.LocationsOverviewMap),
+  () => import('@/components/locations/google-locations-overview-map').then((mod) => mod.GoogleLocationsOverviewMap),
   {
     ssr: false,
     loading: () => <MapLoadingSkeleton />,

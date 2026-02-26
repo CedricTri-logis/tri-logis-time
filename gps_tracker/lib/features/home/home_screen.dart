@@ -14,6 +14,7 @@ import '../history/screens/my_history_screen.dart';
 import '../history/screens/supervised_employees_screen.dart';
 import '../mileage/screens/mileage_screen.dart';
 import '../shifts/screens/shift_dashboard_screen.dart';
+import '../tracking/screens/battery_health_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -53,7 +54,8 @@ class HomeScreen extends ConsumerWidget {
         // WITHOUT calling signOut() (which would revoke the refresh token).
         final session = ref.read(supabaseClientProvider).auth.currentSession;
         if (session != null) {
-          final phone = ref.read(supabaseClientProvider).auth.currentUser?.phone;
+          final phone =
+              ref.read(supabaseClientProvider).auth.currentUser?.phone;
           await bio.saveSessionTokens(
             accessToken: session.accessToken,
             refreshToken: session.refreshToken!,
@@ -86,13 +88,20 @@ class HomeScreen extends ConsumerWidget {
 
   void _navigateToEmployeeHistory(BuildContext context) {
     Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(builder: (_) => const SupervisedEmployeesScreen()),
+      MaterialPageRoute<void>(
+          builder: (_) => const SupervisedEmployeesScreen()),
     );
   }
 
   void _navigateToMileage(BuildContext context) {
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(builder: (_) => const MileageScreen()),
+    );
+  }
+
+  void _navigateToBatteryHealth(BuildContext context) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(builder: (_) => const BatteryHealthScreen()),
     );
   }
 
@@ -124,6 +133,7 @@ class HomeScreen extends ConsumerWidget {
         onProfile: () => _navigateToProfile(context),
         onHistory: () => _navigateToHistory(context),
         onMileage: () => _navigateToMileage(context),
+        onBatteryHealth: () => _navigateToBatteryHealth(context),
         onEmployeeHistory: () => _navigateToEmployeeHistory(context),
         onUserManagement: () => _navigateToUserManagement(context),
         isAdmin: isAdmin,
@@ -182,6 +192,9 @@ class HomeScreen extends ConsumerWidget {
                 case 'profile':
                   _navigateToProfile(context);
                   break;
+                case 'battery_health':
+                  _navigateToBatteryHealth(context);
+                  break;
                 case 'signout':
                   _handleSignOut(context, ref);
                   break;
@@ -192,7 +205,8 @@ class HomeScreen extends ConsumerWidget {
                 value: 'mileage',
                 child: Row(
                   children: [
-                    Icon(Icons.directions_car_outlined, color: TriLogisColors.red),
+                    Icon(Icons.directions_car_outlined,
+                        color: TriLogisColors.red),
                     SizedBox(width: 12),
                     Text('Kilométrage'),
                   ],
@@ -205,6 +219,17 @@ class HomeScreen extends ConsumerWidget {
                     Icon(Icons.person_outline, color: TriLogisColors.red),
                     SizedBox(width: 12),
                     Text('Profil'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'battery_health',
+                child: Row(
+                  children: [
+                    Icon(Icons.battery_charging_full,
+                        color: TriLogisColors.red),
+                    SizedBox(width: 12),
+                    Text('Sante batterie'),
                   ],
                 ),
               ),
@@ -234,6 +259,7 @@ class _ManagerHomeScreen extends StatelessWidget {
   final VoidCallback onProfile;
   final VoidCallback onHistory;
   final VoidCallback onMileage;
+  final VoidCallback onBatteryHealth;
   final VoidCallback onEmployeeHistory;
   final VoidCallback onUserManagement;
   final bool isAdmin;
@@ -243,6 +269,7 @@ class _ManagerHomeScreen extends StatelessWidget {
     required this.onProfile,
     required this.onHistory,
     required this.onMileage,
+    required this.onBatteryHealth,
     required this.onEmployeeHistory,
     required this.onUserManagement,
     required this.isAdmin,
@@ -290,6 +317,9 @@ class _ManagerHomeScreen extends StatelessWidget {
                   case 'profile':
                     onProfile();
                     break;
+                  case 'battery_health':
+                    onBatteryHealth();
+                    break;
                   case 'employee_history':
                     onEmployeeHistory();
                     break;
@@ -306,7 +336,8 @@ class _ManagerHomeScreen extends StatelessWidget {
                   value: 'mileage',
                   child: Row(
                     children: [
-                      Icon(Icons.directions_car_outlined, color: TriLogisColors.red),
+                      Icon(Icons.directions_car_outlined,
+                          color: TriLogisColors.red),
                       SizedBox(width: 12),
                       Text('Kilométrage'),
                     ],
@@ -319,6 +350,17 @@ class _ManagerHomeScreen extends StatelessWidget {
                       Icon(Icons.person_outline, color: TriLogisColors.red),
                       SizedBox(width: 12),
                       Text('Profil'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'battery_health',
+                  child: Row(
+                    children: [
+                      Icon(Icons.battery_charging_full,
+                          color: TriLogisColors.red),
+                      SizedBox(width: 12),
+                      Text('Sante batterie'),
                     ],
                   ),
                 ),
@@ -337,7 +379,8 @@ class _ManagerHomeScreen extends StatelessWidget {
                     value: 'user_management',
                     child: Row(
                       children: [
-                        Icon(Icons.admin_panel_settings, color: TriLogisColors.red),
+                        Icon(Icons.admin_panel_settings,
+                            color: TriLogisColors.red),
                         SizedBox(width: 12),
                         Text('Gestion des utilisateurs'),
                       ],

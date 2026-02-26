@@ -13,21 +13,10 @@ interface TripRouteMapProps {
   height?: number;
 }
 
-// Color palette for distinguishing multiple trips
 const TRIP_COLORS = [
-  '#3b82f6', // blue-500
-  '#22c55e', // green-500
-  '#8b5cf6', // purple-500
-  '#f97316', // orange-500
-  '#ec4899', // pink-500
-  '#14b8a6', // teal-500
-  '#eab308', // yellow-500
-  '#ef4444', // red-500
+  '#3b82f6', '#22c55e', '#8b5cf6', '#f97316',
+  '#ec4899', '#14b8a6', '#eab308', '#ef4444',
 ];
-
-function getTripColor(index: number): string {
-  return TRIP_COLORS[index % TRIP_COLORS.length];
-}
 
 export function TripRouteMap({ trips, height = 400 }: TripRouteMapProps) {
   const { routes, bounds } = useMemo(() => {
@@ -44,21 +33,19 @@ export function TripRouteMap({ trips, height = 400 }: TripRouteMapProps) {
     let maxLng = -180;
 
     trips.forEach((trip, index) => {
-      const color = getTripColor(index);
+      const color = TRIP_COLORS[index % TRIP_COLORS.length];
       const isMatched = trip.match_status === 'matched' && !!trip.route_geometry;
 
       let points: [number, number][];
       if (isMatched && trip.route_geometry) {
         points = decodePolyline6(trip.route_geometry);
       } else {
-        // Fallback: straight line between start and end
         points = [
           [trip.start_latitude, trip.start_longitude],
           [trip.end_latitude, trip.end_longitude],
         ];
       }
 
-      // Update bounds
       for (const [lat, lng] of points) {
         if (lat < minLat) minLat = lat;
         if (lat > maxLat) maxLat = lat;
@@ -105,7 +92,6 @@ export function TripRouteMap({ trips, height = 400 }: TripRouteMapProps) {
 
         {routes.map(({ trip, points, color, isMatched }, index) => (
           <div key={trip.id}>
-            {/* Route polyline */}
             <Polyline
               positions={points}
               pathOptions={{
@@ -116,10 +102,9 @@ export function TripRouteMap({ trips, height = 400 }: TripRouteMapProps) {
               }}
             />
 
-            {/* Start marker (green) */}
             <CircleMarker
               center={[trip.start_latitude, trip.start_longitude]}
-              radius={8}
+              radius={7}
               pathOptions={{
                 fillColor: '#22c55e',
                 fillOpacity: 1,
@@ -128,16 +113,15 @@ export function TripRouteMap({ trips, height = 400 }: TripRouteMapProps) {
               }}
             >
               <Popup>
-                <strong>Start (Trip {index + 1})</strong>
+                <strong>Start</strong>
                 <br />
                 {trip.start_address || `${trip.start_latitude.toFixed(4)}, ${trip.start_longitude.toFixed(4)}`}
               </Popup>
             </CircleMarker>
 
-            {/* End marker (red) */}
             <CircleMarker
               center={[trip.end_latitude, trip.end_longitude]}
-              radius={8}
+              radius={7}
               pathOptions={{
                 fillColor: '#ef4444',
                 fillOpacity: 1,
@@ -146,7 +130,7 @@ export function TripRouteMap({ trips, height = 400 }: TripRouteMapProps) {
               }}
             >
               <Popup>
-                <strong>End (Trip {index + 1})</strong>
+                <strong>End</strong>
                 <br />
                 {trip.end_address || `${trip.end_latitude.toFixed(4)}, ${trip.end_longitude.toFixed(4)}`}
               </Popup>

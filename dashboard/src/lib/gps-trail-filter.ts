@@ -47,10 +47,33 @@ function haversineM(
 
 // ── Core filter ────────────────────────────────────────────────────────────
 /**
+ * Determines if a point should be considered stationary relative to an anchor.
+ * Takes accuracy into account: a point 200m away with 250m accuracy is still
+ * stationary because its error circle includes the anchor position.
+ *
+ * Logic: the point is stationary if the distance minus the point's accuracy
+ * is within the stationary radius. In other words, if the closest possible
+ * true position (distance - accuracy) is within the threshold, the point
+ * could still be at the anchor.
+ */
+function isStationary(
+  anchorLat: number,
+  anchorLon: number,
+  point: GpsTrailPoint,
+): boolean {
+  const dist = haversineM(anchorLat, anchorLon, point.latitude, point.longitude);
+  // Effective distance: subtract accuracy (the true position could be closer)
+  const effectiveDist = Math.max(0, dist - point.accuracy);
+  return effectiveDist <= STATIONARY_RADIUS_M;
+}
+
+/**
  * Filters a GPS trail to reduce visual clutter from stationary periods:
  * - Stationary zones: only the first and last point are kept
  * - Movement periods: 100 % of points are kept
  * - Clock-in (first) and clock-out/current (last) are always included
+ * - Accuracy-aware: a far-away point with poor accuracy is still considered
+ *   stationary if its error circle overlaps the anchor position
  */
 export function filterTrailPoints(trail: GpsTrailPoint[]): FilteredTrail {
   if (trail.length <= 2) {
@@ -63,13 +86,7 @@ export function filterTrailPoints(trail: GpsTrailPoint[]): FilteredTrail {
 
   let anchorIdx = 0;
   for (let i = 1; i < trail.length; i++) {
-    const dist = haversineM(
-      trail[anchorIdx].latitude,
-      trail[anchorIdx].longitude,
-      trail[i].latitude,
-      trail[i].longitude,
-    );
-    if (dist <= STATIONARY_RADIUS_M) {
+    if (isStationary(trail[anchorIdx].latitude, trail[anchorIdx].longitude, trail[i])) {
       labels[i] = 'stationary';
     } else {
       labels[i] = 'moving';

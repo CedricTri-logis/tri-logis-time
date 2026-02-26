@@ -13,9 +13,9 @@ import { ConnectionStatusBanner, OfflineBanner } from '@/components/monitoring/c
 import { useSupervisedTeam } from '@/lib/hooks/use-supervised-team';
 import type { ConnectionStatus, TeamSortOption } from '@/types/monitoring';
 
-// Dynamically import the map component to avoid SSR issues with Leaflet
+// Dynamically import the map component to avoid SSR issues
 const TeamMap = dynamic(
-  () => import('@/components/monitoring/team-map').then((mod) => mod.TeamMap),
+  () => import('@/components/monitoring/google-team-map').then((mod) => mod.GoogleTeamMap),
   {
     ssr: false,
     loading: () => <MapSkeleton />,
