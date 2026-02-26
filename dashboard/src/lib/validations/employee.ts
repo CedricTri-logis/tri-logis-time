@@ -107,7 +107,7 @@ export type EmployeeEditExtendedInput = z.infer<typeof employeeEditExtendedSchem
 export const createEmployeeSchema = z.object({
   email: z.string().email('Invalid email address').max(255),
   full_name: z.string().max(100).optional(),
-  role: z.enum(['employee', 'manager', 'admin', 'super_admin']).default('employee'),
+  role: z.enum(['employee', 'manager', 'admin', 'super_admin']),
   supervisor_id: z.string().uuid().optional(),
 });
 
