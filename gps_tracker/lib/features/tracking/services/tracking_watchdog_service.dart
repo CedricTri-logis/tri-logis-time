@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:workmanager/workmanager.dart';
 
@@ -25,29 +26,39 @@ class TrackingWatchdogService {
 
   /// Initialize AlarmManager and WorkManager engines.
   /// Must be called once in main() before any start/stop calls.
+  /// Failures are caught so watchdog issues never block app startup.
   static Future<void> initialize() async {
     if (!Platform.isAndroid) return;
 
-    await AndroidAlarmManager.initialize();
-    await Workmanager().initialize(
-      _workManagerCallbackDispatcher,
-      isInDebugMode: false,
-    );
+    try {
+      await AndroidAlarmManager.initialize();
+    } catch (e) {
+      debugPrint('[Watchdog] AlarmManager init failed: $e');
+    }
 
-    // Register WorkManager periodic task (always active, very low cost).
-    // If shift_id is null the callback is a no-op.
-    await Workmanager().registerPeriodicTask(
-      _workManagerUniqueId,
-      _workManagerTaskName,
-      frequency: const Duration(minutes: 15),
-      existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
-      constraints: Constraints(
-        networkType: NetworkType.notRequired,
-        requiresBatteryNotLow: false,
-        requiresCharging: false,
-        requiresDeviceIdle: false,
-      ),
-    );
+    try {
+      await Workmanager().initialize(
+        _workManagerCallbackDispatcher,
+        isInDebugMode: false,
+      );
+
+      // Register WorkManager periodic task (always active, very low cost).
+      // If shift_id is null the callback is a no-op.
+      await Workmanager().registerPeriodicTask(
+        _workManagerUniqueId,
+        _workManagerTaskName,
+        frequency: const Duration(minutes: 15),
+        existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
+        constraints: Constraints(
+          networkType: NetworkType.notRequired,
+          requiresBatteryNotLow: false,
+          requiresCharging: false,
+          requiresDeviceIdle: false,
+        ),
+      );
+    } catch (e) {
+      debugPrint('[Watchdog] WorkManager init failed: $e');
+    }
   }
 
   // ── AlarmManager (primary, 5 min) ──
@@ -76,8 +87,14 @@ class TrackingWatchdogService {
 
   /// Core watchdog check: if shift is active but service is dead, restart it.
   /// Returns true if a restart was attempted.
+  ///
+  /// May run in a fresh isolate (AlarmManager/WorkManager callbacks), so we
+  /// ensure Flutter bindings and foreground task notification channels are ready.
   static Future<bool> _checkAndRestart(String source) async {
     try {
+      WidgetsFlutterBinding.ensureInitialized();
+      await BackgroundTrackingService.initialize();
+
       final shiftId =
           await FlutterForegroundTask.getData<String>(key: 'shift_id');
       if (shiftId == null || shiftId.isEmpty) return false;

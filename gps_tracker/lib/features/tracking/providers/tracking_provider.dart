@@ -63,6 +63,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
   ThermalLevel _currentThermalLevel = ThermalLevel.normal;
   StreamSubscription<ThermalLevel>? _thermalSubscription;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+  bool _wasDisconnected = false;
 
   TrackingNotifier(this._ref) : super(const TrackingState()) {
     _initializeListeners();
@@ -479,8 +480,17 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
   }
 
   void _handleConnectivityChange(List<ConnectivityResult> results) {
-    // Only act when connectivity is restored (not on disconnect)
-    if (results.contains(ConnectivityResult.none) || results.isEmpty) return;
+    final isDisconnected =
+        results.contains(ConnectivityResult.none) || results.isEmpty;
+
+    if (isDisconnected) {
+      _wasDisconnected = true;
+      return;
+    }
+
+    // Only act on actual reconnection (was disconnected → now connected)
+    if (!_wasDisconnected) return;
+    _wasDisconnected = false;
 
     // Only check if we think we're tracking
     if (state.status != TrackingStatus.running) return;

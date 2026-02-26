@@ -16,9 +16,10 @@ class TrackingBootReceiver : BroadcastReceiver() {
 
     companion object {
         private const val TAG = "TrackingBootReceiver"
-        // flutter_foreground_task stores data in this SharedPreferences file
-        private const val FGT_PREFS = "flutter_foreground_task"
-        private const val KEY_SHIFT_ID = "shift_id"
+        // flutter_foreground_task uses Flutter's SharedPreferences (file: FlutterSharedPreferences)
+        // Keys are prefixed with "flutter." (Flutter plugin) + "com.pravera.flutter_foreground_task.prefs." (FGT plugin)
+        private const val FGT_PREFS = "FlutterSharedPreferences"
+        private const val KEY_SHIFT_ID = "flutter.com.pravera.flutter_foreground_task.prefs.shift_id"
     }
 
     override fun onReceive(context: Context?, intent: Intent?) {
