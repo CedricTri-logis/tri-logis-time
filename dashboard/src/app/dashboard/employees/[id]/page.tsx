@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { EmployeeForm } from '@/components/dashboard/employees/employee-form';
+import { EmployeeForm, parsePhoneToE164 } from '@/components/dashboard/employees/employee-form';
 import { StatusBadge, RoleBadge } from '@/components/dashboard/employees/status-badge';
 import { RoleSelector } from '@/components/dashboard/employees/role-selector';
 import { StatusSelector } from '@/components/dashboard/employees/status-selector';
@@ -17,7 +17,7 @@ import { SupervisorAssignment } from '@/components/dashboard/employees/superviso
 import { DeactivationWarningDialog } from '@/components/dashboard/employees/deactivation-warning-dialog';
 import { supabaseClient } from '@/lib/supabase/client';
 import type { EmployeeDetail, UpdateEmployeeResponse, UpdateStatusResponse } from '@/types/employee';
-import type { EmployeeEditInput, EmployeeStatusType } from '@/lib/validations/employee';
+import type { EmployeeEditExtendedInput, EmployeeStatusType } from '@/lib/validations/employee';
 
 export default function EmployeeDetailPage() {
   const params = useParams();
@@ -68,9 +68,10 @@ export default function EmployeeDetailPage() {
 
   // Handle profile update
   const handleProfileUpdate = useCallback(
-    async (formData: EmployeeEditInput) => {
+    async (formData: EmployeeEditExtendedInput) => {
       setIsSubmitting(true);
       try {
+        // 1. Update name and employee_id via existing RPC
         const { data: result, error } = await supabaseClient.rpc('update_employee_profile', {
           p_employee_id: employeeId,
           p_full_name: formData.full_name,
@@ -85,6 +86,42 @@ export default function EmployeeDetailPage() {
           return;
         }
 
+        // 2. Update phone if changed
+        const newPhone = parsePhoneToE164(formData.phone_number ?? '');
+        if (newPhone !== employee?.phone_number && (newPhone || employee?.phone_number)) {
+          const { data: phoneResult, error: phoneError } = await supabaseClient.rpc('admin_update_phone_number', {
+            p_user_id: employeeId,
+            p_phone: newPhone,
+          });
+          if (phoneError) throw phoneError;
+          const phoneResponse = phoneResult as { success: boolean; error?: { message: string } };
+          if (!phoneResponse.success) {
+            toast.error(phoneResponse.error?.message || 'Failed to update phone');
+            return;
+          }
+        }
+
+        // 3. Update email if changed
+        if (formData.email && formData.email !== employee?.email) {
+          const token = (await supabaseClient.auth.getSession()).data.session?.access_token;
+          const res = await fetch('/api/employees/update-email', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              employee_id: employeeId,
+              email: formData.email,
+            }),
+          });
+          const emailResult = await res.json();
+          if (!emailResult.success) {
+            toast.error(emailResult.error || 'Failed to update email');
+            return;
+          }
+        }
+
         toast.success('Profile updated successfully');
         refetch();
       } catch (err) {
@@ -94,7 +131,7 @@ export default function EmployeeDetailPage() {
         setIsSubmitting(false);
       }
     },
-    [employeeId, refetch]
+    [employeeId, employee?.phone_number, employee?.email, refetch]
   );
 
   // Handle status change
@@ -262,10 +299,13 @@ export default function EmployeeDetailPage() {
               defaultValues={{
                 full_name: employee.full_name,
                 employee_id: employee.employee_id,
+                email: employee.email,
+                phone_number: employee.phone_number,
               }}
               onSubmit={handleProfileUpdate}
               isSubmitting={isSubmitting}
               isDisabled={!canEdit}
+              showEmailWarning={true}
             />
           </CardContent>
         </Card>
