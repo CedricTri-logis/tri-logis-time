@@ -24,8 +24,8 @@ enum DateRangePreset {
           end: now,
         );
       case DateRangePreset.thisWeek:
-        // Week starts on Monday (weekday 1)
-        final weekStart = now.subtract(Duration(days: now.weekday - 1));
+        // Week starts on Sunday (weekday 7 in Dart)
+        final weekStart = now.subtract(Duration(days: now.weekday % 7));
         return DateTimeRange(
           start: DateTime(weekStart.year, weekStart.month, weekStart.day),
           end: now,

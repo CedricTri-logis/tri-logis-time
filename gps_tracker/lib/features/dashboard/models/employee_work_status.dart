@@ -13,8 +13,8 @@ class TeamEmployeeStatus {
   final bool isActive;
   final DateTime? currentShiftStartedAt;
   final Duration todayHours;
-  final Duration monthlyHours;
-  final int monthlyShiftCount;
+  final Duration weeklyHours;
+  final int weeklyShiftCount;
 
   const TeamEmployeeStatus({
     required this.employeeId,
@@ -24,8 +24,8 @@ class TeamEmployeeStatus {
     this.isActive = false,
     this.currentShiftStartedAt,
     this.todayHours = Duration.zero,
-    this.monthlyHours = Duration.zero,
-    this.monthlyShiftCount = 0,
+    this.weeklyHours = Duration.zero,
+    this.weeklyShiftCount = 0,
   });
 
   /// Current shift duration if active.
@@ -43,10 +43,10 @@ class TeamEmployeeStatus {
     return '${hours}h ${minutes}m';
   }
 
-  /// Format monthly hours for display.
-  String get formattedMonthlyHours {
-    final hours = monthlyHours.inHours;
-    final minutes = monthlyHours.inMinutes.remainder(60);
+  /// Format weekly hours for display.
+  String get formattedWeeklyHours {
+    final hours = weeklyHours.inHours;
+    final minutes = weeklyHours.inMinutes.remainder(60);
     if (hours == 0 && minutes == 0) return '0h';
     if (minutes == 0) return '${hours}h';
     return '${hours}h ${minutes}m';
@@ -75,10 +75,10 @@ class TeamEmployeeStatus {
       todayHours: Duration(
         seconds: (json['today_hours_seconds'] as num?)?.toInt() ?? 0,
       ),
-      monthlyHours: Duration(
-        seconds: (json['monthly_hours_seconds'] as num?)?.toInt() ?? 0,
+      weeklyHours: Duration(
+        seconds: (json['weekly_hours_seconds'] as num?)?.toInt() ?? 0,
       ),
-      monthlyShiftCount: json['monthly_shift_count'] as int? ?? 0,
+      weeklyShiftCount: json['weekly_shift_count'] as int? ?? 0,
     );
   }
 
@@ -90,8 +90,8 @@ class TeamEmployeeStatus {
         'is_active': isActive,
         'current_shift_started_at': currentShiftStartedAt?.toIso8601String(),
         'today_hours_seconds': todayHours.inSeconds,
-        'monthly_hours_seconds': monthlyHours.inSeconds,
-        'monthly_shift_count': monthlyShiftCount,
+        'weekly_hours_seconds': weeklyHours.inSeconds,
+        'weekly_shift_count': weeklyShiftCount,
       };
 
   TeamEmployeeStatus copyWith({
@@ -102,8 +102,8 @@ class TeamEmployeeStatus {
     bool? isActive,
     DateTime? currentShiftStartedAt,
     Duration? todayHours,
-    Duration? monthlyHours,
-    int? monthlyShiftCount,
+    Duration? weeklyHours,
+    int? weeklyShiftCount,
     bool clearCurrentShift = false,
   }) {
     return TeamEmployeeStatus(
@@ -116,8 +116,8 @@ class TeamEmployeeStatus {
           ? null
           : (currentShiftStartedAt ?? this.currentShiftStartedAt),
       todayHours: todayHours ?? this.todayHours,
-      monthlyHours: monthlyHours ?? this.monthlyHours,
-      monthlyShiftCount: monthlyShiftCount ?? this.monthlyShiftCount,
+      weeklyHours: weeklyHours ?? this.weeklyHours,
+      weeklyShiftCount: weeklyShiftCount ?? this.weeklyShiftCount,
     );
   }
 
@@ -132,8 +132,8 @@ class TeamEmployeeStatus {
         other.isActive == isActive &&
         other.currentShiftStartedAt == currentShiftStartedAt &&
         other.todayHours == todayHours &&
-        other.monthlyHours == monthlyHours &&
-        other.monthlyShiftCount == monthlyShiftCount;
+        other.weeklyHours == weeklyHours &&
+        other.weeklyShiftCount == weeklyShiftCount;
   }
 
   @override
@@ -145,8 +145,8 @@ class TeamEmployeeStatus {
         isActive,
         currentShiftStartedAt,
         todayHours,
-        monthlyHours,
-        monthlyShiftCount,
+        weeklyHours,
+        weeklyShiftCount,
       );
 
   @override

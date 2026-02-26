@@ -136,8 +136,8 @@ class TeamEmployeeTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   _StatChip(
-                    label: 'Mois',
-                    value: employee.formattedMonthlyHours,
+                    label: 'Semaine',
+                    value: employee.formattedWeeklyHours,
                     color: colorScheme.secondary,
                   ),
                 ],

@@ -160,7 +160,9 @@ class DashboardService {
     );
 
     if (response == null) return TeamStatistics.empty;
-    return TeamStatistics.fromJson(response as Map<String, dynamic>);
+    final data = response as List<dynamic>;
+    if (data.isEmpty) return TeamStatistics.empty;
+    return TeamStatistics.fromJson(data.first as Map<String, dynamic>);
   }
 
   /// Load employee hours for bar chart.
