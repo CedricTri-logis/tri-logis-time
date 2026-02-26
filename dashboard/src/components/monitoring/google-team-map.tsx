@@ -14,10 +14,16 @@ import { DurationCounter } from './duration-counter';
 import { getStalenessLevel } from '@/types/monitoring';
 import type { MonitoredEmployee, StalenessLevel } from '@/types/monitoring';
 import Link from 'next/link';
-import { Users, MapPin, Info } from 'lucide-react';
+import { Users } from 'lucide-react';
 
 const DEFAULT_CENTER = { lat: 45.5017, lng: -73.5673 }; // Montreal
 const DEFAULT_ZOOM = 12;
+const QUEBEC_BOUNDS = {
+  minLat: 44.0,
+  maxLat: 63.0,
+  minLng: -80.0,
+  maxLng: -57.0,
+};
 
 const markerColors: Record<StalenessLevel, string> = {
   fresh: '#22c55e', // green-500
@@ -68,7 +74,7 @@ export function GoogleTeamMap({
             </div>
             <div>
               <CardTitle className="text-sm font-semibold text-slate-900">
-                Vue d'ensemble de l'équipe
+                Vue d&apos;ensemble de l&apos;équipe
               </CardTitle>
               <p className="text-[10px] text-slate-500 font-medium">
                 {employeesWithLocation.length} employés actifs sur la carte
@@ -215,13 +221,27 @@ function AutoFitBounds({ employees }: { employees: MonitoredEmployee[] }) {
   const map = useMap();
   useEffect(() => {
     if (!map || employees.length === 0) return;
+
+    const employeesInQuebec = employees.filter((employee) => {
+      const location = employee.currentLocation;
+      if (!location) return false;
+      return (
+        location.latitude >= QUEBEC_BOUNDS.minLat &&
+        location.latitude <= QUEBEC_BOUNDS.maxLat &&
+        location.longitude >= QUEBEC_BOUNDS.minLng &&
+        location.longitude <= QUEBEC_BOUNDS.maxLng
+      );
+    });
+
+    if (employeesInQuebec.length === 0) return;
+
     const bounds = new google.maps.LatLngBounds();
-    employees.forEach(e => {
+    employeesInQuebec.forEach(e => {
       if (e.currentLocation) {
         bounds.extend({ lat: e.currentLocation.latitude, lng: e.currentLocation.longitude });
       }
     });
-    if (employees.length === 1) {
+    if (employeesInQuebec.length === 1) {
       map.setCenter(bounds.getCenter());
       map.setZoom(15);
     } else {
