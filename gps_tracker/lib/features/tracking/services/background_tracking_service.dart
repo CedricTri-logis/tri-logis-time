@@ -8,8 +8,10 @@ import '../../../shared/models/diagnostic_event.dart';
 import '../../../shared/services/diagnostic_logger.dart';
 import '../models/location_permission_state.dart';
 import '../models/tracking_config.dart';
+import 'android_battery_health_service.dart';
 import 'background_execution_service.dart';
 import 'gps_tracking_handler.dart';
+import 'tracking_watchdog_service.dart';
 
 /// Result of a tracking operation.
 sealed class TrackingResult {
@@ -38,7 +40,8 @@ class TrackingAlreadyActive extends TrackingResult {
 /// Also observes app lifecycle to call beginBackgroundTask/endBackgroundTask
 /// on iOS for the foreground-to-background transition protection.
 class BackgroundTrackingService with WidgetsBindingObserver {
-  static DiagnosticLogger? get _logger => DiagnosticLogger.isInitialized ? DiagnosticLogger.instance : null;
+  static DiagnosticLogger? get _logger =>
+      DiagnosticLogger.isInitialized ? DiagnosticLogger.instance : null;
 
   static bool _isInitialized = false;
   static BackgroundTrackingService? _lifecycleInstance;
@@ -116,7 +119,10 @@ class BackgroundTrackingService with WidgetsBindingObserver {
       _logger?.permission(
         Severity.warn,
         'startTracking denied: no location permission',
-        metadata: {'shift_id': shiftId, 'permission_level': permissionState.level.name},
+        metadata: {
+          'shift_id': shiftId,
+          'permission_level': permissionState.level.name
+        },
       );
       return const TrackingPermissionDenied();
     }
@@ -124,7 +130,8 @@ class BackgroundTrackingService with WidgetsBindingObserver {
     try {
       // Store shift context for the background task
       await FlutterForegroundTask.saveData(key: 'shift_id', value: shiftId);
-      await FlutterForegroundTask.saveData(key: 'employee_id', value: employeeId);
+      await FlutterForegroundTask.saveData(
+          key: 'employee_id', value: employeeId);
       await FlutterForegroundTask.saveData(
         key: 'config',
         value: config.toJson().toString(),
@@ -169,12 +176,16 @@ class BackgroundTrackingService with WidgetsBindingObserver {
           'Foreground service start success',
           metadata: {'shift_id': shiftId},
         );
+        await TrackingWatchdogService.startAlarm();
         return const TrackingSuccess();
       } else {
         _logger?.gps(
           Severity.error,
           'Foreground service start failed',
-          metadata: {'shift_id': shiftId, 'result': result.runtimeType.toString()},
+          metadata: {
+            'shift_id': shiftId,
+            'result': result.runtimeType.toString()
+          },
         );
         return const TrackingServiceError('Failed to start tracking service');
       }
@@ -190,6 +201,7 @@ class BackgroundTrackingService with WidgetsBindingObserver {
 
   /// Stop background GPS tracking.
   static Future<void> stopTracking() async {
+    await TrackingWatchdogService.stopAlarm();
     await FlutterForegroundTask.stopService();
     await FlutterForegroundTask.removeData(key: 'shift_id');
     await FlutterForegroundTask.removeData(key: 'employee_id');
@@ -245,7 +257,8 @@ class BackgroundTrackingService with WidgetsBindingObserver {
     String? notificationPermissionResult;
     // Request notification permission (Android 13+)
     if (Platform.isAndroid) {
-      final result = await FlutterForegroundTask.requestNotificationPermission();
+      final result =
+          await FlutterForegroundTask.requestNotificationPermission();
       notificationPermissionResult = result.toString();
     }
 
@@ -265,9 +278,9 @@ class BackgroundTrackingService with WidgetsBindingObserver {
     // Request battery optimization exemption (Android)
     if (Platform.isAndroid) {
       final isIgnoring =
-          await FlutterForegroundTask.isIgnoringBatteryOptimizations;
+          await AndroidBatteryHealthService.isBatteryOptimizationDisabled;
       if (!isIgnoring) {
-        await FlutterForegroundTask.requestIgnoreBatteryOptimization();
+        await AndroidBatteryHealthService.requestIgnoreBatteryOptimization();
       }
     }
 
@@ -282,7 +295,7 @@ class BackgroundTrackingService with WidgetsBindingObserver {
         'notification_permission': notificationPermissionResult,
         if (Platform.isAndroid)
           'battery_optimization_disabled':
-              await FlutterForegroundTask.isIgnoringBatteryOptimizations,
+              await AndroidBatteryHealthService.isBatteryOptimizationDisabled,
       },
     );
     return mapped;
@@ -316,16 +329,16 @@ class BackgroundTrackingService with WidgetsBindingObserver {
     if (!Platform.isAndroid) return true;
 
     final isIgnoring =
-        await FlutterForegroundTask.isIgnoringBatteryOptimizations;
+        await AndroidBatteryHealthService.isBatteryOptimizationDisabled;
     if (isIgnoring) return true;
 
-    return await FlutterForegroundTask.requestIgnoreBatteryOptimization();
+    return AndroidBatteryHealthService.requestIgnoreBatteryOptimization();
   }
 
   /// Check if battery optimization is disabled for the app.
   static Future<bool> get isBatteryOptimizationDisabled async {
     if (!Platform.isAndroid) return true;
-    return await FlutterForegroundTask.isIgnoringBatteryOptimizations;
+    return AndroidBatteryHealthService.isBatteryOptimizationDisabled;
   }
 
   /// Callback invoked when the foreground service is detected as dead on resume.
@@ -373,11 +386,13 @@ class BackgroundTrackingService with WidgetsBindingObserver {
     try {
       final isRunning = await FlutterForegroundTask.isRunningService;
       if (!isRunning) {
-        _logger?.gps(Severity.error, 'Foreground service died — notifying for restart');
+        _logger?.gps(
+            Severity.error, 'Foreground service died — notifying for restart');
         onForegroundServiceDied?.call();
       }
     } catch (e) {
-      _logger?.gps(Severity.error, 'Failed to check foreground service health', metadata: {'error': e.toString()});
+      _logger?.gps(Severity.error, 'Failed to check foreground service health',
+          metadata: {'error': e.toString()});
     }
   }
 }
