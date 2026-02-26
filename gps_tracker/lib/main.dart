@@ -8,6 +8,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app.dart';
 import 'core/config/env_config.dart';
 import 'features/tracking/services/background_tracking_service.dart';
+import 'features/tracking/services/android_battery_health_service.dart';
+import 'features/tracking/services/tracking_watchdog_service.dart';
 import 'shared/models/diagnostic_event.dart';
 import 'shared/providers/diagnostic_provider.dart';
 import 'shared/services/diagnostic_logger.dart';
@@ -100,7 +102,8 @@ Future<void> main() async {
         final userId = Supabase.instance.client.auth.currentUser?.id;
         await initializeDiagnosticLogger(employeeId: userId);
         stopwatch.stop();
-        DiagnosticLogger.instance.lifecycle(Severity.info, 'App started', metadata: {
+        DiagnosticLogger.instance
+            .lifecycle(Severity.info, 'App started', metadata: {
           'init_duration_ms': stopwatch.elapsedMilliseconds,
         });
       } catch (e) {
@@ -123,7 +126,8 @@ Future<void> main() async {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                    const Icon(Icons.error_outline,
+                        size: 64, color: Colors.red),
                     const SizedBox(height: 16),
                     const Text(
                       'Erreur de démarrage',
@@ -160,4 +164,6 @@ Future<void> main() async {
 Future<void> _initializeTracking() async {
   FlutterForegroundTask.initCommunicationPort();
   await BackgroundTrackingService.initialize();
+  await AndroidBatteryHealthService.saveBatteryOptimizationSnapshot();
+  await TrackingWatchdogService.initialize();
 }
