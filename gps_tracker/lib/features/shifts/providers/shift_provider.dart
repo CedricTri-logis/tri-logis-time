@@ -79,6 +79,7 @@ class ShiftNotifier extends StateNotifier<ShiftState>
   final ShiftService _shiftService;
   final Ref _ref;
   Timer? _serverCheckTimer;
+  Timer? _tokenRefreshTimer;
 
   DiagnosticLogger? get _logger =>
       DiagnosticLogger.isInitialized ? DiagnosticLogger.instance : null;
@@ -150,6 +151,12 @@ class ShiftNotifier extends StateNotifier<ShiftState>
   /// If the local DB thinks a shift is active but the server says it's
   /// completed (midnight cleanup, admin action, dashboard close), update
   /// local state to match.
+  ///
+  /// IMPORTANT: When the JWT is expired or the session is invalid, RLS
+  /// silently returns an empty result (not a 403 error). This means
+  /// `.maybeSingle()` returns null even though the shift still exists.
+  /// We guard against this false positive by verifying the session is
+  /// still valid before concluding "server_not_found".
   Future<void> _checkServerShiftStatus() async {
     final activeShift = state.activeShift;
     if (activeShift == null) return;
@@ -161,6 +168,11 @@ class ShiftNotifier extends StateNotifier<ShiftState>
       final client = _ref.read(supabaseClientProvider);
       if (client.auth.currentUser == null) return;
 
+      // Proactively refresh the token if it's close to expiry.
+      // This prevents the query from running with an expired JWT,
+      // which would cause RLS to return empty results.
+      await _ensureFreshToken(thresholdMinutes: 5);
+
       final response = await client
           .from('shifts')
           .select('id, status, clock_out_reason')
@@ -168,7 +180,32 @@ class ShiftNotifier extends StateNotifier<ShiftState>
           .maybeSingle();
 
       if (response == null) {
-        // Shift not found on server — treat as closed
+        // Before closing the shift, verify that the null response is
+        // genuinely "not found" and not an auth/RLS issue. If the session
+        // is invalid, auth.uid() is null and RLS returns empty results.
+        final session = client.auth.currentSession;
+        if (session == null) {
+          _logger?.shift(Severity.warn, 'Server shift check: null response but session is null — skipping (auth issue)', metadata: {
+            'shift_id': serverId,
+          },);
+          return;
+        }
+
+        final expiresAt = session.expiresAt;
+        if (expiresAt != null) {
+          final nowEpoch = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+          if (nowEpoch >= expiresAt) {
+            _logger?.shift(Severity.warn, 'Server shift check: null response but JWT expired — skipping (auth issue)', metadata: {
+              'shift_id': serverId,
+              'expired_seconds_ago': nowEpoch - expiresAt,
+            },);
+            // Try to refresh for next cycle
+            _ensureFreshToken(thresholdMinutes: 60);
+            return;
+          }
+        }
+
+        // Session looks valid — shift is genuinely not found on server
         _logger?.shift(Severity.warn, 'Shift closed by server', metadata: {
           'shift_id': serverId,
           'reason': 'server_not_found',
@@ -199,6 +236,8 @@ class ShiftNotifier extends StateNotifier<ShiftState>
 
   /// Close the shift in both local DB and in-memory state.
   Future<void> _closeShiftLocally(Shift shift, String reason) async {
+    _stopTokenRefreshTimer();
+
     // End iOS Live Activity (server-side closures: midnight cleanup, admin, zombie)
     ShiftActivityService.instance.endActivity();
 
@@ -250,6 +289,11 @@ class ShiftNotifier extends StateNotifier<ShiftState>
         isLoading: false,
         clearActiveShift: shift == null,
       );
+
+      // If resuming an active shift, start token refresh timer
+      if (shift != null) {
+        _startTokenRefreshTimer();
+      }
     } catch (e) {
       _logger?.shift(Severity.error, 'Shift reconciliation failed', metadata: {
         'error': e.toString(),
@@ -276,6 +320,58 @@ class ShiftNotifier extends StateNotifier<ShiftState>
     await _loadActiveShift();
   }
 
+  /// Proactively refresh the JWT token if it expires within [thresholdMinutes].
+  ///
+  /// Returns true if the session is valid (either already fresh or successfully
+  /// refreshed). Returns false only if the refresh fails — caller should
+  /// handle this as a degraded-auth scenario, not block the operation.
+  Future<bool> _ensureFreshToken({int thresholdMinutes = 10}) async {
+    try {
+      final client = _ref.read(supabaseClientProvider);
+      final session = client.auth.currentSession;
+      if (session == null) return false;
+
+      final expiresAt = session.expiresAt;
+      if (expiresAt == null) return true;
+
+      final nowEpoch = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final remainingSeconds = expiresAt - nowEpoch;
+
+      if (remainingSeconds < thresholdMinutes * 60) {
+        await client.auth.refreshSession();
+        _logger?.auth(Severity.info, 'Token refreshed proactively', metadata: {
+          'remaining_seconds_before': remainingSeconds,
+          'trigger': 'shift_lifecycle',
+        },);
+      }
+      return true;
+    } catch (e) {
+      _logger?.auth(Severity.warn, 'Proactive token refresh failed', metadata: {
+        'error': e.toString(),
+      },);
+      return false;
+    }
+  }
+
+  /// Start a periodic token refresh timer for the duration of the shift.
+  ///
+  /// Refreshes every 50 minutes (well before the ~60-min JWT expiry) to
+  /// prevent mid-shift session expiration, especially on iOS where
+  /// background network access can be throttled.
+  void _startTokenRefreshTimer() {
+    _tokenRefreshTimer?.cancel();
+    _tokenRefreshTimer = Timer.periodic(const Duration(minutes: 50), (_) {
+      if (mounted && state.activeShift != null) {
+        _ensureFreshToken(thresholdMinutes: 15);
+      }
+    });
+  }
+
+  void _stopTokenRefreshTimer() {
+    _tokenRefreshTimer?.cancel();
+    _tokenRefreshTimer = null;
+  }
+
   /// Clock in with required GPS location.
   Future<bool> clockIn({
     required GeoPoint location,
@@ -290,6 +386,10 @@ class ShiftNotifier extends StateNotifier<ShiftState>
     },);
 
     state = state.copyWith(isClockingIn: true, clearError: true);
+
+    // Ensure we start the shift with a fresh JWT token.
+    // This prevents mid-shift expiry from causing false shift closures.
+    await _ensureFreshToken(thresholdMinutes: 30);
 
     try {
       final result = await _shiftService.clockIn(
@@ -360,6 +460,10 @@ class ShiftNotifier extends StateNotifier<ShiftState>
         } catch (_) {}
 
         DeviceInfoService(_ref.read(supabaseClientProvider)).syncDeviceInfo();
+
+        // Start periodic token refresh to keep JWT alive during the shift
+        _startTokenRefreshTimer();
+
         state = state.copyWith(isClockingIn: false);
         return true;
       } else {
@@ -457,6 +561,8 @@ class ShiftNotifier extends StateNotifier<ShiftState>
           // Don't fail clock-out if auto-close fails
         }
 
+        _stopTokenRefreshTimer();
+
         state = state.copyWith(
           isClockingOut: false,
           clearActiveShift: true,
@@ -494,6 +600,7 @@ class ShiftNotifier extends StateNotifier<ShiftState>
   @override
   void dispose() {
     _serverCheckTimer?.cancel();
+    _tokenRefreshTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
