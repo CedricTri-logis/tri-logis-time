@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   APIProvider,
-  Map,
+  Map as GoogleMap,
   useMap,
   AdvancedMarker,
 } from '@vis.gl/react-google-maps';
@@ -92,7 +92,7 @@ export function GoogleMultiShiftMap({
       <CardContent className="p-0">
         <div className="h-[500px] w-full">
           <APIProvider apiKey={apiKey}>
-            <Map
+            <GoogleMap
               defaultCenter={{ lat: 45.5017, lng: -73.5673 }}
               defaultZoom={12}
               mapId="multi_shift_map"
@@ -120,7 +120,7 @@ export function GoogleMultiShiftMap({
                 </div>
               ))}
               <AutoFitTrails trails={displayTrails} />
-            </Map>
+            </GoogleMap>
           </APIProvider>
         </div>
       </CardContent>
