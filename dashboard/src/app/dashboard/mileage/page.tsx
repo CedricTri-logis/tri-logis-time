@@ -416,6 +416,17 @@ export default function MileagePage() {
                   </button>
                 </Badge>
               )}
+              {modeFilter !== 'all' && (
+                <Badge variant="secondary" className="ml-2 text-xs">
+                  {modeFilter === 'driving' ? 'Auto' : 'À pied'} ({filteredTrips.length})
+                  <button
+                    onClick={() => setModeFilter('all')}
+                    className="ml-1 hover:text-destructive"
+                  >
+                    &times;
+                  </button>
+                </Badge>
+              )}
             </CardTitle>
             <Button
               variant="ghost"

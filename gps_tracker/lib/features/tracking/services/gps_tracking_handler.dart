@@ -93,13 +93,41 @@ class GPSTrackingHandler extends TaskHandler {
     // Configure platform-specific location settings
     final locationSettings = _createLocationSettings();
 
-    // Start position stream
-    _positionSubscription = Geolocator.getPositionStream(
-      locationSettings: locationSettings,
-    ).listen(
-      _onPosition,
-      onError: _onPositionError,
-    );
+    // Start position stream with retry (up to 3 attempts)
+    bool streamStarted = false;
+    for (int attempt = 1; attempt <= 3; attempt++) {
+      try {
+        _positionSubscription = Geolocator.getPositionStream(
+          locationSettings: locationSettings,
+        ).listen(
+          _onPosition,
+          onError: _onPositionError,
+        );
+        streamStarted = true;
+        if (attempt > 1) {
+          _sendDiagnostic('info', 'Position stream started on retry', {'attempt': attempt});
+        }
+        break;
+      } catch (e) {
+        _sendDiagnostic('error', 'Position stream init failed', {
+          'attempt': attempt,
+          'error': e.toString(),
+        });
+        if (attempt < 3) {
+          await Future<void>.delayed(Duration(seconds: attempt * 2));
+        }
+      }
+    }
+
+    if (!streamStarted) {
+      _sendDiagnostic('error', 'Position stream failed after 3 attempts, stopping service');
+      FlutterForegroundTask.sendDataToMain({
+        'type': 'error',
+        'message': 'GPS stream failed to start after 3 attempts',
+      });
+      await FlutterForegroundTask.stopService();
+      return;
+    }
 
     // Capture initial position immediately (don't rely on stream's first event)
     try {
@@ -406,12 +434,27 @@ class GPSTrackingHandler extends TaskHandler {
   /// and attempt recovery with exponential backoff (no attempt cap).
   void _checkStreamHealth(DateTime now) {
     final lastSuccess = _lastSuccessfulPositionAt;
-    if (lastSuccess == null) return;
+
+    // If we never got a single position, check against start time instead.
+    // Don't wait the full grace period — if 30s passed since start with zero
+    // positions, the stream likely failed silently and needs recovery.
+    if (lastSuccess == null) {
+      if (_trackingStartedAt != null &&
+          now.difference(_trackingStartedAt!) > const Duration(seconds: 30)) {
+        _sendDiagnostic('warn', 'No position received 30s after start, recovering stream');
+        _streamRecoveryAttempts++;
+        _lastRecoveryAttemptAt = now;
+        _recoverPositionStream();
+      }
+      return;
+    }
 
     // Use the same threshold as GPS loss (45s) for stream health
     if (now.difference(lastSuccess) < _gpsLostThreshold) return;
 
-    // Grace period: don't try recovery immediately after start (A5)
+    // Grace period: only inhibit recovery if we already received at least one
+    // position. If we have a lastSuccess, the stream worked initially and we
+    // give it time to stabilize after restart (A5).
     if (_trackingStartedAt != null &&
         now.difference(_trackingStartedAt!) < _gracePeriod) {
       return;
