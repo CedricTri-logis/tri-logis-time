@@ -7,47 +7,47 @@ import { cn } from '@/lib/utils';
 
 const navigation = [
   {
-    name: 'Overview',
+    name: 'Vue d\'ensemble',
     href: '/dashboard',
     icon: LayoutDashboard,
   },
   {
-    name: 'Monitoring',
+    name: 'Surveillance',
     href: '/dashboard/monitoring',
     icon: Radio,
   },
   {
-    name: 'Teams',
+    name: 'Équipes',
     href: '/dashboard/teams',
     icon: Users,
   },
   {
-    name: 'Employees',
+    name: 'Employés',
     href: '/dashboard/employees',
     icon: UserCog,
   },
   {
-    name: 'History',
+    name: 'Historique',
     href: '/dashboard/history',
     icon: History,
   },
   {
-    name: 'Locations',
+    name: 'Emplacements',
     href: '/dashboard/locations',
     icon: MapPinned,
   },
   {
-    name: 'Cleaning',
+    name: 'Ménage',
     href: '/dashboard/cleaning',
     icon: SprayCan,
   },
   {
-    name: 'Mileage',
+    name: 'Kilométrage',
     href: '/dashboard/mileage',
     icon: Car,
   },
   {
-    name: 'Reports',
+    name: 'Rapports',
     href: '/dashboard/reports',
     icon: FileBarChart,
   },
@@ -60,7 +60,7 @@ export function Sidebar() {
     <aside className="hidden w-64 flex-shrink-0 border-r border-slate-200 bg-white lg:flex lg:flex-col">
       <div className="flex h-16 items-center border-b border-slate-200 px-6">
         <MapPin className="h-6 w-6 text-slate-700" />
-        <span className="ml-2 text-lg font-semibold text-slate-900">GPS Tracker</span>
+        <span className="ml-2 text-lg font-semibold text-slate-900">Tri-Logis Time</span>
       </div>
       <nav className="flex-1 space-y-1 p-4">
         {navigation.map((item) => {

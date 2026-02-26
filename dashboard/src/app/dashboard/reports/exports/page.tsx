@@ -93,7 +93,7 @@ export default function ShiftHistoryExportPage() {
       setPreviewData(rows);
       setTotalRecords(rows.length);
     } catch (err) {
-      setPreviewError(err instanceof Error ? err.message : 'Failed to load preview');
+      setPreviewError(err instanceof Error ? err.message : 'Échec du chargement de l\'aperçu');
       setPreviewData([]);
     } finally {
       setPreviewLoading(false);
@@ -139,10 +139,10 @@ export default function ShiftHistoryExportPage() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
           <FileDown className="h-6 w-6" />
-          Shift History Export
+          Export de l&apos;historique des quarts
         </h1>
         <p className="text-sm text-slate-500 mt-1">
-          Export detailed shift records with GPS data for individual or multiple employees
+          Exportez les dossiers détaillés des quarts avec données GPS par employé
         </p>
       </div>
 
@@ -151,31 +151,31 @@ export default function ShiftHistoryExportPage() {
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Export Configuration</CardTitle>
+              <CardTitle>Configuration de l&apos;export</CardTitle>
               <CardDescription>
-                Select employees and date range for the export
+                Sélectionnez les employés et la plage de dates pour l&apos;export
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Employee selector */}
               <div className="space-y-2">
-                <Label>Employees</Label>
+                <Label>Employés</Label>
                 <EmployeeSelector
                   employees={employees}
                   selectedIds={selectedEmployeeIds}
                   onChange={setSelectedEmployeeIds}
-                  placeholder="Select employees to export..."
+                  placeholder="Sélectionnez les employés à exporter..."
                   maxSelected={50}
                 />
                 <p className="text-xs text-slate-500">
-                  Select up to 50 employees for bulk export
+                  Sélectionnez jusqu&apos;à 50 employés pour un export en lot
                 </p>
               </div>
 
               {/* Date range */}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="start-date">Start Date</Label>
+                  <Label htmlFor="start-date">Date de début</Label>
                   <Input
                     id="start-date"
                     type="date"
@@ -185,7 +185,7 @@ export default function ShiftHistoryExportPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="end-date">End Date</Label>
+                  <Label htmlFor="end-date">Date de fin</Label>
                   <Input
                     id="end-date"
                     type="date"
@@ -199,7 +199,7 @@ export default function ShiftHistoryExportPage() {
 
               {/* Format selection */}
               <div className="space-y-2">
-                <Label>Export Format</Label>
+                <Label>Format d&apos;export</Label>
                 <Select
                   value={exportFormat}
                   onValueChange={(v) => setExportFormat(v as 'pdf' | 'csv')}
@@ -209,10 +209,10 @@ export default function ShiftHistoryExportPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="csv">
-                      CSV - Spreadsheet format for Excel/Sheets
+                      CSV - Format tableur pour Excel/Sheets
                     </SelectItem>
                     <SelectItem value="pdf">
-                      PDF - Formatted document for printing
+                      PDF - Document formaté pour impression
                     </SelectItem>
                   </SelectContent>
                 </Select>
@@ -227,7 +227,7 @@ export default function ShiftHistoryExportPage() {
                   className="flex-1"
                 >
                   <RefreshCw className={`mr-2 h-4 w-4 ${previewLoading ? 'animate-spin' : ''}`} />
-                  {previewLoading ? 'Loading...' : 'Preview Data'}
+                  {previewLoading ? 'Chargement...' : 'Aperçu des données'}
                 </Button>
                 <Button
                   onClick={handleExport}
@@ -235,7 +235,7 @@ export default function ShiftHistoryExportPage() {
                   className="flex-1"
                 >
                   <Download className="mr-2 h-4 w-4" />
-                  Export {exportFormat.toUpperCase()}
+                  Exporter {exportFormat.toUpperCase()}
                 </Button>
               </div>
             </CardContent>
@@ -280,13 +280,13 @@ export default function ShiftHistoryExportPage() {
                 <FileDown className="h-12 w-12 text-slate-300 mb-4" />
                 <h3 className="text-lg font-medium text-slate-900 mb-1">
                   {selectedEmployeeIds.length === 0
-                    ? 'Select Employees'
-                    : 'No Preview Data'}
+                    ? 'Sélectionnez des employés'
+                    : 'Aucun aperçu disponible'}
                 </h3>
                 <p className="text-sm text-slate-500 max-w-sm">
                   {selectedEmployeeIds.length === 0
-                    ? 'Choose one or more employees from the list to export their shift history.'
-                    : 'Click "Preview Data" to see a sample of the export data.'}
+                    ? 'Choisissez un ou plusieurs employés dans la liste pour exporter leur historique de quarts.'
+                    : 'Cliquez sur "Aperçu des données" pour voir un échantillon des données à exporter.'}
                 </p>
               </CardContent>
             </Card>
@@ -297,13 +297,13 @@ export default function ShiftHistoryExportPage() {
       {/* Help text */}
       <Alert>
         <FileDown className="h-4 w-4" />
-        <AlertTitle>About Shift History Exports</AlertTitle>
+        <AlertTitle>À propos des exports d&apos;historique de quarts</AlertTitle>
         <AlertDescription>
           <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
-            <li>CSV exports include all shift details and GPS coordinates</li>
-            <li>PDF exports group shifts by employee with summary statistics</li>
-            <li>GPS data is available for shifts within the 90-day retention period</li>
-            <li>Select multiple employees for bulk export (up to 50 at once)</li>
+            <li>Les exports CSV incluent tous les détails des quarts et les coordonnées GPS</li>
+            <li>Les exports PDF regroupent les quarts par employé avec des statistiques sommaires</li>
+            <li>Les données GPS sont disponibles pour les quarts dans la période de rétention de 90 jours</li>
+            <li>Sélectionnez plusieurs employés pour un export en lot (jusqu&apos;à 50 à la fois)</li>
           </ul>
         </AlertDescription>
       </Alert>

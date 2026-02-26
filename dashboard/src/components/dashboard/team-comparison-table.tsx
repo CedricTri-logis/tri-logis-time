@@ -90,30 +90,30 @@ export function TeamComparisonTable({ data, isLoading }: TeamComparisonTableProp
           <TableRow className="bg-slate-50">
             <TableHead className="w-[250px]">
               <SortableHeader field="manager_name" currentSortField={sortField} onSort={handleSort}>
-                Manager
+                Gestionnaire
               </SortableHeader>
             </TableHead>
             <TableHead>
               <SortableHeader field="team_size" currentSortField={sortField} onSort={handleSort}>
-                Team Size
+                Taille d&apos;&eacute;quipe
               </SortableHeader>
             </TableHead>
             <TableHead>
               <SortableHeader field="total_hours" currentSortField={sortField} onSort={handleSort}>
-                Total Hours
+                Heures totales
               </SortableHeader>
             </TableHead>
             <TableHead>
               <SortableHeader field="total_shifts" currentSortField={sortField} onSort={handleSort}>
-                Shifts
+                Quarts
               </SortableHeader>
             </TableHead>
             <TableHead>
               <SortableHeader field="avg_hours_per_employee" currentSortField={sortField} onSort={handleSort}>
-                Avg Hours/Employee
+                Moy. heures/employ&eacute;
               </SortableHeader>
             </TableHead>
-            <TableHead className="text-right">Status</TableHead>
+            <TableHead className="text-right">Statut</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -132,7 +132,7 @@ export function TeamComparisonTable({ data, isLoading }: TeamComparisonTableProp
               </TableCell>
               <TableCell>
                 <span className="font-medium text-slate-900">{team.team_size}</span>
-                <span className="text-slate-500"> employees</span>
+                <span className="text-slate-500"> employ&eacute;s</span>
               </TableCell>
               <TableCell>
                 <span className="font-medium text-slate-900">
@@ -151,10 +151,10 @@ export function TeamComparisonTable({ data, isLoading }: TeamComparisonTableProp
                 <div className="flex items-center justify-end gap-2">
                   {team.active_employees > 0 ? (
                     <Badge variant="default" className="bg-green-100 text-green-700 hover:bg-green-100">
-                      {team.active_employees} active
+                      {team.active_employees} actif(s)
                     </Badge>
                   ) : (
-                    <Badge variant="secondary">Inactive</Badge>
+                    <Badge variant="secondary">Inactif</Badge>
                   )}
                 </div>
               </TableCell>
@@ -172,12 +172,12 @@ function TeamComparisonTableSkeleton() {
       <Table>
         <TableHeader>
           <TableRow className="bg-slate-50">
-            <TableHead className="w-[250px]">Manager</TableHead>
-            <TableHead>Team Size</TableHead>
-            <TableHead>Total Hours</TableHead>
-            <TableHead>Shifts</TableHead>
-            <TableHead>Avg Hours/Employee</TableHead>
-            <TableHead className="text-right">Status</TableHead>
+            <TableHead className="w-[250px]">Gestionnaire</TableHead>
+            <TableHead>Taille d&apos;&eacute;quipe</TableHead>
+            <TableHead>Heures totales</TableHead>
+            <TableHead>Quarts</TableHead>
+            <TableHead>Moy. heures/employ&eacute;</TableHead>
+            <TableHead className="text-right">Statut</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>

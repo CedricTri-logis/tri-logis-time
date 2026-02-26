@@ -33,7 +33,7 @@ function getSpeedColor(speed: number | null): string {
 }
 
 function formatTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  return new Date(dateStr).toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
 export function GoogleTripRouteMap({
@@ -48,19 +48,24 @@ export function GoogleTripRouteMap({
   const routes = useMemo(() => {
     return trips.map((trip, index) => {
       const isMatched = trip.match_status === 'matched' && !!trip.route_geometry;
-      // For matched trips: show OSRM road route
-      // For unmatched trips with GPS points: use GPS trail (set below via gpsPoints)
-      // For unmatched trips without GPS points: straight line fallback
-      const hasGpsTrail = !isMatched && gpsPoints.length >= 2;
-      const points =
+      const hasGpsTrail = gpsPoints.length >= 2;
+
+      // OSRM road route (may be partial for low-confidence matches)
+      const osrmPoints =
         isMatched && trip.route_geometry
           ? decodePolyline6(trip.route_geometry).map(([lat, lng]) => ({ lat, lng }))
-          : hasGpsTrail
-            ? gpsPoints.map((pt) => ({ lat: pt.latitude, lng: pt.longitude }))
-            : [
-                { lat: trip.start_latitude, lng: trip.start_longitude },
-                { lat: trip.end_latitude, lng: trip.end_longitude },
-              ];
+          : null;
+
+      // GPS trail as base layer (always available if we have points)
+      const gpsTrailPoints = hasGpsTrail
+        ? gpsPoints.map((pt) => ({ lat: pt.latitude, lng: pt.longitude }))
+        : null;
+
+      // Primary display: OSRM route > GPS trail > straight line fallback
+      const points = osrmPoints ?? gpsTrailPoints ?? [
+        { lat: trip.start_latitude, lng: trip.start_longitude },
+        { lat: trip.end_latitude, lng: trip.end_longitude },
+      ];
 
       return {
         id: trip.id,
@@ -68,6 +73,8 @@ export function GoogleTripRouteMap({
         color: TRIP_COLORS[index % TRIP_COLORS.length],
         isMatched,
         hasGpsTrail,
+        // For matched trips with GPS points: also draw GPS trail underneath
+        gpsTrailPoints: isMatched && gpsTrailPoints ? gpsTrailPoints : null,
         start: { lat: trip.start_latitude, lng: trip.start_longitude },
         end: { lat: trip.end_latitude, lng: trip.end_longitude },
       };
@@ -99,6 +106,11 @@ export function GoogleTripRouteMap({
           {/* Route polylines */}
           {routes.map((route) => (
             <div key={route.id}>
+              {/* GPS trail underneath (thin orange line showing full path) */}
+              {route.gpsTrailPoints && (
+                <GpsTrailPolyline points={route.gpsTrailPoints} />
+              )}
+              {/* Primary route: OSRM road match or GPS trail or straight line */}
               <TripPolyline route={route} />
 
               <AdvancedMarker position={route.start}>
@@ -212,6 +224,23 @@ function GpsPointsLayer({
     };
   }, [map, points, onPointClick]);
 
+  return null;
+}
+
+function GpsTrailPolyline({ points }: { points: google.maps.LatLngLiteral[] }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!map || points.length < 2) return;
+    const poly = new google.maps.Polyline({
+      path: points,
+      map,
+      strokeColor: '#f97316',
+      strokeOpacity: 0.5,
+      strokeWeight: 3,
+      zIndex: 1,
+    });
+    return () => poly.setMap(null);
+  }, [map, points]);
   return null;
 }
 

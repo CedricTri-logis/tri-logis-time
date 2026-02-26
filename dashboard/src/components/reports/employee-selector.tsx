@@ -40,7 +40,7 @@ export function EmployeeSelector({
   employees,
   selectedIds,
   onChange,
-  placeholder = 'Select employees...',
+  placeholder = 'Sélectionner des employés...',
   maxSelected = 50,
   disabled = false,
 }: EmployeeSelectorProps) {
@@ -115,7 +115,7 @@ export function EmployeeSelector({
               <Users className="h-4 w-4" />
               {selectedIds.length === 0
                 ? placeholder
-                : `${selectedIds.length} employee${selectedIds.length > 1 ? 's' : ''} selected`}
+                : `${selectedIds.length} employé${selectedIds.length > 1 ? 's' : ''} sélectionné${selectedIds.length > 1 ? 's' : ''}`}
             </span>
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
@@ -123,7 +123,7 @@ export function EmployeeSelector({
         <PopoverContent className="w-[400px] p-0" align="start">
           <Command shouldFilter={false}>
             <CommandInput
-              placeholder="Search employees..."
+              placeholder="Rechercher des employés..."
               value={searchValue}
               onValueChange={setSearchValue}
             />
@@ -134,7 +134,7 @@ export function EmployeeSelector({
                 onClick={selectAll}
                 disabled={filteredEmployees.length === 0}
               >
-                Select All
+                Tout sélectionner
               </Button>
               <Button
                 variant="ghost"
@@ -142,14 +142,14 @@ export function EmployeeSelector({
                 onClick={clearAll}
                 disabled={selectedIds.length === 0}
               >
-                Clear All
+                Tout effacer
               </Button>
               <span className="text-xs text-slate-500 ml-auto">
                 {selectedIds.length}/{maxSelected} max
               </span>
             </div>
             <CommandList>
-              <CommandEmpty>No employees found.</CommandEmpty>
+              <CommandEmpty>Aucun employé trouvé.</CommandEmpty>
               <CommandGroup>
                 {filteredEmployees.map((employee) => {
                   const isSelected = selectedIds.includes(employee.id);
@@ -211,7 +211,7 @@ export function EmployeeSelector({
             </Badge>
           ))}
           {selectedEmployees.length > 10 && (
-            <Badge variant="outline">+{selectedEmployees.length - 10} more</Badge>
+            <Badge variant="outline">+{selectedEmployees.length - 10} de plus</Badge>
           )}
         </div>
       )}

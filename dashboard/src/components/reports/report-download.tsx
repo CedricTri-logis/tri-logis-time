@@ -70,16 +70,16 @@ export function ReportDownload({
     const diff = expiry.getTime() - now.getTime();
 
     if (diff <= 0) {
-      return { expired: true, text: 'Link expired' };
+      return { expired: true, text: 'Lien expiré' };
     }
 
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
 
     if (days > 0) {
-      return { expired: false, text: `Expires in ${days} day${days > 1 ? 's' : ''}` };
+      return { expired: false, text: `Expire dans ${days} jour${days > 1 ? 's' : ''}` };
     }
-    return { expired: false, text: `Expires in ${hours} hour${hours > 1 ? 's' : ''}` };
+    return { expired: false, text: `Expire dans ${hours} heure${hours > 1 ? 's' : ''}` };
   };
 
   const expiryInfo = getExpiryInfo();
@@ -92,9 +92,9 @@ export function ReportDownload({
             <CheckCircle className="h-5 w-5 text-green-600" />
           </div>
           <div>
-            <CardTitle className="text-lg text-green-900">Report Ready</CardTitle>
+            <CardTitle className="text-lg text-green-900">Rapport prêt</CardTitle>
             <CardDescription className="text-green-700">
-              Your report has been generated and is ready to download
+              Votre rapport a été généré et est prêt à être téléchargé
             </CardDescription>
           </div>
         </div>
@@ -116,7 +116,7 @@ export function ReportDownload({
           )}
           {recordCount && (
             <div className="flex items-center gap-1.5 text-slate-600">
-              <span>{recordCount.toLocaleString()} records</span>
+              <span>{recordCount.toLocaleString()} enregistrements</span>
             </div>
           )}
           {expiryInfo && (
@@ -130,7 +130,7 @@ export function ReportDownload({
         {/* Download button */}
         {expiryInfo?.expired ? (
           <div className="rounded-lg bg-red-100 p-3 text-sm text-red-800">
-            This download link has expired. Please generate a new report.
+            Ce lien de téléchargement a expiré. Veuillez générer un nouveau rapport.
           </div>
         ) : (
           <div className="flex gap-2">
@@ -142,17 +142,17 @@ export function ReportDownload({
               {isDownloading ? (
                 <>
                   <span className="mr-2 animate-spin">⏳</span>
-                  Downloading...
+                  Téléchargement...
                 </>
               ) : downloaded ? (
                 <>
                   <CheckCircle className="mr-2 h-4 w-4" />
-                  Downloaded
+                  Téléchargé
                 </>
               ) : (
                 <>
                   <Download className="mr-2 h-4 w-4" />
-                  Download {format.toUpperCase()}
+                  Télécharger {format.toUpperCase()}
                 </>
               )}
             </Button>
@@ -172,8 +172,8 @@ export function ReportDownload({
         {/* Help text */}
         {downloaded && (
           <p className="text-xs text-slate-500">
-            If the download didn&apos;t start automatically, click the button again or use the
-            external link.
+            Si le téléchargement n&apos;a pas démarré automatiquement, cliquez à nouveau sur le bouton ou utilisez le
+            lien externe.
           </p>
         )}
       </CardContent>

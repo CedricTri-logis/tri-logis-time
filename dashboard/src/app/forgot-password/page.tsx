@@ -22,25 +22,25 @@ export default function ForgotPasswordPage() {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Reset Password</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">Réinitialiser le mot de passe</CardTitle>
           <CardDescription className="text-center">
             {sent
-              ? 'Check your email for the reset link'
-              : 'Enter your email to receive a password reset link'}
+              ? 'Vérifiez votre courriel pour le lien de réinitialisation'
+              : 'Entrez votre courriel pour recevoir un lien de réinitialisation'}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {sent ? (
             <div className="space-y-4">
               <div className="p-3 bg-green-50 border border-green-200 rounded-md text-sm text-green-700">
-                A password reset link has been sent to <strong>{email}</strong>. Check your inbox.
+                Un lien de réinitialisation a été envoyé à <strong>{email}</strong>. Vérifiez votre boîte de réception.
               </div>
               <div className="text-center">
                 <Link
                   href="/login"
                   className="text-sm text-slate-500 hover:text-slate-700 underline-offset-4 hover:underline"
                 >
-                  Back to sign in
+                  Retour à la connexion
                 </Link>
               </div>
             </div>
@@ -48,7 +48,7 @@ export default function ForgotPasswordPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <label htmlFor="email" className="text-sm font-medium text-slate-700">
-                  Email
+                  Courriel
                 </label>
                 <input
                   id="email"
@@ -57,7 +57,7 @@ export default function ForgotPasswordPage() {
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@company.com"
+                  placeholder="admin@entreprise.com"
                   required
                   className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
                 />
@@ -67,14 +67,14 @@ export default function ForgotPasswordPage() {
                 className="w-full"
                 disabled={isPending}
               >
-                {isPending ? 'Sending...' : 'Send Reset Link'}
+                {isPending ? 'Envoi en cours...' : 'Envoyer le lien'}
               </Button>
               <div className="text-center">
                 <Link
                   href="/login"
                   className="text-sm text-slate-500 hover:text-slate-700 underline-offset-4 hover:underline"
                 >
-                  Back to sign in
+                  Retour à la connexion
                 </Link>
               </div>
             </form>

@@ -228,8 +228,8 @@ export default function EmployeeMonitoringPage({ params }: PageProps) {
   // Get employee name from shift detail RPC
   const employeeName = useMemo(() => {
     const data = shiftDetailResult?.data;
-    if (!data || !Array.isArray(data) || data.length === 0) return 'Employee';
-    return (data[0] as ShiftDetailRow).employee_name || 'Employee';
+    if (!data || !Array.isArray(data) || data.length === 0) return 'Employé';
+    return (data[0] as ShiftDetailRow).employee_name || 'Employé';
   }, [shiftDetailResult]);
   const employeeIdDisplay = employeeId;
 
@@ -244,9 +244,9 @@ export default function EmployeeMonitoringPage({ params }: PageProps) {
             </Button>
           </Link>
           <div>
-            <h2 className="text-2xl font-bold text-slate-900">Shift Details</h2>
+            <h2 className="text-2xl font-bold text-slate-900">Détails du quart</h2>
             <p className="text-sm text-slate-500">
-              Real-time monitoring for employee
+              Surveillance en temps réel de l&apos;employé
             </p>
           </div>
         </div>
@@ -261,7 +261,7 @@ export default function EmployeeMonitoringPage({ params }: PageProps) {
             className="gap-2"
           >
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            {isRefreshing ? 'Refreshing...' : 'Refresh'}
+            {isRefreshing ? 'Actualisation...' : 'Actualiser'}
           </Button>
         </div>
       </div>
@@ -288,7 +288,7 @@ export default function EmployeeMonitoringPage({ params }: PageProps) {
                 className="h-7 px-2 text-xs gap-1"
               >
                 <Map className="h-3 w-3" />
-                Basic
+                Basique
               </Button>
               <Button
                 variant={mapViewMode === 'segmented' ? 'secondary' : 'ghost'}
@@ -297,7 +297,7 @@ export default function EmployeeMonitoringPage({ params }: PageProps) {
                 className="h-7 px-2 text-xs gap-1"
               >
                 <Navigation className="h-3 w-3" />
-                Segmented
+                Segmenté
               </Button>
             </div>
           </div>
@@ -346,7 +346,7 @@ export default function EmployeeMonitoringPage({ params }: PageProps) {
       {/* Last updated indicator */}
       {lastUpdated && (
         <p className="text-xs text-slate-400 text-center">
-          Last updated: {lastUpdated.toLocaleTimeString()}
+          Dernière mise à jour : {lastUpdated.toLocaleTimeString()}
         </p>
       )}
     </div>
@@ -359,10 +359,10 @@ interface ConnectionIndicatorProps {
 
 function ConnectionIndicator({ status }: ConnectionIndicatorProps) {
   const config: Record<ConnectionStatus, { icon: typeof Wifi; color: string; text: string }> = {
-    connected: { icon: Wifi, color: 'text-green-600', text: 'Live' },
-    connecting: { icon: Wifi, color: 'text-yellow-600', text: 'Connecting...' },
-    disconnected: { icon: WifiOff, color: 'text-slate-400', text: 'Offline' },
-    error: { icon: WifiOff, color: 'text-red-600', text: 'Error' },
+    connected: { icon: Wifi, color: 'text-green-600', text: 'En direct' },
+    connecting: { icon: Wifi, color: 'text-yellow-600', text: 'Connexion...' },
+    disconnected: { icon: WifiOff, color: 'text-slate-400', text: 'Hors ligne' },
+    error: { icon: WifiOff, color: 'text-red-600', text: 'Erreur' },
   };
 
   const { icon: Icon, color, text } = config[status];

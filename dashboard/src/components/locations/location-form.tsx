@@ -118,7 +118,7 @@ export function LocationForm({
   const handleGeocode = useCallback(async () => {
     const currentAddress = form.getValues('address');
     if (!currentAddress || currentAddress.trim().length < 3) {
-      setGeocodeError('Please enter an address to search');
+      setGeocodeError('Veuillez entrer une adresse pour rechercher');
       return;
     }
 
@@ -145,7 +145,7 @@ export function LocationForm({
       }
     } catch (error) {
       setGeocodeError(
-        error instanceof Error ? error.message : 'Failed to geocode address'
+        error instanceof Error ? error.message : 'Échec du géocodage de l\'adresse'
       );
     } finally {
       setIsGeocoding(false);
@@ -155,7 +155,7 @@ export function LocationForm({
   // Handle form submission
   const handleSubmit = form.handleSubmit(async (data) => {
     if (data.latitude === 0 && data.longitude === 0) {
-      form.setError('latitude', { message: 'Please select a location on the map' });
+      form.setError('latitude', { message: 'Veuillez sélectionner un emplacement sur la carte' });
       return;
     }
     await onSubmit(data);
@@ -167,7 +167,7 @@ export function LocationForm({
         {/* Basic Information */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Basic Information</CardTitle>
+            <CardTitle className="text-base">Informations de base</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <FormField
@@ -175,10 +175,10 @@ export function LocationForm({
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Location Name *</FormLabel>
+                  <FormLabel>Nom de l'emplacement *</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="e.g., Head Office, Construction Site A"
+                      placeholder="ex. Bureau principal, Chantier A"
                       {...field}
                     />
                   </FormControl>
@@ -192,14 +192,14 @@ export function LocationForm({
               name="location_type"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Location Type *</FormLabel>
+                  <FormLabel>Type d'emplacement *</FormLabel>
                   <Select
                     onValueChange={field.onChange}
                     defaultValue={field.value}
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select type" />
+                        <SelectValue placeholder="Sélectionner le type" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -228,9 +228,9 @@ export function LocationForm({
               render={({ field }) => (
                 <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
                   <div className="space-y-0.5">
-                    <FormLabel>Active</FormLabel>
+                    <FormLabel>Actif</FormLabel>
                     <FormDescription className="text-xs">
-                      Active locations are used for GPS matching
+                      Les emplacements actifs sont utilisés pour la correspondance GPS
                     </FormDescription>
                   </div>
                   <FormControl>
@@ -250,7 +250,7 @@ export function LocationForm({
         {/* Address & Geocoding */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Address</CardTitle>
+            <CardTitle className="text-base">Adresse</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <FormField
@@ -258,11 +258,11 @@ export function LocationForm({
               name="address"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Street Address</FormLabel>
+                  <FormLabel>Adresse</FormLabel>
                   <div className="flex gap-2">
                     <FormControl>
                       <Input
-                        placeholder="e.g., 123 Main St, Montreal, QC"
+                        placeholder="ex. 123 rue Principale, Montréal, QC"
                         {...field}
                         value={field.value ?? ''}
                       />
@@ -278,11 +278,11 @@ export function LocationForm({
                       ) : (
                         <Search className="h-4 w-4" />
                       )}
-                      <span className="ml-2 hidden sm:inline">Search</span>
+                      <span className="ml-2 hidden sm:inline">Rechercher</span>
                     </Button>
                   </div>
                   <FormDescription className="text-xs">
-                    Enter an address and click Search to auto-fill coordinates
+                    Entrez une adresse et cliquez sur Rechercher pour remplir les coordonnées automatiquement
                   </FormDescription>
                   {geocodeError && (
                     <p className="text-sm text-red-500">{geocodeError}</p>
@@ -297,11 +297,11 @@ export function LocationForm({
         {/* Map & Coordinates */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Location on Map *</CardTitle>
+            <CardTitle className="text-base">Emplacement sur la carte *</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-slate-500 mb-2">
-              Click on the map to set the location, or drag the marker to adjust
+              Cliquez sur la carte pour définir l'emplacement, ou glissez le marqueur pour ajuster
             </p>
 
             <LocationMap
@@ -363,7 +363,7 @@ export function LocationForm({
         {/* Geofence Radius */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Geofence Radius</CardTitle>
+            <CardTitle className="text-base">Rayon de géorepérage</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <FormField
@@ -372,7 +372,7 @@ export function LocationForm({
               render={({ field }) => (
                 <FormItem>
                   <div className="flex items-center justify-between">
-                    <FormLabel>Radius</FormLabel>
+                    <FormLabel>Rayon</FormLabel>
                     <span className="text-sm font-medium">{field.value}m</span>
                   </div>
                   <FormControl>
@@ -386,7 +386,7 @@ export function LocationForm({
                     />
                   </FormControl>
                   <FormDescription className="text-xs">
-                    Employees within this radius will be matched to this location
+                    Les employés dans ce rayon seront associés à cet emplacement
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -399,6 +399,7 @@ export function LocationForm({
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Notes</CardTitle>
+
           </CardHeader>
           <CardContent>
             <FormField
@@ -409,7 +410,7 @@ export function LocationForm({
                   <FormControl>
                     <textarea
                       className="w-full min-h-[80px] px-3 py-2 text-sm rounded-md border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
-                      placeholder="Optional notes about this location..."
+                      placeholder="Notes optionnelles sur cet emplacement..."
                       {...field}
                       value={field.value ?? ''}
                     />
@@ -430,12 +431,12 @@ export function LocationForm({
               onClick={onCancel}
               disabled={isSubmitting}
             >
-              Cancel
+              Annuler
             </Button>
           )}
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {location ? 'Update Location' : 'Create Location'}
+            {location ? 'Modifier l\'emplacement' : 'Créer l\'emplacement'}
           </Button>
         </div>
       </form>

@@ -83,11 +83,11 @@ export default function ShiftDetailPage({ params }: ShiftDetailPageProps) {
     const lastDate = trail[trail.length - 1]?.capturedAt;
 
     return {
-      employeeName: 'Employee', // Would need shift details to populate
+      employeeName: 'Employé', // Would need shift details to populate
       employeeId: shiftId,
       dateRange: firstDate && lastDate
-        ? `${format(firstDate, 'yyyy-MM-dd')} to ${format(lastDate, 'yyyy-MM-dd')}`
-        : 'Unknown',
+        ? `${format(firstDate, 'yyyy-MM-dd')} au ${format(lastDate, 'yyyy-MM-dd')}`
+        : 'Inconnu',
       totalDistanceKm: totalDistance,
       totalPoints: trail.length,
       generatedAt: new Date().toISOString(),
@@ -105,9 +105,9 @@ export default function ShiftDetailPage({ params }: ShiftDetailPageProps) {
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Shift GPS Trail</h1>
+            <h1 className="text-2xl font-bold text-slate-900">Tracé GPS du quart</h1>
             <p className="text-sm text-slate-500 mt-1">
-              View and replay GPS movement trail for this shift
+              Voir et rejouer le tracé GPS de ce quart
             </p>
           </div>
         </div>
@@ -117,7 +117,7 @@ export default function ShiftDetailPage({ params }: ShiftDetailPageProps) {
           <ExportDialog
             trail={trail}
             metadata={exportMetadata}
-            buttonLabel="Export"
+            buttonLabel="Exporter"
           />
         )}
       </div>

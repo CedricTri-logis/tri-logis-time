@@ -94,7 +94,7 @@ export function PlaybackTimeline({
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-medium flex items-center justify-between">
-          <span>Timeline</span>
+          <span>Chronologie</span>
           <span className="text-sm font-normal text-slate-500">
             {currentIndex + 1} / {trail.length}
           </span>
@@ -118,7 +118,7 @@ export function PlaybackTimeline({
               key={i}
               className="absolute top-0 h-full w-1 bg-amber-400"
               style={{ left: `${gap.position * 100}%` }}
-              title={`Time gap: ${Math.round(gap.durationMs / 60000)} minutes`}
+              title={`Interruption : ${Math.round(gap.durationMs / 60000)} minutes`}
             />
           ))}
 
@@ -143,7 +143,7 @@ export function PlaybackTimeline({
           <div className="flex items-center gap-2 p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
             <AlertTriangle className="h-4 w-4 flex-shrink-0" />
             <span>
-              Large time gap ahead - GPS tracking may have been interrupted
+              Interruption importante à venir - le suivi GPS a peut-être été interrompu
             </span>
           </div>
         )}

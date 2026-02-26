@@ -72,9 +72,9 @@ export default function DashboardPage() {
       {/* Page header with data freshness */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Organization Overview</h2>
+          <h2 className="text-2xl font-bold text-slate-900">Vue d&apos;ensemble</h2>
           <p className="text-sm text-slate-500">
-            Monitor your organization&apos;s employee activity and shift statistics
+            Suivez l&apos;activit&eacute; des employ&eacute;s et les statistiques des quarts de travail
           </p>
         </div>
         <DataFreshness
@@ -122,10 +122,10 @@ function EmptyOrganizationState() {
           />
         </svg>
       </div>
-      <h3 className="mt-4 text-lg font-semibold text-slate-900">No employees yet</h3>
+      <h3 className="mt-4 text-lg font-semibold text-slate-900">Aucun employ&eacute;</h3>
       <p className="mt-2 text-center text-sm text-slate-500 max-w-md">
-        Your organization doesn&apos;t have any employees registered. Employees can sign up
-        through the GPS Tracker mobile app to start tracking their shifts.
+        Votre organisation n&apos;a aucun employ&eacute; inscrit. Les employ&eacute;s peuvent s&apos;inscrire
+        via l&apos;application mobile Tri-Logis Time pour commencer &agrave; suivre leurs quarts.
       </p>
     </div>
   );
@@ -155,17 +155,17 @@ function RoleSummaryCard({
   }
 
   const roles = [
-    { name: 'Employees', count: data?.employee_counts?.by_role?.employee ?? 0, color: 'bg-blue-500' },
-    { name: 'Managers', count: data?.employee_counts?.by_role?.manager ?? 0, color: 'bg-green-500' },
+    { name: 'Employ\u00e9s', count: data?.employee_counts?.by_role?.employee ?? 0, color: 'bg-blue-500' },
+    { name: 'Gestionnaires', count: data?.employee_counts?.by_role?.manager ?? 0, color: 'bg-green-500' },
     { name: 'Admins', count: data?.employee_counts?.by_role?.admin ?? 0, color: 'bg-purple-500' },
-    { name: 'Super Admins', count: data?.employee_counts?.by_role?.super_admin ?? 0, color: 'bg-orange-500' },
+    { name: 'Super admins', count: data?.employee_counts?.by_role?.super_admin ?? 0, color: 'bg-orange-500' },
   ];
 
   const total = data?.employee_counts?.total ?? 0;
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-6">
-      <h3 className="text-base font-semibold text-slate-900 mb-4">Employees by Role</h3>
+      <h3 className="text-base font-semibold text-slate-900 mb-4">Employ&eacute;s par r&ocirc;le</h3>
       <div className="space-y-4">
         {roles.map((role) => {
           const percentage = total > 0 ? (role.count / total) * 100 : 0;
@@ -187,9 +187,9 @@ function RoleSummaryCard({
       </div>
       <div className="mt-4 pt-4 border-t border-slate-100">
         <div className="flex justify-between">
-          <span className="text-sm text-slate-600">Active Status</span>
+          <span className="text-sm text-slate-600">Statut actif</span>
           <span className="text-sm font-medium text-green-600">
-            {data?.employee_counts.active_status?.active ?? 0} active
+            {data?.employee_counts.active_status?.active ?? 0} actif(s)
           </span>
         </div>
       </div>

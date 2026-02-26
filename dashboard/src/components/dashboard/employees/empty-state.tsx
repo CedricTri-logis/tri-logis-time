@@ -27,24 +27,24 @@ export function EmptyState({
         <Users className="h-8 w-8 text-slate-400" />
       </div>
       <h3 className="mt-4 text-lg font-semibold text-slate-900">
-        No employees found
+        Aucun employé trouvé
       </h3>
       {hasActiveFilters ? (
         <>
           <p className="mt-2 max-w-md text-sm text-slate-500">
-            No employees match your current filters: {filterDescription}
+            Aucun employé ne correspond à vos filtres actuels : {filterDescription}
           </p>
           <Button
             variant="outline"
             onClick={onClearFilters}
             className="mt-4"
           >
-            Clear filters
+            Effacer les filtres
           </Button>
         </>
       ) : (
         <p className="mt-2 text-sm text-slate-500">
-          There are no employees in the system yet.
+          Aucun employé dans le système pour le moment.
         </p>
       )}
     </div>

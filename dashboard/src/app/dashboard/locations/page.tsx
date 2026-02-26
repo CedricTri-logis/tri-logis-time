@@ -188,11 +188,11 @@ export default function LocationsPage() {
           notes: data.notes ?? null,
           isActive: data.is_active,
         });
-        toast.success('Location created successfully');
+        toast.success('Emplacement créé avec succès');
         setIsCreateDialogOpen(false);
         refetch();
       } catch (error) {
-        toast.error('Failed to create location');
+        toast.error('Échec de la création de l\'emplacement');
       }
     },
     [createLocation, refetch]
@@ -231,11 +231,11 @@ export default function LocationsPage() {
             <MapPin className="h-6 w-6 text-slate-600" />
           </div>
           <div>
-            <h1 className="text-2xl font-semibold text-slate-900">Locations</h1>
+            <h1 className="text-2xl font-semibold text-slate-900">Emplacements</h1>
             <p className="text-sm text-slate-500">
               {isLoading
-                ? 'Loading...'
-                : `${totalCount} location${totalCount !== 1 ? 's' : ''}`}
+                ? 'Chargement...'
+                : `${totalCount} emplacement${totalCount !== 1 ? 's' : ''}`}
             </p>
           </div>
         </div>
@@ -264,11 +264,11 @@ export default function LocationsPage() {
             onClick={() => setIsImportDialogOpen(true)}
           >
             <Upload className="h-4 w-4 mr-2" />
-            Import CSV
+            Importer CSV
           </Button>
           <Button onClick={() => setIsCreateDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
-            Add Location
+            Ajouter un emplacement
           </Button>
         </div>
       </div>
@@ -280,7 +280,7 @@ export default function LocationsPage() {
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <Input
-                placeholder="Search by name or address..."
+                placeholder="Rechercher par nom ou adresse..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-10"
@@ -288,10 +288,10 @@ export default function LocationsPage() {
             </div>
             <Select value={locationType || 'all'} onValueChange={handleTypeChange}>
               <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="All Types" />
+                <SelectValue placeholder="Tous les types" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="all">Tous les types</SelectItem>
                 {LOCATION_TYPE_VALUES.map((type) => (
                   <SelectItem key={type} value={type}>
                     {LOCATION_TYPE_LABELS[type]}
@@ -301,18 +301,18 @@ export default function LocationsPage() {
             </Select>
             <Select value={activeFilter} onValueChange={handleActiveChange}>
               <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="Status" />
+                <SelectValue placeholder="Statut" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="active">Active Only</SelectItem>
-                <SelectItem value="inactive">Inactive Only</SelectItem>
+                <SelectItem value="all">Tous les statuts</SelectItem>
+                <SelectItem value="active">Actifs seulement</SelectItem>
+                <SelectItem value="inactive">Inactifs seulement</SelectItem>
               </SelectContent>
             </Select>
             {hasFilters && (
               <Button variant="ghost" onClick={handleClearFilters}>
                 <X className="h-4 w-4 mr-2" />
-                Clear
+                Effacer
               </Button>
             )}
           </div>
@@ -339,8 +339,8 @@ export default function LocationsPage() {
       {viewMode === 'list' && totalPages > 1 && !isLoading && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-slate-500">
-            Showing {(currentPage - 1) * PAGE_SIZE + 1} to{' '}
-            {Math.min(currentPage * PAGE_SIZE, totalCount)} of {totalCount} locations
+            Affichage {(currentPage - 1) * PAGE_SIZE + 1} à{' '}
+            {Math.min(currentPage * PAGE_SIZE, totalCount)} sur {totalCount} emplacements
           </p>
           <Pagination>
             <PaginationContent>
@@ -389,9 +389,9 @@ export default function LocationsPage() {
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Add New Location</DialogTitle>
+            <DialogTitle>Ajouter un nouvel emplacement</DialogTitle>
             <DialogDescription>
-              Create a new workplace location with a geofence boundary.
+              Créer un nouvel emplacement de travail avec une limite de géorepérage.
             </DialogDescription>
           </DialogHeader>
           <LocationForm
@@ -445,10 +445,10 @@ function LocationsTable({ locations, isLoading, onView }: LocationsTableProps) {
         <CardContent className="flex flex-col items-center justify-center py-12">
           <MapPin className="h-12 w-12 text-slate-300 mb-4" />
           <h3 className="text-lg font-medium text-slate-900 mb-1">
-            No locations found
+            Aucun emplacement trouvé
           </h3>
           <p className="text-sm text-slate-500">
-            Create your first location to get started.
+            Créez votre premier emplacement pour commencer.
           </p>
         </CardContent>
       </Card>
@@ -496,7 +496,7 @@ function LocationRow({ location, onClick }: LocationRowProps) {
           <h3 className="font-medium text-slate-900 truncate">{location.name}</h3>
           {!location.isActive && (
             <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-500 rounded">
-              Inactive
+              Inactif
             </span>
           )}
         </div>
@@ -516,9 +516,9 @@ function LocationRow({ location, onClick }: LocationRowProps) {
         </div>
       </div>
       <div className="text-right text-sm text-slate-400">
-        <div>{location.radiusMeters}m radius</div>
+        <div>{location.radiusMeters}m rayon</div>
         <div className="text-xs">
-          Updated {format(location.updatedAt, 'MMM d, yyyy')}
+          Modifié {format(location.updatedAt, 'MMM d, yyyy')}
         </div>
       </div>
     </div>

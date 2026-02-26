@@ -15,7 +15,7 @@ export function RetentionExpiredState({ retentionDays = 90 }: RetentionExpiredSt
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base font-medium">GPS Trail</CardTitle>
+        <CardTitle className="text-base font-medium">Tracé GPS</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="py-12 text-center">
@@ -23,16 +23,16 @@ export function RetentionExpiredState({ retentionDays = 90 }: RetentionExpiredSt
             <Calendar className="h-12 w-12 text-slate-300" />
             <Clock className="h-6 w-6 text-amber-500 absolute -bottom-1 -right-1 bg-white rounded-full" />
           </div>
-          <h3 className="text-lg font-medium text-slate-700">Data Retention Expired</h3>
+          <h3 className="text-lg font-medium text-slate-700">Période de rétention expirée</h3>
           <p className="text-sm text-slate-500 mt-1 max-w-sm mx-auto">
-            GPS data older than {retentionDays} days is automatically removed per our data
-            retention policy.
+            Les données GPS de plus de {retentionDays} jours sont automatiquement supprimées
+            selon notre politique de rétention des données.
           </p>
           <div className="mt-6 p-4 bg-amber-50 rounded-lg max-w-md mx-auto">
             <p className="text-xs text-amber-800">
-              <strong>Note:</strong> Shift summary information is still available, but
-              detailed GPS trail data has been removed to comply with data retention
-              requirements.
+              <strong>Note :</strong> Les informations sommaires du quart sont toujours disponibles,
+              mais les données détaillées du tracé GPS ont été supprimées pour respecter les
+              exigences de rétention des données.
             </p>
           </div>
         </div>

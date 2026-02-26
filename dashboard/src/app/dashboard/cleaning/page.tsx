@@ -79,16 +79,16 @@ export default function CleaningPage() {
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Cleaning</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Ménage</h1>
           <p className="text-sm text-slate-500">
-            {totalCount} session{totalCount !== 1 ? 's' : ''} total
+            {totalCount} session{totalCount !== 1 ? 's' : ''} au total
           </p>
         </div>
         <button
           onClick={() => refetch()}
           className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
         >
-          Refresh
+          Actualiser
         </button>
       </div>
 
@@ -101,20 +101,20 @@ export default function CleaningPage() {
       {/* Summary stats row */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         <_StatCard label="Total" value={summary.totalSessions} />
-        <_StatCard label="Completed" value={summary.completed} color="green" />
-        <_StatCard label="In Progress" value={summary.inProgress} color="blue" />
-        <_StatCard label="Auto-Closed" value={summary.autoClosed} color="orange" />
+        <_StatCard label="Terminées" value={summary.completed} color="green" />
+        <_StatCard label="En cours" value={summary.inProgress} color="blue" />
+        <_StatCard label="Fermées auto" value={summary.autoClosed} color="orange" />
         <_StatCard
-          label="Avg Duration"
+          label="Durée moy."
           value={formatDuration(summary.avgDurationMinutes)}
         />
-        <_StatCard label="Flagged" value={summary.flaggedCount} color="red" />
+        <_StatCard label="Signalées" value={summary.flaggedCount} color="red" />
       </div>
 
       {/* Building stats */}
       <div>
         <h2 className="mb-3 text-lg font-semibold text-slate-900">
-          By Building
+          Par immeuble
         </h2>
         <BuildingStatsCards
           stats={buildingStats}
@@ -124,14 +124,14 @@ export default function CleaningPage() {
         {buildingCompletionSummary && (
           <div className="mt-3 flex flex-wrap items-center gap-4 rounded-lg bg-slate-50 px-4 py-2.5 text-sm">
             <span className="text-slate-500">
-              Overall:{' '}
+              Global :{' '}
               <span className="font-semibold text-slate-900">
                 {buildingCompletionSummary.totalCleaned}/{buildingCompletionSummary.totalStudios}
               </span>{' '}
               studios ({buildingCompletionSummary.completionPct}%)
             </span>
             <span className="text-slate-500">
-              Buildings complete:{' '}
+              Immeubles terminés :{' '}
               <span className="font-semibold text-green-600">
                 {buildingCompletionSummary.fullyComplete}/{buildingCompletionSummary.totalBuildings}
               </span>
@@ -143,7 +143,7 @@ export default function CleaningPage() {
       {/* Employee performance analytics */}
       <div>
         <h2 className="mb-3 text-lg font-semibold text-slate-900">
-          Employee Performance
+          Performance des employés
         </h2>
         <EmployeePerformanceCards
           sessions={sessions}

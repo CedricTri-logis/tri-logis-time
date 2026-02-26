@@ -44,7 +44,7 @@ export function ExportDialog({
   trail,
   trailsByShift,
   metadata,
-  buttonLabel = 'Export',
+  buttonLabel = 'Exporter',
   buttonVariant = 'outline',
 }: ExportDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -106,17 +106,17 @@ export function ExportDialog({
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Export GPS Data</DialogTitle>
+          <DialogTitle>Exporter les données GPS</DialogTitle>
           <DialogDescription>
-            Download GPS trail data in your preferred format.
-            {isMultiShift && ` Includes ${trailsByShift?.size} shifts.`}
+            Télécharger les données de tracé GPS dans votre format préféré.
+            {isMultiShift && ` Inclut ${trailsByShift?.size} quarts.`}
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
           {/* Format selection */}
           <div className="space-y-3">
-            <Label>Select Format</Label>
+            <Label>Sélectionner le format</Label>
 
             <div className="grid grid-cols-2 gap-3">
               {/* CSV option */}
@@ -141,7 +141,7 @@ export function ExportDialog({
                 >
                   CSV
                 </span>
-                <span className="text-xs text-slate-500">Spreadsheet</span>
+                <span className="text-xs text-slate-500">Tableur</span>
               </button>
 
               {/* GeoJSON option */}
@@ -166,7 +166,7 @@ export function ExportDialog({
                 >
                   GeoJSON
                 </span>
-                <span className="text-xs text-slate-500">Geographic</span>
+                <span className="text-xs text-slate-500">Géographique</span>
               </button>
             </div>
           </div>
@@ -174,11 +174,11 @@ export function ExportDialog({
           {/* Export summary */}
           <div className="text-sm text-slate-500 bg-slate-50 rounded-lg p-3">
             <p>
-              <strong>{pointCount.toLocaleString()}</strong> GPS points will be exported
+              <strong>{pointCount.toLocaleString()}</strong> points GPS seront exportés
             </p>
             {showProgress && (
               <p className="text-xs mt-1 text-amber-600">
-                Large export - this may take a moment
+                Export volumineux - cela peut prendre un moment
               </p>
             )}
           </div>
@@ -193,7 +193,7 @@ export function ExportDialog({
                 />
               </div>
               <p className="text-xs text-center text-slate-500">
-                Exporting... {Math.round(progress)}%
+                Exportation... {Math.round(progress)}%
               </p>
             </div>
           )}
@@ -201,18 +201,18 @@ export function ExportDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => setIsOpen(false)} disabled={isExporting}>
-            Cancel
+            Annuler
           </Button>
           <Button onClick={handleExport} disabled={isExporting}>
             {isExporting ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Exporting...
+                Exportation...
               </>
             ) : (
               <>
                 <Download className="h-4 w-4 mr-2" />
-                Download {selectedFormat.toUpperCase()}
+                Télécharger {selectedFormat.toUpperCase()}
               </>
             )}
           </Button>

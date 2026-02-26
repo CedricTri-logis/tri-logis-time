@@ -31,7 +31,7 @@ type SortDirection = 'asc' | 'desc';
  */
 export function GpsTrailTable({
   trail,
-  title = 'GPS Trail Data',
+  title = 'Données du tracé GPS',
   showRetryButton = false,
   onRetry,
 }: GpsTrailTableProps) {
@@ -90,7 +90,7 @@ export function GpsTrailTable({
         <CardContent>
           <div className="py-8 text-center text-slate-500">
             <MapPinOff className="h-10 w-10 mx-auto mb-3 text-slate-300" />
-            <p className="font-medium">No GPS data available</p>
+            <p className="font-medium">Aucune donnée GPS disponible</p>
           </div>
         </CardContent>
       </Card>
@@ -108,7 +108,7 @@ export function GpsTrailTable({
             </span>
             {showRetryButton && onRetry && (
               <Button variant="outline" size="sm" onClick={onRetry}>
-                Retry Map
+                Réessayer la carte
               </Button>
             )}
           </div>
@@ -123,7 +123,7 @@ export function GpsTrailTable({
                   className="cursor-pointer select-none"
                   onClick={() => handleSort('time')}
                 >
-                  Time
+                  Heure
                   <SortIcon field="time" />
                 </TableHead>
                 <TableHead
@@ -144,7 +144,7 @@ export function GpsTrailTable({
                   className="cursor-pointer select-none"
                   onClick={() => handleSort('accuracy')}
                 >
-                  Accuracy
+                  Précision
                   <SortIcon field="accuracy" />
                 </TableHead>
               </TableRow>

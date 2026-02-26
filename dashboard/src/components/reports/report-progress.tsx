@@ -35,38 +35,38 @@ const STATE_CONFIG: Record<
 > = {
   idle: {
     icon: FileText,
-    title: 'Ready',
-    description: 'Configure your report options and click generate',
+    title: 'Prêt',
+    description: 'Configurez vos options de rapport et cliquez sur générer',
     color: 'text-slate-400',
   },
   counting: {
     icon: Clock,
-    title: 'Counting Records',
-    description: 'Checking how many records will be included...',
+    title: 'Comptage des enregistrements',
+    description: 'Vérification du nombre d\'enregistrements à inclure...',
     color: 'text-blue-500',
   },
   generating: {
     icon: Loader2,
-    title: 'Generating Report',
-    description: 'Processing data and creating your report...',
+    title: 'Génération du rapport',
+    description: 'Traitement des données et création de votre rapport...',
     color: 'text-blue-500',
   },
   polling: {
     icon: Loader2,
-    title: 'Processing...',
-    description: 'Large report in progress. This may take a few minutes.',
+    title: 'Traitement en cours...',
+    description: 'Rapport volumineux en cours de traitement. Cela peut prendre quelques minutes.',
     color: 'text-amber-500',
   },
   completed: {
     icon: CheckCircle,
-    title: 'Report Ready',
-    description: 'Your report has been generated successfully',
+    title: 'Rapport prêt',
+    description: 'Votre rapport a été généré avec succès',
     color: 'text-green-500',
   },
   failed: {
     icon: XCircle,
-    title: 'Generation Failed',
-    description: 'There was an error generating your report',
+    title: 'Échec de la génération',
+    description: 'Une erreur est survenue lors de la génération de votre rapport',
     color: 'text-red-500',
   },
 };
@@ -120,8 +120,8 @@ export function ReportProgress({
           <div className="space-y-2">
             <Progress value={animatedProgress} className="h-2" />
             <div className="flex justify-between text-xs text-slate-500">
-              <span>{Math.round(animatedProgress)}% complete</span>
-              {recordCount && <span>{recordCount.toLocaleString()} records</span>}
+              <span>{Math.round(animatedProgress)}% complété</span>
+              {recordCount && <span>{recordCount.toLocaleString()} enregistrements</span>}
             </div>
           </div>
         )}
@@ -129,23 +129,23 @@ export function ReportProgress({
         {/* Async indicator */}
         {isAsync && state === 'polling' && (
           <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
-            <strong>Large Report:</strong> This report is being processed in the background.
-            You can close this page and return later - the report will be available in your
-            report history.
+            <strong>Rapport volumineux :</strong> Ce rapport est en cours de traitement en arrière-plan.
+            Vous pouvez fermer cette page et revenir plus tard - le rapport sera disponible dans votre
+            historique des rapports.
           </div>
         )}
 
         {/* Estimated time for async */}
         {isAsync && isProcessing && recordCount && (
           <div className="text-sm text-slate-500">
-            Estimated time: ~{Math.max(1, Math.ceil(recordCount / 500))} minutes
+            Temps estimé : ~{Math.max(1, Math.ceil(recordCount / 500))} minutes
           </div>
         )}
 
         {/* Error message */}
         {state === 'failed' && error && (
           <div className="rounded-lg bg-red-50 p-3 text-sm text-red-800">
-            <strong>Error:</strong> {error}
+            <strong>Erreur :</strong> {error}
           </div>
         )}
 
@@ -153,12 +153,12 @@ export function ReportProgress({
         <div className="flex gap-2">
           {isProcessing && onCancel && (
             <Button variant="outline" onClick={onCancel}>
-              Cancel
+              Annuler
             </Button>
           )}
           {state === 'failed' && onRetry && (
             <Button onClick={onRetry}>
-              Try Again
+              Réessayer
             </Button>
           )}
         </div>

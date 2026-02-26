@@ -54,17 +54,17 @@ export class MapErrorBoundary extends Component<
       return (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base font-medium">GPS Trail</CardTitle>
+            <CardTitle className="text-base font-medium">Tracé GPS</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="py-12 text-center">
               <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-amber-500" />
               <h3 className="text-lg font-medium text-slate-700">
-                Map Failed to Load
+                Échec du chargement de la carte
               </h3>
               <p className="text-sm text-slate-500 mt-1 max-w-sm mx-auto">
-                There was an error rendering the map component. This may be due
-                to a browser compatibility issue or network problem.
+                Une erreur est survenue lors du rendu de la carte. Cela peut être dû
+                à un problème de compatibilité du navigateur ou de réseau.
               </p>
               <div className="mt-6 space-y-3">
                 <Button
@@ -73,7 +73,7 @@ export class MapErrorBoundary extends Component<
                   className="gap-2"
                 >
                   <RefreshCw className="h-4 w-4" />
-                  Try Again
+                  Réessayer
                 </Button>
                 {this.state.error && (
                   <p className="text-xs text-slate-400 max-w-md mx-auto font-mono">

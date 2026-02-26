@@ -82,10 +82,10 @@ export function GoogleGpsTrailMap({
             </div>
             <div>
               <CardTitle className="text-sm font-semibold text-slate-900">
-                Premium GPS Tracking
+                Suivi GPS Premium
               </CardTitle>
               <p className="text-[10px] text-slate-500 font-medium">
-                {filteredPoints.length} optimized nodes • {stationaryZones.length} stops detected
+                {filteredPoints.length} points optimisés • {stationaryZones.length} arrêts détectés
               </p>
             </div>
           </div>
@@ -202,7 +202,7 @@ export function GoogleGpsTrailMap({
                 >
                   <div className="bg-slate-800/80 backdrop-blur-sm text-[10px] text-white px-2 py-0.5 rounded-full border border-white/20 shadow-md flex items-center gap-1">
                     <Square className="h-2 w-2 fill-current" />
-                    Stop {formatDuration(zone.duration)}
+                    Arrêt {formatDuration(zone.duration)}
                   </div>
                 </AdvancedMarker>
               ))}
@@ -221,7 +221,7 @@ export function GoogleGpsTrailMap({
              </div>
              <div className="flex items-center gap-2">
                 <span className="h-2 w-2 rounded-full bg-blue-600" />
-                Live
+                En direct
              </div>
              <div className="flex items-center gap-2">
                 <div className="h-0.5 w-4 bg-blue-400 rounded-full" />

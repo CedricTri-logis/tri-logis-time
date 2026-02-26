@@ -87,17 +87,17 @@ export function CreateEmployeeDialog({ isOpen, onClose, onCreated }: CreateEmplo
 
       const result = await res.json();
       if (!result.success) {
-        toast.error(result.error || 'Failed to create employee');
+        toast.error(result.error || 'Échec de la création de l\'employé');
         return;
       }
 
-      toast.success('Invitation sent! The employee will receive an email to set up their account.');
+      toast.success('Invitation envoyée ! L\'employé recevra un courriel pour configurer son compte.');
       form.reset();
       onCreated();
       onClose();
     } catch (err) {
       console.error('Create employee error:', err);
-      toast.error('Failed to create employee');
+      toast.error('Échec de la création de l\'employé');
     } finally {
       setIsSubmitting(false);
     }
@@ -107,9 +107,9 @@ export function CreateEmployeeDialog({ isOpen, onClose, onCreated }: CreateEmplo
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Add Employee</DialogTitle>
+          <DialogTitle>Ajouter un employé</DialogTitle>
           <DialogDescription>
-            Send an invitation email. The employee will create their password when they click the link.
+            Envoyer un courriel d&apos;invitation. L&apos;employé créera son mot de passe en cliquant sur le lien.
           </DialogDescription>
         </DialogHeader>
 
@@ -120,12 +120,12 @@ export function CreateEmployeeDialog({ isOpen, onClose, onCreated }: CreateEmplo
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email *</FormLabel>
+                  <FormLabel>Courriel *</FormLabel>
                   <FormControl>
-                    <Input type="email" placeholder="employee@example.com" {...field} />
+                    <Input type="email" placeholder="employe@exemple.com" {...field} />
                   </FormControl>
                   <FormDescription>
-                    An invitation will be sent to this address.
+                    Une invitation sera envoyée à cette adresse.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -137,9 +137,9 @@ export function CreateEmployeeDialog({ isOpen, onClose, onCreated }: CreateEmplo
               name="full_name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Full Name</FormLabel>
+                  <FormLabel>Nom complet</FormLabel>
                   <FormControl>
-                    <Input placeholder="John Doe" {...field} />
+                    <Input placeholder="Jean Dupont" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -151,7 +151,7 @@ export function CreateEmployeeDialog({ isOpen, onClose, onCreated }: CreateEmplo
               name="role"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Role</FormLabel>
+                  <FormLabel>Rôle</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
@@ -159,8 +159,8 @@ export function CreateEmployeeDialog({ isOpen, onClose, onCreated }: CreateEmplo
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="employee">Employee</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
+                      <SelectItem value="employee">Employé</SelectItem>
+                      <SelectItem value="manager">Gestionnaire</SelectItem>
                       <SelectItem value="admin">Admin</SelectItem>
                     </SelectContent>
                   </Select>
@@ -174,11 +174,11 @@ export function CreateEmployeeDialog({ isOpen, onClose, onCreated }: CreateEmplo
               name="supervisor_id"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Supervisor</FormLabel>
+                  <FormLabel>Superviseur</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value ?? ''}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="None" />
+                        <SelectValue placeholder="Aucun" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -196,10 +196,10 @@ export function CreateEmployeeDialog({ isOpen, onClose, onCreated }: CreateEmplo
 
             <div className="flex justify-end gap-2 pt-4">
               <Button type="button" variant="outline" onClick={onClose}>
-                Cancel
+                Annuler
               </Button>
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Sending...' : 'Send Invitation'}
+                {isSubmitting ? 'Envoi...' : 'Envoyer l\'invitation'}
               </Button>
             </div>
           </form>

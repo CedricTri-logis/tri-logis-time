@@ -32,7 +32,7 @@ export function EmployeeTable({ data, isLoading }: EmployeeTableProps) {
     () => [
       {
         accessorKey: 'full_name',
-        header: 'Name',
+        header: 'Nom',
         cell: ({ row }) => {
           const name = row.original.full_name || row.original.email;
           const email = row.original.email;
@@ -48,7 +48,7 @@ export function EmployeeTable({ data, isLoading }: EmployeeTableProps) {
       },
       {
         accessorKey: 'employee_id',
-        header: 'Employee ID',
+        header: 'ID employé',
         cell: ({ row }) => (
           <span className="text-slate-600">
             {row.original.employee_id || '—'}
@@ -57,22 +57,22 @@ export function EmployeeTable({ data, isLoading }: EmployeeTableProps) {
       },
       {
         accessorKey: 'role',
-        header: 'Role',
+        header: 'Rôle',
         cell: ({ row }) => <RoleBadge role={row.original.role} />,
       },
       {
         accessorKey: 'status',
-        header: 'Status',
+        header: 'Statut',
         cell: ({ row }) => <StatusBadge status={row.original.status} />,
       },
       {
         accessorKey: 'current_supervisor_name',
-        header: 'Supervisor',
+        header: 'Superviseur',
         cell: ({ row }) => {
           const supervisorName = row.original.current_supervisor_name;
           const supervisorEmail = row.original.current_supervisor_email;
           if (!supervisorName && !supervisorEmail) {
-            return <span className="text-slate-400">Unassigned</span>;
+            return <span className="text-slate-400">Non assigné</span>;
           }
           return (
             <span className="text-slate-600">
@@ -88,7 +88,7 @@ export function EmployeeTable({ data, isLoading }: EmployeeTableProps) {
           <div className="flex justify-end">
             <Button variant="ghost" size="sm" asChild>
               <Link href={`/dashboard/employees/${row.original.id}`}>
-                View
+                Voir
                 <ChevronRight className="ml-1 h-4 w-4" />
               </Link>
             </Button>
@@ -146,7 +146,7 @@ export function EmployeeTable({ data, isLoading }: EmployeeTableProps) {
           ) : (
             <TableRow>
               <TableCell colSpan={columns.length} className="h-24 text-center">
-                No employees found.
+                Aucun employé trouvé.
               </TableCell>
             </TableRow>
           )}
@@ -162,11 +162,11 @@ function EmployeeTableSkeleton() {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead>Employee ID</TableHead>
-            <TableHead>Role</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Supervisor</TableHead>
+            <TableHead>Nom</TableHead>
+            <TableHead>ID employé</TableHead>
+            <TableHead>Rôle</TableHead>
+            <TableHead>Statut</TableHead>
+            <TableHead>Superviseur</TableHead>
             <TableHead></TableHead>
           </TableRow>
         </TableHeader>

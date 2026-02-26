@@ -88,9 +88,9 @@ export default function MonitoringPage() {
       {/* Page header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Team Monitoring</h2>
+          <h2 className="text-2xl font-bold text-slate-900">Surveillance de l&apos;équipe</h2>
           <p className="text-sm text-slate-500">
-            Real-time view of your supervised team members and their shift status
+            Vue en temps réel de vos employés supervisés et de leur statut de quart
           </p>
         </div>
 
@@ -104,7 +104,7 @@ export default function MonitoringPage() {
             className="gap-2"
           >
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            {isRefreshing ? 'Refreshing...' : 'Refresh'}
+            {isRefreshing ? 'Actualisation...' : 'Actualiser'}
           </Button>
         </div>
       </div>
@@ -115,7 +115,7 @@ export default function MonitoringPage() {
           <CardContent className="flex items-center gap-3 py-3">
             <AlertCircle className="h-5 w-5 text-red-600" />
             <div className="text-sm text-red-700">
-              <strong>Error loading team data:</strong> {error.message}
+              <strong>Erreur de chargement des données :</strong> {error.message}
             </div>
             <Button
               variant="outline"
@@ -123,7 +123,7 @@ export default function MonitoringPage() {
               onClick={handleRefresh}
               className="ml-auto"
             >
-              Retry
+              Réessayer
             </Button>
           </CardContent>
         </Card>
@@ -132,23 +132,23 @@ export default function MonitoringPage() {
       {/* Summary stats */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
         <StatCard
-          label="Total Team"
+          label="Total équipe"
           value={totalCount}
           isLoading={isLoading}
         />
         <StatCard
-          label="On Shift"
+          label="En quart"
           value={onShiftCount}
           isLoading={isLoading}
           highlight="green"
         />
         <StatCard
-          label="Off Shift"
+          label="Hors quart"
           value={offShiftCount}
           isLoading={isLoading}
         />
         <StatCard
-          label="Never Installed"
+          label="Jamais installé"
           value={neverInstalledCount}
           isLoading={isLoading}
           highlight="orange"
@@ -254,12 +254,12 @@ function LastUpdatedCard({ lastUpdated, isLoading }: LastUpdatedCardProps) {
     );
   }
 
-  const timeAgo = lastUpdated ? formatTimeAgo(lastUpdated) : 'Never';
+  const timeAgo = lastUpdated ? formatTimeAgo(lastUpdated) : 'Jamais';
 
   return (
     <Card>
       <CardContent className="py-4">
-        <p className="text-xs text-slate-500 uppercase tracking-wide">Last Updated</p>
+        <p className="text-xs text-slate-500 uppercase tracking-wide">Dernière mise à jour</p>
         <p className="text-lg font-medium text-slate-700">{timeAgo}</p>
       </CardContent>
     </Card>
@@ -272,10 +272,10 @@ interface ConnectionStatusIndicatorProps {
 
 function ConnectionStatusIndicator({ status }: ConnectionStatusIndicatorProps) {
   const config: Record<ConnectionStatus, { icon: typeof Wifi; color: string; text: string }> = {
-    connected: { icon: Wifi, color: 'text-green-600', text: 'Live' },
-    connecting: { icon: Wifi, color: 'text-yellow-600', text: 'Connecting...' },
-    disconnected: { icon: WifiOff, color: 'text-slate-400', text: 'Offline' },
-    error: { icon: WifiOff, color: 'text-red-600', text: 'Error' },
+    connected: { icon: Wifi, color: 'text-green-600', text: 'En direct' },
+    connecting: { icon: Wifi, color: 'text-yellow-600', text: 'Connexion...' },
+    disconnected: { icon: WifiOff, color: 'text-slate-400', text: 'Hors ligne' },
+    error: { icon: WifiOff, color: 'text-red-600', text: 'Erreur' },
   };
 
   const { icon: Icon, color, text } = config[status];
@@ -301,12 +301,12 @@ function MapSkeleton() {
 function formatTimeAgo(date: Date): string {
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
 
-  if (seconds < 5) return 'Just now';
-  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 5) return 'À l\'instant';
+  if (seconds < 60) return `il y a ${seconds}s`;
 
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) return `il y a ${minutes}min`;
 
   const hours = Math.floor(minutes / 60);
-  return `${hours}h ago`;
+  return `il y a ${hours}h`;
 }

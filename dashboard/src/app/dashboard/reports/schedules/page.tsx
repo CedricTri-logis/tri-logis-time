@@ -55,9 +55,9 @@ import type { ReportSchedule, FREQUENCY_INFO, REPORT_TYPE_INFO } from '@/types/r
 function getStatusBadge(status: string) {
   switch (status) {
     case 'active':
-      return <Badge className="bg-green-100 text-green-800">Active</Badge>;
+      return <Badge className="bg-green-100 text-green-800">Actif</Badge>;
     case 'paused':
-      return <Badge className="bg-yellow-100 text-yellow-800">Paused</Badge>;
+      return <Badge className="bg-yellow-100 text-yellow-800">En pause</Badge>;
     default:
       return <Badge variant="secondary">{status}</Badge>;
   }
@@ -85,35 +85,21 @@ function formatFrequency(schedule: ReportSchedule): string {
 
   if (frequency === 'monthly') {
     const day = schedule_config.day_of_month || 1;
-    return `Monthly on the ${day}${getOrdinalSuffix(day)}`;
+    return `Mensuel le ${day}`;
   }
 
   if (frequency === 'bi_weekly') {
     const dayName = getDayName(schedule_config.day_of_week || 0);
-    return `Every other ${dayName}`;
+    return `Aux deux ${dayName}s`;
   }
 
   const dayName = getDayName(schedule_config.day_of_week || 0);
-  return `Every ${dayName}`;
-}
-
-function getOrdinalSuffix(n: number): string {
-  if (n >= 11 && n <= 13) return 'th';
-  switch (n % 10) {
-    case 1:
-      return 'st';
-    case 2:
-      return 'nd';
-    case 3:
-      return 'rd';
-    default:
-      return 'th';
-  }
+  return `Chaque ${dayName}`;
 }
 
 function getDayName(day: number): string {
-  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  return days[day] || 'Day';
+  const days = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+  return days[day] || 'jour';
 }
 
 /**
@@ -122,11 +108,11 @@ function getDayName(day: number): string {
 function formatReportType(type: string): string {
   switch (type) {
     case 'timesheet':
-      return 'Timesheet';
+      return 'Feuille de temps';
     case 'activity_summary':
-      return 'Activity Summary';
+      return 'Résumé d\'activité';
     case 'attendance':
-      return 'Attendance';
+      return 'Présence';
     default:
       return type;
   }
@@ -188,10 +174,10 @@ export default function ReportSchedulesPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
             <Calendar className="h-6 w-6" />
-            Scheduled Reports
+            Rapports programmés
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            Automate recurring report generation
+            Automatisez la génération de rapports récurrents
           </p>
         </div>
 
@@ -199,14 +185,14 @@ export default function ReportSchedulesPage() {
           <DialogTrigger asChild>
             <Button>
               <Plus className="mr-2 h-4 w-4" />
-              New Schedule
+              Nouvelle programmation
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Create Report Schedule</DialogTitle>
+              <DialogTitle>Créer une programmation de rapport</DialogTitle>
               <DialogDescription>
-                Set up automatic report generation on a recurring schedule.
+                Configurez la génération automatique de rapports sur une base récurrente.
               </DialogDescription>
             </DialogHeader>
             <ScheduleForm onSubmit={handleCreate} isLoading={isCreating} mode="create" />
@@ -218,7 +204,7 @@ export default function ReportSchedulesPage() {
       {error && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
+          <AlertTitle>Erreur</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
@@ -237,13 +223,13 @@ export default function ReportSchedulesPage() {
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <Calendar className="h-12 w-12 text-slate-300 mb-4" />
-            <h3 className="text-lg font-medium text-slate-900 mb-1">No Schedules</h3>
+            <h3 className="text-lg font-medium text-slate-900 mb-1">Aucune programmation</h3>
             <p className="text-sm text-slate-500 max-w-sm mb-4">
-              Create a schedule to automatically generate reports on a recurring basis.
+              Créez une programmation pour générer automatiquement des rapports de manière récurrente.
             </p>
             <Button onClick={() => setIsCreateOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
-              Create Your First Schedule
+              Créer votre première programmation
             </Button>
           </CardContent>
         </Card>
@@ -266,33 +252,33 @@ export default function ReportSchedulesPage() {
 
                     <div className="flex flex-wrap gap-4 text-sm text-slate-600">
                       <div className="flex items-center gap-1">
-                        <span className="font-medium">Type:</span>
+                        <span className="font-medium">Type :</span>
                         {formatReportType(schedule.report_type)}
                       </div>
                       <div className="flex items-center gap-1">
                         <Clock className="h-4 w-4" />
-                        {formatFrequency(schedule)} at {schedule.schedule_config.time}
+                        {formatFrequency(schedule)} à {schedule.schedule_config.time}
                       </div>
                     </div>
 
                     <div className="flex flex-wrap gap-4 text-sm text-slate-500">
                       <div>
-                        <span className="font-medium">Next run:</span>{' '}
+                        <span className="font-medium">Prochaine exécution :</span>{' '}
                         {schedule.next_run_at
                           ? format(new Date(schedule.next_run_at), 'MMM d, yyyy h:mm a')
-                          : 'Not scheduled'}
+                          : 'Non programmé'}
                       </div>
                       {schedule.last_run_at && (
                         <div className="flex items-center gap-1">
-                          <span className="font-medium">Last run:</span>
+                          <span className="font-medium">Dernière exécution :</span>
                           {format(new Date(schedule.last_run_at), 'MMM d, yyyy h:mm a')}
                           {getLastRunIcon(schedule.last_run_status)}
                         </div>
                       )}
                       <div>
-                        <span className="font-medium">Runs:</span> {schedule.run_count}
+                        <span className="font-medium">Exécutions :</span> {schedule.run_count}
                         {schedule.failure_count > 0 && (
-                          <span className="text-red-500"> ({schedule.failure_count} failed)</span>
+                          <span className="text-red-500"> ({schedule.failure_count} échouée{schedule.failure_count > 1 ? 's' : ''})</span>
                         )}
                       </div>
                     </div>
@@ -307,12 +293,12 @@ export default function ReportSchedulesPage() {
                       {schedule.status === 'active' ? (
                         <>
                           <Pause className="mr-1 h-4 w-4" />
-                          Pause
+                          Mettre en pause
                         </>
                       ) : (
                         <>
                           <Play className="mr-1 h-4 w-4" />
-                          Resume
+                          Reprendre
                         </>
                       )}
                     </Button>
@@ -325,19 +311,19 @@ export default function ReportSchedulesPage() {
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>Delete Schedule</AlertDialogTitle>
+                          <AlertDialogTitle>Supprimer la programmation</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Are you sure you want to delete &quot;{schedule.name}&quot;? This action
-                            cannot be undone.
+                            Êtes-vous sûr de vouloir supprimer &quot;{schedule.name}&quot; ? Cette action
+                            est irréversible.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogCancel>Annuler</AlertDialogCancel>
                           <AlertDialogAction
                             onClick={() => handleDelete(schedule.id)}
                             className="bg-red-600 hover:bg-red-700"
                           >
-                            Delete
+                            Supprimer
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
@@ -353,13 +339,13 @@ export default function ReportSchedulesPage() {
       {/* Help text */}
       <Alert>
         <Calendar className="h-4 w-4" />
-        <AlertTitle>About Scheduled Reports</AlertTitle>
+        <AlertTitle>À propos des rapports programmés</AlertTitle>
         <AlertDescription>
           <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
-            <li>Scheduled reports run automatically at the specified time</li>
-            <li>Reports cover the previous period (last week/month) based on frequency</li>
-            <li>Generated reports appear in your Report History</li>
-            <li>You&apos;ll receive a notification when scheduled reports are ready</li>
+            <li>Les rapports programmés s&apos;exécutent automatiquement à l&apos;heure spécifiée</li>
+            <li>Les rapports couvrent la période précédente (semaine/mois dernier) selon la fréquence</li>
+            <li>Les rapports générés apparaissent dans votre historique des rapports</li>
+            <li>Vous recevrez une notification lorsque les rapports programmés seront prêts</li>
           </ul>
         </AlertDescription>
       </Alert>

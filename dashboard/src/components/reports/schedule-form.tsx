@@ -41,13 +41,13 @@ import type {
 
 // Form validation schema
 const scheduleFormSchema = z.object({
-  name: z.string().min(3, 'Name must be at least 3 characters').max(100),
+  name: z.string().min(3, 'Le nom doit contenir au moins 3 caractères').max(100),
   report_type: z.enum(['timesheet', 'activity_summary', 'attendance']),
   frequency: z.enum(['weekly', 'bi_weekly', 'monthly']),
   day_of_week: z.number().min(0).max(6).optional(),
   day_of_month: z.number().min(1).max(28).optional(),
-  time: z.string().regex(/^\d{2}:\d{2}$/, 'Time must be in HH:MM format'),
-  timezone: z.string().min(1, 'Timezone is required'),
+  time: z.string().regex(/^\d{2}:\d{2}$/, 'L\'heure doit être au format HH:MM'),
+  timezone: z.string().min(1, 'Le fuseau horaire est requis'),
 });
 
 type ScheduleFormValues = z.infer<typeof scheduleFormSchema>;
@@ -67,43 +67,29 @@ interface ScheduleFormProps {
 
 // Day of week options
 const DAYS_OF_WEEK = [
-  { value: 0, label: 'Sunday' },
-  { value: 1, label: 'Monday' },
-  { value: 2, label: 'Tuesday' },
-  { value: 3, label: 'Wednesday' },
-  { value: 4, label: 'Thursday' },
-  { value: 5, label: 'Friday' },
-  { value: 6, label: 'Saturday' },
+  { value: 0, label: 'Dimanche' },
+  { value: 1, label: 'Lundi' },
+  { value: 2, label: 'Mardi' },
+  { value: 3, label: 'Mercredi' },
+  { value: 4, label: 'Jeudi' },
+  { value: 5, label: 'Vendredi' },
+  { value: 6, label: 'Samedi' },
 ];
 
 // Day of month options (1-28 to avoid month-end issues)
 const DAYS_OF_MONTH = Array.from({ length: 28 }, (_, i) => ({
   value: i + 1,
-  label: `${i + 1}${getOrdinalSuffix(i + 1)}`,
+  label: i === 0 ? '1er' : `${i + 1}`,
 }));
-
-function getOrdinalSuffix(n: number): string {
-  if (n >= 11 && n <= 13) return 'th';
-  switch (n % 10) {
-    case 1:
-      return 'st';
-    case 2:
-      return 'nd';
-    case 3:
-      return 'rd';
-    default:
-      return 'th';
-  }
-}
 
 // Common timezone options
 const TIMEZONES = [
-  { value: 'America/New_York', label: 'Eastern Time (ET)' },
-  { value: 'America/Chicago', label: 'Central Time (CT)' },
-  { value: 'America/Denver', label: 'Mountain Time (MT)' },
-  { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
-  { value: 'America/Anchorage', label: 'Alaska Time (AKT)' },
-  { value: 'Pacific/Honolulu', label: 'Hawaii Time (HT)' },
+  { value: 'America/New_York', label: 'Heure de l\'Est (HE)' },
+  { value: 'America/Chicago', label: 'Heure du Centre (HC)' },
+  { value: 'America/Denver', label: 'Heure des Rocheuses (HR)' },
+  { value: 'America/Los_Angeles', label: 'Heure du Pacifique (HP)' },
+  { value: 'America/Anchorage', label: 'Heure de l\'Alaska (HA)' },
+  { value: 'Pacific/Honolulu', label: 'Heure d\'Hawaï (HH)' },
   { value: 'UTC', label: 'UTC' },
   { value: 'Europe/London', label: 'London (GMT/BST)' },
   { value: 'Europe/Paris', label: 'Paris (CET/CEST)' },
@@ -113,16 +99,16 @@ const TIMEZONES = [
 
 // Report type options
 const REPORT_TYPES: { value: ReportType; label: string }[] = [
-  { value: 'timesheet', label: 'Timesheet Report' },
-  { value: 'activity_summary', label: 'Activity Summary' },
-  { value: 'attendance', label: 'Attendance Report' },
+  { value: 'timesheet', label: 'Rapport de feuille de temps' },
+  { value: 'activity_summary', label: 'Résumé d\'activité' },
+  { value: 'attendance', label: 'Rapport de présence' },
 ];
 
 // Frequency options
 const FREQUENCIES: { value: ScheduleFrequency; label: string; description: string }[] = [
-  { value: 'weekly', label: 'Weekly', description: 'Every week on the selected day' },
-  { value: 'bi_weekly', label: 'Bi-weekly', description: 'Every two weeks' },
-  { value: 'monthly', label: 'Monthly', description: 'Once per month on the selected day' },
+  { value: 'weekly', label: 'Hebdomadaire', description: 'Chaque semaine le jour sélectionné' },
+  { value: 'bi_weekly', label: 'Bihebdomadaire', description: 'Toutes les deux semaines' },
+  { value: 'monthly', label: 'Mensuel', description: 'Une fois par mois le jour sélectionné' },
 ];
 
 export function ScheduleForm({
@@ -188,11 +174,11 @@ export function ScheduleForm({
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Schedule Name</FormLabel>
+              <FormLabel>Nom de la programmation</FormLabel>
               <FormControl>
-                <Input placeholder="Weekly Timesheet Report" {...field} />
+                <Input placeholder="Rapport hebdomadaire de feuille de temps" {...field} />
               </FormControl>
-              <FormDescription>A descriptive name for this schedule</FormDescription>
+              <FormDescription>Un nom descriptif pour cette programmation</FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -204,11 +190,11 @@ export function ScheduleForm({
           name="report_type"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Report Type</FormLabel>
+              <FormLabel>Type de rapport</FormLabel>
               <Select onValueChange={field.onChange} defaultValue={field.value}>
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select report type" />
+                    <SelectValue placeholder="Sélectionner le type de rapport" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
@@ -230,7 +216,7 @@ export function ScheduleForm({
           name="frequency"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Frequency</FormLabel>
+              <FormLabel>Fréquence</FormLabel>
               <Select
                 onValueChange={(value) => {
                   field.onChange(value);
@@ -240,7 +226,7 @@ export function ScheduleForm({
               >
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select frequency" />
+                    <SelectValue placeholder="Sélectionner la fréquence" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
@@ -268,7 +254,7 @@ export function ScheduleForm({
               <FormItem>
                 <FormLabel className="flex items-center gap-2">
                   <Calendar className="h-4 w-4" />
-                  Day of Month
+                  Jour du mois
                 </FormLabel>
                 <Select
                   onValueChange={(value) => field.onChange(parseInt(value, 10))}
@@ -276,7 +262,7 @@ export function ScheduleForm({
                 >
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select day" />
+                      <SelectValue placeholder="Sélectionner le jour" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
@@ -287,7 +273,7 @@ export function ScheduleForm({
                     ))}
                   </SelectContent>
                 </Select>
-                <FormDescription>Report will run on this day each month</FormDescription>
+                <FormDescription>Le rapport sera exécuté ce jour chaque mois</FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -300,7 +286,7 @@ export function ScheduleForm({
               <FormItem>
                 <FormLabel className="flex items-center gap-2">
                   <Calendar className="h-4 w-4" />
-                  Day of Week
+                  Jour de la semaine
                 </FormLabel>
                 <Select
                   onValueChange={(value) => field.onChange(parseInt(value, 10))}
@@ -308,7 +294,7 @@ export function ScheduleForm({
                 >
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select day" />
+                      <SelectValue placeholder="Sélectionner le jour" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
@@ -319,7 +305,7 @@ export function ScheduleForm({
                     ))}
                   </SelectContent>
                 </Select>
-                <FormDescription>Report will run on this day each week</FormDescription>
+                <FormDescription>Le rapport sera exécuté ce jour chaque semaine</FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -334,12 +320,12 @@ export function ScheduleForm({
             <FormItem>
               <FormLabel className="flex items-center gap-2">
                 <Clock className="h-4 w-4" />
-                Time
+                Heure
               </FormLabel>
               <FormControl>
                 <Input type="time" {...field} />
               </FormControl>
-              <FormDescription>Time of day to generate the report</FormDescription>
+              <FormDescription>Heure de la journée pour générer le rapport</FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -353,12 +339,12 @@ export function ScheduleForm({
             <FormItem>
               <FormLabel className="flex items-center gap-2">
                 <Globe className="h-4 w-4" />
-                Timezone
+                Fuseau horaire
               </FormLabel>
               <Select onValueChange={field.onChange} defaultValue={field.value}>
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select timezone" />
+                    <SelectValue placeholder="Sélectionner le fuseau horaire" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
@@ -378,11 +364,11 @@ export function ScheduleForm({
         <Button type="submit" className="w-full" disabled={isLoading}>
           {isLoading
             ? mode === 'create'
-              ? 'Creating Schedule...'
-              : 'Saving Changes...'
+              ? 'Création en cours...'
+              : 'Enregistrement...'
             : mode === 'create'
-              ? 'Create Schedule'
-              : 'Save Changes'}
+              ? 'Créer la programmation'
+              : 'Enregistrer les modifications'}
         </Button>
       </form>
     </Form>

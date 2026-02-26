@@ -32,11 +32,11 @@ import type { ActivitySummaryData } from '@/types/reports';
 
 // Date range preset options
 const DATE_PRESETS = [
-  { value: 'last_7_days', label: 'Last 7 Days' },
-  { value: 'last_30_days', label: 'Last 30 Days' },
-  { value: 'this_month', label: 'This Month' },
-  { value: 'last_month', label: 'Last Month' },
-  { value: 'custom', label: 'Custom Range' },
+  { value: 'last_7_days', label: '7 derniers jours' },
+  { value: 'last_30_days', label: '30 derniers jours' },
+  { value: 'this_month', label: 'Ce mois-ci' },
+  { value: 'last_month', label: 'Mois dernier' },
+  { value: 'custom', label: 'Plage personnalisée' },
 ] as const;
 
 type DatePreset = typeof DATE_PRESETS[number]['value'];
@@ -129,7 +129,7 @@ export default function TeamActivitySummaryPage() {
       const rows = (data || []) as ActivitySummaryData[];
       setSummaryData(rows);
     } catch (err) {
-      setDataError(err instanceof Error ? err.message : 'Failed to load data');
+      setDataError(err instanceof Error ? err.message : 'Échec du chargement des données');
       setSummaryData([]);
     } finally {
       setDataLoading(false);
@@ -188,10 +188,10 @@ export default function TeamActivitySummaryPage() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
           <BarChart3 className="h-6 w-6" />
-          Team Activity Summary
+          Résumé d&apos;activité de l&apos;équipe
         </h1>
         <p className="text-sm text-slate-500 mt-1">
-          Generate aggregate team metrics for planning and reporting
+          Générez des métriques agrégées d&apos;équipe pour la planification et les rapports
         </p>
       </div>
 
@@ -200,15 +200,15 @@ export default function TeamActivitySummaryPage() {
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Report Configuration</CardTitle>
+              <CardTitle>Configuration du rapport</CardTitle>
               <CardDescription>
-                Select the date range and export format
+                Sélectionnez la plage de dates et le format d&apos;export
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Date range preset */}
               <div className="space-y-2">
-                <Label>Date Range</Label>
+                <Label>Plage de dates</Label>
                 <Select value={datePreset} onValueChange={handlePresetChange}>
                   <SelectTrigger>
                     <SelectValue />
@@ -227,7 +227,7 @@ export default function TeamActivitySummaryPage() {
               {datePreset === 'custom' && (
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="start-date">Start Date</Label>
+                    <Label htmlFor="start-date">Date de début</Label>
                     <Input
                       id="start-date"
                       type="date"
@@ -237,7 +237,7 @@ export default function TeamActivitySummaryPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="end-date">End Date</Label>
+                    <Label htmlFor="end-date">Date de fin</Label>
                     <Input
                       id="end-date"
                       type="date"
@@ -252,7 +252,7 @@ export default function TeamActivitySummaryPage() {
 
               {/* Format selection */}
               <div className="space-y-2">
-                <Label>Export Format</Label>
+                <Label>Format d&apos;export</Label>
                 <Select
                   value={exportFormat}
                   onValueChange={(v) => setExportFormat(v as 'pdf' | 'csv')}
@@ -262,10 +262,10 @@ export default function TeamActivitySummaryPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="pdf">
-                      PDF - Formatted document with charts
+                      PDF - Document formaté avec graphiques
                     </SelectItem>
                     <SelectItem value="csv">
-                      CSV - Spreadsheet format for Excel/Sheets
+                      CSV - Format tableur pour Excel/Sheets
                     </SelectItem>
                   </SelectContent>
                 </Select>
@@ -280,7 +280,7 @@ export default function TeamActivitySummaryPage() {
                   className="flex-1"
                 >
                   <RefreshCw className={`mr-2 h-4 w-4 ${dataLoading ? 'animate-spin' : ''}`} />
-                  {dataLoading ? 'Loading...' : 'Load Data'}
+                  {dataLoading ? 'Chargement...' : 'Charger les données'}
                 </Button>
                 <Button
                   onClick={handleExport}
@@ -288,7 +288,7 @@ export default function TeamActivitySummaryPage() {
                   className="flex-1"
                 >
                   <Download className="mr-2 h-4 w-4" />
-                  Export {exportFormat.toUpperCase()}
+                  Exporter {exportFormat.toUpperCase()}
                 </Button>
               </div>
             </CardContent>
@@ -322,7 +322,7 @@ export default function TeamActivitySummaryPage() {
           {summaryData.length > 0 ? (
             <Card>
               <CardHeader>
-                <CardTitle>Activity Summary</CardTitle>
+                <CardTitle>Résumé d&apos;activité</CardTitle>
                 <CardDescription>
                   {getDateRange().start} to {getDateRange().end}
                 </CardDescription>
@@ -333,7 +333,7 @@ export default function TeamActivitySummaryPage() {
                   <div className="rounded-lg bg-blue-50 p-4">
                     <div className="flex items-center gap-2 text-blue-600 mb-1">
                       <Clock className="h-4 w-4" />
-                      <span className="text-sm font-medium">Total Hours</span>
+                      <span className="text-sm font-medium">Heures totales</span>
                     </div>
                     <p className="text-2xl font-bold text-blue-900">
                       {aggregateMetrics.totalHours.toFixed(1)}
@@ -342,7 +342,7 @@ export default function TeamActivitySummaryPage() {
                   <div className="rounded-lg bg-green-50 p-4">
                     <div className="flex items-center gap-2 text-green-600 mb-1">
                       <TrendingUp className="h-4 w-4" />
-                      <span className="text-sm font-medium">Total Shifts</span>
+                      <span className="text-sm font-medium">Quarts totaux</span>
                     </div>
                     <p className="text-2xl font-bold text-green-900">
                       {aggregateMetrics.totalShifts}
@@ -351,7 +351,7 @@ export default function TeamActivitySummaryPage() {
                   <div className="rounded-lg bg-purple-50 p-4">
                     <div className="flex items-center gap-2 text-purple-600 mb-1">
                       <Users className="h-4 w-4" />
-                      <span className="text-sm font-medium">Active Employees</span>
+                      <span className="text-sm font-medium">Employés actifs</span>
                     </div>
                     <p className="text-2xl font-bold text-purple-900">
                       {aggregateMetrics.employeesActive}
@@ -360,7 +360,7 @@ export default function TeamActivitySummaryPage() {
                   <div className="rounded-lg bg-orange-50 p-4">
                     <div className="flex items-center gap-2 text-orange-600 mb-1">
                       <BarChart3 className="h-4 w-4" />
-                      <span className="text-sm font-medium">Avg Hours/Employee</span>
+                      <span className="text-sm font-medium">Moy. heures/employé</span>
                     </div>
                     <p className="text-2xl font-bold text-orange-900">
                       {avgHoursPerEmployee}
@@ -372,12 +372,20 @@ export default function TeamActivitySummaryPage() {
                 {summaryData[0]?.hours_by_day && (
                   <div>
                     <h4 className="text-sm font-medium text-slate-700 mb-3">
-                      Hours by Day of Week
+                      Heures par jour de la semaine
                     </h4>
                     <div className="flex justify-between items-end gap-1 h-32">
-                      {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => {
+                      {[
+                        { key: 'Mon', label: 'Lun' },
+                        { key: 'Tue', label: 'Mar' },
+                        { key: 'Wed', label: 'Mer' },
+                        { key: 'Thu', label: 'Jeu' },
+                        { key: 'Fri', label: 'Ven' },
+                        { key: 'Sat', label: 'Sam' },
+                        { key: 'Sun', label: 'Dim' },
+                      ].map(({ key, label }) => {
                         const totalHours = summaryData.reduce(
-                          (sum, row) => sum + (row.hours_by_day?.[day] || 0),
+                          (sum, row) => sum + (row.hours_by_day?.[key] || 0),
                           0
                         );
                         const maxHours = Math.max(
@@ -393,7 +401,7 @@ export default function TeamActivitySummaryPage() {
 
                         return (
                           <div
-                            key={day}
+                            key={key}
                             className="flex flex-col items-center gap-1 flex-1"
                           >
                             <span className="text-xs text-slate-600">
@@ -403,7 +411,7 @@ export default function TeamActivitySummaryPage() {
                               className="w-full bg-blue-500 rounded-t transition-all"
                               style={{ height: `${Math.max(height, 4)}%` }}
                             />
-                            <span className="text-xs text-slate-500">{day}</span>
+                            <span className="text-xs text-slate-500">{label}</span>
                           </div>
                         );
                       })}
@@ -416,12 +424,12 @@ export default function TeamActivitySummaryPage() {
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <RefreshCw className="h-8 w-8 text-slate-400 animate-spin mb-4" />
-                <p className="text-slate-500">Loading activity data...</p>
+                <p className="text-slate-500">Chargement des données d&apos;activité...</p>
               </CardContent>
             </Card>
           ) : dataError ? (
             <Alert variant="destructive">
-              <AlertTitle>Error Loading Data</AlertTitle>
+              <AlertTitle>Erreur de chargement des données</AlertTitle>
               <AlertDescription>{dataError}</AlertDescription>
             </Alert>
           ) : (
@@ -429,11 +437,11 @@ export default function TeamActivitySummaryPage() {
               <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                 <BarChart3 className="h-12 w-12 text-slate-300 mb-4" />
                 <h3 className="text-lg font-medium text-slate-900 mb-1">
-                  No Data Loaded
+                  Aucune donnée chargée
                 </h3>
                 <p className="text-sm text-slate-500 max-w-sm">
-                  Select a date range and click &quot;Load Data&quot; to see team activity
-                  metrics.
+                  Sélectionnez une plage de dates et cliquez sur &quot;Charger les données&quot; pour voir les métriques
+                  d&apos;activité de l&apos;équipe.
                 </p>
               </CardContent>
             </Card>
@@ -444,13 +452,13 @@ export default function TeamActivitySummaryPage() {
       {/* Help text */}
       <Alert>
         <BarChart3 className="h-4 w-4" />
-        <AlertTitle>About Team Activity Summary</AlertTitle>
+        <AlertTitle>À propos du résumé d&apos;activité de l&apos;équipe</AlertTitle>
         <AlertDescription>
           <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
-            <li>Shows aggregate hours, shifts, and employee metrics</li>
-            <li>Day-of-week breakdown helps identify busy/slow days</li>
-            <li>PDF export includes formatted charts and summary tables</li>
-            <li>CSV export includes all data for custom analysis</li>
+            <li>Affiche les heures agrégées, les quarts et les métriques des employés</li>
+            <li>La répartition par jour de la semaine aide à identifier les jours chargés/calmes</li>
+            <li>L&apos;export PDF inclut des graphiques formatés et des tableaux récapitulatifs</li>
+            <li>L&apos;export CSV inclut toutes les données pour une analyse personnalisée</li>
           </ul>
         </AlertDescription>
       </Alert>

@@ -29,7 +29,7 @@ export function ShiftLegend({
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-base font-medium flex items-center justify-between">
-          <span>Shift Legend</span>
+          <span>Légende des quarts</span>
           {highlightedShiftId && onShiftHighlight && (
             <Button
               variant="ghost"
@@ -37,7 +37,7 @@ export function ShiftLegend({
               onClick={() => onShiftHighlight(null)}
             >
               <EyeOff className="h-4 w-4 mr-2" />
-              Clear Selection
+              Effacer la sélection
             </Button>
           )}
         </CardTitle>
@@ -98,13 +98,13 @@ export function ShiftLegend({
 
         {colorMappings.length === 0 && (
           <p className="text-sm text-slate-500 text-center py-4">
-            No shifts selected
+            Aucun quart sélectionné
           </p>
         )}
 
         {colorMappings.length > 0 && (
           <p className="text-xs text-slate-500 mt-4 text-center">
-            Click a shift to highlight it on the map
+            Cliquez sur un quart pour le mettre en surbrillance sur la carte
           </p>
         )}
       </CardContent>

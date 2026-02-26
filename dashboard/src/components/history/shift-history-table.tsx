@@ -77,13 +77,13 @@ export function ShiftHistoryTable({
       {/* Filters */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base font-medium">Filters</CardTitle>
+          <CardTitle className="text-base font-medium">Filtres</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-4">
             {/* Employee filter */}
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-700">Employee</label>
+              <label className="text-sm font-medium text-slate-700">Employé</label>
               <Select
                 value={selectedEmployeeId ?? 'all'}
                 onValueChange={(value) =>
@@ -91,13 +91,13 @@ export function ShiftHistoryTable({
                 }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select employee" />
+                  <SelectValue placeholder="Sélectionner un employé" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Employees</SelectItem>
+                  <SelectItem value="all">Tous les employés</SelectItem>
                   {employees.map((emp) => (
                     <SelectItem key={emp.id} value={emp.id}>
-                      {emp.fullName || emp.email || 'Unknown'}
+                      {emp.fullName || emp.email || 'Inconnu'}
                       {emp.employeeId && (
                         <span className="text-slate-400 ml-1">({emp.employeeId})</span>
                       )}
@@ -109,7 +109,7 @@ export function ShiftHistoryTable({
 
             {/* Start date */}
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-700">Start Date</label>
+              <label className="text-sm font-medium text-slate-700">Date de début</label>
               <Input
                 type="date"
                 value={startDate}
@@ -120,7 +120,7 @@ export function ShiftHistoryTable({
 
             {/* End date */}
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-700">End Date</label>
+              <label className="text-sm font-medium text-slate-700">Date de fin</label>
               <Input
                 type="date"
                 value={endDate}
@@ -132,11 +132,11 @@ export function ShiftHistoryTable({
 
             {/* Search */}
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-700">Search</label>
+              <label className="text-sm font-medium text-slate-700">Rechercher</label>
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
                 <Input
-                  placeholder="Search shifts..."
+                  placeholder="Rechercher des quarts..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="pl-8"
@@ -151,9 +151,9 @@ export function ShiftHistoryTable({
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base font-medium">Shift History</CardTitle>
+            <CardTitle className="text-base font-medium">Historique des quarts</CardTitle>
             <span className="text-sm text-slate-500">
-              {filteredShifts.length} shift{filteredShifts.length !== 1 ? 's' : ''}
+              {filteredShifts.length} quart{filteredShifts.length !== 1 ? 's' : ''}
             </span>
           </div>
         </CardHeader>
@@ -167,9 +167,9 @@ export function ShiftHistoryTable({
           ) : filteredShifts.length === 0 ? (
             <div className="p-8 text-center text-slate-500">
               <Navigation className="h-10 w-10 mx-auto mb-3 text-slate-300" />
-              <p className="font-medium">No shifts found</p>
+              <p className="font-medium">Aucun quart trouvé</p>
               <p className="text-sm mt-1">
-                Try adjusting your filters or date range.
+                Essayez d'ajuster vos filtres ou la plage de dates.
               </p>
             </div>
           ) : (
@@ -177,12 +177,12 @@ export function ShiftHistoryTable({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Employee</TableHead>
-                    <TableHead>Email</TableHead>
+                    <TableHead>Employé</TableHead>
+                    <TableHead>Courriel</TableHead>
                     <TableHead>Date</TableHead>
-                    <TableHead>Time</TableHead>
-                    <TableHead>Duration</TableHead>
-                    <TableHead>GPS Points</TableHead>
+                    <TableHead>Heure</TableHead>
+                    <TableHead>Durée</TableHead>
+                    <TableHead>Points GPS</TableHead>
                     <TableHead className="w-12"></TableHead>
                   </TableRow>
                 </TableHeader>

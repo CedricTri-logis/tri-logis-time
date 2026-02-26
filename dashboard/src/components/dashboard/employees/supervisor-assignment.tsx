@@ -50,7 +50,7 @@ export function SupervisorAssignment({
         setManagers(filteredManagers);
       } catch (err) {
         console.error('Failed to fetch managers:', err);
-        toast.error('Failed to load managers list');
+        toast.error('Échec du chargement de la liste des gestionnaires');
       } finally {
         setIsLoadingManagers(false);
       }
@@ -75,20 +75,20 @@ export function SupervisorAssignment({
 
       const response = result as AssignSupervisorResponse;
       if (!response.success) {
-        toast.error(response.error?.message || 'Failed to assign supervisor');
+        toast.error(response.error?.message || 'Échec de l\'assignation du superviseur');
         return;
       }
 
       toast.success(
         response.previous_assignment_ended
-          ? 'Supervisor reassigned successfully'
-          : 'Supervisor assigned successfully'
+          ? 'Superviseur réassigné avec succès'
+          : 'Superviseur assigné avec succès'
       );
       setSelectedManagerId('');
       onAssignmentChange();
     } catch (err) {
       console.error('Assignment error:', err);
-      toast.error('Failed to assign supervisor');
+      toast.error('Échec de l\'assignation du superviseur');
     } finally {
       setIsSubmitting(false);
     }
@@ -106,15 +106,15 @@ export function SupervisorAssignment({
 
       const response = result as RemoveSupervisorResponse;
       if (!response.success) {
-        toast.error(response.error?.message || 'Failed to remove supervisor');
+        toast.error(response.error?.message || 'Échec du retrait du superviseur');
         return;
       }
 
-      toast.success('Supervisor removed successfully');
+      toast.success('Superviseur retiré avec succès');
       onAssignmentChange();
     } catch (err) {
       console.error('Remove error:', err);
-      toast.error('Failed to remove supervisor');
+      toast.error('Échec du retrait du superviseur');
     } finally {
       setIsSubmitting(false);
     }
@@ -133,7 +133,7 @@ export function SupervisorAssignment({
     <div className="space-y-4">
       {/* Current Supervisor Display */}
       <div className="space-y-2">
-        <p className="text-sm font-medium">Current Supervisor</p>
+        <p className="text-sm font-medium">Superviseur actuel</p>
         {currentSupervisor ? (
           <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
             <div>
@@ -158,7 +158,7 @@ export function SupervisorAssignment({
           </div>
         ) : (
           <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-500">
-            No supervisor assigned
+            Aucun superviseur assigné
           </div>
         )}
       </div>
@@ -167,17 +167,17 @@ export function SupervisorAssignment({
       {!isDisabled && (
         <div className="space-y-2">
           <p className="text-sm font-medium">
-            {currentSupervisor ? 'Reassign Supervisor' : 'Assign Supervisor'}
+            {currentSupervisor ? 'Réassigner le superviseur' : 'Assigner un superviseur'}
           </p>
           <div className="flex gap-2">
             <Select value={selectedManagerId} onValueChange={setSelectedManagerId}>
               <SelectTrigger className="flex-1">
-                <SelectValue placeholder="Select a manager..." />
+                <SelectValue placeholder="Sélectionner un gestionnaire..." />
               </SelectTrigger>
               <SelectContent>
                 {managers.length === 0 ? (
                   <div className="px-2 py-1.5 text-sm text-slate-500">
-                    No managers available
+                    Aucun gestionnaire disponible
                   </div>
                 ) : (
                   managers.map((manager) => (
@@ -185,7 +185,7 @@ export function SupervisorAssignment({
                       <div className="flex flex-col">
                         <span>{manager.full_name || manager.email}</span>
                         <span className="text-xs text-slate-500">
-                          {manager.role} • {manager.supervised_count} supervised
+                          {manager.role} • {manager.supervised_count} supervisé(s)
                         </span>
                       </div>
                     </SelectItem>
@@ -197,7 +197,7 @@ export function SupervisorAssignment({
               onClick={handleAssign}
               disabled={!selectedManagerId || isSubmitting}
             >
-              {isSubmitting ? 'Assigning...' : 'Assign'}
+              {isSubmitting ? 'Assignation...' : 'Assigner'}
             </Button>
           </div>
         </div>
@@ -212,7 +212,7 @@ export function SupervisorAssignment({
             className="flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-slate-900"
           >
             <History className="h-4 w-4" />
-            Supervision History ({supervisionHistory.length})
+            Historique de supervision ({supervisionHistory.length})
             {showHistory ? (
               <ChevronUp className="h-4 w-4" />
             ) : (
@@ -237,7 +237,7 @@ export function SupervisorAssignment({
                     {new Date(entry.effective_from).toLocaleDateString()} –{' '}
                     {entry.effective_to
                       ? new Date(entry.effective_to).toLocaleDateString()
-                      : 'Present'}
+                      : 'Présent'}
                   </div>
                 </div>
               ))}

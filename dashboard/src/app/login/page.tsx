@@ -51,15 +51,15 @@ function LoginForm() {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">GPS Tracker Dashboard</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">Tableau de bord Tri-Logis Time</CardTitle>
           <CardDescription className="text-center">
-            Sign in with your admin account to access the dashboard
+            Connectez-vous avec votre compte administrateur pour accéder au tableau de bord
           </CardDescription>
         </CardHeader>
         <CardContent>
           {error === 'unauthorized' && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-600">
-              Access denied. Only administrators can access the dashboard.
+              Accès refusé. Seuls les administrateurs peuvent accéder au tableau de bord.
             </div>
           )}
           <button
@@ -88,7 +88,7 @@ function LoginForm() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <label htmlFor="email" className="text-sm font-medium text-slate-700">
-                Email
+                Courriel
               </label>
               <input
                 id="email"
@@ -97,14 +97,14 @@ function LoginForm() {
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@company.com"
+                placeholder="admin@entreprise.com"
                 required
                 className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
               />
             </div>
             <div className="space-y-2">
               <label htmlFor="password" className="text-sm font-medium text-slate-700">
-                Password
+                Mot de passe
               </label>
               <input
                 id="password"
@@ -113,7 +113,7 @@ function LoginForm() {
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
+                placeholder="Entrez votre mot de passe"
                 required
                 className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
               />
@@ -128,14 +128,14 @@ function LoginForm() {
               className="w-full"
               disabled={isSubmitting}
             >
-              {isSubmitting ? 'Signing in...' : 'Sign In'}
+              {isSubmitting ? 'Connexion en cours...' : 'Connexion'}
             </Button>
             <div className="text-center">
               <Link
                 href="/forgot-password"
                 className="text-sm text-slate-500 hover:text-slate-700 underline-offset-4 hover:underline"
               >
-                Forgot your password?
+                Mot de passe oublié ?
               </Link>
             </div>
           </form>
@@ -147,7 +147,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Chargement...</div>}>
       <LoginForm />
     </Suspense>
   );

@@ -56,7 +56,7 @@ export function TimelineBar({
     return (
       <Card className={className}>
         <CardContent className="flex items-center justify-center py-8">
-          <p className="text-sm text-slate-500">No timeline data available</p>
+          <p className="text-sm text-slate-500">Aucune donnée de chronologie disponible</p>
         </CardContent>
       </Card>
     );
@@ -66,9 +66,9 @@ export function TimelineBar({
     <Card className={className}>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base font-medium">Shift Timeline</CardTitle>
+          <CardTitle className="text-base font-medium">Chronologie du quart</CardTitle>
           <span className="text-sm text-slate-500">
-            Total: {formatDuration(totalDuration)}
+            Total : {formatDuration(totalDuration)}
           </span>
         </div>
       </CardHeader>

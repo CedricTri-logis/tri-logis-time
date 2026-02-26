@@ -23,12 +23,12 @@ export function ActivityFeed({ data, isLoading }: ActivityFeedProps) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base font-semibold">Active Employees</CardTitle>
+          <CardTitle className="text-base font-semibold">Employ&eacute;s actifs</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <User className="h-12 w-12 text-slate-300 mb-4" />
-            <p className="text-sm text-slate-500">No employees currently clocked in</p>
+            <p className="text-sm text-slate-500">Aucun employ&eacute; point&eacute; actuellement</p>
           </div>
         </CardContent>
       </Card>
@@ -39,9 +39,9 @@ export function ActivityFeed({ data, isLoading }: ActivityFeedProps) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between text-base font-semibold">
-          Active Employees
+          Employ&eacute;s actifs
           <Badge variant="secondary" className="ml-2">
-            {activeEmployees.length} active
+            {activeEmployees.length} actif(s)
           </Badge>
         </CardTitle>
       </CardHeader>
@@ -70,7 +70,7 @@ export function ActivityFeed({ data, isLoading }: ActivityFeedProps) {
                 </div>
                 {employee.current_shift_started_at && (
                   <p className="text-xs text-slate-400">
-                    Since {formatShiftStartTime(employee.current_shift_started_at)}
+                    Depuis {formatShiftStartTime(employee.current_shift_started_at)}
                   </p>
                 )}
               </div>
@@ -84,10 +84,10 @@ export function ActivityFeed({ data, isLoading }: ActivityFeedProps) {
 
 function formatShiftStartTime(isoString: string): string {
   const date = new Date(isoString);
-  return date.toLocaleTimeString('en-US', {
+  return date.toLocaleTimeString('fr-CA', {
     hour: 'numeric',
     minute: '2-digit',
-    hour12: true,
+    hour12: false,
   });
 }
 

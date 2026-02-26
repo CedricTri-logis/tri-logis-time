@@ -82,7 +82,7 @@ export default function EmployeeDetailPage() {
 
         const response = result as UpdateEmployeeResponse;
         if (!response.success) {
-          toast.error(response.error?.message || 'Failed to update profile');
+          toast.error(response.error?.message || 'Échec de la mise à jour du profil');
           return;
         }
 
@@ -96,7 +96,7 @@ export default function EmployeeDetailPage() {
           if (phoneError) throw phoneError;
           const phoneResponse = phoneResult as { success: boolean; error?: { message: string } };
           if (!phoneResponse.success) {
-            toast.error(phoneResponse.error?.message || 'Failed to update phone');
+            toast.error(phoneResponse.error?.message || 'Échec de la mise à jour du téléphone');
             return;
           }
         }
@@ -117,16 +117,16 @@ export default function EmployeeDetailPage() {
           });
           const emailResult = await res.json();
           if (!emailResult.success) {
-            toast.error(emailResult.error || 'Failed to update email');
+            toast.error(emailResult.error || 'Échec de la mise à jour du courriel');
             return;
           }
         }
 
-        toast.success('Profile updated successfully');
+        toast.success('Profil mis à jour avec succès');
         refetch();
       } catch (err) {
         console.error('Update error:', err);
-        toast.error('Failed to update profile');
+        toast.error('Échec de la mise à jour du profil');
       } finally {
         setIsSubmitting(false);
       }
@@ -163,15 +163,15 @@ export default function EmployeeDetailPage() {
             setShowDeactivationWarning(true);
             return;
           }
-          toast.error(response.error?.message || 'Failed to update status');
+          toast.error(response.error?.message || 'Échec de la mise à jour du statut');
           return;
         }
 
-        toast.success('Status updated successfully');
+        toast.success('Statut mis à jour avec succès');
         refetch();
       } catch (err) {
         console.error('Status update error:', err);
-        toast.error('Failed to update status');
+        toast.error('Échec de la mise à jour du statut');
       } finally {
         setIsSubmitting(false);
         setShowDeactivationWarning(false);
@@ -195,11 +195,11 @@ export default function EmployeeDetailPage() {
 
         if (error) throw error;
 
-        toast.success('Role updated successfully');
+        toast.success('Rôle mis à jour avec succès');
         refetch();
       } catch (err: unknown) {
         console.error('Role update error:', err);
-        const errorMessage = err instanceof Error ? err.message : 'Failed to update role';
+        const errorMessage = err instanceof Error ? err.message : 'Échec de la mise à jour du rôle';
         toast.error(errorMessage);
       } finally {
         setIsSubmitting(false);
@@ -226,14 +226,14 @@ export default function EmployeeDetailPage() {
           <Button variant="ghost" size="sm" asChild>
             <Link href="/dashboard/employees">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Employees
+              Retour aux employés
             </Link>
           </Button>
         </div>
         <Card className="border-red-200 bg-red-50">
           <CardContent className="flex items-center justify-center py-8">
             <p className="text-red-600">
-              Employee not found or you do not have permission to view this profile.
+              Employé introuvable ou vous n&apos;avez pas la permission de voir ce profil.
             </p>
           </CardContent>
         </Card>
@@ -249,7 +249,7 @@ export default function EmployeeDetailPage() {
           <Button variant="ghost" size="sm" asChild>
             <Link href="/dashboard/employees">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back
+              Retour
             </Link>
           </Button>
           <div className="flex items-center gap-3">
@@ -276,7 +276,7 @@ export default function EmployeeDetailPage() {
           <CardContent className="flex items-center gap-3 py-4">
             <Shield className="h-5 w-5 text-amber-600" />
             <p className="text-sm text-amber-800">
-              This is a protected super admin account. You can view but not edit this profile.
+              Ceci est un compte super admin protégé. Vous pouvez consulter mais pas modifier ce profil.
             </p>
           </CardContent>
         </Card>
@@ -288,10 +288,10 @@ export default function EmployeeDetailPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <User className="h-5 w-5" />
-              Profile Information
+              Informations du profil
             </CardTitle>
             <CardDescription>
-              Update the employee name and identifier.
+              Modifier le nom et l&apos;identifiant de l&apos;employé.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -315,10 +315,10 @@ export default function EmployeeDetailPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5" />
-              Role & Permissions
+              Rôle et permissions
             </CardTitle>
             <CardDescription>
-              Manage the employee role and access level.
+              Gérer le rôle et le niveau d&apos;accès de l&apos;employé.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -330,7 +330,7 @@ export default function EmployeeDetailPage() {
             />
             {isSelf && canEdit && (
               <p className="mt-2 text-sm text-slate-500">
-                You cannot change your own role.
+                Vous ne pouvez pas modifier votre propre rôle.
               </p>
             )}
           </CardContent>
@@ -341,10 +341,10 @@ export default function EmployeeDetailPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5" />
-              Account Status
+              Statut du compte
             </CardTitle>
             <CardDescription>
-              Activate, deactivate, or suspend this account.
+              Activer, désactiver ou suspendre ce compte.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -356,12 +356,12 @@ export default function EmployeeDetailPage() {
             />
             {isSelf && canEdit && (
               <p className="mt-2 text-sm text-slate-500">
-                You cannot change your own status.
+                Vous ne pouvez pas modifier votre propre statut.
               </p>
             )}
             {employee.status !== 'active' && (
               <p className="mt-4 text-sm text-slate-600">
-                Note: Reactivating this employee will not automatically restore their previous supervisor assignment.
+                Note : La réactivation de cet employé ne restaurera pas automatiquement son affectation de superviseur précédente.
               </p>
             )}
           </CardContent>
@@ -372,10 +372,10 @@ export default function EmployeeDetailPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <UserCheck className="h-5 w-5" />
-              Supervisor Assignment
+              Affectation du superviseur
             </CardTitle>
             <CardDescription>
-              Assign or change this employee supervisor.
+              Assigner ou changer le superviseur de cet employé.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -395,15 +395,15 @@ export default function EmployeeDetailPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <History className="h-5 w-5" />
-            Account Information
+            Informations du compte
           </CardTitle>
         </CardHeader>
         <CardContent>
           <dl className="grid gap-4 sm:grid-cols-3">
             <div>
-              <dt className="text-sm font-medium text-slate-500">Created</dt>
+              <dt className="text-sm font-medium text-slate-500">Créé</dt>
               <dd className="text-sm text-slate-900">
-                {new Date(employee.created_at).toLocaleDateString('en-US', {
+                {new Date(employee.created_at).toLocaleDateString('fr-CA', {
                   year: 'numeric',
                   month: 'long',
                   day: 'numeric',
@@ -411,9 +411,9 @@ export default function EmployeeDetailPage() {
               </dd>
             </div>
             <div>
-              <dt className="text-sm font-medium text-slate-500">Last Updated</dt>
+              <dt className="text-sm font-medium text-slate-500">Dernière mise à jour</dt>
               <dd className="text-sm text-slate-900">
-                {new Date(employee.updated_at).toLocaleDateString('en-US', {
+                {new Date(employee.updated_at).toLocaleDateString('fr-CA', {
                   year: 'numeric',
                   month: 'long',
                   day: 'numeric',
@@ -421,15 +421,15 @@ export default function EmployeeDetailPage() {
               </dd>
             </div>
             <div>
-              <dt className="text-sm font-medium text-slate-500">Privacy Consent</dt>
+              <dt className="text-sm font-medium text-slate-500">Consentement de confidentialité</dt>
               <dd className="text-sm text-slate-900">
                 {employee.privacy_consent_at
-                  ? new Date(employee.privacy_consent_at).toLocaleDateString('en-US', {
+                  ? new Date(employee.privacy_consent_at).toLocaleDateString('fr-CA', {
                       year: 'numeric',
                       month: 'long',
                       day: 'numeric',
                     })
-                  : 'Not provided'}
+                  : 'Non fourni'}
               </dd>
             </div>
           </dl>

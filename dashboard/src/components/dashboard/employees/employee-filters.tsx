@@ -56,7 +56,7 @@ export function EmployeeFilters({
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <Input
-            placeholder="Search by name, email, or ID..."
+            placeholder="Rechercher par nom, courriel ou ID..."
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             className="pl-9"
@@ -66,27 +66,27 @@ export function EmployeeFilters({
         {/* Role Filter */}
         <Select value={role || 'all'} onValueChange={handleRoleChange}>
           <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="All Roles" />
+            <SelectValue placeholder="Tous les rôles" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Roles</SelectItem>
-            <SelectItem value={EmployeeRole.EMPLOYEE}>Employee</SelectItem>
-            <SelectItem value={EmployeeRole.MANAGER}>Manager</SelectItem>
+            <SelectItem value="all">Tous les rôles</SelectItem>
+            <SelectItem value={EmployeeRole.EMPLOYEE}>Employé</SelectItem>
+            <SelectItem value={EmployeeRole.MANAGER}>Gestionnaire</SelectItem>
             <SelectItem value={EmployeeRole.ADMIN}>Admin</SelectItem>
-            <SelectItem value={EmployeeRole.SUPER_ADMIN}>Super Admin</SelectItem>
+            <SelectItem value={EmployeeRole.SUPER_ADMIN}>Super admin</SelectItem>
           </SelectContent>
         </Select>
 
         {/* Status Filter */}
         <Select value={status || 'all'} onValueChange={handleStatusChange}>
           <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="All Statuses" />
+            <SelectValue placeholder="Tous les statuts" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value={EmployeeStatus.ACTIVE}>Active</SelectItem>
-            <SelectItem value={EmployeeStatus.INACTIVE}>Inactive</SelectItem>
-            <SelectItem value={EmployeeStatus.SUSPENDED}>Suspended</SelectItem>
+            <SelectItem value="all">Tous les statuts</SelectItem>
+            <SelectItem value={EmployeeStatus.ACTIVE}>Actif</SelectItem>
+            <SelectItem value={EmployeeStatus.INACTIVE}>Inactif</SelectItem>
+            <SelectItem value={EmployeeStatus.SUSPENDED}>Suspendu</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -100,7 +100,7 @@ export function EmployeeFilters({
           className="text-slate-500 hover:text-slate-700"
         >
           <X className="mr-1 h-4 w-4" />
-          Clear filters
+          Effacer les filtres
         </Button>
       )}
     </div>
@@ -120,18 +120,18 @@ export function formatActiveFilters(
   }
   if (role) {
     const roleLabel = {
-      employee: 'Employee',
-      manager: 'Manager',
+      employee: 'Employé',
+      manager: 'Gestionnaire',
       admin: 'Admin',
-      super_admin: 'Super Admin',
+      super_admin: 'Super admin',
     }[role];
     parts.push(roleLabel);
   }
   if (status) {
     const statusLabel = {
-      active: 'Active',
-      inactive: 'Inactive',
-      suspended: 'Suspended',
+      active: 'Actif',
+      inactive: 'Inactif',
+      suspended: 'Suspendu',
     }[status];
     parts.push(statusLabel);
   }

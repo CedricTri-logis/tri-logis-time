@@ -32,25 +32,25 @@ const stalenessConfig: Record<
     dotColor: 'bg-green-500',
     bgColor: 'bg-green-50',
     textColor: 'text-green-700',
-    label: 'Live',
+    label: 'En direct',
   },
   stale: {
     dotColor: 'bg-yellow-500',
     bgColor: 'bg-yellow-50',
     textColor: 'text-yellow-700',
-    label: 'Stale',
+    label: 'Périmé',
   },
   'very-stale': {
     dotColor: 'bg-red-500',
     bgColor: 'bg-red-50',
     textColor: 'text-red-700',
-    label: 'Very stale',
+    label: 'Perdu',
   },
   unknown: {
     dotColor: 'bg-slate-400',
     bgColor: 'bg-slate-50',
     textColor: 'text-slate-600',
-    label: 'Unknown',
+    label: 'Inconnu',
   },
 };
 
@@ -117,7 +117,7 @@ export function LastUpdatedBadge({ capturedAt, className }: LastUpdatedBadgeProp
 
   if (!capturedAt) {
     return (
-      <span className={cn('text-xs text-slate-400', className)}>No data</span>
+      <span className={cn('text-xs text-slate-400', className)}>Aucune donnée</span>
     );
   }
 
@@ -137,15 +137,15 @@ export function StalenessLegend() {
     <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600">
       <span className="flex items-center gap-1.5">
         <span className="h-2 w-2 rounded-full bg-green-500" />
-        Live (&lt;{STALENESS_THRESHOLDS.FRESH_MAX_MINUTES}min)
+        En direct (&lt;{STALENESS_THRESHOLDS.FRESH_MAX_MINUTES}min)
       </span>
       <span className="flex items-center gap-1.5">
         <span className="h-2 w-2 rounded-full bg-yellow-500" />
-        Stale ({STALENESS_THRESHOLDS.FRESH_MAX_MINUTES}-{STALENESS_THRESHOLDS.STALE_MAX_MINUTES}min)
+        Périmé ({STALENESS_THRESHOLDS.FRESH_MAX_MINUTES}-{STALENESS_THRESHOLDS.STALE_MAX_MINUTES}min)
       </span>
       <span className="flex items-center gap-1.5">
         <span className="h-2 w-2 rounded-full bg-red-500" />
-        Very stale (&gt;{STALENESS_THRESHOLDS.STALE_MAX_MINUTES}min)
+        Perdu (&gt;{STALENESS_THRESHOLDS.STALE_MAX_MINUTES}min)
       </span>
     </div>
   );
@@ -155,12 +155,12 @@ export function StalenessLegend() {
 function formatAgeDescription(date: Date): string {
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
 
-  if (seconds < 5) return 'just now';
-  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 5) return 'à l\'instant';
+  if (seconds < 60) return `il y a ${seconds}s`;
 
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) return `il y a ${minutes}min`;
 
   const hours = Math.floor(minutes / 60);
-  return `${hours}h ago`;
+  return `il y a ${hours}h`;
 }

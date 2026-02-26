@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy - GPS Clock-In Tracker",
+  title: "Politique de confidentialité - GPS Clock-In Tracker",
   description:
-    "Privacy policy for the GPS Clock-In Tracker mobile application by Trilogis.",
+    "Politique de confidentialité de l'application mobile GPS Clock-In Tracker par Trilogis.",
 };
 
 export default function PrivacyPage() {
@@ -11,121 +11,151 @@ export default function PrivacyPage() {
     <div className="min-h-screen bg-white">
       <div className="mx-auto max-w-3xl px-6 py-12">
         <h1 className="mb-2 text-3xl font-bold text-gray-900">
-          Privacy Policy
+          Politique de confidentialité
         </h1>
         <p className="mb-8 text-sm text-gray-500">
-          Last updated: February 13, 2026
+          Dernière mise à jour : 13 février 2026
         </p>
 
         <div className="space-y-8 text-gray-700 leading-relaxed">
-          <Section title="Overview">
+          <Section title="Aperçu">
             <p>
-              GPS Clock-In Tracker (&quot;the App&quot;) is a workforce
-              management application developed by Trilogis. This privacy policy
-              explains how we collect, use, and protect your personal data when
-              you use the App.
+              GPS Clock-In Tracker (&laquo; l&apos;Application &raquo;) est une
+              application de gestion de la main-d&apos;oeuvre développée par
+              Trilogis. Cette politique de confidentialité explique comment nous
+              collectons, utilisons et protégeons vos données personnelles
+              lorsque vous utilisez l&apos;Application.
             </p>
           </Section>
 
-          <Section title="Data We Collect">
+          <Section title="Données que nous collectons">
             <h3 className="mt-4 mb-2 font-semibold text-gray-900">
-              1. Location Data
+              1. Données de localisation
             </h3>
             <ul className="list-disc space-y-1 pl-6">
               <li>
-                Precise GPS coordinates are collected when you clock in, clock
-                out, and continuously during active shifts.
+                Les coordonnées GPS précises sont collectées lorsque vous
+                pointez à l&apos;arrivée, au départ, et de façon continue
+                pendant les quarts de travail actifs.
               </li>
               <li>
-                Background location is collected while a shift is active, even
-                when the App is minimized or the screen is off. This is required
-                to verify work attendance and generate shift route records.
+                La localisation en arrière-plan est collectée pendant qu&apos;un
+                quart de travail est actif, même lorsque l&apos;Application est
+                minimisée ou que l&apos;écran est éteint. Cela est nécessaire
+                pour vérifier la présence au travail et générer les relevés
+                d&apos;itinéraire des quarts.
               </li>
               <li>
-                Location data is <strong>only collected during active shifts</strong>.
-                No location data is collected when you are not clocked in.
+                Les données de localisation sont{" "}
+                <strong>
+                  uniquement collectées pendant les quarts de travail actifs
+                </strong>
+                . Aucune donnée de localisation n&apos;est collectée lorsque
+                vous n&apos;êtes pas pointé.
               </li>
             </ul>
 
             <h3 className="mt-4 mb-2 font-semibold text-gray-900">
-              2. Personal Information
-            </h3>
-            <ul className="list-disc space-y-1 pl-6">
-              <li>Full name and employee ID (provided by your employer)</li>
-              <li>Email address (used for authentication)</li>
-              <li>Role within your organization (employee, manager, admin)</li>
-            </ul>
-
-            <h3 className="mt-4 mb-2 font-semibold text-gray-900">
-              3. Camera Data
+              2. Informations personnelles
             </h3>
             <ul className="list-disc space-y-1 pl-6">
               <li>
-                The camera is used solely to scan QR codes for cleaning session
-                check-in and check-out.
+                Nom complet et numéro d&apos;employé (fournis par votre
+                employeur)
               </li>
               <li>
-                No photos or videos are captured, stored, or transmitted. The
-                camera feed is processed in real-time for QR code detection only.
+                Adresse courriel (utilisée pour l&apos;authentification)
+              </li>
+              <li>
+                Rôle au sein de votre organisation (employé, gestionnaire,
+                administrateur)
               </li>
             </ul>
 
             <h3 className="mt-4 mb-2 font-semibold text-gray-900">
-              4. Device Information
+              3. Données de la caméra
             </h3>
             <ul className="list-disc space-y-1 pl-6">
-              <li>GPS accuracy metrics</li>
-              <li>Device location service status (enabled/disabled)</li>
-              <li>Network connectivity status (online/offline)</li>
+              <li>
+                La caméra est utilisée uniquement pour scanner les codes QR
+                lors de l&apos;enregistrement et du départ des sessions de
+                ménage.
+              </li>
+              <li>
+                Aucune photo ni vidéo n&apos;est capturée, stockée ou
+                transmise. Le flux de la caméra est traité en temps réel
+                uniquement pour la détection de codes QR.
+              </li>
+            </ul>
+
+            <h3 className="mt-4 mb-2 font-semibold text-gray-900">
+              4. Informations sur l&apos;appareil
+            </h3>
+            <ul className="list-disc space-y-1 pl-6">
+              <li>Métriques de précision GPS</li>
+              <li>
+                État du service de localisation de l&apos;appareil
+                (activé/désactivé)
+              </li>
+              <li>
+                État de la connectivité réseau (en ligne/hors ligne)
+              </li>
             </ul>
           </Section>
 
-          <Section title="How We Use Your Data">
+          <Section title="Comment nous utilisons vos données">
             <div className="overflow-x-auto">
               <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr className="border-b border-gray-200">
                     <th className="py-2 pr-4 text-left font-semibold text-gray-900">
-                      Data
+                      Données
                     </th>
                     <th className="py-2 text-left font-semibold text-gray-900">
-                      Purpose
+                      Utilisation
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   <tr>
-                    <td className="py-2 pr-4">GPS location during shifts</td>
+                    <td className="py-2 pr-4">
+                      Localisation GPS pendant les quarts
+                    </td>
                     <td className="py-2">
-                      Verify work attendance and location; generate shift route
-                      records for employer review
+                      Vérifier la présence au travail et la localisation ;
+                      générer les relevés d&apos;itinéraire des quarts pour
+                      examen par l&apos;employeur
                     </td>
                   </tr>
                   <tr>
-                    <td className="py-2 pr-4">Background location</td>
+                    <td className="py-2 pr-4">
+                      Localisation en arrière-plan
+                    </td>
                     <td className="py-2">
-                      Maintain continuous location verification during active
-                      shifts
+                      Maintenir la vérification continue de la localisation
+                      pendant les quarts de travail actifs
                     </td>
                   </tr>
                   <tr>
-                    <td className="py-2 pr-4">Name and employee ID</td>
+                    <td className="py-2 pr-4">
+                      Nom et numéro d&apos;employé
+                    </td>
                     <td className="py-2">
-                      Identify you within your organization&apos;s workforce
-                      management system
+                      Vous identifier au sein du système de gestion de la
+                      main-d&apos;oeuvre de votre organisation
                     </td>
                   </tr>
                   <tr>
-                    <td className="py-2 pr-4">Email</td>
+                    <td className="py-2 pr-4">Courriel</td>
                     <td className="py-2">
-                      Account authentication and password recovery
+                      Authentification du compte et récupération du mot de passe
                     </td>
                   </tr>
                   <tr>
-                    <td className="py-2 pr-4">QR code scans</td>
+                    <td className="py-2 pr-4">Scans de codes QR</td>
                     <td className="py-2">
-                      Record cleaning session check-ins and check-outs at
-                      specific rooms and studios
+                      Enregistrer les arrivées et départs des sessions de ménage
+                      dans des chambres et studios spécifiques
                     </td>
                   </tr>
                 </tbody>
@@ -133,121 +163,146 @@ export default function PrivacyPage() {
             </div>
           </Section>
 
-          <Section title="Data Storage and Security">
+          <Section title="Stockage et sécurité des données">
             <ul className="list-disc space-y-1 pl-6">
               <li>
-                <strong>Cloud storage:</strong> Data is stored securely on
-                Supabase (PostgreSQL) with row-level security policies.
+                <strong>Stockage infonuagique :</strong> Les données sont
+                stockées de manière sécurisée sur Supabase (PostgreSQL) avec des
+                politiques de sécurité au niveau des lignes.
               </li>
               <li>
-                <strong>Local storage:</strong> Offline data is stored on-device
-                using SQLCipher (AES-256 encrypted SQLite database).
+                <strong>Stockage local :</strong> Les données hors ligne sont
+                stockées sur l&apos;appareil à l&apos;aide de SQLCipher (base de
+                données SQLite chiffrée AES-256).
               </li>
               <li>
-                <strong>Authentication tokens</strong> are stored using
-                platform-secure storage (Android Keystore / iOS Keychain).
+                <strong>Les jetons d&apos;authentification</strong> sont stockés
+                à l&apos;aide du stockage sécurisé de la plateforme (Android
+                Keystore / iOS Keychain).
               </li>
               <li>
-                All network communication uses HTTPS/TLS encryption.
+                Toutes les communications réseau utilisent le chiffrement
+                HTTPS/TLS.
               </li>
             </ul>
           </Section>
 
-          <Section title="Data Sharing">
+          <Section title="Partage des données">
             <ul className="list-disc space-y-1 pl-6">
               <li>
-                Your data is accessible to your employer&apos;s authorized
-                managers and administrators within the App for workforce
-                management purposes.
+                Vos données sont accessibles aux gestionnaires et
+                administrateurs autorisés de votre employeur au sein de
+                l&apos;Application à des fins de gestion de la
+                main-d&apos;oeuvre.
               </li>
               <li>
-                We do <strong>not</strong> sell, rent, or share your personal
-                data with third parties for advertising or marketing purposes.
+                Nous ne vendons, ne louons et ne partageons{" "}
+                <strong>pas</strong> vos données personnelles avec des tiers à
+                des fins de publicité ou de marketing.
               </li>
               <li>
-                We do <strong>not</strong> share location data with any third
-                party outside of your employer&apos;s organization.
+                Nous ne partageons <strong>pas</strong> les données de
+                localisation avec un tiers en dehors de l&apos;organisation de
+                votre employeur.
               </li>
             </ul>
           </Section>
 
-          <Section title="Data Retention">
+          <Section title="Conservation des données">
             <ul className="list-disc space-y-1 pl-6">
               <li>
-                Shift and location data is retained as long as your employment
-                relationship with your employer is active, or as required by
-                applicable labor laws.
+                Les données de quarts de travail et de localisation sont
+                conservées tant que votre relation d&apos;emploi avec votre
+                employeur est active, ou selon les exigences des lois du travail
+                applicables.
               </li>
               <li>
-                You may request deletion of your data by contacting your
-                employer or Trilogis directly.
+                Vous pouvez demander la suppression de vos données en
+                communiquant avec votre employeur ou directement avec Trilogis.
               </li>
             </ul>
           </Section>
 
-          <Section title="Your Rights">
+          <Section title="Vos droits">
             <p>
-              Depending on your jurisdiction, you may have the right to:
-            </p>
-            <ul className="list-disc space-y-1 pl-6">
-              <li>Access the personal data we hold about you</li>
-              <li>Request correction of inaccurate data</li>
-              <li>Request deletion of your data</li>
-              <li>Withdraw consent for data collection</li>
-              <li>Receive a copy of your data in a portable format</li>
-            </ul>
-            <p className="mt-2">
-              To exercise any of these rights, contact us at the address below.
-            </p>
-          </Section>
-
-          <Section title="Background Location Disclosure">
-            <p>
-              This App collects location data in the background{" "}
-              <strong>only during active work shifts</strong> to enable
-              continuous attendance verification. Background location tracking:
+              Selon votre juridiction, vous pouvez avoir le droit de :
             </p>
             <ul className="list-disc space-y-1 pl-6">
               <li>
-                <strong>Starts</strong> when you clock in to a shift
+                Accéder aux données personnelles que nous détenons à votre sujet
               </li>
+              <li>Demander la correction de données inexactes</li>
+              <li>Demander la suppression de vos données</li>
+              <li>Retirer votre consentement à la collecte de données</li>
               <li>
-                <strong>Stops</strong> when you clock out or the shift ends
-              </li>
-              <li>
-                Is <strong>never active</strong> outside of work shifts
-              </li>
-              <li>
-                Is indicated by a <strong>persistent notification</strong> on
-                your device while active
+                Recevoir une copie de vos données dans un format portable
               </li>
             </ul>
             <p className="mt-2">
-              Without background location access, the App cannot verify your
-              work attendance while the screen is off, which is a core
-              requirement of the workforce management system.
+              Pour exercer l&apos;un de ces droits, communiquez avec nous à
+              l&apos;adresse ci-dessous.
             </p>
           </Section>
 
-          <Section title="Children&apos;s Privacy">
+          <Section title="Divulgation de la localisation en arrière-plan">
             <p>
-              This App is intended for use by employed adults only. We do not
-              knowingly collect data from anyone under the age of 16.
+              Cette Application collecte des données de localisation en
+              arrière-plan{" "}
+              <strong>
+                uniquement pendant les quarts de travail actifs
+              </strong>{" "}
+              afin de permettre la vérification continue de la présence. Le
+              suivi de la localisation en arrière-plan :
+            </p>
+            <ul className="list-disc space-y-1 pl-6">
+              <li>
+                <strong>Commence</strong> lorsque vous pointez à l&apos;arrivée
+                d&apos;un quart de travail
+              </li>
+              <li>
+                <strong>S&apos;arrête</strong> lorsque vous pointez au départ ou
+                que le quart se termine
+              </li>
+              <li>
+                N&apos;est <strong>jamais actif</strong> en dehors des quarts de
+                travail
+              </li>
+              <li>
+                Est indiqué par une{" "}
+                <strong>notification persistante</strong> sur votre appareil
+                lorsqu&apos;il est actif
+              </li>
+            </ul>
+            <p className="mt-2">
+              Sans l&apos;accès à la localisation en arrière-plan,
+              l&apos;Application ne peut pas vérifier votre présence au travail
+              lorsque l&apos;écran est éteint, ce qui est une exigence
+              fondamentale du système de gestion de la main-d&apos;oeuvre.
             </p>
           </Section>
 
-          <Section title="Changes to This Policy">
+          <Section title="Confidentialité des enfants">
             <p>
-              We may update this privacy policy from time to time. We will
-              notify users of material changes through the App or via email.
+              Cette Application est destinée à être utilisée uniquement par des
+              adultes employés. Nous ne collectons pas sciemment de données
+              auprès de personnes de moins de 16 ans.
             </p>
           </Section>
 
-          <Section title="Contact Us">
+          <Section title="Modifications de cette politique">
+            <p>
+              Nous pouvons mettre à jour cette politique de confidentialité de
+              temps à autre. Nous informerons les utilisateurs de tout
+              changement important par l&apos;intermédiaire de
+              l&apos;Application ou par courriel.
+            </p>
+          </Section>
+
+          <Section title="Nous contacter">
             <p>
               <strong>Trilogis</strong>
               <br />
-              Email:{" "}
+              Courriel :{" "}
               <a
                 href="mailto:cedric@trilogis.ca"
                 className="text-blue-600 underline hover:text-blue-800"
@@ -255,7 +310,7 @@ export default function PrivacyPage() {
                 cedric@trilogis.ca
               </a>
               <br />
-              Website:{" "}
+              Site web :{" "}
               <a
                 href="https://trilogis.ca"
                 className="text-blue-600 underline hover:text-blue-800"
@@ -266,8 +321,9 @@ export default function PrivacyPage() {
               </a>
             </p>
             <p className="mt-2">
-              If you have questions or concerns about this privacy policy or
-              your data, please contact us at the email address above.
+              Si vous avez des questions ou des préoccupations concernant cette
+              politique de confidentialité ou vos données, veuillez communiquer
+              avec nous à l&apos;adresse courriel ci-dessus.
             </p>
           </Section>
         </div>

@@ -32,57 +32,57 @@ interface ReportCard {
 const reportCards: ReportCard[] = [
   {
     type: 'timesheet',
-    title: 'Timesheet Report',
-    description: 'Comprehensive timesheet data for pay period processing',
+    title: 'Rapport de feuille de temps',
+    description: 'Données complètes de feuille de temps pour le traitement de la paie',
     icon: Clock,
     href: '/dashboard/reports/timesheet',
     features: [
-      'Shift hours by employee',
-      'Overtime calculations',
-      'Incomplete shift warnings',
-      'PDF & CSV export',
+      'Heures de quart par employé',
+      'Calculs des heures supplémentaires',
+      'Avertissements de quarts incomplets',
+      'Export PDF et CSV',
     ],
     priority: 'P1',
   },
   {
     type: 'shift_history',
-    title: 'Shift History Export',
-    description: 'Detailed shift records with GPS data for individual employees',
+    title: 'Export de l\'historique des quarts',
+    description: 'Dossiers détaillés des quarts avec données GPS par employé',
     icon: FileDown,
     href: '/dashboard/reports/exports',
     features: [
-      'Single or bulk employee export',
-      'GPS point counts',
-      'Distance tracking',
-      'Date range filtering',
+      'Export individuel ou en lot',
+      'Nombre de points GPS',
+      'Suivi des distances',
+      'Filtrage par plage de dates',
     ],
     priority: 'P2',
   },
   {
     type: 'activity_summary',
-    title: 'Team Activity Summary',
-    description: 'Aggregate metrics and trends for team planning',
+    title: 'Résumé d\'activité de l\'équipe',
+    description: 'Métriques agrégées et tendances pour la planification d\'équipe',
     icon: Users,
     href: '/dashboard/reports/activity',
     features: [
-      'Total hours by team',
-      'Day-of-week breakdown',
-      'Active employee counts',
-      'Period comparisons',
+      'Heures totales par équipe',
+      'Répartition par jour de la semaine',
+      'Nombre d\'employés actifs',
+      'Comparaisons de périodes',
     ],
     priority: 'P2',
   },
   {
     type: 'attendance',
-    title: 'Attendance Report',
-    description: 'Employee attendance patterns and absence tracking',
+    title: 'Rapport de présence',
+    description: 'Suivi des présences et des absences des employés',
     icon: Calendar,
     href: '/dashboard/reports/attendance',
     features: [
-      'Days worked vs absent',
-      'Attendance rate %',
-      'Calendar view',
-      'Pattern analysis',
+      'Jours travaillés vs absents',
+      'Taux de présence %',
+      'Vue calendrier',
+      'Analyse des tendances',
     ],
     priority: 'P3',
   },
@@ -93,9 +93,9 @@ export default function ReportsPage() {
     <div className="space-y-6">
       {/* Page header */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Reports & Export</h1>
+        <h1 className="text-2xl font-bold text-slate-900">Rapports et exportation</h1>
         <p className="text-sm text-slate-500 mt-1">
-          Generate and download reports for payroll, compliance, and analytics
+          Générez et téléchargez des rapports pour la paie, la conformité et l&apos;analytique
         </p>
       </div>
 
@@ -131,7 +131,7 @@ export default function ReportsPage() {
             <CardFooter>
               <Button asChild className="w-full">
                 <Link href={card.href}>
-                  Generate Report
+                  Générer le rapport
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
@@ -143,18 +143,18 @@ export default function ReportsPage() {
       {/* Quick actions */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Quick Actions</CardTitle>
+          <CardTitle className="text-lg">Actions rapides</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-3">
             <Button variant="outline" asChild>
               <Link href="/dashboard/reports/schedules">
-                Manage Scheduled Reports
+                Gérer les rapports programmés
               </Link>
             </Button>
             <Button variant="outline" asChild>
               <Link href="/dashboard/reports/history">
-                View Report History
+                Voir l&apos;historique des rapports
               </Link>
             </Button>
           </div>

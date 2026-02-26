@@ -13,13 +13,13 @@ interface EmptyGpsStateProps {
  * Displayed when a shift exists but has zero GPS points.
  */
 export function EmptyGpsState({
-  title = 'No GPS Data',
-  description = 'This shift does not have any GPS tracking data recorded.',
+  title = 'Aucune donnée GPS',
+  description = 'Ce quart ne contient aucune donnée de suivi GPS enregistrée.',
 }: EmptyGpsStateProps) {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base font-medium">GPS Trail</CardTitle>
+        <CardTitle className="text-base font-medium">Tracé GPS</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="py-12 text-center">
@@ -28,13 +28,13 @@ export function EmptyGpsState({
           <p className="text-sm text-slate-500 mt-1 max-w-sm mx-auto">{description}</p>
           <div className="mt-6 p-4 bg-slate-50 rounded-lg max-w-md mx-auto">
             <p className="text-xs text-slate-500">
-              <strong>Possible reasons:</strong>
+              <strong>Raisons possibles :</strong>
             </p>
             <ul className="text-xs text-slate-500 mt-2 text-left list-disc list-inside space-y-1">
-              <li>GPS was not enabled during the shift</li>
-              <li>The employee denied location permissions</li>
-              <li>The shift was very short (under 5 minutes)</li>
-              <li>Network connectivity issues prevented sync</li>
+              <li>Le GPS n'était pas activé pendant le quart</li>
+              <li>L'employé a refusé les permissions de localisation</li>
+              <li>Le quart était très court (moins de 5 minutes)</li>
+              <li>Des problèmes de connectivité ont empêché la synchronisation</li>
             </ul>
           </div>
         </div>

@@ -73,7 +73,7 @@ export function TripRouteMap({ trips, height = 400 }: TripRouteMapProps) {
         className="flex items-center justify-center bg-muted rounded-lg"
         style={{ height }}
       >
-        <p className="text-muted-foreground text-sm">No trips to display</p>
+        <p className="text-muted-foreground text-sm">Aucun trajet à afficher</p>
       </div>
     );
   }
@@ -113,7 +113,7 @@ export function TripRouteMap({ trips, height = 400 }: TripRouteMapProps) {
               }}
             >
               <Popup>
-                <strong>Start</strong>
+                <strong>Départ</strong>
                 <br />
                 {trip.start_address || `${trip.start_latitude.toFixed(4)}, ${trip.start_longitude.toFixed(4)}`}
               </Popup>
@@ -130,7 +130,7 @@ export function TripRouteMap({ trips, height = 400 }: TripRouteMapProps) {
               }}
             >
               <Popup>
-                <strong>End</strong>
+                <strong>Arrivée</strong>
                 <br />
                 {trip.end_address || `${trip.end_latitude.toFixed(4)}, ${trip.end_longitude.toFixed(4)}`}
               </Popup>

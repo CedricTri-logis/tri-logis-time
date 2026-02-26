@@ -26,11 +26,11 @@ import type { ReportType } from '@/types/reports';
 
 // Filter options
 const REPORT_TYPE_OPTIONS: { value: ReportType | 'all'; label: string }[] = [
-  { value: 'all', label: 'All Report Types' },
-  { value: 'timesheet', label: 'Timesheet Reports' },
-  { value: 'activity_summary', label: 'Activity Summary' },
-  { value: 'attendance', label: 'Attendance Reports' },
-  { value: 'shift_history', label: 'Shift History' },
+  { value: 'all', label: 'Tous les types de rapports' },
+  { value: 'timesheet', label: 'Rapports de feuille de temps' },
+  { value: 'activity_summary', label: 'Résumé d\'activité' },
+  { value: 'attendance', label: 'Rapports de présence' },
+  { value: 'shift_history', label: 'Historique des quarts' },
 ];
 
 const PAGE_SIZE = 20;
@@ -65,16 +65,16 @@ export default function ReportHistoryPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
             <History className="h-6 w-6" />
-            Report History
+            Historique des rapports
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            View and download previously generated reports
+            Consultez et téléchargez les rapports générés précédemment
           </p>
         </div>
 
         <Button variant="outline" onClick={handleRefresh} disabled={isLoading}>
           <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-          Refresh
+          Actualiser
         </Button>
       </div>
 
@@ -84,7 +84,7 @@ export default function ReportHistoryPage() {
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-slate-500" />
-              <span className="text-sm font-medium text-slate-700">Filter:</span>
+              <span className="text-sm font-medium text-slate-700">Filtrer :</span>
             </div>
             <Select
               value={reportTypeFilter}
@@ -103,7 +103,7 @@ export default function ReportHistoryPage() {
             </Select>
 
             <div className="flex-1 text-right text-sm text-slate-500">
-              {totalCount > 0 && `${totalCount} report${totalCount !== 1 ? 's' : ''} found`}
+              {totalCount > 0 && `${totalCount} rapport${totalCount !== 1 ? 's' : ''} trouvé${totalCount !== 1 ? 's' : ''}`}
             </div>
           </div>
         </CardContent>
@@ -112,7 +112,7 @@ export default function ReportHistoryPage() {
       {/* Error state */}
       {error && (
         <Alert variant="destructive">
-          <AlertTitle>Error</AlertTitle>
+          <AlertTitle>Erreur</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
@@ -120,9 +120,9 @@ export default function ReportHistoryPage() {
       {/* History table */}
       <Card>
         <CardHeader>
-          <CardTitle>Generated Reports</CardTitle>
+          <CardTitle>Rapports générés</CardTitle>
           <CardDescription>
-            Reports are available for download for 30 days after generation
+            Les rapports sont disponibles au téléchargement pendant 30 jours après leur génération
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -132,7 +132,7 @@ export default function ReportHistoryPage() {
           {hasMore && !isLoading && (
             <div className="mt-4 flex justify-center">
               <Button variant="outline" onClick={handleLoadMore}>
-                Load More
+                Charger plus
               </Button>
             </div>
           )}
@@ -142,13 +142,13 @@ export default function ReportHistoryPage() {
       {/* Help text */}
       <Alert>
         <History className="h-4 w-4" />
-        <AlertTitle>About Report History</AlertTitle>
+        <AlertTitle>À propos de l&apos;historique des rapports</AlertTitle>
         <AlertDescription>
           <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
-            <li>Generated reports are stored for 30 days</li>
-            <li>Click the download button to re-download any available report</li>
-            <li>Expired reports cannot be re-downloaded - generate a new report instead</li>
-            <li>Scheduled reports appear here when they complete</li>
+            <li>Les rapports générés sont conservés pendant 30 jours</li>
+            <li>Cliquez sur le bouton de téléchargement pour re-télécharger un rapport disponible</li>
+            <li>Les rapports expirés ne peuvent pas être re-téléchargés - générez un nouveau rapport</li>
+            <li>Les rapports programmés apparaissent ici une fois terminés</li>
           </ul>
         </AlertDescription>
       </Alert>

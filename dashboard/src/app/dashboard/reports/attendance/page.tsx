@@ -34,11 +34,11 @@ import type { AttendanceReportRow, EmployeeOption } from '@/types/reports';
 
 // Date range preset options
 const DATE_PRESETS = [
-  { value: 'last_7_days', label: 'Last 7 Days' },
-  { value: 'last_30_days', label: 'Last 30 Days' },
-  { value: 'this_month', label: 'This Month' },
-  { value: 'last_month', label: 'Last Month' },
-  { value: 'custom', label: 'Custom Range' },
+  { value: 'last_7_days', label: '7 derniers jours' },
+  { value: 'last_30_days', label: '30 derniers jours' },
+  { value: 'this_month', label: 'Ce mois-ci' },
+  { value: 'last_month', label: 'Mois dernier' },
+  { value: 'custom', label: 'Plage personnalisée' },
 ] as const;
 
 type DatePreset = typeof DATE_PRESETS[number]['value'];
@@ -188,7 +188,7 @@ export default function AttendanceReportPage() {
       const rows = (data || []) as AttendanceReportRow[];
       setAttendanceData(rows);
     } catch (err) {
-      setDataError(err instanceof Error ? err.message : 'Failed to load data');
+      setDataError(err instanceof Error ? err.message : 'Échec du chargement des données');
       setAttendanceData([]);
     } finally {
       setDataLoading(false);
@@ -248,10 +248,10 @@ export default function AttendanceReportPage() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
           <CalendarCheck className="h-6 w-6" />
-          Attendance Report
+          Rapport de présence
         </h1>
         <p className="text-sm text-slate-500 mt-1">
-          Generate attendance reports showing presence, absences, and patterns
+          Générez des rapports de présence montrant les présences, absences et tendances
         </p>
       </div>
 
@@ -260,15 +260,15 @@ export default function AttendanceReportPage() {
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Report Configuration</CardTitle>
+              <CardTitle>Configuration du rapport</CardTitle>
               <CardDescription>
-                Select date range and employees to include
+                Sélectionnez la plage de dates et les employés à inclure
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Date range preset */}
               <div className="space-y-2">
-                <Label>Date Range</Label>
+                <Label>Plage de dates</Label>
                 <Select value={datePreset} onValueChange={handlePresetChange}>
                   <SelectTrigger>
                     <SelectValue />
@@ -287,7 +287,7 @@ export default function AttendanceReportPage() {
               {datePreset === 'custom' && (
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="start-date">Start Date</Label>
+                    <Label htmlFor="start-date">Date de début</Label>
                     <Input
                       id="start-date"
                       type="date"
@@ -297,7 +297,7 @@ export default function AttendanceReportPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="end-date">End Date</Label>
+                    <Label htmlFor="end-date">Date de fin</Label>
                     <Input
                       id="end-date"
                       type="date"
@@ -312,22 +312,22 @@ export default function AttendanceReportPage() {
 
               {/* Employee selector */}
               <div className="space-y-2">
-                <Label>Employees (optional)</Label>
+                <Label>Employés (optionnel)</Label>
                 <EmployeeSelector
                   employees={employees}
                   selectedIds={selectedEmployeeIds}
                   onChange={setSelectedEmployeeIds}
-                  placeholder="All employees"
+                  placeholder="Tous les employés"
                   maxSelected={50}
                 />
                 <p className="text-xs text-slate-500">
-                  Leave empty to include all employees
+                  Laissez vide pour inclure tous les employés
                 </p>
               </div>
 
               {/* Format selection */}
               <div className="space-y-2">
-                <Label>Export Format</Label>
+                <Label>Format d&apos;export</Label>
                 <Select
                   value={exportFormat}
                   onValueChange={(v) => setExportFormat(v as 'pdf' | 'csv')}
@@ -337,10 +337,10 @@ export default function AttendanceReportPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="pdf">
-                      PDF - Formatted report with charts
+                      PDF - Rapport formaté avec graphiques
                     </SelectItem>
                     <SelectItem value="csv">
-                      CSV - Spreadsheet format for Excel/Sheets
+                      CSV - Format tableur pour Excel/Sheets
                     </SelectItem>
                   </SelectContent>
                 </Select>
@@ -355,7 +355,7 @@ export default function AttendanceReportPage() {
                   className="flex-1"
                 >
                   <RefreshCw className={`mr-2 h-4 w-4 ${dataLoading ? 'animate-spin' : ''}`} />
-                  {dataLoading ? 'Loading...' : 'Load Data'}
+                  {dataLoading ? 'Chargement...' : 'Charger les données'}
                 </Button>
                 <Button
                   onClick={handleExport}
@@ -363,7 +363,7 @@ export default function AttendanceReportPage() {
                   className="flex-1"
                 >
                   <Download className="mr-2 h-4 w-4" />
-                  Export {exportFormat.toUpperCase()}
+                  Exporter {exportFormat.toUpperCase()}
                 </Button>
               </div>
             </CardContent>
@@ -397,7 +397,7 @@ export default function AttendanceReportPage() {
           {attendanceData.length > 0 ? (
             <Card>
               <CardHeader>
-                <CardTitle>Attendance Summary</CardTitle>
+                <CardTitle>Résumé de présence</CardTitle>
                 <CardDescription>
                   {getDateRange().start} to {getDateRange().end}
                 </CardDescription>
@@ -408,7 +408,7 @@ export default function AttendanceReportPage() {
                   <div className="rounded-lg bg-slate-50 p-4">
                     <div className="flex items-center gap-2 text-slate-600 mb-1">
                       <Users className="h-4 w-4" />
-                      <span className="text-sm font-medium">Employees</span>
+                      <span className="text-sm font-medium">Employés</span>
                     </div>
                     <p className="text-2xl font-bold text-slate-900">
                       {summaryMetrics.totalEmployees}
@@ -417,7 +417,7 @@ export default function AttendanceReportPage() {
                   <div className="rounded-lg bg-slate-50 p-4">
                     <div className="flex items-center gap-2 text-slate-600 mb-1">
                       <CalendarCheck className="h-4 w-4" />
-                      <span className="text-sm font-medium">Working Days</span>
+                      <span className="text-sm font-medium">Jours ouvrables</span>
                     </div>
                     <p className="text-2xl font-bold text-slate-900">
                       {workingDays}
@@ -426,7 +426,7 @@ export default function AttendanceReportPage() {
                   <div className="rounded-lg bg-green-50 p-4">
                     <div className="flex items-center gap-2 text-green-600 mb-1">
                       <CheckCircle className="h-4 w-4" />
-                      <span className="text-sm font-medium">Days Worked</span>
+                      <span className="text-sm font-medium">Jours travaillés</span>
                     </div>
                     <p className="text-2xl font-bold text-green-900">
                       {summaryMetrics.totalDaysWorked}
@@ -435,7 +435,7 @@ export default function AttendanceReportPage() {
                   <div className="rounded-lg bg-red-50 p-4">
                     <div className="flex items-center gap-2 text-red-600 mb-1">
                       <XCircle className="h-4 w-4" />
-                      <span className="text-sm font-medium">Days Absent</span>
+                      <span className="text-sm font-medium">Jours absents</span>
                     </div>
                     <p className="text-2xl font-bold text-red-900">
                       {summaryMetrics.totalDaysAbsent}
@@ -447,7 +447,7 @@ export default function AttendanceReportPage() {
                 <div className="rounded-lg border p-4">
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-sm font-medium text-slate-700">
-                      Average Attendance Rate
+                      Taux de présence moyen
                     </span>
                     <span className={`text-lg font-bold ${getRateColorClass(summaryMetrics.avgRate)}`}>
                       {summaryMetrics.avgRate.toFixed(1)}%
@@ -462,7 +462,7 @@ export default function AttendanceReportPage() {
                 {/* Employee breakdown */}
                 <div>
                   <h4 className="text-sm font-medium text-slate-700 mb-3">
-                    Employee Breakdown
+                    Détail par employé
                   </h4>
                   <div className="space-y-2 max-h-64 overflow-y-auto">
                     {attendanceData.map((row) => (
@@ -497,12 +497,12 @@ export default function AttendanceReportPage() {
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <RefreshCw className="h-8 w-8 text-slate-400 animate-spin mb-4" />
-                <p className="text-slate-500">Loading attendance data...</p>
+                <p className="text-slate-500">Chargement des données de présence...</p>
               </CardContent>
             </Card>
           ) : dataError ? (
             <Alert variant="destructive">
-              <AlertTitle>Error Loading Data</AlertTitle>
+              <AlertTitle>Erreur de chargement des données</AlertTitle>
               <AlertDescription>{dataError}</AlertDescription>
             </Alert>
           ) : (
@@ -510,11 +510,11 @@ export default function AttendanceReportPage() {
               <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                 <CalendarCheck className="h-12 w-12 text-slate-300 mb-4" />
                 <h3 className="text-lg font-medium text-slate-900 mb-1">
-                  No Data Loaded
+                  Aucune donnée chargée
                 </h3>
                 <p className="text-sm text-slate-500 max-w-sm">
-                  Select a date range and click &quot;Load Data&quot; to see attendance
-                  information.
+                  Sélectionnez une plage de dates et cliquez sur &quot;Charger les données&quot; pour voir les informations
+                  de présence.
                 </p>
               </CardContent>
             </Card>
@@ -525,13 +525,13 @@ export default function AttendanceReportPage() {
       {/* Help text */}
       <Alert>
         <CalendarCheck className="h-4 w-4" />
-        <AlertTitle>About Attendance Reports</AlertTitle>
+        <AlertTitle>À propos des rapports de présence</AlertTitle>
         <AlertDescription>
           <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
-            <li>Attendance is calculated based on completed shifts (clock in and out)</li>
-            <li>Working days exclude weekends (Saturday and Sunday)</li>
-            <li>PDF reports include visual attendance rate indicators</li>
-            <li>CSV exports include detailed daily breakdown</li>
+            <li>La présence est calculée en fonction des quarts complétés (pointage entrée et sortie)</li>
+            <li>Les jours ouvrables excluent les fins de semaine (samedi et dimanche)</li>
+            <li>Les rapports PDF incluent des indicateurs visuels du taux de présence</li>
+            <li>Les exports CSV incluent un détail quotidien</li>
           </ul>
         </AlertDescription>
       </Alert>

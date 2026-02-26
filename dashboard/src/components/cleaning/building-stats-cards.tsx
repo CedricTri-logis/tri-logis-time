@@ -71,15 +71,15 @@ export function BuildingStatsCards({ stats, isLoading }: BuildingStatsCardsProps
             </div>
 
             <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
-              <span>{progressPct}% done</span>
+              <span>{progressPct}% complété</span>
               {building.inProgress > 0 && (
-                <span className="text-blue-600">{building.inProgress} in progress</span>
+                <span className="text-blue-600">{building.inProgress} en cours</span>
               )}
             </div>
 
             {building.avgDurationMinutes > 0 && (
               <div className="mt-1 text-xs text-slate-400">
-                Avg: {formatDuration(building.avgDurationMinutes)}
+                Moy. : {formatDuration(building.avgDurationMinutes)}
               </div>
             )}
           </div>

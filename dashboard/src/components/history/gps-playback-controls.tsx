@@ -44,7 +44,7 @@ export function GpsPlaybackControls({
             size="icon"
             onClick={onReset}
             disabled={disabled}
-            title="Reset to beginning"
+            title="Revenir au début"
           >
             <RotateCcw className="h-4 w-4" />
           </Button>
@@ -65,7 +65,7 @@ export function GpsPlaybackControls({
             ) : (
               <>
                 <Play className="h-5 w-5 mr-2" />
-                Play
+                Lecture
               </>
             )}
           </Button>

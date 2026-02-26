@@ -76,7 +76,7 @@ export function EmployeePerformanceCards({
   if (employees.length === 0) {
     return (
       <div className="rounded-lg border bg-white p-6 text-center text-sm text-slate-500">
-        No employee data available for the selected period.
+        Aucune donnée d'employé disponible pour la période sélectionnée.
       </div>
     );
   }
@@ -95,21 +95,22 @@ export function EmployeePerformanceCards({
               {emp.totalSessions}
             </span>
             <span className="text-sm text-slate-500">sessions</span>
+
           </div>
 
           <div className="mt-3 space-y-1.5">
             <div className="flex justify-between text-xs">
-              <span className="text-slate-500">Completed</span>
+              <span className="text-slate-500">Terminées</span>
               <span className="font-medium text-green-600">{emp.completed}</span>
             </div>
             <div className="flex justify-between text-xs">
-              <span className="text-slate-500">Avg Duration</span>
+              <span className="text-slate-500">Durée moy.</span>
               <span className="font-medium text-slate-700">
                 {formatDuration(emp.avgDurationMinutes)}
               </span>
             </div>
             <div className="flex justify-between text-xs">
-              <span className="text-slate-500">Flagged</span>
+              <span className="text-slate-500">Signalées</span>
               <span
                 className={`font-medium ${
                   emp.flaggedRatio > 0.2
@@ -128,7 +129,7 @@ export function EmployeePerformanceCards({
               </span>
             </div>
             <div className="flex justify-between text-xs">
-              <span className="text-slate-500">Buildings</span>
+              <span className="text-slate-500">Immeubles</span>
               <span className="text-right text-slate-600">
                 {emp.buildings.length <= 2
                   ? emp.buildings.join(', ')

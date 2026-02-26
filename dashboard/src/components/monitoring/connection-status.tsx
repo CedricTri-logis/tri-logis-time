@@ -35,16 +35,16 @@ export function ConnectionStatusBanner({
       bg: 'bg-yellow-50 border-yellow-200',
       iconColor: 'text-yellow-600',
       textColor: 'text-yellow-800',
-      title: 'Connection Lost',
-      message: 'Real-time updates unavailable. Data refreshes every 60s.',
+      title: 'Connexion perdue',
+      message: 'Mises à jour en temps réel indisponibles. Actualisation des données toutes les 60s.',
     },
     error: {
       icon: AlertTriangle,
       bg: 'bg-red-50 border-red-200',
       iconColor: 'text-red-600',
       textColor: 'text-red-800',
-      title: 'Connection Error',
-      message: 'Unable to establish real-time connection. Data refreshes every 60s.',
+      title: 'Erreur de connexion',
+      message: 'Impossible d\'établir la connexion en temps réel. Actualisation des données toutes les 60s.',
     },
   };
 
@@ -60,7 +60,7 @@ export function ConnectionStatusBanner({
             {message}
             {lastUpdated && (
               <span className="ml-1">
-                Last update: {formatTimeAgo(lastUpdated)}
+                Dernière mise à jour : {formatTimeAgo(lastUpdated)}
               </span>
             )}
           </p>
@@ -73,7 +73,7 @@ export function ConnectionStatusBanner({
             className={cn('flex-shrink-0 gap-1.5', textColor, 'border-current/20 hover:bg-current/5')}
           >
             <RefreshCw className="h-3.5 w-3.5" />
-            Retry
+            Réessayer
           </Button>
         )}
       </CardContent>
@@ -102,23 +102,23 @@ export function ConnectionIndicator({
     connected: {
       icon: Wifi,
       color: 'text-green-600',
-      label: 'Live',
+      label: 'En direct',
     },
     connecting: {
       icon: Wifi,
       color: 'text-yellow-600',
-      label: 'Connecting...',
+      label: 'Connexion...',
       animate: true,
     },
     disconnected: {
       icon: WifiOff,
       color: 'text-slate-400',
-      label: 'Offline',
+      label: 'Hors ligne',
     },
     error: {
       icon: WifiOff,
       color: 'text-red-600',
-      label: 'Error',
+      label: 'Erreur',
     },
   };
 
@@ -173,9 +173,9 @@ export function OfflineBanner() {
         <CardContent className="flex items-center gap-3 py-3 px-4">
           <WifiOff className="h-5 w-5 text-yellow-400" />
           <div>
-            <p className="text-sm font-medium">You&apos;re offline</p>
+            <p className="text-sm font-medium">Vous êtes hors ligne</p>
             <p className="text-xs text-slate-400">
-              Check your internet connection
+              Vérifiez votre connexion internet
             </p>
           </div>
         </CardContent>
@@ -188,12 +188,12 @@ export function OfflineBanner() {
 function formatTimeAgo(date: Date): string {
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
 
-  if (seconds < 5) return 'just now';
-  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 5) return 'à l\'instant';
+  if (seconds < 60) return `il y a ${seconds}s`;
 
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) return `il y a ${minutes}min`;
 
   const hours = Math.floor(minutes / 60);
-  return `${hours}h ago`;
+  return `il y a ${hours}h`;
 }

@@ -32,31 +32,31 @@ export function DeactivationWarningDialog({
             <div className="rounded-full bg-amber-100 p-2">
               <AlertTriangle className="h-5 w-5 text-amber-600" />
             </div>
-            <DialogTitle>Active Shift Warning</DialogTitle>
+            <DialogTitle>Avertissement de quart actif</DialogTitle>
           </div>
           <DialogDescription className="pt-2">
-            This employee currently has an active shift in progress. If you proceed
-            with deactivation, their shift will remain open and will need to be
-            manually closed.
+            Cet employé a actuellement un quart de travail actif en cours. Si vous procédez
+            à la désactivation, son quart restera ouvert et devra être
+            fermé manuellement.
           </DialogDescription>
         </DialogHeader>
         <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
           <p className="text-sm text-amber-800">
-            <strong>Important:</strong> The employee will be immediately blocked from
-            logging in and will not be able to clock out. You may need to manually
-            end their shift in the shifts management section.
+            <strong>Important :</strong> L&apos;employé sera immédiatement bloqué et ne pourra
+            plus se connecter ni pointer sa sortie. Vous devrez peut-être terminer
+            manuellement son quart dans la section de gestion des quarts.
           </p>
         </div>
         <DialogFooter className="gap-2 sm:gap-0">
           <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
-            Cancel
+            Annuler
           </Button>
           <Button
             variant="destructive"
             onClick={onConfirm}
             disabled={isSubmitting}
           >
-            {isSubmitting ? 'Deactivating...' : 'Deactivate Anyway'}
+            {isSubmitting ? 'Désactivation...' : 'Désactiver quand même'}
           </Button>
         </DialogFooter>
       </DialogContent>

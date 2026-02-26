@@ -39,12 +39,12 @@ export default function ResetPasswordPage() {
     setError('');
 
     if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
+      setError('Le mot de passe doit contenir au moins 6 caractères.');
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match.');
+      setError('Les mots de passe ne correspondent pas.');
       return;
     }
 
@@ -53,7 +53,7 @@ export default function ResetPasswordPage() {
         setSuccess(true);
       },
       onError: (err: unknown) => {
-        const message = err instanceof Error ? err.message : 'Failed to update password.';
+        const message = err instanceof Error ? err.message : 'Échec de la mise à jour du mot de passe.';
         setError(message);
       },
     });
@@ -63,29 +63,29 @@ export default function ResetPasswordPage() {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Set New Password</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">Définir un nouveau mot de passe</CardTitle>
           <CardDescription className="text-center">
-            Enter your new password below
+            Entrez votre nouveau mot de passe ci-dessous
           </CardDescription>
         </CardHeader>
         <CardContent>
           {success ? (
             <div className="space-y-4">
               <div className="p-3 bg-green-50 border border-green-200 rounded-md text-sm text-green-700">
-                Your password has been updated successfully.
+                Votre mot de passe a été mis à jour avec succès.
               </div>
               <a
                 href="ca.trilogis.gpstracker://login"
                 className="block w-full text-center bg-slate-900 text-white py-2 px-4 rounded-md text-sm font-medium hover:bg-slate-800 transition-colors"
               >
-                Open Tri-Logis Time App
+                Ouvrir l'application Tri-Logis Time
               </a>
               <div className="text-center">
                 <a
                   href="/login"
                   className="text-sm text-slate-500 hover:text-slate-700 underline-offset-4 hover:underline"
                 >
-                  Or sign in on the web
+                  Ou se connecter sur le web
                 </a>
               </div>
             </div>
@@ -99,7 +99,7 @@ export default function ResetPasswordPage() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <label htmlFor="password" className="text-sm font-medium text-slate-700">
-                    New Password
+                    Nouveau mot de passe
                   </label>
                   <input
                     id="password"
@@ -108,7 +108,7 @@ export default function ResetPasswordPage() {
                     autoComplete="new-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter new password"
+                    placeholder="Entrez le nouveau mot de passe"
                     required
                     minLength={6}
                     className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
@@ -116,7 +116,7 @@ export default function ResetPasswordPage() {
                 </div>
                 <div className="space-y-2">
                   <label htmlFor="confirmPassword" className="text-sm font-medium text-slate-700">
-                    Confirm Password
+                    Confirmer le mot de passe
                   </label>
                   <input
                     id="confirmPassword"
@@ -125,7 +125,7 @@ export default function ResetPasswordPage() {
                     autoComplete="new-password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Confirm new password"
+                    placeholder="Confirmez le nouveau mot de passe"
                     required
                     minLength={6}
                     className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-transparent"
@@ -136,7 +136,7 @@ export default function ResetPasswordPage() {
                   className="w-full"
                   disabled={isPending}
                 >
-                  {isPending ? 'Updating...' : 'Update Password'}
+                  {isPending ? 'Mise à jour...' : 'Mettre à jour'}
                 </Button>
               </form>
             </>

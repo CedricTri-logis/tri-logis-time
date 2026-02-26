@@ -61,9 +61,9 @@ export default function TeamsPage() {
       {/* Page header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Team Comparison</h2>
+          <h2 className="text-2xl font-bold text-slate-900">Comparaison des &eacute;quipes</h2>
           <p className="text-sm text-slate-500">
-            Compare performance metrics across teams and managers
+            Comparez les performances entre les &eacute;quipes et les gestionnaires
           </p>
         </div>
         <DataFreshness
@@ -95,10 +95,10 @@ function EmptyTeamsState() {
       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
         <Users className="h-8 w-8 text-slate-400" />
       </div>
-      <h3 className="mt-4 text-lg font-semibold text-slate-900">No teams found</h3>
+      <h3 className="mt-4 text-lg font-semibold text-slate-900">Aucune &eacute;quipe trouv&eacute;e</h3>
       <p className="mt-2 text-center text-sm text-slate-500 max-w-md">
-        No managers with team members found in your organization. Teams are created when
-        managers are assigned employees in the employee supervision settings.
+        Aucun gestionnaire avec des membres d&apos;&eacute;quipe trouv&eacute; dans votre organisation. Les &eacute;quipes sont cr&eacute;&eacute;es
+        lorsque des employ&eacute;s sont assign&eacute;s &agrave; des gestionnaires dans les param&egrave;tres de supervision.
       </p>
     </div>
   );

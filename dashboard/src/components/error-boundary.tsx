@@ -44,12 +44,12 @@ export class ErrorBoundary extends Component<Props, State> {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-red-600">
                 <AlertTriangle className="h-5 w-5" />
-                Something went wrong
+                Une erreur est survenue
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-slate-600">
-                An unexpected error occurred while loading this page. Please try again.
+                Une erreur inattendue s&apos;est produite lors du chargement de cette page. Veuillez réessayer.
               </p>
               {this.state.error && (
                 <pre className="rounded-md bg-slate-100 p-3 text-xs text-slate-700 overflow-auto max-h-32">
@@ -58,7 +58,7 @@ export class ErrorBoundary extends Component<Props, State> {
               )}
               <Button onClick={this.handleRetry} className="w-full gap-2">
                 <RefreshCw className="h-4 w-4" />
-                Try Again
+                Réessayer
               </Button>
             </CardContent>
           </Card>

@@ -52,7 +52,7 @@ export function TimelineSummaryCard({
     return (
       <Card className={className}>
         <CardContent className="flex items-center justify-center py-8">
-          <p className="text-sm text-slate-500">No timeline data available</p>
+          <p className="text-sm text-slate-500">Aucune donnée de chronologie disponible</p>
         </CardContent>
       </Card>
     );
@@ -63,37 +63,37 @@ export function TimelineSummaryCard({
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-medium flex items-center gap-2">
           <Clock className="h-4 w-4 text-slate-500" />
-          Timeline Summary
+          Résumé de la chronologie
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Overview stats */}
         <div className="grid grid-cols-3 gap-4">
           <StatCard
-            label="Total Duration"
+            label="Durée totale"
             value={formatDuration(summary.totalDurationSeconds)}
             icon={Clock}
           />
           <StatCard
-            label="GPS Points"
+            label="Points GPS"
             value={summary.totalGpsPoints.toString()}
             icon={MapPin}
           />
           <StatCard
-            label="Coverage"
+            label="Couverture"
             value={formatPercentage(summary.matchedPercentage)}
-            subtext="at known locations"
+            subtext="aux emplacements connus"
             icon={MapPin}
           />
         </div>
 
         {/* Segment type breakdown */}
         <div className="space-y-3">
-          <h4 className="text-sm font-medium text-slate-700">Time Breakdown</h4>
+          <h4 className="text-sm font-medium text-slate-700">Répartition du temps</h4>
 
           {/* Matched time */}
           <SegmentTypeStat
-            label="At Locations"
+            label="Aux emplacements"
             duration={summary.matchedDurationSeconds}
             percentage={summary.matchedPercentage}
             color={SEGMENT_TYPE_COLORS.matched.color}
@@ -102,7 +102,7 @@ export function TimelineSummaryCard({
 
           {/* Travel time */}
           <SegmentTypeStat
-            label="Travel"
+            label="Déplacement"
             duration={summary.travelDurationSeconds}
             percentage={summary.travelPercentage}
             color={SEGMENT_TYPE_COLORS.travel.color}
@@ -111,7 +111,7 @@ export function TimelineSummaryCard({
 
           {/* Unmatched time */}
           <SegmentTypeStat
-            label="Unknown"
+            label="Inconnu"
             duration={summary.unmatchedDurationSeconds}
             percentage={summary.unmatchedPercentage}
             color={SEGMENT_TYPE_COLORS.unmatched.color}
@@ -123,7 +123,7 @@ export function TimelineSummaryCard({
         {summary.byLocationType.length > 0 && (
           <div className="space-y-3">
             <h4 className="text-sm font-medium text-slate-700">
-              Time by Location Type
+              Temps par type d'emplacement
             </h4>
             {summary.byLocationType.map((typeData) => (
               <LocationTypeStat
@@ -239,7 +239,7 @@ function LocationTypeStat({
           ))}
           {locations.length > 5 && (
             <div className="text-slate-400">
-              +{locations.length - 5} more locations
+              +{locations.length - 5} autres emplacements
             </div>
           )}
         </div>
@@ -303,7 +303,7 @@ export function CompactTimelineSummary({
           style={{ backgroundColor: SEGMENT_TYPE_COLORS.matched.color }}
         />
         <span className="text-slate-600">
-          {formatPercentage(summary.matchedPercentage)} at locations
+          {formatPercentage(summary.matchedPercentage)} aux emplacements
         </span>
       </div>
       {summary.travelPercentage > 0 && (
@@ -313,7 +313,7 @@ export function CompactTimelineSummary({
             style={{ backgroundColor: SEGMENT_TYPE_COLORS.travel.color }}
           />
           <span className="text-slate-600">
-            {formatPercentage(summary.travelPercentage)} travel
+            {formatPercentage(summary.travelPercentage)} déplacement
           </span>
         </div>
       )}
@@ -324,7 +324,7 @@ export function CompactTimelineSummary({
             style={{ backgroundColor: SEGMENT_TYPE_COLORS.unmatched.color }}
           />
           <span className="text-slate-600">
-            {formatPercentage(summary.unmatchedPercentage)} unknown
+            {formatPercentage(summary.unmatchedPercentage)} inconnu
           </span>
         </div>
       )}

@@ -97,7 +97,7 @@ export function TrailInfoPanel({
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-base font-medium flex items-center justify-between">
-          <span>Trail Summary</span>
+          <span>Résumé du tracé</span>
           {employeeName && (
             <span className="text-sm font-normal text-slate-500">{employeeName}</span>
           )}
@@ -127,7 +127,7 @@ export function TrailInfoPanel({
               <Timer className="h-5 w-5 text-green-600" />
             </div>
             <div>
-              <p className="text-sm font-medium text-slate-500">Duration</p>
+              <p className="text-sm font-medium text-slate-500">Durée</p>
               <p className="text-lg font-semibold text-slate-900">
                 {formatDuration(stats.durationMinutes)}
               </p>
@@ -140,7 +140,7 @@ export function TrailInfoPanel({
               <MapPin className="h-5 w-5 text-purple-600" />
             </div>
             <div>
-              <p className="text-sm font-medium text-slate-500">GPS Points</p>
+              <p className="text-sm font-medium text-slate-500">Points GPS</p>
               <p className="text-lg font-semibold text-slate-900">
                 {stats.pointCount.toLocaleString()}
               </p>
@@ -153,7 +153,7 @@ export function TrailInfoPanel({
               <Clock className="h-5 w-5 text-amber-600" />
             </div>
             <div>
-              <p className="text-sm font-medium text-slate-500">Time Range</p>
+              <p className="text-sm font-medium text-slate-500">Plage horaire</p>
               {stats.firstTimestamp && stats.lastTimestamp ? (
                 <p className="text-sm font-semibold text-slate-900">
                   {format(stats.firstTimestamp, 'h:mm a')} -{' '}
@@ -170,7 +170,7 @@ export function TrailInfoPanel({
         {stats.avgAccuracy !== null && (
           <div className="mt-4 pt-4 border-t border-slate-100">
             <p className="text-xs text-slate-500">
-              Average GPS accuracy: ±{Math.round(stats.avgAccuracy)}m
+              Précision GPS moyenne : ±{Math.round(stats.avgAccuracy)}m
             </p>
           </div>
         )}

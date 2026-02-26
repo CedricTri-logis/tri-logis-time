@@ -63,12 +63,12 @@ type ModeFilter = 'all' | 'driving' | 'walking';
 
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr);
-  return d.toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' });
+  return d.toLocaleDateString('fr-CA', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 function formatTime(dateStr: string): string {
   const d = new Date(dateStr);
-  return d.toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' });
 }
 
 function formatDistance(km: number | null): string {
@@ -151,7 +151,7 @@ export default function MileagePage() {
 
       setTrips(mergedTrips as Trip[]);
     } catch (err) {
-      setTripsError(err instanceof Error ? err.message : 'Failed to load trips');
+      setTripsError(err instanceof Error ? err.message : 'Échec du chargement des trajets');
     } finally {
       setIsLoadingTrips(false);
     }
@@ -264,7 +264,7 @@ export default function MileagePage() {
         // Refresh trip list after batch processing
         fetchTrips();
       } catch (err) {
-        setBatchError(err instanceof Error ? err.message : 'An unexpected error occurred');
+        setBatchError(err instanceof Error ? err.message : 'Une erreur inattendue est survenue');
       } finally {
         setIsProcessing(false);
       }
@@ -286,9 +286,9 @@ export default function MileagePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Mileage</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Kilométrage</h1>
         <p className="text-muted-foreground">
-          Manage trip route matching and mileage tracking
+          Gérer l'appariement des itinéraires et le suivi du kilométrage
         </p>
       </div>
 
@@ -297,12 +297,12 @@ export default function MileagePage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Car className="h-5 w-5" />
-            Route Matching
+            Appariement des itinéraires
           </CardTitle>
           <CardDescription>
-            Match GPS trip traces to actual road routes using OSRM for accurate mileage calculation.
-            Trips are automatically matched after shift completion, but you can re-process
-            failed or all trips here.
+            Apparier les traces GPS des trajets aux routes réelles via OSRM pour un calcul précis du kilométrage.
+            Les trajets sont automatiquement appariés après la fin du quart, mais vous pouvez retraiter
+            les trajets échoués ou tous les trajets ici.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -313,7 +313,7 @@ export default function MileagePage() {
               disabled={isProcessing}
             >
               <RefreshCw className="h-4 w-4 mr-2" />
-              Re-process Failed Trips
+              Retraiter les trajets échoués
             </Button>
             <Button
               variant="outline"
@@ -321,7 +321,7 @@ export default function MileagePage() {
               disabled={isProcessing}
             >
               <RefreshCw className="h-4 w-4 mr-2" />
-              Re-process All Trips
+              Retraiter tous les trajets
             </Button>
           </div>
         </CardContent>
@@ -369,31 +369,31 @@ export default function MileagePage() {
         <Card className="cursor-pointer hover:ring-2 hover:ring-primary/20" onClick={() => setStatusFilter('all')}>
           <CardContent className="pt-4 pb-3 text-center">
             <p className="text-2xl font-bold">{stats.total}</p>
-            <p className="text-xs text-muted-foreground">Total Trips</p>
+            <p className="text-xs text-muted-foreground">Total trajets</p>
           </CardContent>
         </Card>
         <Card className="cursor-pointer hover:ring-2 hover:ring-green-500/20" onClick={() => setStatusFilter('matched')}>
           <CardContent className="pt-4 pb-3 text-center">
             <p className="text-2xl font-bold text-green-600">{stats.matched}</p>
-            <p className="text-xs text-muted-foreground">Matched</p>
+            <p className="text-xs text-muted-foreground">Appariés</p>
           </CardContent>
         </Card>
         <Card className="cursor-pointer hover:ring-2 hover:ring-yellow-500/20" onClick={() => setStatusFilter('pending')}>
           <CardContent className="pt-4 pb-3 text-center">
             <p className="text-2xl font-bold text-yellow-600">{stats.pending}</p>
-            <p className="text-xs text-muted-foreground">Pending</p>
+            <p className="text-xs text-muted-foreground">En attente</p>
           </CardContent>
         </Card>
         <Card className="cursor-pointer hover:ring-2 hover:ring-gray-500/20" onClick={() => setStatusFilter('failed')}>
           <CardContent className="pt-4 pb-3 text-center">
             <p className="text-2xl font-bold text-gray-500">{stats.failed}</p>
-            <p className="text-xs text-muted-foreground">Failed</p>
+            <p className="text-xs text-muted-foreground">Échoués</p>
           </CardContent>
         </Card>
         <Card className="cursor-pointer hover:ring-2 hover:ring-red-500/20" onClick={() => setStatusFilter('anomalous')}>
           <CardContent className="pt-4 pb-3 text-center">
             <p className="text-2xl font-bold text-red-600">{stats.anomalous}</p>
-            <p className="text-xs text-muted-foreground">Anomalous</p>
+            <p className="text-xs text-muted-foreground">Anomalies</p>
           </CardContent>
         </Card>
       </div>
@@ -404,7 +404,7 @@ export default function MileagePage() {
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <MapPin className="h-5 w-5" />
-              All Trips
+              Tous les trajets
               {statusFilter !== 'all' && (
                 <Badge variant="secondary" className="ml-2 text-xs">
                   {statusFilter} ({filteredTrips.length})
@@ -460,8 +460,8 @@ export default function MileagePage() {
           ) : filteredTrips.length === 0 ? (
             <div className="py-8 text-center text-sm text-muted-foreground">
               {trips.length === 0
-                ? 'No trips found.'
-                : `No trips with status "${statusFilter}".`}
+                ? 'Aucun trajet trouvé.'
+                : `Aucun trajet avec le statut "${statusFilter}".`}
             </div>
           ) : (
             <div className="overflow-x-auto -mx-6">
@@ -472,7 +472,7 @@ export default function MileagePage() {
                       Mode
                     </th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                      Employee
+                      Employé
                     </th>
                     <th
                       className="cursor-pointer px-4 py-3 text-left font-medium text-muted-foreground hover:text-foreground"
@@ -481,28 +481,28 @@ export default function MileagePage() {
                       Date {sortIndicator('started_at')}
                     </th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                      Route
+                      Itinéraire
                     </th>
                     <th
                       className="cursor-pointer px-4 py-3 text-right font-medium text-muted-foreground hover:text-foreground"
                       onClick={() => toggleSort('distance_km')}
                     >
-                      GPS Dist. {sortIndicator('distance_km')}
+                      Dist. GPS {sortIndicator('distance_km')}
                     </th>
                     <th
                       className="cursor-pointer px-4 py-3 text-right font-medium text-muted-foreground hover:text-foreground"
                       onClick={() => toggleSort('road_distance_km')}
                     >
-                      Road Dist. {sortIndicator('road_distance_km')}
+                      Dist. route {sortIndicator('road_distance_km')}
                     </th>
                     <th
                       className="cursor-pointer px-4 py-3 text-center font-medium text-muted-foreground hover:text-foreground"
                       onClick={() => toggleSort('match_status')}
                     >
-                      Status {sortIndicator('match_status')}
+                      Statut {sortIndicator('match_status')}
                     </th>
                     <th className="px-4 py-3 text-right font-medium text-muted-foreground">
-                      Confidence
+                      Confiance
                     </th>
                   </tr>
                 </thead>
@@ -530,13 +530,13 @@ export default function MileagePage() {
           <DialogHeader>
             <DialogTitle>
               {dialogMode === 'failed'
-                ? 'Re-process Failed Trips'
-                : 'Re-process All Trips'}
+                ? 'Retraiter les trajets échoués'
+                : 'Retraiter tous les trajets'}
             </DialogTitle>
             <DialogDescription>
               {dialogMode === 'failed'
-                ? 'This will re-attempt route matching for all pending and failed trips (up to 500).'
-                : 'This will re-process ALL trips, including already matched ones (up to 500). Existing matches will be overwritten.'}
+                ? 'Cela va retenter l\'appariement des itinéraires pour tous les trajets en attente et échoués (jusqu\'à 500).'
+                : 'Cela va retraiter TOUS les trajets, y compris ceux déjà appariés (jusqu\'à 500). Les appariements existants seront écrasés.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -551,7 +551,7 @@ export default function MileagePage() {
               <div className="text-center space-y-3">
                 <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-500" />
                 <p className="text-sm text-muted-foreground">
-                  Processing trips... This may take a few minutes.
+                  Traitement des trajets en cours... Cela peut prendre quelques minutes.
                 </p>
               </div>
             </div>
@@ -562,37 +562,37 @@ export default function MileagePage() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-lg border p-3 text-center">
                   <p className="text-2xl font-bold">{batchResult.summary.total_requested}</p>
-                  <p className="text-xs text-muted-foreground">Total Trips</p>
+                  <p className="text-xs text-muted-foreground">Total trajets</p>
                 </div>
                 <div className="rounded-lg border p-3 text-center">
                   <p className="text-2xl font-bold">{batchResult.summary.duration_seconds}s</p>
-                  <p className="text-xs text-muted-foreground">Duration</p>
+                  <p className="text-xs text-muted-foreground">Durée</p>
                 </div>
               </div>
 
               <div className="flex flex-wrap gap-2">
                 <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
                   <CheckCircle className="h-3 w-3 mr-1" />
-                  {batchResult.summary.matched} matched
+                  {batchResult.summary.matched} appariés
                 </Badge>
                 <Badge className="bg-gray-100 text-gray-600 hover:bg-gray-100">
-                  {batchResult.summary.skipped} skipped
+                  {batchResult.summary.skipped} ignorés
                 </Badge>
                 <Badge className="bg-red-100 text-red-700 hover:bg-red-100">
                   <XCircle className="h-3 w-3 mr-1" />
-                  {batchResult.summary.failed} failed
+                  {batchResult.summary.failed} échoués
                 </Badge>
                 {batchResult.summary.anomalous > 0 && (
                   <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100">
                     <AlertTriangle className="h-3 w-3 mr-1" />
-                    {batchResult.summary.anomalous} anomalous
+                    {batchResult.summary.anomalous} anomalies
                   </Badge>
                 )}
               </div>
 
               {batchResult.summary.total_requested === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-2">
-                  No trips found to process.
+                  Aucun trajet à traiter.
                 </p>
               )}
             </div>
@@ -602,21 +602,21 @@ export default function MileagePage() {
             {!batchResult ? (
               <>
                 <Button variant="outline" onClick={() => setShowDialog(false)}>
-                  Cancel
+                  Annuler
                 </Button>
                 <Button onClick={startProcessing} disabled={isProcessing}>
                   {isProcessing ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Processing...
+                      Traitement...
                     </>
                   ) : (
-                    'Start Processing'
+                    'Lancer le traitement'
                   )}
                 </Button>
               </>
             ) : (
-              <Button onClick={() => setShowDialog(false)}>Close</Button>
+              <Button onClick={() => setShowDialog(false)}>Fermer</Button>
             )}
           </DialogFooter>
         </DialogContent>
@@ -696,7 +696,7 @@ function TripRow({
           )}
         </td>
         <td className="px-4 py-3 font-medium">
-          {(trip.employee as any)?.full_name || (trip.employee as any)?.email || 'Unknown'}
+          {(trip.employee as any)?.full_name || (trip.employee as any)?.email || 'Inconnu'}
         </td>
         <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
           {formatDate(trip.started_at)}
@@ -739,41 +739,42 @@ function TripRow({
                   showGpsPoints={gpsPoints.length > 0}
                 />
                 {isLoadingPoints && (
-                  <p className="text-xs text-muted-foreground mt-1">Loading GPS points...</p>
+                  <p className="text-xs text-muted-foreground mt-1">Chargement des points GPS...</p>
                 )}
               </div>
               <div className="grid grid-cols-2 gap-y-4 text-sm content-start">
                 <div>
-                  <span className="text-xs text-muted-foreground block">GPS Points</span>
+                  <span className="text-xs text-muted-foreground block">Points GPS</span>
                   <span className="font-medium">{trip.gps_point_count}</span>
                 </div>
                 <div>
-                  <span className="text-xs text-muted-foreground block">Duration</span>
+                  <span className="text-xs text-muted-foreground block">Durée</span>
                   <span className="font-medium">{trip.duration_minutes.toFixed(0)} min</span>
                 </div>
                 <div>
                   <span className="text-xs text-muted-foreground block">Classification</span>
+
                   <Badge variant="outline" className="text-xs mt-0.5">
                     {trip.classification}
                   </Badge>
                 </div>
                 <div>
-                  <span className="text-xs text-muted-foreground block">Detection</span>
+                  <span className="text-xs text-muted-foreground block">Détection</span>
                   <span className="font-medium">{trip.detection_method}</span>
                 </div>
                 <div>
-                  <span className="text-xs text-muted-foreground block">Match Attempts</span>
+                  <span className="text-xs text-muted-foreground block">Tentatives d'appariement</span>
                   <span className="font-medium">{trip.match_attempts}</span>
                 </div>
                 <div>
-                  <span className="text-xs text-muted-foreground block">Matched At</span>
+                  <span className="text-xs text-muted-foreground block">Apparié le</span>
                   <span className="font-medium">
                     {trip.matched_at ? `${formatDate(trip.matched_at)} ${formatTime(trip.matched_at)}` : '—'}
                   </span>
                 </div>
                 {trip.match_error && (
                   <div className="col-span-2">
-                    <span className="text-xs text-muted-foreground block">Error</span>
+                    <span className="text-xs text-muted-foreground block">Erreur</span>
                     <span className="text-sm text-red-600">{trip.match_error}</span>
                   </div>
                 )}

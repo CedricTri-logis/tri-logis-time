@@ -50,13 +50,13 @@ interface ReportHistoryTableProps {
 function formatReportType(type: string): string {
   switch (type) {
     case 'timesheet':
-      return 'Timesheet';
+      return 'Feuille de temps';
     case 'activity_summary':
-      return 'Activity Summary';
+      return 'Résumé d\'activité';
     case 'attendance':
-      return 'Attendance';
+      return 'Présence';
     case 'shift_history':
-      return 'Shift History';
+      return 'Historique des quarts';
     default:
       return type;
   }
@@ -71,28 +71,28 @@ function getStatusBadge(status: string) {
       return (
         <Badge className="bg-green-100 text-green-800">
           <CheckCircle className="mr-1 h-3 w-3" />
-          Completed
+          Complété
         </Badge>
       );
     case 'processing':
       return (
         <Badge className="bg-blue-100 text-blue-800">
           <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-          Processing
+          En cours
         </Badge>
       );
     case 'pending':
       return (
         <Badge className="bg-yellow-100 text-yellow-800">
           <Clock className="mr-1 h-3 w-3" />
-          Pending
+          En attente
         </Badge>
       );
     case 'failed':
       return (
         <Badge className="bg-red-100 text-red-800">
           <XCircle className="mr-1 h-3 w-3" />
-          Failed
+          Échoué
         </Badge>
       );
     default:
@@ -184,9 +184,9 @@ export function ReportHistoryTable({
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <FileText className="h-12 w-12 text-slate-300 mb-4" />
-        <h3 className="text-lg font-medium text-slate-900 mb-1">No Report History</h3>
+        <h3 className="text-lg font-medium text-slate-900 mb-1">Aucun historique de rapport</h3>
         <p className="text-sm text-slate-500 max-w-sm">
-          Reports you generate will appear here. Generated reports are available for 30 days.
+          Les rapports que vous générez apparaîtront ici. Les rapports générés sont disponibles pendant 30 jours.
         </p>
       </div>
     );
@@ -198,13 +198,13 @@ export function ReportHistoryTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Report</TableHead>
-              <TableHead>Date Range</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Records</TableHead>
-              <TableHead>Size</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead>Expires</TableHead>
+              <TableHead>Rapport</TableHead>
+              <TableHead>Plage de dates</TableHead>
+              <TableHead>Statut</TableHead>
+              <TableHead>Enregistrements</TableHead>
+              <TableHead>Taille</TableHead>
+              <TableHead>Créé</TableHead>
+              <TableHead>Expire</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -246,7 +246,7 @@ export function ReportHistoryTable({
                     {expired ? (
                       <span className="text-red-500 flex items-center gap-1">
                         <AlertCircle className="h-3 w-3" />
-                        Expired
+                        Expiré
                       </span>
                     ) : (
                       <Tooltip>

@@ -54,7 +54,7 @@ export function TeamList({
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-base font-medium">
-          Team Members ({team.length})
+          Membres de l&apos;équipe ({team.length})
         </CardTitle>
       </CardHeader>
       <CardContent className="p-0">
@@ -160,7 +160,7 @@ function ShiftStatusBadge({ status }: ShiftStatusBadgeProps) {
     return (
       <Badge className="bg-green-100 text-green-700 border-green-200">
         <span className="mr-1 h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
-        On shift
+        En quart
       </Badge>
     );
   }
@@ -169,14 +169,14 @@ function ShiftStatusBadge({ status }: ShiftStatusBadgeProps) {
     return (
       <Badge variant="outline" className="text-orange-500 border-orange-200 bg-orange-50">
         <MonitorSmartphone className="mr-1 h-3 w-3" />
-        Never installed
+        Jamais installé
       </Badge>
     );
   }
 
   return (
     <Badge variant="outline" className="text-slate-500">
-      Off shift
+      Hors quart
     </Badge>
   );
 }
@@ -190,7 +190,7 @@ function LocationInfo({ location }: LocationInfoProps) {
     return (
       <div className="flex items-center gap-1.5 text-sm text-slate-400">
         <MapPin className="h-4 w-4" />
-        <span>Pending</span>
+        <span>En attente</span>
       </div>
     );
   }
@@ -219,13 +219,13 @@ function formatLastConnection(date: Date): string {
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-  if (diffMinutes < 5) return 'Just now';
-  if (diffMinutes < 60) return `${diffMinutes}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffMinutes < 5) return 'À l\'instant';
+  if (diffMinutes < 60) return `il y a ${diffMinutes}min`;
+  if (diffHours < 24) return `il y a ${diffHours}h`;
+  if (diffDays === 1) return 'Hier';
+  if (diffDays < 7) return `il y a ${diffDays}j`;
 
-  return date.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' });
+  return date.toLocaleDateString('fr-CA', { month: 'short', day: 'numeric' });
 }
 
 function formatLastShift(date: Date): string {
@@ -233,11 +233,11 @@ function formatLastShift(date: Date): string {
   const diffMs = now.getTime() - date.getTime();
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-  if (diffDays === 0) return 'Today';
-  if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffDays === 0) return 'Aujourd\'hui';
+  if (diffDays === 1) return 'Hier';
+  if (diffDays < 7) return `il y a ${diffDays}j`;
 
-  return date.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' });
+  return date.toLocaleDateString('fr-CA', { month: 'short', day: 'numeric' });
 }
 
 function TeamListSkeleton() {
@@ -282,7 +282,7 @@ export function CompactTeamList({ team, maxItems = 5 }: CompactTeamListProps) {
   if (activeTeam.length === 0) {
     return (
       <p className="text-sm text-slate-500 py-2">
-        No employees currently on shift
+        Aucun employé actuellement en quart
       </p>
     );
   }
@@ -311,7 +311,7 @@ export function CompactTeamList({ team, maxItems = 5 }: CompactTeamListProps) {
           href="/dashboard/monitoring"
           className="text-sm text-blue-600 hover:underline"
         >
-          +{remaining} more on shift
+          +{remaining} autres en quart
         </Link>
       )}
     </div>

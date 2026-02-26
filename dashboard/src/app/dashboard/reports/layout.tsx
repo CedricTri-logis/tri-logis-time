@@ -7,28 +7,28 @@ import { cn } from '@/lib/utils';
 
 const reportNavigation = [
   {
-    name: 'All Reports',
+    name: 'Tous les rapports',
     href: '/dashboard/reports',
     icon: FileText,
     exact: true,
   },
   {
-    name: 'Timesheet',
+    name: 'Feuille de temps',
     href: '/dashboard/reports/timesheet',
     icon: Clock,
   },
   {
-    name: 'Activity Summary',
+    name: 'Résumé d\'activité',
     href: '/dashboard/reports/activity',
     icon: Users,
   },
   {
-    name: 'Attendance',
+    name: 'Présence',
     href: '/dashboard/reports/attendance',
     icon: Calendar,
   },
   {
-    name: 'Schedules',
+    name: 'Programmation',
     href: '/dashboard/reports/schedules',
     icon: CalendarClock,
   },

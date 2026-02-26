@@ -108,12 +108,12 @@ export function CsvImportDialog({
       setHeaderErrors(result.headerErrors);
 
       if (result.headerErrors.length > 0 || result.parseErrors.length > 0) {
-        toast.error('CSV file has errors. Please fix and try again.');
+        toast.error('Le fichier CSV contient des erreurs. Veuillez corriger et réessayer.');
         return;
       }
 
       if (result.validRows.length === 0) {
-        toast.error('No valid rows found in CSV file.');
+        toast.error('Aucune ligne valide trouvée dans le fichier CSV.');
         return;
       }
 
@@ -172,18 +172,18 @@ export function CsvImportDialog({
       setStep('complete');
 
       if (summary.status === 'success') {
-        toast.success(`Successfully imported ${summary.importedCount} locations`);
+        toast.success(`${summary.importedCount} emplacements importés avec succès`);
         onSuccess?.();
       } else if (summary.status === 'partial') {
         toast.warning(
-          `Imported ${summary.importedCount} of ${summary.totalRows} locations`
+          `${summary.importedCount} sur ${summary.totalRows} emplacements importés`
         );
         onSuccess?.();
       } else {
-        toast.error('Import failed. Please check the errors and try again.');
+        toast.error('Échec de l\'importation. Veuillez vérifier les erreurs et réessayer.');
       }
     } catch (error) {
-      toast.error('Import failed. Please try again.');
+      toast.error('Échec de l\'importation. Veuillez réessayer.');
       setStep('preview');
     }
   }, [validRows, invalidRows, bulkInsert, onSuccess]);
@@ -194,10 +194,10 @@ export function CsvImportDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileSpreadsheet className="h-5 w-5" />
-            Import Locations from CSV
+            Importer des emplacements depuis un CSV
           </DialogTitle>
           <DialogDescription>
-            Upload a CSV file to bulk import multiple locations at once.
+            Téléversez un fichier CSV pour importer plusieurs emplacements en une fois.
           </DialogDescription>
         </DialogHeader>
 
@@ -272,13 +272,13 @@ function UploadStep({
       >
         <Upload className="h-10 w-10 text-slate-400 mx-auto mb-4" />
         <p className="text-sm text-slate-600 mb-2">
-          Drag and drop your CSV file here, or
+          Glissez-déposez votre fichier CSV ici, ou
         </p>
         <Button
           variant="outline"
           onClick={() => fileInputRef.current?.click()}
         >
-          Browse Files
+          Parcourir les fichiers
         </Button>
         <input
           ref={fileInputRef}
@@ -288,7 +288,7 @@ function UploadStep({
           onChange={onFileSelect}
         />
         <p className="text-xs text-slate-400 mt-2">
-          Maximum file size: 5MB
+          Taille maximale du fichier : 5 Mo
         </p>
       </div>
 
@@ -318,24 +318,24 @@ function UploadStep({
       {/* Template download */}
       <div className="flex items-center justify-between bg-slate-50 rounded-lg p-4">
         <div>
-          <p className="text-sm font-medium text-slate-700">Need a template?</p>
+          <p className="text-sm font-medium text-slate-700">Besoin d'un modèle ?</p>
           <p className="text-xs text-slate-500">
-            Download our CSV template with required columns
+            Téléchargez notre modèle CSV avec les colonnes requises
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={downloadCsvTemplate}>
           <Download className="h-4 w-4 mr-2" />
-          Download Template
+          Télécharger le modèle
         </Button>
       </div>
 
       {/* Required columns */}
       <div className="text-xs text-slate-500">
-        <p className="font-medium mb-1">Required columns:</p>
+        <p className="font-medium mb-1">Colonnes requises :</p>
         <code className="bg-slate-100 px-1 py-0.5 rounded">
           name, location_type, latitude, longitude
         </code>
-        <p className="mt-1">Optional: radius_meters, address, notes, is_active</p>
+        <p className="mt-1">Optionnel : radius_meters, address, notes, is_active</p>
       </div>
     </div>
   );
@@ -372,7 +372,7 @@ function PreviewStep({
           </div>
         </div>
         <Button variant="ghost" size="sm" onClick={onBack}>
-          Change File
+          Changer de fichier
         </Button>
       </div>
 
@@ -382,9 +382,9 @@ function PreviewStep({
           <CheckCircle2 className="h-5 w-5 text-green-600" />
           <div>
             <p className="text-sm font-medium text-green-700">
-              {validRows.length} valid
+              {validRows.length} valide{validRows.length !== 1 ? 's' : ''}
             </p>
-            <p className="text-xs text-green-600">Ready to import</p>
+            <p className="text-xs text-green-600">Prêt à importer</p>
           </div>
         </div>
         {invalidRows.length > 0 && (
@@ -392,13 +392,13 @@ function PreviewStep({
             <AlertCircle className="h-5 w-5 text-yellow-600" />
             <div>
               <p className="text-sm font-medium text-yellow-700">
-                {invalidRows.length} invalid
+                {invalidRows.length} invalide{invalidRows.length !== 1 ? 's' : ''}
               </p>
               <button
                 className="text-xs text-yellow-600 hover:underline"
                 onClick={() => setShowInvalid(!showInvalid)}
               >
-                {showInvalid ? 'Hide details' : 'Show details'}
+                {showInvalid ? 'Masquer les détails' : 'Voir les détails'}
               </button>
             </div>
           </div>
@@ -410,18 +410,18 @@ function PreviewStep({
         <Card className="border-yellow-200">
           <CardContent className="pt-4">
             <p className="text-sm font-medium text-yellow-700 mb-2">
-              Invalid Rows (will be skipped)
+              Lignes invalides (seront ignorées)
             </p>
             <div className="max-h-[150px] overflow-y-auto space-y-2 text-xs">
               {invalidRows.slice(0, 10).map((row) => (
                 <div key={row.rowIndex} className="flex gap-2">
-                  <span className="text-slate-500">Row {row.rowIndex + 2}:</span>
+                  <span className="text-slate-500">Ligne {row.rowIndex + 2} :</span>
                   <span className="text-red-600">{row.errors.join('; ')}</span>
                 </div>
               ))}
               {invalidRows.length > 10 && (
                 <p className="text-slate-500">
-                  +{invalidRows.length - 10} more invalid rows
+                  +{invalidRows.length - 10} autres lignes invalides
                 </p>
               )}
             </div>
@@ -436,10 +436,10 @@ function PreviewStep({
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[50px]">#</TableHead>
-                <TableHead>Name</TableHead>
+                <TableHead>Nom</TableHead>
                 <TableHead>Type</TableHead>
-                <TableHead>Coordinates</TableHead>
-                <TableHead>Radius</TableHead>
+                <TableHead>Coordonnées</TableHead>
+                <TableHead>Rayon</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -461,7 +461,7 @@ function PreviewStep({
         </div>
         {validRows.length > 10 && (
           <div className="px-4 py-2 bg-slate-50 text-xs text-slate-500 border-t">
-            Showing 10 of {validRows.length} rows
+            Affichage de 10 sur {validRows.length} lignes
           </div>
         )}
       </div>
@@ -469,10 +469,10 @@ function PreviewStep({
       {/* Actions */}
       <DialogFooter>
         <Button variant="outline" onClick={onBack}>
-          Back
+          Retour
         </Button>
         <Button onClick={onImport} disabled={validRows.length === 0}>
-          Import {validRows.length} Locations
+          Importer {validRows.length} emplacements
         </Button>
       </DialogFooter>
     </div>
@@ -492,12 +492,12 @@ function ImportingStep({ progress }: ImportingStepProps) {
     <div className="py-12 text-center">
       <Loader2 className="h-12 w-12 text-blue-500 animate-spin mx-auto mb-4" />
       <p className="text-lg font-medium text-slate-700 mb-2">
-        Importing locations...
+        Importation des emplacements...
       </p>
       {progress && (
         <div className="max-w-xs mx-auto">
           <div className="flex justify-between text-xs text-slate-500 mb-1">
-            <span>Progress</span>
+            <span>Progression</span>
             <span>
               {progress.current} / {progress.total}
             </span>
@@ -553,10 +553,10 @@ function CompleteStep({ result, onClose }: CompleteStepProps) {
           }`}
         >
           {isSuccess
-            ? 'Import Complete!'
+            ? 'Importation terminée !'
             : isPartial
-            ? 'Partial Import'
-            : 'Import Failed'}
+            ? 'Importation partielle'
+            : 'Échec de l\'importation'}
         </p>
       </div>
 
@@ -566,19 +566,19 @@ function CompleteStep({ result, onClose }: CompleteStepProps) {
           <p className="text-2xl font-bold text-slate-900">
             {result.importedCount}
           </p>
-          <p className="text-xs text-slate-500">Imported</p>
+          <p className="text-xs text-slate-500">Importés</p>
         </div>
         <div className="text-center p-3 bg-slate-50 rounded-lg">
           <p className="text-2xl font-bold text-slate-900">
             {result.skippedCount}
           </p>
-          <p className="text-xs text-slate-500">Skipped</p>
+          <p className="text-xs text-slate-500">Ignorés</p>
         </div>
         <div className="text-center p-3 bg-slate-50 rounded-lg">
           <p className="text-2xl font-bold text-slate-900">
             {result.failedCount}
           </p>
-          <p className="text-xs text-slate-500">Failed</p>
+          <p className="text-xs text-slate-500">Échoués</p>
         </div>
       </div>
 
@@ -588,16 +588,16 @@ function CompleteStep({ result, onClose }: CompleteStepProps) {
           <CardContent className="pt-4 max-h-[200px] overflow-y-auto text-xs">
             {result.skippedRows.slice(0, 5).map((row) => (
               <div key={row.rowIndex} className="flex gap-2 mb-1">
-                <span className="text-slate-500">Row {row.rowIndex}:</span>
+                <span className="text-slate-500">Ligne {row.rowIndex} :</span>
                 <span className="text-yellow-600">
-                  Skipped - {row.errors.join('; ')}
+                  Ignorée - {row.errors.join('; ')}
                 </span>
               </div>
             ))}
             {result.failedRows.slice(0, 5).map((row) => (
               <div key={row.rowIndex} className="flex gap-2 mb-1">
-                <span className="text-slate-500">Row {row.rowIndex}:</span>
-                <span className="text-red-600">Failed - {row.error}</span>
+                <span className="text-slate-500">Ligne {row.rowIndex} :</span>
+                <span className="text-red-600">Échoué - {row.error}</span>
               </div>
             ))}
           </CardContent>
@@ -605,7 +605,7 @@ function CompleteStep({ result, onClose }: CompleteStepProps) {
       )}
 
       <DialogFooter>
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={onClose}>Fermer</Button>
       </DialogFooter>
     </div>
   );

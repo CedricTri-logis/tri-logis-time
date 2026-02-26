@@ -129,17 +129,17 @@ export default function EmployeesPage() {
             <Users className="h-6 w-6 text-slate-600" />
           </div>
           <div>
-            <h1 className="text-2xl font-semibold text-slate-900">Employees</h1>
+            <h1 className="text-2xl font-semibold text-slate-900">Employés</h1>
             <p className="text-sm text-slate-500">
               {isLoading
-                ? 'Loading...'
-                : `${totalCount} employee${totalCount !== 1 ? 's' : ''}`}
+                ? 'Chargement...'
+                : `${totalCount} employé${totalCount !== 1 ? 's' : ''}`}
             </p>
           </div>
         </div>
         <Button onClick={() => setShowCreateDialog(true)}>
           <UserPlus className="mr-2 h-4 w-4" />
-          Add Employee
+          Ajouter un employé
         </Button>
       </div>
 
@@ -163,7 +163,7 @@ export default function EmployeesPage() {
         <Card className="border-red-200 bg-red-50">
           <CardContent className="flex items-center justify-center py-8">
             <p className="text-red-600">
-              Failed to load employees. Please try again.
+              Échec du chargement des employés. Veuillez réessayer.
             </p>
           </CardContent>
         </Card>
@@ -189,8 +189,8 @@ export default function EmployeesPage() {
       {showPagination && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-slate-500">
-            Showing {(currentPage - 1) * PAGE_SIZE + 1} to{' '}
-            {Math.min(currentPage * PAGE_SIZE, totalCount)} of {totalCount} employees
+            Affichage de {(currentPage - 1) * PAGE_SIZE + 1} à{' '}
+            {Math.min(currentPage * PAGE_SIZE, totalCount)} sur {totalCount} employés
           </p>
           <Pagination>
             <PaginationContent>

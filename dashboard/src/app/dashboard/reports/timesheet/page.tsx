@@ -102,7 +102,7 @@ export default function TimesheetReportPage() {
       setTotalRecords(rows.length);
       setLastConfig(config);
     } catch (err) {
-      setPreviewError(err instanceof Error ? err.message : 'Failed to load preview');
+      setPreviewError(err instanceof Error ? err.message : 'Échec du chargement de l\'aperçu');
       setPreviewData([]);
     } finally {
       setPreviewLoading(false);
@@ -153,10 +153,10 @@ export default function TimesheetReportPage() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
           <Clock className="h-6 w-6" />
-          Timesheet Report
+          Rapport de feuille de temps
         </h1>
         <p className="text-sm text-slate-500 mt-1">
-          Generate comprehensive timesheet reports for pay period processing
+          Générez des rapports complets de feuille de temps pour le traitement de la paie
         </p>
       </div>
 
@@ -165,9 +165,9 @@ export default function TimesheetReportPage() {
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Report Configuration</CardTitle>
+              <CardTitle>Configuration du rapport</CardTitle>
               <CardDescription>
-                Select the date range, employees, and export format
+                Sélectionnez la plage de dates, les employés et le format d&apos;export
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -179,7 +179,7 @@ export default function TimesheetReportPage() {
                 showIncompleteOption={true}
                 showGroupByOption={true}
                 defaultFormat="pdf"
-                submitLabel="Generate Timesheet Report"
+                submitLabel="Générer le rapport de feuille de temps"
               />
             </CardContent>
           </Card>
@@ -192,7 +192,7 @@ export default function TimesheetReportPage() {
             className="w-full"
           >
             <RefreshCw className={`mr-2 h-4 w-4 ${previewLoading ? 'animate-spin' : ''}`} />
-            {previewLoading ? 'Loading Preview...' : 'Preview Report Data'}
+            {previewLoading ? 'Chargement de l\'aperçu...' : 'Aperçu des données du rapport'}
           </Button>
         </div>
 
@@ -235,11 +235,11 @@ export default function TimesheetReportPage() {
               <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                 <FileDown className="h-12 w-12 text-slate-300 mb-4" />
                 <h3 className="text-lg font-medium text-slate-900 mb-1">
-                  No Preview Data
+                  Aucun aperçu disponible
                 </h3>
                 <p className="text-sm text-slate-500 max-w-sm">
-                  Configure your report options and click &quot;Preview Report Data&quot; to see
-                  a sample of the data that will be included.
+                  Configurez vos options de rapport et cliquez sur &quot;Aperçu des données du rapport&quot; pour voir
+                  un échantillon des données qui seront incluses.
                 </p>
               </CardContent>
             </Card>
@@ -250,13 +250,13 @@ export default function TimesheetReportPage() {
       {/* Help text */}
       <Alert>
         <Clock className="h-4 w-4" />
-        <AlertTitle>About Timesheet Reports</AlertTitle>
+        <AlertTitle>À propos des rapports de feuille de temps</AlertTitle>
         <AlertDescription>
           <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
-            <li>PDF reports are formatted for printing and include summary statistics</li>
-            <li>CSV exports can be opened in Excel or Google Sheets for further analysis</li>
-            <li>Reports exceeding 1,000 records are processed in the background</li>
-            <li>Generated reports are available for 30 days in your report history</li>
+            <li>Les rapports PDF sont formatés pour l&apos;impression et incluent des statistiques sommaires</li>
+            <li>Les exports CSV peuvent être ouverts dans Excel ou Google Sheets pour une analyse approfondie</li>
+            <li>Les rapports dépassant 1 000 enregistrements sont traités en arrière-plan</li>
+            <li>Les rapports générés sont disponibles pendant 30 jours dans votre historique</li>
           </ul>
         </AlertDescription>
       </Alert>

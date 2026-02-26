@@ -9,9 +9,9 @@ interface StatusBadgeProps {
 
 export function StatusBadge({ status }: StatusBadgeProps) {
   const variants: Record<EmployeeStatusType, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; label: string }> = {
-    active: { variant: 'default', label: 'Active' },
-    inactive: { variant: 'secondary', label: 'Inactive' },
-    suspended: { variant: 'destructive', label: 'Suspended' },
+    active: { variant: 'default', label: 'Actif' },
+    inactive: { variant: 'secondary', label: 'Inactif' },
+    suspended: { variant: 'destructive', label: 'Suspendu' },
   };
 
   const { variant, label } = variants[status] ?? { variant: 'outline' as const, label: status };
@@ -29,10 +29,10 @@ interface RoleBadgeProps {
 
 export function RoleBadge({ role }: RoleBadgeProps) {
   const variants: Record<EmployeeRoleType, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; label: string }> = {
-    super_admin: { variant: 'destructive', label: 'Super Admin' },
+    super_admin: { variant: 'destructive', label: 'Super admin' },
     admin: { variant: 'default', label: 'Admin' },
-    manager: { variant: 'secondary', label: 'Manager' },
-    employee: { variant: 'outline', label: 'Employee' },
+    manager: { variant: 'secondary', label: 'Gestionnaire' },
+    employee: { variant: 'outline', label: 'Employé' },
   };
 
   const { variant, label } = variants[role] ?? { variant: 'outline' as const, label: role };

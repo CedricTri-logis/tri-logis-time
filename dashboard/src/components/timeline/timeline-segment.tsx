@@ -93,19 +93,19 @@ export function SegmentTooltip({ segment, percentage }: SegmentTooltipProps) {
       </div>
       <div className="space-y-0.5 text-slate-300">
         <div className="flex justify-between">
-          <span>Duration:</span>
+          <span>Durée :</span>
           <span className="font-medium text-white">
             {formatDuration(segment.durationSeconds)}
           </span>
         </div>
         <div className="flex justify-between">
-          <span>Percentage:</span>
+          <span>Pourcentage :</span>
           <span className="font-medium text-white">
             {formatPercentage(percentage)}
           </span>
         </div>
         <div className="flex justify-between">
-          <span>GPS Points:</span>
+          <span>Points GPS :</span>
           <span className="font-medium text-white">{segment.pointCount}</span>
         </div>
         <div className="border-t border-slate-700 pt-1 mt-1">
@@ -116,7 +116,7 @@ export function SegmentTooltip({ segment, percentage }: SegmentTooltipProps) {
         </div>
         {segment.avgConfidence !== null && (
           <div className="flex justify-between text-slate-400">
-            <span>Confidence:</span>
+            <span>Confiance :</span>
             <span>{Math.round(segment.avgConfidence * 100)}%</span>
           </div>
         )}
@@ -141,7 +141,7 @@ export function SegmentLegend({ showLocationTypes = true }: SegmentLegendProps) 
     <div className="flex flex-wrap gap-4 text-xs">
       {/* Segment types */}
       <div className="flex items-center gap-3">
-        <span className="text-slate-500">Segment Types:</span>
+        <span className="text-slate-500">Types de segments :</span>
         {Object.entries(SEGMENT_TYPE_COLORS).map(([type, config]) => (
           <div key={type} className="flex items-center gap-1.5">
             <div
@@ -156,7 +156,7 @@ export function SegmentLegend({ showLocationTypes = true }: SegmentLegendProps) 
       {/* Location types (optional) */}
       {showLocationTypes && (
         <div className="flex items-center gap-3">
-          <span className="text-slate-500">Location Types:</span>
+          <span className="text-slate-500">Types d'emplacements :</span>
           {Object.entries(LOCATION_TYPE_COLORS).map(([type, config]) => (
             <div key={type} className="flex items-center gap-1.5">
               <div
@@ -223,24 +223,24 @@ export function SegmentDetail({ segment, onClose }: SegmentDetailProps) {
 
       <div className="grid grid-cols-2 gap-3 text-sm">
         <div>
-          <span className="text-slate-500">Duration</span>
+          <span className="text-slate-500">Durée</span>
           <p className="font-medium">{formatDuration(segment.durationSeconds)}</p>
         </div>
         <div>
-          <span className="text-slate-500">GPS Points</span>
+          <span className="text-slate-500">Points GPS</span>
           <p className="font-medium">{segment.pointCount}</p>
         </div>
         <div>
-          <span className="text-slate-500">Start Time</span>
+          <span className="text-slate-500">Heure de début</span>
           <p className="font-medium">{format(segment.startTime, 'HH:mm:ss')}</p>
         </div>
         <div>
-          <span className="text-slate-500">End Time</span>
+          <span className="text-slate-500">Heure de fin</span>
           <p className="font-medium">{format(segment.endTime, 'HH:mm:ss')}</p>
         </div>
         {segment.avgConfidence !== null && (
           <div>
-            <span className="text-slate-500">Avg Confidence</span>
+            <span className="text-slate-500">Confiance moy.</span>
             <p className="font-medium">
               {Math.round(segment.avgConfidence * 100)}%
             </p>
@@ -248,7 +248,7 @@ export function SegmentDetail({ segment, onClose }: SegmentDetailProps) {
         )}
         {segment.locationType && (
           <div>
-            <span className="text-slate-500">Location Type</span>
+            <span className="text-slate-500">Type d'emplacement</span>
             <p className="font-medium">
               {LOCATION_TYPE_COLORS[segment.locationType].label}
             </p>

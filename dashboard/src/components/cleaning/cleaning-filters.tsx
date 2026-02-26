@@ -58,7 +58,7 @@ export function CleaningFilters({
       {/* Date range */}
       <div className="flex gap-2">
         <div>
-          <label className="text-xs font-medium text-slate-500">From</label>
+          <label className="text-xs font-medium text-slate-500">De</label>
           <input
             type="date"
             value={formatDateInput(filters.dateFrom)}
@@ -67,7 +67,7 @@ export function CleaningFilters({
           />
         </div>
         <div>
-          <label className="text-xs font-medium text-slate-500">To</label>
+          <label className="text-xs font-medium text-slate-500">À</label>
           <input
             type="date"
             value={formatDateInput(filters.dateTo)}
@@ -80,7 +80,7 @@ export function CleaningFilters({
       {/* Building filter */}
       {buildings.length > 0 && (
         <div>
-          <label className="text-xs font-medium text-slate-500">Building</label>
+          <label className="text-xs font-medium text-slate-500">Immeuble</label>
           <select
             value={filters.buildingId ?? ''}
             onChange={(e) =>
@@ -91,7 +91,7 @@ export function CleaningFilters({
             }
             className="block w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
           >
-            <option value="">All Buildings</option>
+            <option value="">Tous les immeubles</option>
             {buildings.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name}
@@ -104,7 +104,7 @@ export function CleaningFilters({
       {/* Employee filter */}
       {employees.length > 0 && (
         <div>
-          <label className="text-xs font-medium text-slate-500">Employee</label>
+          <label className="text-xs font-medium text-slate-500">Employé</label>
           <select
             value={filters.employeeId ?? ''}
             onChange={(e) =>
@@ -115,7 +115,7 @@ export function CleaningFilters({
             }
             className="block w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
           >
-            <option value="">All Employees</option>
+            <option value="">Tous les employés</option>
             {employees.map((emp) => (
               <option key={emp.id} value={emp.id}>
                 {emp.name}
@@ -127,7 +127,7 @@ export function CleaningFilters({
 
       {/* Status filter */}
       <div>
-        <label className="text-xs font-medium text-slate-500">Status</label>
+        <label className="text-xs font-medium text-slate-500">Statut</label>
         <select
           value={filters.status ?? ''}
           onChange={(e) =>
@@ -138,7 +138,7 @@ export function CleaningFilters({
           }
           className="block w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
         >
-          <option value="">All Statuses</option>
+          <option value="">Tous les statuts</option>
           {Object.entries(CLEANING_STATUS_LABELS).map(([value, label]) => (
             <option key={value} value={value}>
               {label}
@@ -153,7 +153,7 @@ export function CleaningFilters({
           onClick={handleClearFilters}
           className="rounded-md px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100"
         >
-          Clear filters
+          Effacer les filtres
         </button>
       )}
     </div>

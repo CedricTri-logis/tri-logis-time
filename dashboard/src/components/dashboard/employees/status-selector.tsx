@@ -26,31 +26,31 @@ export function StatusSelector({
   const statusOptions = [
     {
       value: EmployeeStatus.ACTIVE,
-      label: 'Active',
-      description: 'Employee can log in and use the system',
+      label: 'Actif',
+      description: 'L\'employé peut se connecter et utiliser le système',
     },
     {
       value: EmployeeStatus.INACTIVE,
-      label: 'Inactive',
-      description: 'Permanent departure - employee cannot log in',
+      label: 'Inactif',
+      description: 'Départ permanent - l\'employé ne peut pas se connecter',
     },
     {
       value: EmployeeStatus.SUSPENDED,
-      label: 'Suspended',
-      description: 'Temporary hold - employee cannot log in',
+      label: 'Suspendu',
+      description: 'Suspension temporaire - l\'employé ne peut pas se connecter',
     },
   ];
 
   return (
     <div className="space-y-2">
-      <p className="text-sm font-medium">Account Status</p>
+      <p className="text-sm font-medium">Statut du compte</p>
       <Select
         value={currentStatus}
         onValueChange={(value) => onStatusChange(value as EmployeeStatusType)}
         disabled={isDisabled}
       >
         <SelectTrigger className="w-full">
-          <SelectValue placeholder="Select status" />
+          <SelectValue placeholder="Sélectionner un statut" />
         </SelectTrigger>
         <SelectContent>
           {statusOptions.map((option) => (
@@ -69,10 +69,10 @@ export function StatusSelector({
         <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3">
           <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-600 flex-shrink-0" />
           <div className="text-xs text-amber-800">
-            <p className="font-medium">Active shift in progress</p>
+            <p className="font-medium">Quart de travail actif en cours</p>
             <p className="mt-0.5">
-              This employee currently has an active shift. Deactivating or suspending
-              will leave the shift open.
+              Cet employé a actuellement un quart de travail actif. Le désactiver ou le suspendre
+              laissera le quart ouvert.
             </p>
           </div>
         </div>
@@ -81,18 +81,18 @@ export function StatusSelector({
       {/* Status descriptions */}
       <div className="text-xs text-slate-500 space-y-1">
         {currentStatus === 'active' && (
-          <p>The employee can log in and use the mobile app.</p>
+          <p>L&apos;employé peut se connecter et utiliser l&apos;application mobile.</p>
         )}
         {currentStatus === 'inactive' && (
           <p>
-            The employee cannot log in. Use this for permanent departures.
-            Historical data is preserved.
+            L&apos;employé ne peut pas se connecter. Utilisez ce statut pour les départs permanents.
+            Les données historiques sont conservées.
           </p>
         )}
         {currentStatus === 'suspended' && (
           <p>
-            The employee cannot log in temporarily. Use this for temporary holds
-            such as leave of absence or investigations.
+            L&apos;employé ne peut pas se connecter temporairement. Utilisez ce statut pour les suspensions
+            temporaires comme les congés ou les enquêtes.
           </p>
         )}
       </div>

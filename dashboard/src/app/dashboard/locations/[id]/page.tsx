@@ -50,10 +50,10 @@ export default function LocationDetailPage({ params }: LocationDetailPageProps) 
           notes: data.notes ?? null,
           isActive: data.is_active,
         });
-        toast.success('Location updated successfully');
+        toast.success('Emplacement mis à jour avec succès');
         refetch();
       } catch (error) {
-        toast.error('Failed to update location');
+        toast.error('Échec de la mise à jour de l\'emplacement');
       }
     },
     [id, updateLocation, refetch]
@@ -62,10 +62,10 @@ export default function LocationDetailPage({ params }: LocationDetailPageProps) 
   const handleDelete = useCallback(async () => {
     try {
       await deleteLocation(id);
-      toast.success('Location deleted successfully');
+      toast.success('Emplacement supprimé avec succès');
       router.push('/dashboard/locations');
     } catch (error) {
-      toast.error('Failed to delete location');
+      toast.error('Échec de la suppression de l\'emplacement');
     }
   }, [id, deleteLocation, router]);
 
@@ -75,12 +75,12 @@ export default function LocationDetailPage({ params }: LocationDetailPageProps) 
       await updateLocation(id, { isActive: !location.isActive });
       toast.success(
         location.isActive
-          ? 'Location deactivated'
-          : 'Location activated'
+          ? 'Emplacement désactivé'
+          : 'Emplacement activé'
       );
       refetch();
     } catch (error) {
-      toast.error('Failed to update location status');
+      toast.error('Échec de la mise à jour du statut de l\'emplacement');
     }
   }, [id, location, updateLocation, refetch]);
 
@@ -93,16 +93,16 @@ export default function LocationDetailPage({ params }: LocationDetailPageProps) 
       <div className="space-y-6">
         <Button variant="ghost" onClick={() => router.push('/dashboard/locations')}>
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Locations
+          Retour aux emplacements
         </Button>
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <MapPin className="h-12 w-12 text-slate-300 mb-4" />
             <h3 className="text-lg font-medium text-slate-900 mb-1">
-              Location not found
+              Emplacement introuvable
             </h3>
             <p className="text-sm text-slate-500">
-              {error || 'The location you are looking for does not exist.'}
+              {error || 'L\'emplacement que vous recherchez n\'existe pas.'}
             </p>
           </CardContent>
         </Card>
@@ -137,7 +137,7 @@ export default function LocationDetailPage({ params }: LocationDetailPageProps) 
               </h1>
               {!location.isActive && (
                 <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-500 rounded">
-                  Inactive
+                  Inactif
                 </span>
               )}
             </div>
@@ -152,7 +152,7 @@ export default function LocationDetailPage({ params }: LocationDetailPageProps) 
                 {typeConfig.label}
               </span>
               <span>
-                Created {format(location.createdAt, 'MMM d, yyyy')}
+                Créé {format(location.createdAt, 'MMM d, yyyy')}
               </span>
             </div>
           </div>
@@ -166,12 +166,12 @@ export default function LocationDetailPage({ params }: LocationDetailPageProps) 
             {location.isActive ? (
               <>
                 <ToggleRight className="h-4 w-4 mr-2" />
-                Deactivate
+                Désactiver
               </>
             ) : (
               <>
                 <ToggleLeft className="h-4 w-4 mr-2" />
-                Activate
+                Activer
               </>
             )}
           </Button>
@@ -179,25 +179,25 @@ export default function LocationDetailPage({ params }: LocationDetailPageProps) 
             <AlertDialogTrigger asChild>
               <Button variant="destructive" disabled={isDeleting}>
                 <Trash2 className="h-4 w-4 mr-2" />
-                Delete
+                Supprimer
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Delete Location</AlertDialogTitle>
+                <AlertDialogTitle>Supprimer l'emplacement</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Are you sure you want to delete "{location.name}"? This action
-                  cannot be undone. Any existing GPS matches to this location will
-                  also be deleted.
+                  Voulez-vous vraiment supprimer "{location.name}" ? Cette action
+                  est irréversible. Toutes les correspondances GPS existantes pour cet
+                  emplacement seront également supprimées.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogCancel>Annuler</AlertDialogCancel>
                 <AlertDialogAction
                   onClick={handleDelete}
                   className="bg-red-600 hover:bg-red-700"
                 >
-                  Delete
+                  Supprimer
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

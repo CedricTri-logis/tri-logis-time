@@ -40,11 +40,11 @@ export function ShiftDetailCard({
           <CardTitle className="text-lg font-semibold">{employeeName}</CardTitle>
           <Badge className="bg-green-100 text-green-700 border-green-200">
             <span className="mr-1 h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
-            On Shift
+            En quart
           </Badge>
         </div>
         {employeeId && (
-          <p className="text-sm text-slate-500">Employee ID: {employeeId}</p>
+          <p className="text-sm text-slate-500">ID employé : {employeeId}</p>
         )}
       </CardHeader>
 
@@ -55,7 +55,7 @@ export function ShiftDetailCard({
             <Clock className="h-5 w-5 text-blue-600" />
           </div>
           <div>
-            <p className="text-sm text-slate-500">Current Shift Duration</p>
+            <p className="text-sm text-slate-500">Durée du quart en cours</p>
             <DurationCounter
               startTime={shift.clockedInAt}
               format="hms"
@@ -69,24 +69,24 @@ export function ShiftDetailCard({
         <div className="grid grid-cols-2 gap-4">
           <div>
             <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">
-              Clocked In At
+              Pointé à
             </p>
             <p className="text-sm font-medium text-slate-900">
-              {format(shift.clockedInAt, 'MMM d, yyyy')}
+              {format(shift.clockedInAt, 'd MMM yyyy')}
             </p>
             <p className="text-lg font-semibold text-slate-900">
-              {format(shift.clockedInAt, 'h:mm a')}
+              {format(shift.clockedInAt, 'HH:mm')}
             </p>
           </div>
 
           <div>
             <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">
-              GPS Points
+              Points GPS
             </p>
             <p className="text-lg font-semibold text-slate-900">
               {shift.gpsPointCount}
             </p>
-            <p className="text-sm text-slate-500">recorded</p>
+            <p className="text-sm text-slate-500">enregistrés</p>
           </div>
         </div>
 
@@ -95,14 +95,14 @@ export function ShiftDetailCard({
           <div className="pt-4 border-t border-slate-100">
             <div className="flex items-center gap-2 mb-2">
               <MapPin className="h-4 w-4 text-slate-400" />
-              <p className="text-sm font-medium text-slate-700">Clock-in Location</p>
+              <p className="text-sm font-medium text-slate-700">Lieu de pointage</p>
             </div>
             <p className="text-xs text-slate-500 font-mono">
               {shift.clockInLocation.latitude.toFixed(6)}, {shift.clockInLocation.longitude.toFixed(6)}
             </p>
             {shift.clockInAccuracy && (
               <p className="text-xs text-slate-400 mt-1">
-                Accuracy: ~{Math.round(shift.clockInAccuracy)}m
+                Précision : ~{Math.round(shift.clockInAccuracy)}m
               </p>
             )}
           </div>
@@ -114,7 +114,7 @@ export function ShiftDetailCard({
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <Navigation className="h-4 w-4 text-slate-400" />
-                <p className="text-sm font-medium text-slate-700">Current Location</p>
+                <p className="text-sm font-medium text-slate-700">Position actuelle</p>
               </div>
               <StalenessIndicator
                 capturedAt={shift.latestLocation.capturedAt}
@@ -126,7 +126,7 @@ export function ShiftDetailCard({
             </p>
             {shift.latestLocation.accuracy > 100 && (
               <p className="text-xs text-yellow-600 mt-1">
-                Low accuracy: ~{Math.round(shift.latestLocation.accuracy)}m
+                Faible précision : ~{Math.round(shift.latestLocation.accuracy)}m
               </p>
             )}
           </div>
@@ -148,11 +148,11 @@ function OffShiftCard({ employeeName, employeeId }: OffShiftCardProps) {
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-semibold">{employeeName}</CardTitle>
           <Badge variant="outline" className="text-slate-500">
-            Off Shift
+            Hors quart
           </Badge>
         </div>
         {employeeId && (
-          <p className="text-sm text-slate-500">Employee ID: {employeeId}</p>
+          <p className="text-sm text-slate-500">ID employé : {employeeId}</p>
         )}
       </CardHeader>
 
@@ -161,9 +161,9 @@ function OffShiftCard({ employeeName, employeeId }: OffShiftCardProps) {
           <div className="rounded-full bg-slate-100 p-4 mb-4">
             <Clock className="h-8 w-8 text-slate-400" />
           </div>
-          <p className="text-slate-600 font-medium">No active shift</p>
+          <p className="text-slate-600 font-medium">Aucun quart actif</p>
           <p className="text-sm text-slate-500 mt-1">
-            This employee is not currently clocked in.
+            Cet employé n&apos;est pas actuellement pointé.
           </p>
         </div>
       </CardContent>

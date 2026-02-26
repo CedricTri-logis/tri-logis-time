@@ -16,9 +16,9 @@ interface DateRangeSelectorProps {
 }
 
 const presets: { value: DateRangePreset; label: string }[] = [
-  { value: 'today', label: 'Today' },
-  { value: 'this_week', label: 'This Week' },
-  { value: 'this_month', label: 'This Month' },
+  { value: 'today', label: 'Aujourd\u2019hui' },
+  { value: 'this_week', label: 'Cette semaine' },
+  { value: 'this_month', label: 'Ce mois-ci' },
 ];
 
 export function DateRangeSelector({ value, onChange }: DateRangeSelectorProps) {
@@ -30,7 +30,7 @@ export function DateRangeSelector({ value, onChange }: DateRangeSelectorProps) {
         onValueChange={(preset: DateRangePreset) => onChange({ preset })}
       >
         <SelectTrigger className="w-[140px]">
-          <SelectValue placeholder="Select period" />
+          <SelectValue placeholder="S\u00e9lectionner la p\u00e9riode" />
         </SelectTrigger>
         <SelectContent>
           {presets.map((preset) => (

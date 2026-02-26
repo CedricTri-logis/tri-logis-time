@@ -29,12 +29,12 @@ export function exportToCsv(
 ): void {
   // Build metadata header
   const metadataLines = [
-    `# GPS Trail Export`,
-    `# Employee: ${metadata.employeeName} (${metadata.employeeId})`,
-    `# Date Range: ${metadata.dateRange}`,
-    `# Total Distance: ${metadata.totalDistanceKm.toFixed(2)} km`,
-    `# Total Points: ${metadata.totalPoints}`,
-    `# Generated: ${metadata.generatedAt}`,
+    `# Exportation du tracé GPS`,
+    `# Employé : ${metadata.employeeName} (${metadata.employeeId})`,
+    `# Période : ${metadata.dateRange}`,
+    `# Distance totale : ${metadata.totalDistanceKm.toFixed(2)} km`,
+    `# Nombre de points : ${metadata.totalPoints}`,
+    `# Généré le : ${metadata.generatedAt}`,
     `#`,
   ];
 
@@ -136,11 +136,11 @@ export function exportMultiShiftToCsv(
 ): void {
   // Build metadata header
   const metadataLines = [
-    `# Multi-Shift GPS Trail Export`,
-    `# Employee: ${metadata.employeeName} (${metadata.employeeId})`,
-    `# Date Range: ${metadata.dateRange}`,
-    `# Total Points: ${metadata.totalPoints}`,
-    `# Generated: ${metadata.generatedAt}`,
+    `# Exportation du tracé GPS multi-quarts`,
+    `# Employé : ${metadata.employeeName} (${metadata.employeeId})`,
+    `# Période : ${metadata.dateRange}`,
+    `# Nombre de points : ${metadata.totalPoints}`,
+    `# Généré le : ${metadata.generatedAt}`,
     `#`,
   ];
 

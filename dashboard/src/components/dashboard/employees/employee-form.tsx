@@ -49,17 +49,17 @@ export function EmployeeForm({
           name="full_name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Full Name</FormLabel>
+              <FormLabel>Nom complet</FormLabel>
               <FormControl>
                 <Input
-                  placeholder="Enter full name"
+                  placeholder="Entrer le nom complet"
                   {...field}
                   value={field.value ?? ''}
                   disabled={isDisabled}
                 />
               </FormControl>
               <FormDescription>
-                The display name shown throughout the system.
+                Le nom affiché dans tout le système.
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -71,17 +71,17 @@ export function EmployeeForm({
           name="employee_id"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Employee ID</FormLabel>
+              <FormLabel>ID employé</FormLabel>
               <FormControl>
                 <Input
-                  placeholder="Enter employee ID"
+                  placeholder="Entrer l'ID employé"
                   {...field}
                   value={field.value ?? ''}
                   disabled={isDisabled}
                 />
               </FormControl>
               <FormDescription>
-                A unique identifier (letters, numbers, and dashes only).
+                Un identifiant unique (lettres, chiffres et tirets seulement).
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -93,11 +93,11 @@ export function EmployeeForm({
           name="email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Email</FormLabel>
+              <FormLabel>Courriel</FormLabel>
               <FormControl>
                 <Input
                   type="email"
-                  placeholder="employee@example.com"
+                  placeholder="employe@exemple.com"
                   {...field}
                   value={field.value ?? ''}
                   disabled={isDisabled}
@@ -106,7 +106,7 @@ export function EmployeeForm({
               {showEmailWarning && (
                 <div className="flex items-center gap-2 rounded-md bg-amber-50 p-2 text-xs text-amber-800">
                   <AlertTriangle className="h-3 w-3 flex-shrink-0" />
-                  Changing the email will change this employee&apos;s login credentials.
+                  Changer le courriel modifiera les identifiants de connexion de cet employé.
                 </div>
               )}
               <FormMessage />
@@ -119,7 +119,7 @@ export function EmployeeForm({
           name="phone_number"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Phone Number</FormLabel>
+              <FormLabel>Numéro de téléphone</FormLabel>
               <FormControl>
                 <PhoneInput
                   value={field.value ?? ''}
@@ -130,7 +130,7 @@ export function EmployeeForm({
                 />
               </FormControl>
               <FormDescription>
-                Canadian format. Used for SMS authentication.
+                Format canadien. Utilisé pour l&apos;authentification par SMS.
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -140,7 +140,7 @@ export function EmployeeForm({
         {!isDisabled && (
           <div className="flex justify-end">
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Saving...' : 'Save Changes'}
+              {isSubmitting ? 'Enregistrement...' : 'Enregistrer les modifications'}
             </Button>
           </div>
         )}

@@ -87,9 +87,9 @@ export default function MultiShiftViewPage() {
   // Build export metadata
   const exportMetadata: GpsExportMetadata = useMemo(() => {
     return {
-      employeeName: selectedEmployee?.fullName ?? 'Unknown',
+      employeeName: selectedEmployee?.fullName ?? 'Inconnu',
       employeeId: selectedEmployeeId ?? '',
-      dateRange: `${startDate} to ${endDate}`,
+      dateRange: `${startDate} au ${endDate}`,
       totalDistanceKm: 0, // Would need calculation
       totalPoints,
       generatedAt: new Date().toISOString(),
@@ -107,9 +107,9 @@ export default function MultiShiftViewPage() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Multi-Day GPS View</h1>
+            <h1 className="text-2xl font-bold text-slate-900">Vue GPS multi-jours</h1>
             <p className="text-sm text-slate-500 mt-1">
-              View GPS trails across multiple shifts
+              Voir les tracés GPS sur plusieurs quarts
             </p>
           </div>
         </div>
@@ -119,7 +119,7 @@ export default function MultiShiftViewPage() {
           <ExportDialog
             trailsByShift={trailsByShift}
             metadata={exportMetadata}
-            buttonLabel="Export All"
+            buttonLabel="Tout exporter"
           />
         )}
       </div>
@@ -127,20 +127,20 @@ export default function MultiShiftViewPage() {
       {/* Filters */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base font-medium">Filters</CardTitle>
+          <CardTitle className="text-base font-medium">Filtres</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-3">
             {/* Employee selector */}
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-700">Employee</label>
+              <label className="text-sm font-medium text-slate-700">Employé</label>
               <Select
                 value={selectedEmployeeId ?? ''}
                 onValueChange={setSelectedEmployeeId}
                 disabled={employeesLoading}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select employee" />
+                  <SelectValue placeholder="Sélectionner un employé" />
                 </SelectTrigger>
                 <SelectContent>
                   {employees.map((emp) => (
@@ -157,7 +157,7 @@ export default function MultiShiftViewPage() {
 
             {/* Start date */}
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-700">Start Date</label>
+              <label className="text-sm font-medium text-slate-700">Date de début</label>
               <Input
                 type="date"
                 value={startDate}
@@ -168,7 +168,7 @@ export default function MultiShiftViewPage() {
 
             {/* End date */}
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-700">End Date</label>
+              <label className="text-sm font-medium text-slate-700">Date de fin</label>
               <Input
                 type="date"
                 value={endDate}
@@ -186,8 +186,8 @@ export default function MultiShiftViewPage() {
         <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
           <AlertCircle className="h-5 w-5 flex-shrink-0" />
           <span>
-            Showing first 10 of {shifts.length} shifts. Narrow your date range to see
-            all shifts.
+            Affichage des 10 premiers quarts sur {shifts.length}. Réduisez la plage de dates pour voir
+            tous les quarts.
           </span>
         </div>
       )}
@@ -225,8 +225,8 @@ export default function MultiShiftViewPage() {
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-slate-500">
-              No completed shifts found for {selectedEmployee?.fullName} in this date
-              range.
+              Aucun quart terminé trouvé pour {selectedEmployee?.fullName} dans cette plage
+              de dates.
             </p>
           </CardContent>
         </Card>
@@ -239,13 +239,13 @@ export default function MultiShiftViewPage() {
             <div className="flex items-center justify-center gap-8 text-sm">
               <div className="text-center">
                 <p className="text-2xl font-bold text-slate-900">{shifts.length}</p>
-                <p className="text-slate-500">Shifts</p>
+                <p className="text-slate-500">Quarts</p>
               </div>
               <div className="text-center">
                 <p className="text-2xl font-bold text-slate-900">
                   {totalPoints.toLocaleString()}
                 </p>
-                <p className="text-slate-500">GPS Points</p>
+                <p className="text-slate-500">Points GPS</p>
               </div>
               <div className="text-center">
                 <p className="text-2xl font-bold text-slate-900">
@@ -253,7 +253,7 @@ export default function MultiShiftViewPage() {
                     shifts.reduce((sum, s) => sum + s.durationMinutes, 0) / 60
                   )}h
                 </p>
-                <p className="text-slate-500">Total Time</p>
+                <p className="text-slate-500">Temps total</p>
               </div>
             </div>
           </CardContent>

@@ -38,8 +38,8 @@ export function NoTeamEmptyState() {
   return (
     <EmptyStateBase
       icon={Users}
-      title="No team members assigned"
-      description="You don't have any employees assigned to supervise. Contact an administrator to set up your team."
+      title="Aucun membre d'équipe assigné"
+      description="Vous n'avez aucun employé assigné à superviser. Contactez un administrateur pour configurer votre équipe."
     />
   );
 }
@@ -51,8 +51,8 @@ export function NoActiveShiftsEmptyState() {
   return (
     <EmptyStateBase
       icon={Clock}
-      title="All team members are off-shift"
-      description="None of your supervised employees are currently clocked in. Active shifts will appear here when employees start their work."
+      title="Tous les membres de l'équipe sont hors quart"
+      description="Aucun de vos employés supervisés n'est actuellement pointé. Les quarts actifs apparaîtront ici lorsque les employés commenceront leur travail."
     />
   );
 }
@@ -81,9 +81,9 @@ export function NoResultsEmptyState({
   if (search) filterParts.push(`"${search}"`);
   if (shiftStatus !== 'all') {
     const statusLabels: Record<string, string> = {
-      'on-shift': 'on-shift only',
-      'off-shift': 'off-shift only',
-      'never-installed': 'never installed only',
+      'on-shift': 'en quart seulement',
+      'off-shift': 'hors quart seulement',
+      'never-installed': 'jamais installé seulement',
     };
     filterParts.push(statusLabels[shiftStatus] ?? shiftStatus);
   }
@@ -91,10 +91,10 @@ export function NoResultsEmptyState({
   return (
     <EmptyStateBase
       icon={Users}
-      title="No employees found"
-      description={`No employees match your filters: ${filterParts.join(', ')}`}
+      title="Aucun employé trouvé"
+      description={`Aucun employé ne correspond à vos filtres : ${filterParts.join(', ')}`}
       action={{
-        label: 'Clear filters',
+        label: 'Effacer les filtres',
         onClick: onClearFilters,
       }}
     />
@@ -112,8 +112,8 @@ export function LocationPendingState() {
           <MapPin className="h-4 w-4 text-slate-400" />
         </div>
         <div>
-          <p className="text-sm font-medium text-slate-700">Location pending</p>
-          <p className="text-xs text-slate-500">Waiting for first GPS update</p>
+          <p className="text-sm font-medium text-slate-700">Position en attente</p>
+          <p className="text-xs text-slate-500">En attente de la première mise à jour GPS</p>
         </div>
       </CardContent>
     </Card>
@@ -127,8 +127,8 @@ export function NoGpsTrailEmptyState() {
   return (
     <EmptyStateBase
       icon={MapPin}
-      title="No GPS trail available"
-      description="GPS tracking data has not been recorded for this shift yet. The trail will appear as the employee moves with GPS enabled."
+      title="Aucun trajet GPS disponible"
+      description="Aucune donnée de suivi GPS n'a encore été enregistrée pour ce quart. Le trajet apparaîtra lorsque l'employé se déplacera avec le GPS activé."
     />
   );
 }
@@ -145,16 +145,16 @@ export function OfflineEmptyState({ lastUpdated, onRetry }: OfflineEmptyStatePro
   return (
     <EmptyStateBase
       icon={Wifi}
-      title="Connection lost"
+      title="Connexion perdue"
       description={
         lastUpdated
-          ? `Unable to connect to real-time updates. Last updated ${formatTimeAgo(lastUpdated)}.`
-          : 'Unable to connect to real-time updates. Please check your internet connection.'
+          ? `Impossible de se connecter aux mises à jour en temps réel. Dernière mise à jour ${formatTimeAgo(lastUpdated)}.`
+          : 'Impossible de se connecter aux mises à jour en temps réel. Veuillez vérifier votre connexion internet.'
       }
       action={
         onRetry
           ? {
-              label: 'Retry connection',
+              label: 'Réessayer la connexion',
               onClick: onRetry,
             }
           : undefined
@@ -182,14 +182,14 @@ export function InlineEmptyState({ message }: InlineEmptyStateProps) {
 function formatTimeAgo(date: Date): string {
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
 
-  if (seconds < 5) return 'just now';
-  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 5) return 'à l\'instant';
+  if (seconds < 60) return `il y a ${seconds}s`;
 
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) return `il y a ${minutes}min`;
 
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return `il y a ${hours}h`;
 
   return date.toLocaleString();
 }

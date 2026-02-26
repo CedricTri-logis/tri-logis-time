@@ -38,14 +38,14 @@ function statusBadge(status: CleaningSessionStatus) {
 }
 
 function formatTime(date: Date): string {
-  return date.toLocaleTimeString('en-CA', {
+  return date.toLocaleTimeString('fr-CA', {
     hour: '2-digit',
     minute: '2-digit',
   });
 }
 
 function formatDate(date: Date): string {
-  return date.toLocaleDateString('en-CA', {
+  return date.toLocaleDateString('fr-CA', {
     month: 'short',
     day: 'numeric',
   });
@@ -192,7 +192,7 @@ export function CleaningSessionsTable({
   if (sessions.length === 0) {
     return (
       <div className="rounded-lg border bg-white p-8 text-center text-sm text-slate-500">
-        No cleaning sessions found for the selected filters.
+        Aucune session de ménage trouvée pour les filtres sélectionnés.
       </div>
     );
   }
@@ -201,7 +201,7 @@ export function CleaningSessionsTable({
     <div className="overflow-hidden rounded-lg border bg-white">
       {/* Group-by toggle */}
       <div className="flex items-center gap-2 border-b bg-slate-50 px-4 py-2">
-        <span className="text-xs font-medium text-slate-500">Group by:</span>
+        <span className="text-xs font-medium text-slate-500">Grouper par :</span>
         {(['none', 'employee', 'building'] as const).map((option) => (
           <button
             key={option}
@@ -215,7 +215,7 @@ export function CleaningSessionsTable({
                 : 'text-slate-600 hover:bg-slate-200'
             }`}
           >
-            {option === 'none' ? 'None' : option === 'employee' ? 'Employee' : 'Building'}
+            {option === 'none' ? 'Aucun' : option === 'employee' ? 'Employé' : 'Immeuble'}
           </button>
         ))}
       </div>
@@ -225,34 +225,34 @@ export function CleaningSessionsTable({
           <thead className="border-b bg-slate-50">
             <tr>
               <th className="px-4 py-3 text-left font-medium text-slate-600">
-                Employee
+                Employé
               </th>
               <th className="px-4 py-3 text-left font-medium text-slate-600">
                 Studio
               </th>
               <th className="px-4 py-3 text-left font-medium text-slate-600">
-                Building
+                Immeuble
               </th>
               <th className="px-4 py-3 text-left font-medium text-slate-600">
-                Status
+                Statut
               </th>
               <th
                 className="cursor-pointer px-4 py-3 text-left font-medium text-slate-600 hover:text-slate-900"
                 onClick={() => toggleSort('started_at')}
               >
-                Started {sortBy === 'started_at' && (sortOrder === 'asc' ? '↑' : '↓')}
+                Début {sortBy === 'started_at' && (sortOrder === 'asc' ? '↑' : '↓')}
               </th>
               <th className="px-4 py-3 text-left font-medium text-slate-600">
-                Completed
+                Terminée
               </th>
               <th
                 className="cursor-pointer px-4 py-3 text-left font-medium text-slate-600 hover:text-slate-900"
                 onClick={() => toggleSort('duration')}
               >
-                Duration {sortBy === 'duration' && (sortOrder === 'asc' ? '↑' : '↓')}
+                Durée {sortBy === 'duration' && (sortOrder === 'asc' ? '↑' : '↓')}
               </th>
               <th className="px-4 py-3 text-left font-medium text-slate-600">
-                Flagged
+                Signalée
               </th>
               {onCloseSession && (
                 <th className="px-4 py-3 text-right font-medium text-slate-600">
@@ -289,7 +289,7 @@ export function CleaningSessionsTable({
       {totalPages > 1 && (
         <div className="flex items-center justify-between border-t px-4 py-3">
           <span className="text-sm text-slate-500">
-            Showing {offset + 1}–{Math.min(offset + limit, totalCount)} of{' '}
+            Affichage {offset + 1}–{Math.min(offset + limit, totalCount)} sur{' '}
             {totalCount}
           </span>
           <div className="flex gap-1">
@@ -298,14 +298,14 @@ export function CleaningSessionsTable({
               onClick={() => onPageChange(Math.max(0, offset - limit))}
               className="rounded px-3 py-1 text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-50"
             >
-              Previous
+              Précédent
             </button>
             <button
               disabled={currentPage >= totalPages}
               onClick={() => onPageChange(offset + limit)}
               className="rounded px-3 py-1 text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-50"
             >
-              Next
+              Suivant
             </button>
           </div>
         </div>
@@ -349,7 +349,7 @@ function SessionRow({
         {session.isFlagged && (
           <span
             className="text-orange-500"
-            title={session.flagReason ?? 'Flagged'}
+            title={session.flagReason ?? 'Signalée'}
           >
             ⚑
           </span>
@@ -362,7 +362,7 @@ function SessionRow({
               onClick={() => onCloseSession(session.id)}
               className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
             >
-              Close
+              Fermer
             </button>
           )}
         </td>
@@ -406,14 +406,14 @@ function GroupRows({
                 {group.totalSessions} session{group.totalSessions !== 1 ? 's' : ''}
               </span>
               <span className="text-xs text-green-600">
-                {group.completed} completed
+                {group.completed} terminée{group.completed !== 1 ? 's' : ''}
               </span>
               <span className="text-xs text-slate-500">
-                avg {formatDuration(group.avgDurationMinutes)}
+                moy. {formatDuration(group.avgDurationMinutes)}
               </span>
               {group.flaggedCount > 0 && (
                 <span className="text-xs text-orange-500">
-                  {group.flaggedCount} flagged
+                  {group.flaggedCount} signalée{group.flaggedCount !== 1 ? 's' : ''}
                 </span>
               )}
             </div>
@@ -429,7 +429,7 @@ function GroupRows({
               ))}
               {(breakdown?.length ?? 0) > 4 && (
                 <span className="text-xs text-slate-400">
-                  +{(breakdown?.length ?? 0) - 4} more
+                  +{(breakdown?.length ?? 0) - 4} autres
                 </span>
               )}
             </div>

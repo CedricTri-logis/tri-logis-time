@@ -39,7 +39,7 @@ export function TeamFilters({
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <Input
-            placeholder="Search by name, email or ID..."
+            placeholder="Rechercher par nom, courriel ou ID..."
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             className="pl-10 pr-10"
@@ -66,7 +66,7 @@ export function TeamFilters({
               onClick={onClearFilters}
               className="text-slate-500"
             >
-              Clear filters
+              Effacer les filtres
             </Button>
           )}
         </div>
@@ -88,10 +88,10 @@ interface ShiftStatusToggleProps {
 
 function ShiftStatusToggle({ value, onChange }: ShiftStatusToggleProps) {
   const options: { value: ShiftStatusFilter; label: string }[] = [
-    { value: 'all', label: 'All' },
-    { value: 'on-shift', label: 'On Shift' },
-    { value: 'off-shift', label: 'Off Shift' },
-    { value: 'never-installed', label: 'Never Installed' },
+    { value: 'all', label: 'Tous' },
+    { value: 'on-shift', label: 'En quart' },
+    { value: 'off-shift', label: 'Hors quart' },
+    { value: 'never-installed', label: 'Jamais installé' },
   ];
 
   return (
@@ -121,8 +121,8 @@ interface SortToggleProps {
 
 function SortToggle({ value, onChange }: SortToggleProps) {
   const options: { value: TeamSortOption; label: string }[] = [
-    { value: 'name', label: 'Name' },
-    { value: 'last-connection', label: 'Last Connection' },
+    { value: 'name', label: 'Nom' },
+    { value: 'last-connection', label: 'Dernière connexion' },
   ];
 
   return (
@@ -161,7 +161,7 @@ export function CompactFilters({ search, onSearchChange }: CompactFiltersProps) 
     <div className="relative">
       <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
       <Input
-        placeholder="Search..."
+        placeholder="Rechercher..."
         value={search}
         onChange={(e) => onSearchChange(e.target.value)}
         className="pl-10 h-9 text-sm"

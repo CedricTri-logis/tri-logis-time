@@ -47,7 +47,7 @@ export function ReportPreview({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Loading Preview...
+            Chargement de l&apos;aperçu...
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -65,7 +65,7 @@ export function ReportPreview({
     return (
       <Alert variant="destructive">
         <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Preview Error</AlertTitle>
+        <AlertTitle>Erreur d&apos;aperçu</AlertTitle>
         <AlertDescription>{error}</AlertDescription>
       </Alert>
     );
@@ -75,9 +75,9 @@ export function ReportPreview({
     return (
       <Alert>
         <AlertCircle className="h-4 w-4" />
-        <AlertTitle>No Data</AlertTitle>
+        <AlertTitle>Aucune donnée</AlertTitle>
         <AlertDescription>
-          No records found for the selected criteria. Try adjusting your filters.
+          Aucun enregistrement trouvé pour les critères sélectionnés. Essayez d&apos;ajuster vos filtres.
         </AlertDescription>
       </Alert>
     );
@@ -91,11 +91,11 @@ export function ReportPreview({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <FileText className="h-5 w-5" />
-          Report Preview
+          Aperçu du rapport
         </CardTitle>
         <CardDescription>
-          Showing {previewData.length} of {totalCount.toLocaleString()} records
-          {hasMore && ` (first ${PREVIEW_LIMIT} rows)`}
+          Affichage de {previewData.length} sur {totalCount.toLocaleString()} enregistrements
+          {hasMore && ` (${PREVIEW_LIMIT} premières lignes)`}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -103,7 +103,7 @@ export function ReportPreview({
 
         {hasMore && (
           <div className="mt-4 text-sm text-slate-500 text-center py-2 bg-slate-50 rounded-lg">
-            {totalCount - PREVIEW_LIMIT} more rows not shown in preview
+            {totalCount - PREVIEW_LIMIT} lignes supplémentaires non affichées dans l&apos;aperçu
           </div>
         )}
       </CardContent>
@@ -122,7 +122,7 @@ function renderPreviewTable(reportType: ReportType, data: unknown[]): React.JSX.
     case 'attendance':
       return renderAttendancePreview(data);
     default:
-      return <div>Unknown report type</div>;
+      return <div>Type de rapport inconnu</div>;
   }
 }
 
@@ -132,12 +132,12 @@ function renderTimesheetPreview(data: TimesheetReportRow[]): React.JSX.Element {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Employee</TableHead>
+            <TableHead>Employé</TableHead>
             <TableHead>Date</TableHead>
-            <TableHead>Clock In</TableHead>
-            <TableHead>Clock Out</TableHead>
-            <TableHead className="text-right">Hours</TableHead>
-            <TableHead>Status</TableHead>
+            <TableHead>Entrée</TableHead>
+            <TableHead>Sortie</TableHead>
+            <TableHead className="text-right">Heures</TableHead>
+            <TableHead>Statut</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -201,11 +201,11 @@ function renderShiftHistoryPreview(data: unknown[]): React.JSX.Element {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Employee</TableHead>
-            <TableHead>Clock In</TableHead>
-            <TableHead>Clock Out</TableHead>
-            <TableHead className="text-right">Hours</TableHead>
-            <TableHead className="text-right">GPS Points</TableHead>
+            <TableHead>Employé</TableHead>
+            <TableHead>Entrée</TableHead>
+            <TableHead>Sortie</TableHead>
+            <TableHead className="text-right">Heures</TableHead>
+            <TableHead className="text-right">Points GPS</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -244,11 +244,11 @@ function renderActivitySummaryPreview(data: unknown[]): React.JSX.Element {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Period</TableHead>
-            <TableHead className="text-right">Total Hours</TableHead>
-            <TableHead className="text-right">Total Shifts</TableHead>
-            <TableHead className="text-right">Avg Hours/Emp</TableHead>
-            <TableHead className="text-right">Active Employees</TableHead>
+            <TableHead>Période</TableHead>
+            <TableHead className="text-right">Heures totales</TableHead>
+            <TableHead className="text-right">Quarts totaux</TableHead>
+            <TableHead className="text-right">Moy. heures/emp.</TableHead>
+            <TableHead className="text-right">Employés actifs</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -281,11 +281,11 @@ function renderAttendancePreview(data: unknown[]): React.JSX.Element {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Employee</TableHead>
-            <TableHead className="text-right">Working Days</TableHead>
-            <TableHead className="text-right">Days Worked</TableHead>
-            <TableHead className="text-right">Days Absent</TableHead>
-            <TableHead className="text-right">Attendance Rate</TableHead>
+            <TableHead>Employé</TableHead>
+            <TableHead className="text-right">Jours ouvrables</TableHead>
+            <TableHead className="text-right">Jours travaillés</TableHead>
+            <TableHead className="text-right">Jours absents</TableHead>
+            <TableHead className="text-right">Taux de présence</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>

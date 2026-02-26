@@ -52,11 +52,11 @@ interface ReportConfigFormProps {
 }
 
 const DATE_PRESETS: { value: DateRangePreset | 'custom'; label: string }[] = [
-  { value: 'this_week', label: 'This Week' },
-  { value: 'last_week', label: 'Last Week' },
-  { value: 'this_month', label: 'This Month' },
-  { value: 'last_month', label: 'Last Month' },
-  { value: 'custom', label: 'Custom Range' },
+  { value: 'this_week', label: 'Cette semaine' },
+  { value: 'last_week', label: 'Semaine dernière' },
+  { value: 'this_month', label: 'Ce mois-ci' },
+  { value: 'last_month', label: 'Mois dernier' },
+  { value: 'custom', label: 'Plage personnalisée' },
 ];
 
 export function ReportConfigForm({
@@ -67,7 +67,7 @@ export function ReportConfigForm({
   showIncompleteOption = false,
   showGroupByOption = false,
   defaultFormat = 'pdf',
-  submitLabel = 'Generate Report',
+  submitLabel = 'Générer le rapport',
 }: ReportConfigFormProps) {
   const [datePreset, setDatePreset] = useState<DateRangePreset | 'custom'>('last_month');
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
@@ -164,7 +164,7 @@ export function ReportConfigForm({
         <div className="space-y-4">
           <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
             <CalendarIcon className="h-4 w-4" />
-            Date Range
+            Plage de dates
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -174,13 +174,13 @@ export function ReportConfigForm({
               name="date_range"
               render={() => (
                 <FormItem>
-                  <FormLabel>Period</FormLabel>
+                  <FormLabel>Période</FormLabel>
                   <Select
                     value={datePreset}
                     onValueChange={(v) => setDatePreset(v as DateRangePreset | 'custom')}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select period" />
+                      <SelectValue placeholder="Sélectionner une période" />
                     </SelectTrigger>
                     <SelectContent>
                       {DATE_PRESETS.map((preset) => (
@@ -198,7 +198,7 @@ export function ReportConfigForm({
             {/* Custom date picker */}
             {datePreset === 'custom' && (
               <FormItem className="flex flex-col">
-                <FormLabel>Date Range</FormLabel>
+                <FormLabel>Plage de dates</FormLabel>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
@@ -232,7 +232,7 @@ export function ReportConfigForm({
 
           {/* Display selected range */}
           <div className="text-sm text-slate-500">
-            Selected: {format(dateRange.from, 'MMMM d, yyyy')} to{' '}
+            Sélection : {format(dateRange.from, 'MMMM d, yyyy')} au{' '}
             {format(dateRange.to, 'MMMM d, yyyy')}
           </div>
         </div>
@@ -242,7 +242,7 @@ export function ReportConfigForm({
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
               <Users className="h-4 w-4" />
-              Employees
+              Employés
             </div>
 
             <FormField
@@ -250,16 +250,16 @@ export function ReportConfigForm({
               name="employee_filter"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Include Employees</FormLabel>
+                  <FormLabel>Inclure les employés</FormLabel>
                   <Select
                     value={typeof field.value === 'string' ? field.value : 'all'}
                     onValueChange={field.onChange}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select employees" />
+                      <SelectValue placeholder="Sélectionner les employés" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Employees</SelectItem>
+                      <SelectItem value="all">Tous les employés</SelectItem>
                       {employees.map((emp) => (
                         <SelectItem key={emp.id} value={`employee:${emp.id}`}>
                           {emp.full_name}
@@ -269,7 +269,7 @@ export function ReportConfigForm({
                     </SelectContent>
                   </Select>
                   <FormDescription>
-                    Choose all employees or select specific individuals
+                    Choisissez tous les employés ou sélectionnez des individus spécifiques
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -282,7 +282,7 @@ export function ReportConfigForm({
         <div className="space-y-4">
           <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
             <FileText className="h-4 w-4" />
-            Export Format
+            Format d&apos;export
           </div>
 
           <FormField
@@ -297,10 +297,10 @@ export function ReportConfigForm({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="pdf">
-                      PDF - Formatted document for printing
+                      PDF - Document formaté pour impression
                     </SelectItem>
                     <SelectItem value="csv">
-                      CSV - Spreadsheet format for Excel/Sheets
+                      CSV - Format tableur pour Excel/Sheets
                     </SelectItem>
                   </SelectContent>
                 </Select>
@@ -328,9 +328,9 @@ export function ReportConfigForm({
                       />
                     </FormControl>
                     <div className="space-y-1 leading-none">
-                      <FormLabel>Include Incomplete Shifts</FormLabel>
+                      <FormLabel>Inclure les quarts incomplets</FormLabel>
                       <FormDescription>
-                        Include shifts that are still in progress (no clock-out)
+                        Inclure les quarts encore en cours (sans pointage de sortie)
                       </FormDescription>
                     </div>
                   </FormItem>
@@ -344,18 +344,18 @@ export function ReportConfigForm({
                 name="options.group_by"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Group By</FormLabel>
+                    <FormLabel>Regrouper par</FormLabel>
                     <Select value={field.value || 'employee'} onValueChange={field.onChange}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="employee">Employee</SelectItem>
+                        <SelectItem value="employee">Employé</SelectItem>
                         <SelectItem value="date">Date</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormDescription>
-                      How to organize data in the report
+                      Comment organiser les données dans le rapport
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -370,7 +370,7 @@ export function ReportConfigForm({
           {isLoading ? (
             <>
               <span className="animate-spin mr-2">⏳</span>
-              Generating...
+              Génération en cours...
             </>
           ) : (
             <>

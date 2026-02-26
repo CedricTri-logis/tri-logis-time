@@ -30,7 +30,7 @@ export function DataFreshness({
         className="gap-2"
       >
         <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-        {isRefreshing ? 'Refreshing...' : 'Refresh'}
+        {isRefreshing ? 'Actualisation...' : 'Actualiser'}
       </Button>
     </div>
   );
@@ -65,25 +65,25 @@ function FreshnessIndicator({
       icon: CheckCircle,
       color: 'text-green-500',
       bgColor: 'bg-green-500',
-      label: 'Data is fresh',
+      label: 'Donn\u00e9es \u00e0 jour',
     },
     stale: {
       icon: AlertCircle,
       color: 'text-yellow-500',
       bgColor: 'bg-yellow-500',
-      label: 'Data may be outdated',
+      label: 'Donn\u00e9es possiblement p\u00e9rim\u00e9es',
     },
     very_stale: {
       icon: AlertCircle,
       color: 'text-red-500',
       bgColor: 'bg-red-500',
-      label: 'Data is stale',
+      label: 'Donn\u00e9es p\u00e9rim\u00e9es',
     },
     error: {
       icon: XCircle,
       color: 'text-red-500',
       bgColor: 'bg-red-500',
-      label: 'Error loading data',
+      label: 'Erreur de chargement',
     },
   };
 
@@ -113,14 +113,14 @@ function FreshnessIndicator({
 function formatTimeAgo(date: Date): string {
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
 
-  if (seconds < 5) return 'just now';
-  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 5) return '\u00e0 l\u2019instant';
+  if (seconds < 60) return `il y a ${seconds}s`;
 
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) return `il y a ${minutes}min`;
 
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return `il y a ${hours}h`;
 
   return date.toLocaleString();
 }

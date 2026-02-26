@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "GPS Tracker Dashboard",
-  description: "Admin dashboard for GPS Tracker organization management",
+  title: "Tableau de bord Tri-Logis Time",
+  description: "Tableau de bord administrateur pour la gestion de l'organisation Tri-Logis Time",
 };
 
 export const viewport: Viewport = {
@@ -31,7 +31,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="fr" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

@@ -62,7 +62,7 @@ export function Header() {
           <Menu className="h-5 w-5" />
         </Button>
         <h1 className="text-lg font-semibold text-slate-900 lg:text-xl">
-          Admin Dashboard
+          Tableau de bord
         </h1>
       </div>
       <div className="flex items-center gap-4">
@@ -79,11 +79,11 @@ export function Header() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80">
-            <DropdownMenuLabel>Report Notifications</DropdownMenuLabel>
+            <DropdownMenuLabel>Notifications de rapports</DropdownMenuLabel>
             <DropdownMenuSeparator />
             {notifications.length === 0 ? (
               <div className="px-2 py-4 text-center text-sm text-slate-500">
-                No new notifications
+                Aucune nouvelle notification
               </div>
             ) : (
               notifications.slice(0, 5).map((notification) => (
@@ -95,10 +95,10 @@ export function Header() {
                   <FileText className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-slate-900">
-                      {notification.schedule_name || 'Report Ready'}
+                      {notification.schedule_name || 'Rapport prêt'}
                     </p>
                     <p className="text-xs text-slate-500 truncate">
-                      {notification.report_type.replace('_', ' ')} report completed
+                      Rapport {notification.report_type.replace('_', ' ')} terminé
                     </p>
                     <p className="text-xs text-slate-400">
                       {new Date(notification.completed_at).toLocaleString()}
@@ -112,7 +112,7 @@ export function Header() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <Link href="/dashboard/reports/history" className="w-full text-center text-sm text-blue-600">
-                    View all reports
+                    Voir tous les rapports
                   </Link>
                 </DropdownMenuItem>
               </>
@@ -143,7 +143,7 @@ export function Header() {
               className="text-red-600 focus:text-red-600"
             >
               <LogOut className="mr-2 h-4 w-4" />
-              Sign out
+              Déconnexion
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
