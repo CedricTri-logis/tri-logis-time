@@ -19,7 +19,7 @@ class MileageScreen extends ConsumerStatefulWidget {
   ConsumerState<MileageScreen> createState() => _MileageScreenState();
 }
 
-enum _TripFilter { all, business, personal }
+enum _TripFilter { all, business, personal, driving, walking }
 
 class _MileageScreenState extends ConsumerState<MileageScreen> {
   late DateTime _periodStart;
@@ -96,13 +96,15 @@ class _MileageScreenState extends ConsumerState<MileageScreen> {
             // Classification filter chips
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 4,
                 children: [
                   _buildFilterChip('Tous', _TripFilter.all),
-                  const SizedBox(width: 8),
                   _buildFilterChip('Affaires', _TripFilter.business),
-                  const SizedBox(width: 8),
                   _buildFilterChip('Personnel', _TripFilter.personal),
+                  _buildFilterChip('Auto', _TripFilter.driving),
+                  _buildFilterChip('À pied', _TripFilter.walking),
                 ],
               ),
             ),
@@ -140,6 +142,10 @@ class _MileageScreenState extends ConsumerState<MileageScreen> {
         return trips.where((t) => t.isBusiness).toList();
       case _TripFilter.personal:
         return trips.where((t) => !t.isBusiness).toList();
+      case _TripFilter.driving:
+        return trips.where((t) => t.isDriving).toList();
+      case _TripFilter.walking:
+        return trips.where((t) => t.isWalking).toList();
     }
   }
 

@@ -36,6 +36,36 @@ enum TripDetectionMethod {
   String toJson() => name;
 }
 
+enum TransportMode {
+  driving,
+  walking,
+  unknown;
+
+  factory TransportMode.fromJson(String value) {
+    switch (value) {
+      case 'driving':
+        return TransportMode.driving;
+      case 'walking':
+        return TransportMode.walking;
+      default:
+        return TransportMode.unknown;
+    }
+  }
+
+  String toJson() => name;
+
+  String get displayName {
+    switch (this) {
+      case TransportMode.driving:
+        return 'Auto';
+      case TransportMode.walking:
+        return 'À pied';
+      case TransportMode.unknown:
+        return 'Inconnu';
+    }
+  }
+}
+
 @immutable
 class Trip {
   final String id;
@@ -58,6 +88,7 @@ class Trip {
   final int gpsPointCount;
   final int lowAccuracySegments;
   final TripDetectionMethod detectionMethod;
+  final TransportMode transportMode;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -91,6 +122,7 @@ class Trip {
     this.gpsPointCount = 0,
     this.lowAccuracySegments = 0,
     this.detectionMethod = TripDetectionMethod.auto,
+    this.transportMode = TransportMode.unknown,
     required this.createdAt,
     required this.updatedAt,
     this.routeGeometry,
@@ -104,6 +136,8 @@ class Trip {
 
   bool get isLowConfidence => confidenceScore < 0.7;
   bool get isBusiness => classification == TripClassification.business;
+  bool get isDriving => transportMode == TransportMode.driving;
+  bool get isWalking => transportMode == TransportMode.walking;
 
   // Route matching computed properties
   bool get isRouteMatched => matchStatus == 'matched';
@@ -146,6 +180,8 @@ class Trip {
             (json['low_accuracy_segments'] as num?)?.toInt() ?? 0,
         detectionMethod: TripDetectionMethod.fromJson(
             json['detection_method'] as String? ?? 'auto'),
+        transportMode: TransportMode.fromJson(
+            json['transport_mode'] as String? ?? 'unknown'),
         createdAt: DateTime.parse(json['created_at'] as String),
         updatedAt: DateTime.parse(json['updated_at'] as String),
         routeGeometry: json['route_geometry'] as String?,
@@ -180,6 +216,7 @@ class Trip {
         'gps_point_count': gpsPointCount,
         'low_accuracy_segments': lowAccuracySegments,
         'detection_method': detectionMethod.toJson(),
+        'transport_mode': transportMode.toJson(),
         'created_at': createdAt.toUtc().toIso8601String(),
         'updated_at': updatedAt.toUtc().toIso8601String(),
         'route_geometry': routeGeometry,
@@ -224,6 +261,7 @@ class Trip {
         gpsPointCount: gpsPointCount,
         lowAccuracySegments: lowAccuracySegments,
         detectionMethod: detectionMethod,
+        transportMode: transportMode,
         createdAt: createdAt,
         updatedAt: updatedAt,
         routeGeometry: routeGeometry ?? this.routeGeometry,

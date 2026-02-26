@@ -19,6 +19,7 @@ import {
   XCircle,
   Loader2,
   Car,
+  Footprints,
   MapPin,
   ArrowRight,
   ChevronDown,
@@ -58,6 +59,7 @@ interface BatchResponse {
 type SortField = 'started_at' | 'distance_km' | 'road_distance_km' | 'match_status';
 type SortOrder = 'asc' | 'desc';
 type StatusFilter = 'all' | 'matched' | 'pending' | 'failed' | 'anomalous';
+type ModeFilter = 'all' | 'driving' | 'walking';
 
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr);
@@ -99,6 +101,7 @@ export default function MileagePage() {
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [expandedTrip, setExpandedTrip] = useState<string | null>(null);
+  const [modeFilter, setModeFilter] = useState<ModeFilter>('all');
 
   // Fetch trips — uses two separate queries to avoid PostgREST recursive RLS
   // on employee_profiles (self-referencing subquery in SELECT policy)
@@ -165,7 +168,9 @@ export default function MileagePage() {
     const pending = trips.filter((t) => t.match_status === 'pending' || t.match_status === 'processing').length;
     const failed = trips.filter((t) => t.match_status === 'failed').length;
     const anomalous = trips.filter((t) => t.match_status === 'anomalous').length;
-    return { total, matched, pending, failed, anomalous };
+    const driving = trips.filter((t) => t.transport_mode === 'driving').length;
+    const walking = trips.filter((t) => t.transport_mode === 'walking').length;
+    return { total, matched, pending, failed, anomalous, driving, walking };
   }, [trips]);
 
   // Filter and sort
@@ -177,6 +182,9 @@ export default function MileagePage() {
       } else {
         filtered = filtered.filter((t) => t.match_status === statusFilter);
       }
+    }
+    if (modeFilter !== 'all') {
+      filtered = filtered.filter((t) => t.transport_mode === modeFilter);
     }
 
     return [...filtered].sort((a, b) => {
@@ -199,7 +207,7 @@ export default function MileagePage() {
       }
       return sortOrder === 'asc' ? cmp : -cmp;
     });
-  }, [trips, statusFilter, sortField, sortOrder]);
+  }, [trips, statusFilter, modeFilter, sortField, sortOrder]);
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) {
@@ -319,7 +327,44 @@ export default function MileagePage() {
         </CardContent>
       </Card>
 
-      {/* Summary Stats */}
+      {/* Transport Mode Filter */}
+      <div className="grid grid-cols-3 gap-4">
+        <Card
+          className={`cursor-pointer hover:ring-2 hover:ring-primary/20 ${modeFilter === 'all' ? 'ring-2 ring-primary' : ''}`}
+          onClick={() => setModeFilter('all')}
+        >
+          <CardContent className="pt-4 pb-3 text-center">
+            <p className="text-2xl font-bold">{stats.total}</p>
+            <p className="text-xs text-muted-foreground">Tous les trajets</p>
+          </CardContent>
+        </Card>
+        <Card
+          className={`cursor-pointer hover:ring-2 hover:ring-blue-500/20 ${modeFilter === 'driving' ? 'ring-2 ring-blue-500' : ''}`}
+          onClick={() => setModeFilter('driving')}
+        >
+          <CardContent className="pt-4 pb-3 text-center">
+            <div className="flex items-center justify-center gap-1.5 mb-0.5">
+              <Car className="h-4 w-4 text-blue-600" />
+              <p className="text-2xl font-bold text-blue-600">{stats.driving}</p>
+            </div>
+            <p className="text-xs text-muted-foreground">Auto</p>
+          </CardContent>
+        </Card>
+        <Card
+          className={`cursor-pointer hover:ring-2 hover:ring-orange-500/20 ${modeFilter === 'walking' ? 'ring-2 ring-orange-500' : ''}`}
+          onClick={() => setModeFilter('walking')}
+        >
+          <CardContent className="pt-4 pb-3 text-center">
+            <div className="flex items-center justify-center gap-1.5 mb-0.5">
+              <Footprints className="h-4 w-4 text-orange-600" />
+              <p className="text-2xl font-bold text-orange-600">{stats.walking}</p>
+            </div>
+            <p className="text-xs text-muted-foreground">À pied</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Match Status Stats */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
         <Card className="cursor-pointer hover:ring-2 hover:ring-primary/20" onClick={() => setStatusFilter('all')}>
           <CardContent className="pt-4 pb-3 text-center">
@@ -412,6 +457,9 @@ export default function MileagePage() {
               <table className="w-full text-sm">
                 <thead className="border-b bg-muted/50">
                   <tr>
+                    <th className="px-4 py-3 text-center font-medium text-muted-foreground w-12">
+                      Mode
+                    </th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">
                       Employee
                     </th>
@@ -627,6 +675,15 @@ function TripRow({
         className="cursor-pointer hover:bg-muted/50 transition-colors"
         onClick={onToggle}
       >
+        <td className="px-4 py-3 text-center">
+          {trip.transport_mode === 'walking' ? (
+            <Footprints className="h-4 w-4 text-orange-500 mx-auto" />
+          ) : trip.transport_mode === 'driving' ? (
+            <Car className="h-4 w-4 text-blue-500 mx-auto" />
+          ) : (
+            <Car className="h-4 w-4 text-gray-300 mx-auto" />
+          )}
+        </td>
         <td className="px-4 py-3 font-medium">
           {(trip.employee as any)?.full_name || (trip.employee as any)?.email || 'Unknown'}
         </td>
@@ -661,7 +718,7 @@ function TripRow({
       {/* Expanded detail row */}
       {isExpanded && (
         <tr className="bg-muted/30">
-          <td colSpan={7} className="px-6 py-4">
+          <td colSpan={8} className="px-6 py-4">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2">
                 <GoogleTripRouteMap

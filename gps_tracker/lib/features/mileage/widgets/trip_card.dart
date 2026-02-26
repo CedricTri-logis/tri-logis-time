@@ -31,11 +31,13 @@ class TripCard extends StatelessWidget {
               Row(
                 children: [
                   Icon(
-                    Icons.directions_car,
+                    trip.isWalking ? Icons.directions_walk : Icons.directions_car,
                     size: 18,
-                    color: trip.isBusiness
-                        ? theme.colorScheme.primary
-                        : Colors.grey,
+                    color: trip.isWalking
+                        ? Colors.orange
+                        : trip.isBusiness
+                            ? theme.colorScheme.primary
+                            : Colors.grey,
                   ),
                   const SizedBox(width: 8),
                   Expanded(

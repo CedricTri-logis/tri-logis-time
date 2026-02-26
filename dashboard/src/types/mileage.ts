@@ -31,6 +31,9 @@ export interface Trip {
   matched_at: string | null;
   match_attempts: number;
 
+  // Transport mode
+  transport_mode: "driving" | "walking" | "unknown";
+
   // Joined fields (optional, from expanded queries)
   employee?: {
     id: string;
