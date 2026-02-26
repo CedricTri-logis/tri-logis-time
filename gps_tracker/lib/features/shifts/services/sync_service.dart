@@ -143,9 +143,9 @@ class SyncService {
       lastError = gpsResult.lastError;
     }
 
-    // Trigger trip re-detection for completed shifts that had GPS points synced
+    // Trigger trip detection for shifts that had GPS points synced
     if (syncedGpsPoints > 0) {
-      _triggerTripDetectionForCompletedShifts(userId);
+      _triggerTripDetection(userId);
     }
 
     // Sync diagnostic events (lowest priority — never blocks GPS/shift sync)
@@ -385,11 +385,24 @@ class SyncService {
     return await _localDb.deleteOldSyncedGpsPoints(threshold);
   }
 
-  /// Fire-and-forget trip detection for recently completed shifts.
-  /// Called after GPS points sync to re-detect trips with new data.
-  void _triggerTripDetectionForCompletedShifts(String userId) async {
+  /// Fire-and-forget trip detection for active and recently completed shifts.
+  /// Called after GPS points sync to detect/re-detect trips with new data.
+  /// Active shifts use incremental detection (preserves already-matched trips).
+  void _triggerTripDetection(String userId) async {
     try {
-      // Get recently completed shifts (last 24h) to re-detect trips
+      // 1. Detect trips for the current active shift (real-time detection)
+      final activeShift = await _shiftService.getActiveShift();
+      if (activeShift != null && activeShift.serverId != null) {
+        _supabase.rpc('detect_trips', params: {
+          'p_shift_id': activeShift.serverId,
+        }).then((_) {
+          _logger?.sync(Severity.debug, 'Active shift trip detection completed', metadata: {'shift_id': activeShift.serverId});
+        }).catchError((e) {
+          _logger?.sync(Severity.warn, 'Active shift trip detection failed', metadata: {'shift_id': activeShift.serverId, 'error': e.toString()});
+        });
+      }
+
+      // 2. Re-detect trips for recently completed shifts
       final recentShifts = await _localDb.getShiftHistory(
         employeeId: userId,
         limit: 10,
@@ -408,7 +421,7 @@ class SyncService {
         }
       }
     } catch (e) {
-      _logger?.sync(Severity.error, 'Failed to trigger trip re-detection', metadata: {'error': e.toString()});
+      _logger?.sync(Severity.error, 'Failed to trigger trip detection', metadata: {'error': e.toString()});
     }
   }
 

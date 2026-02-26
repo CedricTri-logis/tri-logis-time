@@ -161,8 +161,10 @@ DECLARE
     v_seq INTEGER;
     v_transport_mode TEXT;
     v_displacement DECIMAL;
+    v_is_active BOOLEAN;
+    v_cutoff_time TIMESTAMPTZ := NULL;
 BEGIN
-    -- Validate shift exists and is completed
+    -- Validate shift exists
     SELECT s.id, s.employee_id, s.status
     INTO v_shift
     FROM shifts s
@@ -172,16 +174,27 @@ BEGIN
         RAISE EXCEPTION 'Shift not found: %', p_shift_id;
     END IF;
 
-    IF v_shift.status = 'active' THEN
-        RAISE EXCEPTION 'Shift is still active. Clock out before detecting trips.';
+    v_employee_id := v_shift.employee_id;
+    v_is_active := (v_shift.status = 'active');
+
+    IF v_is_active THEN
+        -- Active shift: preserve matched/failed/anomalous trips, only delete pending ones
+        DELETE FROM trips
+        WHERE shift_id = p_shift_id
+          AND match_status IN ('pending', 'processing');
+
+        -- Find cutoff: latest GPS point in any preserved trip
+        SELECT MAX(gp.captured_at) INTO v_cutoff_time
+        FROM trips t
+        JOIN trip_gps_points tgp ON tgp.trip_id = t.id
+        JOIN gps_points gp ON gp.id = tgp.gps_point_id
+        WHERE t.shift_id = p_shift_id;
+    ELSE
+        -- Completed shift: full re-detection
+        DELETE FROM trips WHERE shift_id = p_shift_id;
     END IF;
 
-    v_employee_id := v_shift.employee_id;
-
-    -- Delete existing trips for this shift (idempotent re-detection)
-    DELETE FROM trips WHERE shift_id = p_shift_id;
-
-    -- Process GPS points
+    -- Process GPS points (after cutoff if incremental)
     v_prev_point := NULL;
 
     FOR v_point IN
@@ -193,6 +206,7 @@ BEGIN
             gp.captured_at
         FROM gps_points gp
         WHERE gp.shift_id = p_shift_id
+          AND (v_cutoff_time IS NULL OR gp.captured_at > v_cutoff_time)
         ORDER BY gp.captured_at ASC
     LOOP
         -- Skip points with poor accuracy
@@ -432,8 +446,10 @@ BEGIN
         v_prev_point := v_point;
     END LOOP;
 
-    -- If still in a trip at end of shift, close it
-    IF v_in_trip AND v_trip_point_count >= 2 THEN
+    -- If still in a trip at end of data:
+    -- Completed shift → close the trip (shift is done, trip must be done too)
+    -- Active shift → don't close (person might still be moving)
+    IF v_in_trip AND v_trip_point_count >= 2 AND NOT v_is_active THEN
         v_trip_distance := v_trip_distance * v_correction_factor;
         IF v_trip_distance >= v_min_distance_km THEN
             v_trip_id := gen_random_uuid();
