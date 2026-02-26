@@ -22,6 +22,15 @@ export interface Trip {
   created_at: string;
   updated_at: string;
 
+  // Route matching fields
+  route_geometry: string | null;
+  road_distance_km: number | null;
+  match_status: "pending" | "processing" | "matched" | "failed" | "anomalous";
+  match_confidence: number | null;
+  match_error: string | null;
+  matched_at: string | null;
+  match_attempts: number;
+
   // Joined fields (optional, from expanded queries)
   employee?: {
     id: string;

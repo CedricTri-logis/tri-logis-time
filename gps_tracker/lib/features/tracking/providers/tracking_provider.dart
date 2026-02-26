@@ -55,6 +55,8 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
 
   /// Timer to verify that background tracking actually starts producing GPS points.
   Timer? _verificationTimer;
+  DateTime? _trackingStartRequestedAt;
+  int _trackingStartAttempt = 0;
 
   /// Current device thermal level for GPS frequency adaptation.
   ThermalLevel _currentThermalLevel = ThermalLevel.normal;
@@ -268,10 +270,19 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     if (!state.trackingVerified) {
       _verificationTimer?.cancel();
       _verificationTimer = null;
+      final startRequestedAt = _trackingStartRequestedAt;
+      final delayMs = startRequestedAt != null
+          ? DateTime.now().difference(startRequestedAt).inMilliseconds
+          : null;
       _logger?.gps(
         Severity.info,
         'Tracking verified: first GPS point received',
-        metadata: {'shift_id': point.shiftId},
+        metadata: {
+          'shift_id': point.shiftId,
+          'tracking_start_attempt': _trackingStartAttempt,
+          if (delayMs != null) 'first_point_delay_ms': delayMs,
+          'point_accuracy': point.accuracy,
+        },
       );
     }
 
@@ -610,6 +621,27 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     final shiftState = _ref.read(shiftProvider);
     final shift = shiftState.activeShift;
     if (shift == null) return;
+    int existingPointCount = 0;
+    try {
+      existingPointCount = await LocalDatabase().getGpsPointCountForShift(shift.id);
+    } catch (e) {
+      _logger?.gps(Severity.warn, 'Failed to load existing point count before start', metadata: {
+        'shift_id': shift.id,
+        'error': e.toString(),
+      });
+    }
+    _trackingStartRequestedAt = DateTime.now();
+    _trackingStartAttempt++;
+    _logger?.gps(
+      Severity.info,
+      'startTracking invoked',
+      metadata: {
+        'shift_id': shift.id,
+        'attempt': _trackingStartAttempt,
+        'current_status': state.status.name,
+        'current_active_shift_id': state.activeShiftId,
+      },
+    );
 
     // Determine if we need a restart (old shift still tracked)
     var needsRestart = false;
@@ -637,7 +669,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
       );
     }
 
-    state = state.startTracking(shift.id);
+    state = state.startTracking(shift.id).copyWith(pointsCaptured: existingPointCount);
 
     final trackingConfig = config ?? state.config;
 
@@ -647,6 +679,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
         shiftId: shift.id,
         employeeId: shift.employeeId,
         clockedInAt: shift.clockedInAt,
+        initialPointCount: existingPointCount,
         config: trackingConfig,
       );
       _handleTrackingResult(
@@ -662,6 +695,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
       shiftId: shift.id,
       employeeId: shift.employeeId,
       clockedInAt: shift.clockedInAt,
+      initialPointCount: existingPointCount,
       config: trackingConfig,
     );
 
@@ -677,6 +711,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
           shiftId: shift.id,
           employeeId: shift.employeeId,
           clockedInAt: shift.clockedInAt,
+          initialPointCount: existingPointCount,
           config: trackingConfig,
         );
         _handleTrackingResult(
@@ -705,6 +740,8 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
   Future<void> stopTracking({String? reason}) async {
     _verificationTimer?.cancel();
     _verificationTimer = null;
+    _trackingStartRequestedAt = null;
+    _trackingStartAttempt = 0;
     _logger?.gps(Severity.info, 'Tracking stopped', metadata: {
       if (reason != null) 'reason': reason,
     },);

@@ -46,6 +46,18 @@ class PermissionGuardNotifier extends StateNotifier<PermissionGuardState> {
       final batteryOpt =
           await BackgroundTrackingService.isBatteryOptimizationDisabled;
 
+      // Check precise location accuracy (Android 12+, always precise on iOS)
+      bool preciseLocation = true;
+      if (Platform.isAndroid) {
+        try {
+          final accuracy = await Geolocator.getLocationAccuracy();
+          preciseLocation = accuracy == LocationAccuracyStatus.precise;
+        } catch (_) {
+          // Default to true to avoid blocking on older Android versions
+          preciseLocation = true;
+        }
+      }
+
       // Debounced update to prevent UI flicker
       _debounceTimer?.cancel();
       _debounceTimer = Timer(const Duration(milliseconds: 500), () {
@@ -54,6 +66,7 @@ class PermissionGuardNotifier extends StateNotifier<PermissionGuardState> {
             permission: permission,
             deviceStatus: deviceStatus,
             isBatteryOptimizationDisabled: batteryOpt,
+            isPreciseLocationEnabled: preciseLocation,
             lastChecked: DateTime.now(),
           );
         }

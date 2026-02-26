@@ -85,8 +85,13 @@ class BackgroundTaskPlugin: NSObject, FlutterPlugin {
         if #available(iOS 17.0, *) {
             backgroundSession = CLBackgroundActivitySession()
             NSLog("[BackgroundTaskPlugin] CLBackgroundActivitySession started (iOS 17+)")
+            executionChannel?.invokeMethod("onBackgroundSessionStarted", arguments: nil)
         } else {
             NSLog("[BackgroundTaskPlugin] CLBackgroundActivitySession not available (iOS < 17), no-op")
+            executionChannel?.invokeMethod("onBackgroundExecutionError", arguments: [
+                "error_code": "ios_version_not_supported",
+                "message": "CLBackgroundActivitySession requires iOS 17+"
+            ])
         }
         result(true)
     }
@@ -99,6 +104,7 @@ class BackgroundTaskPlugin: NSObject, FlutterPlugin {
             }
         }
         backgroundSession = nil
+        executionChannel?.invokeMethod("onBackgroundSessionStopped", arguments: nil)
         result(true)
     }
 
@@ -107,10 +113,16 @@ class BackgroundTaskPlugin: NSObject, FlutterPlugin {
     private func beginBackgroundTask(name: String, result: @escaping FlutterResult) {
         // Already have an active task — no-op
         if backgroundTaskID != .invalid {
+            executionChannel?.invokeMethod("onBackgroundTaskStarted", arguments: [
+                "name": name,
+                "status": "already_active",
+                "task_id": backgroundTaskID.rawValue
+            ])
             result(true)
             return
         }
 
+        let startedAt = Date()
         backgroundTaskID = UIApplication.shared.beginBackgroundTask(withName: name) { [weak self] in
             // Expiration handler — MUST call endBackgroundTask
             guard let self = self else { return }
@@ -120,16 +132,31 @@ class BackgroundTaskPlugin: NSObject, FlutterPlugin {
 
             // Notify Flutter
             self.executionChannel?.invokeMethod("onBackgroundTaskExpired", arguments: nil)
+            self.executionChannel?.invokeMethod("onBackgroundTaskEnded", arguments: [
+                "name": name,
+                "status": "expired",
+                "duration_seconds": Int(Date().timeIntervalSince(startedAt))
+            ])
         }
         NSLog("[BackgroundTaskPlugin] beginBackgroundTask started (id: \(backgroundTaskID.rawValue))")
+        executionChannel?.invokeMethod("onBackgroundTaskStarted", arguments: [
+            "name": name,
+            "status": "started",
+            "task_id": backgroundTaskID.rawValue
+        ])
         result(true)
     }
 
     private func endBackgroundTask(result: @escaping FlutterResult) {
         if backgroundTaskID != .invalid {
+            let taskID = backgroundTaskID
             UIApplication.shared.endBackgroundTask(backgroundTaskID)
             NSLog("[BackgroundTaskPlugin] endBackgroundTask (id: \(backgroundTaskID.rawValue))")
             backgroundTaskID = .invalid
+            executionChannel?.invokeMethod("onBackgroundTaskEnded", arguments: [
+                "status": "ended",
+                "task_id": taskID.rawValue
+            ])
         }
         result(true)
     }

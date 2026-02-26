@@ -52,13 +52,42 @@ class SignificantLocationService {
     }
   }
 
+  /// Check whether significant location monitoring is currently active (iOS only).
+  static Future<bool> isMonitoring() async {
+    if (!Platform.isIOS) return false;
+
+    try {
+      final result = await _channel.invokeMethod<bool>('isMonitoring');
+      return result ?? false;
+    } catch (e) {
+      _logger?.gps(
+        Severity.warn,
+        'Failed to query significant location monitoring state',
+        metadata: {'error': e.toString()},
+      );
+      return false;
+    }
+  }
+
   /// Handle method calls from native iOS.
   static Future<dynamic> _handleMethodCall(MethodCall call) async {
-    if (call.method == 'onSignificantLocationChange') {
-      _logger?.gps(Severity.info, 'Woken by significant location change', metadata: {
-        if (call.arguments != null) 'arguments': call.arguments.toString(),
-      },);
-      onWokenByLocationChange?.call();
+    switch (call.method) {
+      case 'onSignificantLocationChange':
+        _logger?.gps(Severity.info, 'Woken by significant location change', metadata: {
+          if (call.arguments != null) 'arguments': call.arguments.toString(),
+        },);
+        onWokenByLocationChange?.call();
+      case 'onSignificantLocationMonitoringStarted':
+        _logger?.gps(Severity.info, 'Significant location monitoring started (native)');
+      case 'onSignificantLocationMonitoringStopped':
+        _logger?.gps(Severity.info, 'Significant location monitoring stopped (native)');
+      case 'onSignificantLocationMonitoringError':
+        final args = (call.arguments as Map?)?.cast<String, dynamic>();
+        _logger?.gps(
+          Severity.error,
+          'Significant location monitoring error',
+          metadata: args,
+        );
     }
   }
 }

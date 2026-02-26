@@ -4,12 +4,16 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../shifts/providers/shift_provider.dart';
 import '../models/trip.dart';
 import '../services/mileage_local_db.dart';
+import '../services/route_match_service.dart';
 import '../services/trip_service.dart';
 
-/// Shared TripService instance with offline caching.
+/// Shared TripService instance with offline caching and route matching.
 final tripServiceProvider = Provider<TripService>((ref) {
   final localDb = ref.watch(localDatabaseProvider);
-  return TripService(Supabase.instance.client, MileageLocalDb(localDb));
+  final routeMatchService = ref.watch(routeMatchServiceProvider);
+  final service = TripService(Supabase.instance.client, MileageLocalDb(localDb));
+  service.routeMatchService = routeMatchService;
+  return service;
 });
 
 /// Provider for trips of a specific shift.

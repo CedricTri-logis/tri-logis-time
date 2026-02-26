@@ -97,6 +97,28 @@ class BackgroundExecutionService {
     switch (call.method) {
       case 'onBackgroundTaskExpired':
         _logger?.lifecycle(Severity.warn, 'iOS background task expired');
+      case 'onBackgroundSessionStarted':
+        _logger?.lifecycle(Severity.info, 'iOS background session started');
+      case 'onBackgroundSessionStopped':
+        _logger?.lifecycle(Severity.info, 'iOS background session stopped');
+      case 'onBackgroundTaskStarted':
+        _logger?.lifecycle(
+          Severity.info,
+          'iOS background task started',
+          metadata: (call.arguments as Map?)?.cast<String, dynamic>(),
+        );
+      case 'onBackgroundTaskEnded':
+        _logger?.lifecycle(
+          Severity.info,
+          'iOS background task ended',
+          metadata: (call.arguments as Map?)?.cast<String, dynamic>(),
+        );
+      case 'onBackgroundExecutionError':
+        _logger?.lifecycle(
+          Severity.error,
+          'iOS background execution error',
+          metadata: (call.arguments as Map?)?.cast<String, dynamic>(),
+        );
     }
   }
 }

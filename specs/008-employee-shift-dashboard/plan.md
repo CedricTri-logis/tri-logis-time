@@ -1,46 +1,44 @@
-# Implementation Plan: Employee & Shift Dashboard
+# Implementation Plan: [FEATURE]
 
-**Branch**: `008-employee-shift-dashboard` | **Date**: 2026-01-10 | **Spec**: [spec.md](./spec.md)
-**Input**: Feature specification from `/specs/008-employee-shift-dashboard/spec.md`
+**Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
+**Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
 
 **Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/commands/plan.md` for the execution workflow.
 
 ## Summary
 
-This feature implements personalized dashboards for employees and managers in the GPS Tracker app. Employees see their current shift status with a live timer, today's/monthly statistics, and recent shift history. Managers get a team dashboard showing all supervised employees with current status, search/filter capabilities, and aggregate team statistics with date range filtering. The feature integrates with existing shift management, offline sync infrastructure, and supervision relationships.
+[Extract from feature spec: primary requirement + technical approach from research]
 
 ## Technical Context
 
-**Language/Version**: Dart >=3.0.0 <4.0.0 / Flutter >=3.0.0
-**Primary Dependencies**: flutter_riverpod 2.5.0 (state), supabase_flutter 2.12.0 (backend), fl_chart (bar charts for team statistics)
-**Storage**: PostgreSQL via Supabase (existing: employee_profiles, shifts, gps_points, employee_supervisors); SQLCipher local storage (7-day cache)
-**Testing**: flutter_test, integration_test
-**Target Platform**: iOS 14.0+ / Android API 24+ (cross-platform Flutter)
-**Project Type**: mobile
-**Performance Goals**: Dashboard loads <2s, live timer 1-second updates, navigation <1s
-**Constraints**: Offline-capable with 7-day cache, battery-conscious
-**Scale/Scope**: Individual + team dashboards (up to ~100 supervised employees per manager)
+<!--
+  ACTION REQUIRED: Replace the content in this section with the technical details
+  for the project. The structure here is presented in advisory capacity to guide
+  the iteration process.
+-->
+
+**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
+**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
+**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
+**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
+**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
+**Project Type**: [single/web/mobile - determines source structure]  
+**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
+**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
+**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-| Principle | Status | Evidence |
-|-----------|--------|----------|
-| I. Mobile-First Flutter | PASS | Uses existing Flutter codebase, Material Design widgets, cross-platform from single codebase |
-| II. Battery-Conscious Design | PASS | Live timer is UI-only (no GPS), uses existing GPS infrastructure, no new background operations |
-| III. Privacy & Compliance | PASS | Dashboard displays only employee's own data or data from authorized supervision relationships; uses existing RLS policies |
-| IV. Offline-First Architecture | PASS | Caches 7-day shift window locally, displays cached data with "last updated" timestamp when offline |
-| V. Simplicity & Maintainability | PASS | Extends existing patterns (Riverpod providers, existing services), minimal new dependencies (only fl_chart for visualization) |
-
-**Pre-Design Gate**: PASSED - No violations detected.
+[Gates determined based on constitution file]
 
 ## Project Structure
 
 ### Documentation (this feature)
 
 ```text
-specs/008-employee-shift-dashboard/
+specs/[###-feature]/
 ├── plan.md              # This file (/speckit.plan command output)
 ├── research.md          # Phase 0 output (/speckit.plan command)
 ├── data-model.md        # Phase 1 output (/speckit.plan command)
@@ -50,69 +48,57 @@ specs/008-employee-shift-dashboard/
 ```
 
 ### Source Code (repository root)
+<!--
+  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
+  for this feature. Delete unused options and expand the chosen structure with
+  real paths (e.g., apps/admin, packages/something). The delivered plan must
+  not include Option labels.
+-->
 
 ```text
-gps_tracker/
-├── lib/
-│   ├── features/
-│   │   ├── dashboard/                    # NEW: Dashboard feature module
-│   │   │   ├── dashboard.dart            # Barrel export
-│   │   │   ├── models/
-│   │   │   │   ├── dashboard_state.dart        # Employee dashboard state
-│   │   │   │   ├── team_dashboard_state.dart   # Manager team dashboard state
-│   │   │   │   └── employee_work_status.dart   # Active shift status for team list
-│   │   │   ├── providers/
-│   │   │   │   ├── dashboard_provider.dart     # Employee dashboard state
-│   │   │   │   ├── team_dashboard_provider.dart # Manager team dashboard state
-│   │   │   │   └── team_statistics_provider.dart # Team aggregate statistics
-│   │   │   ├── services/
-│   │   │   │   ├── dashboard_service.dart      # Dashboard data fetching
-│   │   │   │   └── dashboard_cache_service.dart # Local cache management
-│   │   │   ├── screens/
-│   │   │   │   ├── employee_dashboard_screen.dart # Personal dashboard UI
-│   │   │   │   ├── team_dashboard_screen.dart     # Manager team overview
-│   │   │   │   └── team_statistics_screen.dart    # Team aggregate stats
-│   │   │   └── widgets/
-│   │   │       ├── shift_status_tile.dart      # Current shift status display
-│   │   │       ├── live_shift_timer.dart       # 1-second updating timer
-│   │   │       ├── daily_summary_card.dart     # Today's hours summary
-│   │   │       ├── monthly_summary_card.dart   # Month's statistics
-│   │   │       ├── recent_shifts_list.dart     # Last 7 days shifts
-│   │   │       ├── sync_status_badge.dart      # Pending/synced/error indicator
-│   │   │       ├── team_employee_tile.dart     # Employee row in team list
-│   │   │       ├── team_search_bar.dart        # Search/filter for team
-│   │   │       ├── date_range_picker.dart      # Statistics date filter
-│   │   │       └── team_hours_chart.dart       # Bar chart per employee
-│   │   ├── home/
-│   │   │   └── home_screen.dart           # MODIFY: Route to dashboard
-│   │   ├── shifts/                         # REUSE: Existing shift models/providers
-│   │   └── history/                        # REUSE: Existing statistics models
-│   └── shared/
-│       └── services/
-│           └── local_database.dart        # EXTEND: Dashboard cache tables
-└── test/
-    ├── features/
-    │   └── dashboard/                     # Unit tests for dashboard
-    └── integration_test/
-        └── dashboard_flow_test.dart       # Integration tests
+# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
+src/
+├── models/
+├── services/
+├── cli/
+└── lib/
+
+tests/
+├── contract/
+├── integration/
+└── unit/
+
+# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
+backend/
+├── src/
+│   ├── models/
+│   ├── services/
+│   └── api/
+└── tests/
+
+frontend/
+├── src/
+│   ├── components/
+│   ├── pages/
+│   └── services/
+└── tests/
+
+# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
+api/
+└── [same as backend above]
+
+ios/ or android/
+└── [platform-specific structure: feature modules, UI flows, platform tests]
 ```
 
-**Structure Decision**: Feature-based modular structure under `lib/features/dashboard/` following existing patterns. Reuses models and providers from `shifts/` and `history/` modules.
-
-## Post-Design Constitution Check
-
-*Re-evaluated after Phase 1 design completion.*
-
-| Principle | Status | Post-Design Evidence |
-|-----------|--------|---------------------|
-| I. Mobile-First Flutter | PASS | All new widgets use Material Design; fl_chart is cross-platform; no platform-specific code required |
-| II. Battery-Conscious Design | PASS | Live timer uses timestamp-based calculation (O(1)); no GPS polling added; 1-second UI updates only when screen visible |
-| III. Privacy & Compliance | PASS | New RPC functions use existing SECURITY DEFINER pattern; RLS policies already cover supervision relationships; no new data collection |
-| IV. Offline-First Architecture | PASS | Dashboard cache table with 7-day TTL; displays cached data with "last updated"; graceful degradation on offline |
-| V. Simplicity & Maintainability | PASS | Reuses existing models (Shift, HistoryStatistics, TeamStatistics); extends proven StateNotifier pattern; only 1 new dependency (fl_chart) |
-
-**Post-Design Gate**: PASSED - No new violations introduced.
+**Structure Decision**: [Document the selected structure and reference the real
+directories captured above]
 
 ## Complexity Tracking
 
-> No Constitution violations detected. Table not applicable.
+> **Fill ONLY if Constitution Check has violations that must be justified**
+
+| Violation | Why Needed | Simpler Alternative Rejected Because |
+|-----------|------------|-------------------------------------|
+| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
+| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |

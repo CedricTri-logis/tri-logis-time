@@ -1652,6 +1652,24 @@ class LocalDatabase {
     }
   }
 
+  /// Get count of pending diagnostic events (excluding debug-level).
+  Future<int> getPendingDiagnosticEventCount() async {
+    try {
+      final result = await _db.rawQuery(
+        "SELECT COUNT(*) as count FROM diagnostic_events "
+        "WHERE sync_status = ? AND severity != ?",
+        ['pending', 'debug'],
+      );
+      return result.first['count'] as int? ?? 0;
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to get pending diagnostic event count',
+        operation: 'getPendingDiagnosticEventCount',
+        originalError: e,
+      );
+    }
+  }
+
   /// Mark diagnostic events as synced.
   Future<void> markDiagnosticEventsSynced(List<String> ids) async {
     if (ids.isEmpty) return;

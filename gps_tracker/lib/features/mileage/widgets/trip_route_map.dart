@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../../../shared/utils/polyline_decoder.dart';
 import '../models/trip.dart';
 
 class TripRouteMap extends StatelessWidget {
@@ -35,7 +36,20 @@ class TripRouteMap extends StatelessWidget {
     };
 
     final polylines = <Polyline>{};
-    if (routePoints != null && routePoints!.isNotEmpty) {
+
+    // Use matched route geometry if available
+    if (trip.isRouteMatched && trip.routeGeometry != null) {
+      final matchedPoints = decodePolyline6(trip.routeGeometry!);
+      if (matchedPoints.isNotEmpty) {
+        polylines.add(Polyline(
+          polylineId: const PolylineId('route'),
+          points: matchedPoints,
+          color: Theme.of(context).colorScheme.primary,
+          width: 4,
+        ));
+      }
+    } else if (routePoints != null && routePoints!.isNotEmpty) {
+      // Use provided route points (GPS points as straight lines)
       polylines.add(Polyline(
         polylineId: const PolylineId('route'),
         points: routePoints!,
@@ -43,7 +57,7 @@ class TripRouteMap extends StatelessWidget {
         width: 4,
       ));
     } else {
-      // Straight line between start and end if no route points
+      // Dashed line between start and end if no route points
       polylines.add(Polyline(
         polylineId: const PolylineId('route'),
         points: [startLatLng, endLatLng],
@@ -53,16 +67,30 @@ class TripRouteMap extends StatelessWidget {
       ));
     }
 
-    // Calculate bounds
+    // Calculate bounds including all polyline points
+    double minLat = startLatLng.latitude;
+    double maxLat = startLatLng.latitude;
+    double minLng = startLatLng.longitude;
+    double maxLng = startLatLng.longitude;
+
+    for (final polyline in polylines) {
+      for (final point in polyline.points) {
+        if (point.latitude < minLat) minLat = point.latitude;
+        if (point.latitude > maxLat) maxLat = point.latitude;
+        if (point.longitude < minLng) minLng = point.longitude;
+        if (point.longitude > maxLng) maxLng = point.longitude;
+      }
+    }
+
+    // Include end point in bounds
+    if (endLatLng.latitude < minLat) minLat = endLatLng.latitude;
+    if (endLatLng.latitude > maxLat) maxLat = endLatLng.latitude;
+    if (endLatLng.longitude < minLng) minLng = endLatLng.longitude;
+    if (endLatLng.longitude > maxLng) maxLng = endLatLng.longitude;
+
     final bounds = LatLngBounds(
-      southwest: LatLng(
-        startLatLng.latitude < endLatLng.latitude ? startLatLng.latitude : endLatLng.latitude,
-        startLatLng.longitude < endLatLng.longitude ? startLatLng.longitude : endLatLng.longitude,
-      ),
-      northeast: LatLng(
-        startLatLng.latitude > endLatLng.latitude ? startLatLng.latitude : endLatLng.latitude,
-        startLatLng.longitude > endLatLng.longitude ? startLatLng.longitude : endLatLng.longitude,
-      ),
+      southwest: LatLng(minLat, minLng),
+      northeast: LatLng(maxLat, maxLng),
     );
 
     return SizedBox(
@@ -72,8 +100,8 @@ class TripRouteMap extends StatelessWidget {
         child: GoogleMap(
           initialCameraPosition: CameraPosition(
             target: LatLng(
-              (startLatLng.latitude + endLatLng.latitude) / 2,
-              (startLatLng.longitude + endLatLng.longitude) / 2,
+              (minLat + maxLat) / 2,
+              (minLng + maxLng) / 2,
             ),
             zoom: 12,
           ),

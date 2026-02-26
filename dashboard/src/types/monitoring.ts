@@ -41,6 +41,7 @@ export interface MonitoredEmployee {
   deviceAppVersion: string | null;
   deviceModel: string | null;
   devicePlatform: string | null;
+  deviceOsVersion: string | null;
   lastSignInAt: Date | null;
 }
 
@@ -148,6 +149,7 @@ export interface MonitoredTeamRow {
   device_app_version: string | null;
   device_model: string | null;
   device_platform: string | null;
+  device_os_version: string | null;
   last_sign_in_at: string | null;
 }
 
@@ -257,6 +259,7 @@ export function transformMonitoredTeamRow(row: MonitoredTeamRow): MonitoredEmplo
     deviceAppVersion: row.device_app_version ?? null,
     deviceModel: row.device_model ?? null,
     devicePlatform: row.device_platform ?? null,
+    deviceOsVersion: row.device_os_version ?? null,
     lastSignInAt: row.last_sign_in_at ? new Date(row.last_sign_in_at) : null,
   };
 }

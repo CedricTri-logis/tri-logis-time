@@ -14,6 +14,7 @@ import { useRealtimeGps } from '@/lib/hooks/use-realtime-gps';
 import { useTimelineSegments } from '@/lib/hooks/use-timeline-segments';
 import type {
   EmployeeCurrentShiftRow,
+  ShiftDetailRow,
   GpsTrailRow,
   EmployeeCurrentShift,
   GpsTrailPoint,
@@ -131,6 +132,24 @@ export default function EmployeeMonitoringPage({ params }: PageProps) {
   const trailLoading = trailQuery.isLoading;
   const refetchTrail = trailQuery.refetch;
 
+  // Fetch shift detail (for employee name)
+  const { result: shiftDetailResult } = useCustom<ShiftDetailRow[]>({
+    url: '',
+    method: 'get',
+    meta: {
+      rpc: 'get_shift_detail',
+    },
+    config: {
+      payload: {
+        p_shift_id: currentShift?.shiftId ?? '',
+      },
+    },
+    queryOptions: {
+      enabled: !!currentShift?.shiftId,
+      staleTime: 300000, // 5 min — name doesn't change
+    },
+  });
+
   // Transform GPS trail data
   const [localTrail, setLocalTrail] = useState<GpsTrailPoint[]>([]);
   const trailData = trailResult?.data;
@@ -206,8 +225,12 @@ export default function EmployeeMonitoringPage({ params }: PageProps) {
   // Loading state
   const isLoading = shiftLoading;
 
-  // Get employee name from trail or use placeholder
-  const employeeName = 'Employee'; // We'd need another RPC call to get the name
+  // Get employee name from shift detail RPC
+  const employeeName = useMemo(() => {
+    const data = shiftDetailResult?.data;
+    if (!data || !Array.isArray(data) || data.length === 0) return 'Employee';
+    return (data[0] as ShiftDetailRow).employee_name || 'Employee';
+  }, [shiftDetailResult]);
   const employeeIdDisplay = employeeId;
 
   return (

@@ -61,6 +61,15 @@ class Trip {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  // Route matching fields
+  final String? routeGeometry;
+  final double? roadDistanceKm;
+  final String matchStatus;
+  final double? matchConfidence;
+  final String? matchError;
+  final DateTime? matchedAt;
+  final int matchAttempts;
+
   const Trip({
     required this.id,
     required this.shiftId,
@@ -84,10 +93,28 @@ class Trip {
     this.detectionMethod = TripDetectionMethod.auto,
     required this.createdAt,
     required this.updatedAt,
+    this.routeGeometry,
+    this.roadDistanceKm,
+    this.matchStatus = 'pending',
+    this.matchConfidence,
+    this.matchError,
+    this.matchedAt,
+    this.matchAttempts = 0,
   });
 
   bool get isLowConfidence => confidenceScore < 0.7;
   bool get isBusiness => classification == TripClassification.business;
+
+  // Route matching computed properties
+  bool get isRouteMatched => matchStatus == 'matched';
+  bool get isRouteEstimated => matchStatus != 'matched';
+  bool get isMatchPending => matchStatus == 'pending' || matchStatus == 'processing';
+  bool get isMatchFailed => matchStatus == 'failed';
+  bool get isMatchAnomalous => matchStatus == 'anomalous';
+  bool get canRetryMatch => matchAttempts < 3 && matchStatus == 'failed';
+
+  /// Effective distance: road distance if matched, haversine otherwise
+  double get effectiveDistanceKm => roadDistanceKm ?? distanceKm;
 
   String get startDisplayName =>
       startAddress ?? '${startLatitude.toStringAsFixed(4)}, ${startLongitude.toStringAsFixed(4)}';
@@ -121,6 +148,15 @@ class Trip {
             json['detection_method'] as String? ?? 'auto'),
         createdAt: DateTime.parse(json['created_at'] as String),
         updatedAt: DateTime.parse(json['updated_at'] as String),
+        routeGeometry: json['route_geometry'] as String?,
+        roadDistanceKm: (json['road_distance_km'] as num?)?.toDouble(),
+        matchStatus: json['match_status'] as String? ?? 'pending',
+        matchConfidence: (json['match_confidence'] as num?)?.toDouble(),
+        matchError: json['match_error'] as String?,
+        matchedAt: json['matched_at'] != null
+            ? DateTime.parse(json['matched_at'] as String)
+            : null,
+        matchAttempts: (json['match_attempts'] as num?)?.toInt() ?? 0,
       );
 
   Map<String, dynamic> toJson() => {
@@ -146,12 +182,26 @@ class Trip {
         'detection_method': detectionMethod.toJson(),
         'created_at': createdAt.toUtc().toIso8601String(),
         'updated_at': updatedAt.toUtc().toIso8601String(),
+        'route_geometry': routeGeometry,
+        'road_distance_km': roadDistanceKm,
+        'match_status': matchStatus,
+        'match_confidence': matchConfidence,
+        'match_error': matchError,
+        'matched_at': matchedAt?.toUtc().toIso8601String(),
+        'match_attempts': matchAttempts,
       };
 
   Trip copyWith({
     TripClassification? classification,
     String? startAddress,
     String? endAddress,
+    String? routeGeometry,
+    double? roadDistanceKm,
+    String? matchStatus,
+    double? matchConfidence,
+    String? matchError,
+    DateTime? matchedAt,
+    int? matchAttempts,
   }) =>
       Trip(
         id: id,
@@ -176,6 +226,13 @@ class Trip {
         detectionMethod: detectionMethod,
         createdAt: createdAt,
         updatedAt: updatedAt,
+        routeGeometry: routeGeometry ?? this.routeGeometry,
+        roadDistanceKm: roadDistanceKm ?? this.roadDistanceKm,
+        matchStatus: matchStatus ?? this.matchStatus,
+        matchConfidence: matchConfidence ?? this.matchConfidence,
+        matchError: matchError ?? this.matchError,
+        matchedAt: matchedAt ?? this.matchedAt,
+        matchAttempts: matchAttempts ?? this.matchAttempts,
       );
 
   @override
@@ -188,5 +245,5 @@ class Trip {
 
   @override
   String toString() =>
-      'Trip(id: $id, ${startDisplayName} → ${endDisplayName}, ${distanceKm}km)';
+      'Trip(id: $id, ${startDisplayName} → ${endDisplayName}, ${distanceKm}km, match: $matchStatus)';
 }

@@ -8,18 +8,21 @@ import '../providers/shift_provider.dart';
 class ClockButton extends ConsumerWidget {
   final VoidCallback? onClockIn;
   final VoidCallback? onClockOut;
+  final bool isExternallyLoading;
 
   const ClockButton({
     super.key,
     this.onClockIn,
     this.onClockOut,
+    this.isExternallyLoading = false,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final shiftState = ref.watch(shiftProvider);
     final hasActiveShift = shiftState.activeShift != null;
-    final isLoading = shiftState.isClockingIn || shiftState.isClockingOut;
+    final isLoading =
+        isExternallyLoading || shiftState.isClockingIn || shiftState.isClockingOut;
     final theme = Theme.of(context);
 
     return Container(

@@ -112,9 +112,9 @@ Dart 3.x / Flutter 3.x (latest stable): Follow standard conventions
 - `POST_NOTIFICATIONS` - Push notifications
 
 ## Recent Changes
+- 018-route-map-matching: Added OSRM v5 (Docker), Supabase Edge Functions (Deno), polyline6 encoding; extends trips table with route_geometry, road_distance_km, match_status
 - 019-diagnostic-logging: Added Dart >=3.0.0 / Flutter >=3.29.0 (mobile app only — no dashboard changes) + supabase_flutter 2.12.0, sqflite_sqlcipher 3.1.0, flutter_riverpod 2.5.0, package_info_plus, device_info_plus, flutter_secure_storage (all existing — no new dependencies)
 - 018-background-tracking-resilience: Added Dart >=3.0.0 / Flutter >=3.29.0 (mobile), Swift 5.9+ (iOS native), Kotlin (Android native) + flutter_foreground_task 8.0.0, geolocator 12.0.0, flutter_riverpod 2.5.0, supabase_flutter 2.12.0, device_info_plus (already in pubspec), sqflite_sqlcipher 3.1.0
-- 017-mileage-tracking: Added Dart >=3.0.0 / Flutter >=3.29.0 (mobile), TypeScript 5.x / Node.js 18.x LTS (dashboard)
 
 
 <!-- MANUAL ADDITIONS START -->

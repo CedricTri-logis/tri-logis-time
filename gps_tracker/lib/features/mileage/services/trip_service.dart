@@ -5,14 +5,20 @@ import '../../../shared/services/diagnostic_logger.dart';
 import '../models/local_trip.dart';
 import '../models/trip.dart';
 import 'mileage_local_db.dart';
+import 'route_match_service.dart';
 
 /// Service for trip detection and retrieval via Supabase,
 /// with offline caching through SQLCipher local database.
 class TripService {
   final SupabaseClient _supabase;
   final MileageLocalDb? _localDb;
+  RouteMatchService? _routeMatchService;
 
   TripService(this._supabase, [this._localDb]);
+
+  /// Set the route match service for triggering matching after detection.
+  set routeMatchService(RouteMatchService? service) =>
+      _routeMatchService = service;
 
   DiagnosticLogger? get _logger => DiagnosticLogger.isInitialized ? DiagnosticLogger.instance : null;
 
@@ -52,6 +58,14 @@ class TripService {
 
       // Cache detected trips locally
       await _cacheTrips(trips);
+
+      // Trigger route matching asynchronously (fire-and-forget)
+      if (_routeMatchService != null && trips.isNotEmpty) {
+        final tripIds = trips.map((t) => t.id).toList();
+        _routeMatchService!.matchTripsForShift(shiftId, tripIds).catchError((e) {
+          _logger?.sync(Severity.warn, 'Route matching failed for shift', metadata: {'shift_id': shiftId, 'error': e.toString()});
+        });
+      }
 
       return trips;
     } catch (e) {
@@ -185,6 +199,26 @@ class TripService {
     } catch (e) {
       _logger?.sync(Severity.warn, 'Failed to sync pending classifications', metadata: {'error': e.toString()});
       return 0;
+    }
+  }
+
+  /// Re-fetch a single trip from Supabase to get updated match results.
+  Future<Trip?> refreshTrip(String tripId) async {
+    try {
+      final response = await _supabase
+          .from('trips')
+          .select()
+          .eq('id', tripId)
+          .maybeSingle();
+
+      if (response == null) return null;
+
+      final trip = Trip.fromJson(response as Map<String, dynamic>);
+      await _cacheTrips([trip]);
+      return trip;
+    } catch (e) {
+      _logger?.sync(Severity.warn, 'Failed to refresh trip', metadata: {'trip_id': tripId, 'error': e.toString()});
+      return null;
     }
   }
 

@@ -309,23 +309,31 @@ class ShiftDetailScreen extends ConsumerWidget {
 
             final stats = ref.watch(routeStatsProvider(points));
 
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                RouteStatsCard(stats: stats),
-                const SizedBox(height: 16),
-                Card(
-                  elevation: 1,
-                  clipBehavior: Clip.antiAlias,
-                  child: SizedBox(
-                    height: 300,
-                    child: RouteMapWidget(
-                      points: points,
-                      onPointTap: (point) => PointDetailSheet.show(context, point),
+            return Consumer(
+              builder: (context, tripRef, _) {
+                final tripsAsync = tripRef.watch(tripsForShiftProvider(shiftId));
+                final trips = tripsAsync.valueOrNull ?? [];
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    RouteStatsCard(stats: stats),
+                    const SizedBox(height: 16),
+                    Card(
+                      elevation: 1,
+                      clipBehavior: Clip.antiAlias,
+                      child: SizedBox(
+                        height: 300,
+                        child: RouteMapWidget(
+                          points: points,
+                          onPointTap: (point) => PointDetailSheet.show(context, point),
+                          trips: trips.isNotEmpty ? trips : null,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ],
+                  ],
+                );
+              },
             );
           },
           loading: () => const Card(

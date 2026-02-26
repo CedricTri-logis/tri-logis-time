@@ -38,6 +38,10 @@ class SignificantLocationPlugin: NSObject, FlutterPlugin, CLLocationManagerDeleg
 
     private func startMonitoring() {
         guard CLLocationManager.significantLocationChangeMonitoringAvailable() else {
+            channel?.invokeMethod("onSignificantLocationMonitoringError", arguments: [
+                "error_code": "not_available",
+                "message": "Significant location change monitoring is not available on this device"
+            ])
             return
         }
         let manager = CLLocationManager()
@@ -45,11 +49,13 @@ class SignificantLocationPlugin: NSObject, FlutterPlugin, CLLocationManagerDeleg
         manager.allowsBackgroundLocationUpdates = true
         manager.startMonitoringSignificantLocationChanges()
         locationManager = manager
+        channel?.invokeMethod("onSignificantLocationMonitoringStarted", arguments: nil)
     }
 
     private func stopMonitoring() {
         locationManager?.stopMonitoringSignificantLocationChanges()
         locationManager = nil
+        channel?.invokeMethod("onSignificantLocationMonitoringStopped", arguments: nil)
     }
 
     // Called when iOS detects a significant location change.
@@ -72,6 +78,11 @@ class SignificantLocationPlugin: NSObject, FlutterPlugin, CLLocationManagerDeleg
         _ manager: CLLocationManager,
         didFailWithError error: Error
     ) {
-        // Significant location monitoring failed — not critical
+        let nsError = error as NSError
+        channel?.invokeMethod("onSignificantLocationMonitoringError", arguments: [
+            "error_code": "\(nsError.code)",
+            "error_domain": nsError.domain,
+            "message": nsError.localizedDescription
+        ])
     }
 }

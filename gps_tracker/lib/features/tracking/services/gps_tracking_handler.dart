@@ -66,6 +66,8 @@ class GPSTrackingHandler extends TaskHandler {
         await FlutterForegroundTask.getData<int>(key: 'stationary_interval_seconds') ?? 120;
     _distanceFilterMeters =
         await FlutterForegroundTask.getData<int>(key: 'distance_filter_meters') ?? 0;
+    _pointCount =
+        await FlutterForegroundTask.getData<int>(key: 'initial_point_count') ?? 0;
 
     // Load clock-in time for elapsed display
     final clockedInAtMs = await FlutterForegroundTask.getData<int>(key: 'clocked_in_at_ms');

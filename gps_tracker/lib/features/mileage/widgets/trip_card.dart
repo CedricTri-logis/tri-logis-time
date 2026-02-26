@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/trip.dart';
+import 'match_status_badge.dart';
 import 'trip_classification_chip.dart';
 
 class TripCard extends StatelessWidget {
@@ -82,13 +83,15 @@ class TripCard extends StatelessWidget {
                 children: [
                   _MetricChip(
                     icon: Icons.straighten,
-                    label: '${trip.distanceKm.toStringAsFixed(1)} km',
+                    label: '${trip.effectiveDistanceKm.toStringAsFixed(1)} km',
                   ),
                   const SizedBox(width: 8),
                   _MetricChip(
                     icon: Icons.timer_outlined,
                     label: '${trip.durationMinutes} min',
                   ),
+                  const SizedBox(width: 6),
+                  MatchStatusBadge(trip: trip, compact: true),
                   const Spacer(),
                   TripClassificationChip(
                     classification: trip.classification,

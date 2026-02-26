@@ -21,6 +21,12 @@ class LocalTrip {
   final bool synced;
   final String createdAt;
 
+  // Route matching fields
+  final String? routeGeometry;
+  final double? roadDistanceKm;
+  final String matchStatus;
+  final double? matchConfidence;
+
   const LocalTrip({
     required this.id,
     required this.shiftId,
@@ -40,6 +46,10 @@ class LocalTrip {
     this.gpsPointCount = 0,
     this.synced = false,
     required this.createdAt,
+    this.routeGeometry,
+    this.roadDistanceKm,
+    this.matchStatus = 'pending',
+    this.matchConfidence,
   });
 
   Trip toTrip() => Trip(
@@ -63,6 +73,10 @@ class LocalTrip {
         detectionMethod: TripDetectionMethod.auto,
         createdAt: DateTime.parse(createdAt),
         updatedAt: DateTime.parse(createdAt),
+        routeGeometry: routeGeometry,
+        roadDistanceKm: roadDistanceKm,
+        matchStatus: matchStatus,
+        matchConfidence: matchConfidence,
       );
 
   Map<String, dynamic> toMap() => {
@@ -84,6 +98,10 @@ class LocalTrip {
         'gps_point_count': gpsPointCount,
         'synced': synced ? 1 : 0,
         'created_at': createdAt,
+        'route_geometry': routeGeometry,
+        'road_distance_km': roadDistanceKm,
+        'match_status': matchStatus,
+        'match_confidence': matchConfidence,
       };
 
   factory LocalTrip.fromMap(Map<String, dynamic> map) => LocalTrip(
@@ -105,6 +123,10 @@ class LocalTrip {
         gpsPointCount: (map['gps_point_count'] as num?)?.toInt() ?? 0,
         synced: (map['synced'] as num?)?.toInt() == 1,
         createdAt: map['created_at'] as String,
+        routeGeometry: map['route_geometry'] as String?,
+        roadDistanceKm: (map['road_distance_km'] as num?)?.toDouble(),
+        matchStatus: map['match_status'] as String? ?? 'pending',
+        matchConfidence: (map['match_confidence'] as num?)?.toDouble(),
       );
 
   factory LocalTrip.fromTrip(Trip trip) => LocalTrip(
@@ -126,5 +148,9 @@ class LocalTrip {
         gpsPointCount: trip.gpsPointCount,
         synced: true,
         createdAt: trip.createdAt.toUtc().toIso8601String(),
+        routeGeometry: trip.routeGeometry,
+        roadDistanceKm: trip.roadDistanceKm,
+        matchStatus: trip.matchStatus,
+        matchConfidence: trip.matchConfidence,
       );
 }

@@ -5,6 +5,8 @@ import '../models/trip.dart';
 import '../providers/reimbursement_rate_provider.dart';
 import '../providers/trip_provider.dart';
 import '../services/reverse_geocode_service.dart';
+import '../services/route_match_service.dart';
+import '../widgets/match_status_badge.dart';
 import '../widgets/trip_route_map.dart';
 
 /// Screen showing detailed information about a single trip.
@@ -75,6 +77,19 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
     }
   }
 
+  Future<void> _retryRouteMatch() async {
+    final routeMatchService = ref.read(routeMatchServiceProvider);
+    final tripService = ref.read(tripServiceProvider);
+
+    await routeMatchService.matchTrip(_trip.id);
+
+    // Refresh trip data to get updated match results
+    final refreshed = await tripService.refreshTrip(_trip.id);
+    if (refreshed != null && mounted) {
+      setState(() => _trip = refreshed);
+    }
+  }
+
   Future<void> _toggleClassification() async {
     final newClassification = _trip.isBusiness
         ? TripClassification.personal
@@ -119,7 +134,39 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
           children: [
             // Map
             TripRouteMap(trip: _trip, height: 250),
-            const SizedBox(height: 16),
+            // Route status indicator below map
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Row(
+                children: [
+                  MatchStatusBadge(trip: _trip),
+                  const SizedBox(width: 8),
+                  Text(
+                    _trip.isRouteMatched
+                        ? 'Route vérifié par GPS'
+                        : 'Trajet estimé',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Colors.grey.shade600,
+                      fontSize: 11,
+                    ),
+                  ),
+                  if (_trip.isMatchFailed && _trip.canRetryMatch) ...[
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed: _retryRouteMatch,
+                      icon: const Icon(Icons.refresh, size: 16),
+                      label: const Text('Réessayer'),
+                      style: TextButton.styleFrom(
+                        textStyle: const TextStyle(fontSize: 12),
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: const Size(0, 30),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
 
             // Trip info card
             Card(
@@ -169,7 +216,7 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
                       context,
                       icon: Icons.straighten,
                       label: 'Distance',
-                      value: '${_trip.distanceKm.toStringAsFixed(1)} km',
+                      value: '${_trip.effectiveDistanceKm.toStringAsFixed(1)} km',
                     ),
                     const Divider(),
                     _buildMetricRow(
@@ -184,7 +231,7 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
                       icon: Icons.speed,
                       label: 'Vitesse moy.',
                       value: _trip.durationMinutes > 0
-                          ? '${(_trip.distanceKm / (_trip.durationMinutes / 60)).toStringAsFixed(0)} km/h'
+                          ? '${(_trip.effectiveDistanceKm / (_trip.durationMinutes / 60)).toStringAsFixed(0)} km/h'
                           : '—',
                     ),
                     const Divider(),

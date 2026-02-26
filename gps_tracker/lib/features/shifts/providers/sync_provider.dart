@@ -47,6 +47,7 @@ class SyncState {
   final SyncStatus status;
   final int pendingShifts;
   final int pendingGpsPoints;
+  final int pendingDiagnostics;
   final String? lastError;
   final DateTime? lastSyncTime;
 
@@ -66,6 +67,7 @@ class SyncState {
     this.status = SyncStatus.synced,
     this.pendingShifts = 0,
     this.pendingGpsPoints = 0,
+    this.pendingDiagnostics = 0,
     this.lastError,
     this.lastSyncTime,
     this.progress,
@@ -74,10 +76,11 @@ class SyncState {
     this.isConnected = true,
   });
 
-  bool get hasPendingData => pendingShifts > 0 || pendingGpsPoints > 0;
+  bool get hasPendingData =>
+      pendingShifts > 0 || pendingGpsPoints > 0 || pendingDiagnostics > 0;
 
   /// Total pending items count.
-  int get totalPending => pendingShifts + pendingGpsPoints;
+  int get totalPending => pendingShifts + pendingGpsPoints + pendingDiagnostics;
 
   /// Whether we're in a retry state.
   bool get isRetrying => consecutiveFailures > 0;
@@ -90,6 +93,7 @@ class SyncState {
     SyncStatus? status,
     int? pendingShifts,
     int? pendingGpsPoints,
+    int? pendingDiagnostics,
     String? lastError,
     DateTime? lastSyncTime,
     SyncProgress? progress,
@@ -104,6 +108,7 @@ class SyncState {
       status: status ?? this.status,
       pendingShifts: pendingShifts ?? this.pendingShifts,
       pendingGpsPoints: pendingGpsPoints ?? this.pendingGpsPoints,
+      pendingDiagnostics: pendingDiagnostics ?? this.pendingDiagnostics,
       lastError: clearError ? null : (lastError ?? this.lastError),
       lastSyncTime: lastSyncTime ?? this.lastSyncTime,
       progress: clearProgress ? null : (progress ?? this.progress),
@@ -137,6 +142,7 @@ class SyncState {
       status: status,
       pendingShifts: metadata.pendingShiftsCount,
       pendingGpsPoints: metadata.pendingGpsPointsCount,
+      pendingDiagnostics: 0,
       lastError: metadata.lastError,
       lastSyncTime: metadata.lastSuccessfulSync,
       consecutiveFailures: metadata.consecutiveFailures,
@@ -355,7 +361,9 @@ class SyncNotifier extends StateNotifier<SyncState> {
       final syncService = _ref.read(syncServiceProvider);
       final counts = await syncService.getPendingCounts();
 
-      final newStatus = counts.shifts > 0 || counts.gpsPoints > 0
+      final newStatus = counts.shifts > 0 ||
+              counts.gpsPoints > 0 ||
+              counts.diagnostics > 0
           ? (state.status == SyncStatus.syncing
               ? SyncStatus.syncing
               : SyncStatus.pending)
@@ -364,6 +372,7 @@ class SyncNotifier extends StateNotifier<SyncState> {
       state = state.copyWith(
         pendingShifts: counts.shifts,
         pendingGpsPoints: counts.gpsPoints,
+        pendingDiagnostics: counts.diagnostics,
         status: newStatus,
       );
 
@@ -438,6 +447,7 @@ class SyncNotifier extends StateNotifier<SyncState> {
           status: SyncStatus.error,
           pendingShifts: result.failedShifts,
           pendingGpsPoints: result.failedGpsPoints,
+          pendingDiagnostics: state.pendingDiagnostics,
           lastError: result.lastError,
           consecutiveFailures: state.consecutiveFailures + 1,
           clearProgress: true,
@@ -466,6 +476,7 @@ class SyncNotifier extends StateNotifier<SyncState> {
           status: SyncStatus.synced,
           pendingShifts: 0,
           pendingGpsPoints: 0,
+          pendingDiagnostics: 0,
           lastSyncTime: DateTime.now(),
           consecutiveFailures: 0,
           clearError: true,

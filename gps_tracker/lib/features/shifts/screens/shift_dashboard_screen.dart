@@ -8,14 +8,19 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../shared/models/diagnostic_event.dart';
 import '../../../shared/providers/supabase_provider.dart';
+import '../../../shared/services/diagnostic_logger.dart';
 import '../../tracking/models/device_location_status.dart';
 import '../../tracking/models/location_permission_state.dart';
 import '../../tracking/models/permission_change_event.dart';
 import '../../tracking/models/permission_guard_state.dart';
 import '../../tracking/providers/permission_guard_provider.dart';
 import '../../tracking/providers/tracking_provider.dart';
+import '../../tracking/services/background_execution_service.dart';
+import '../../tracking/services/background_tracking_service.dart';
 import '../../tracking/services/permission_monitor_service.dart';
+import '../../tracking/services/significant_location_service.dart';
 import '../../tracking/widgets/battery_optimization_dialog.dart';
 import '../../tracking/widgets/device_services_dialog.dart';
 import '../../tracking/widgets/permission_change_alert.dart';
@@ -29,11 +34,14 @@ import '../../maintenance/widgets/active_maintenance_card.dart';
 import '../../maintenance/widgets/building_picker_sheet.dart';
 import '../../maintenance/widgets/maintenance_history_list.dart';
 import '../../tracking/widgets/permission_status_banner.dart';
+import '../../tracking/widgets/precise_location_dialog.dart';
 import '../../tracking/widgets/settings_guidance_dialog.dart';
 import '../models/geo_point.dart';
 import '../models/shift.dart';
+import '../providers/connectivity_provider.dart';
 import '../providers/location_provider.dart';
 import '../providers/shift_provider.dart';
+import '../providers/sync_provider.dart';
 import '../services/version_check_service.dart';
 import '../widgets/clock_button.dart';
 import '../widgets/shift_status_card.dart';
@@ -67,9 +75,83 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
 
   /// Whether an auto clock-out warning is currently being shown.
   bool _isShowingGpsWarning = false;
+  bool _isClockInPreparing = false;
+  bool _cancelClockInPreparing = false;
 
   /// Currently selected tab (ménager / entretien).
   _DashboardTab _selectedTab = _DashboardTab.menager;
+
+  DiagnosticLogger? get _logger =>
+      DiagnosticLogger.isInitialized ? DiagnosticLogger.instance : null;
+
+  Future<void> _logClockInEnvironmentSnapshot() async {
+    try {
+      final locationService = ref.read(locationServiceProvider);
+      final connectivityService = ref.read(connectivityServiceProvider);
+      final packageInfo = await PackageInfo.fromPlatform();
+      final permission = await locationService.checkPermission();
+      final locationServiceEnabled = await locationService.isLocationServiceEnabled();
+      final networkConnected = await connectivityService.isConnected();
+      final networkType = await connectivityService.getNetworkType();
+      final guardState = ref.read(permissionGuardProvider);
+
+      bool? batteryOptimizationDisabled;
+      bool? backgroundSessionActive;
+      bool? significantLocationMonitoring;
+      String? locationAccuracy;
+
+      if (Platform.isAndroid) {
+        batteryOptimizationDisabled =
+            await BackgroundTrackingService.isBatteryOptimizationDisabled;
+      }
+      if (Platform.isIOS) {
+        try {
+          final accuracy = await Geolocator.getLocationAccuracy();
+          locationAccuracy = accuracy.name;
+        } catch (_) {}
+        backgroundSessionActive =
+            await BackgroundExecutionService.isBackgroundSessionActive();
+        significantLocationMonitoring =
+            await SignificantLocationService.isMonitoring();
+      }
+
+      await _logger?.shift(
+        Severity.info,
+        Platform.isIOS ? 'Clock-in iOS snapshot' : 'Clock-in Android snapshot',
+        metadata: {
+          'platform': Platform.isIOS ? 'ios' : 'android',
+          'app_version': '${packageInfo.version}+${packageInfo.buildNumber}',
+          'location_permission': permission.name,
+          if (locationAccuracy != null)
+            'location_accuracy_authorization': locationAccuracy,
+          'location_service_enabled': locationServiceEnabled,
+          'network_connected': networkConnected,
+          'network_type': networkType.name,
+          if (batteryOptimizationDisabled != null)
+            'battery_optimization_disabled': batteryOptimizationDisabled,
+          if (backgroundSessionActive != null)
+            'background_session_active': backgroundSessionActive,
+          if (significantLocationMonitoring != null)
+            'significant_location_monitoring': significantLocationMonitoring,
+          'guard_should_block_clock_in': guardState.shouldBlockClockIn,
+          'guard_should_warn_on_clock_in': guardState.shouldWarnOnClockIn,
+          'guard_permission_level': guardState.permission.level.name,
+          'guard_device_status': guardState.deviceStatus.name,
+          'guard_precise_location_enabled': guardState.isPreciseLocationEnabled,
+        },
+      );
+    } catch (e) {
+      await _logger?.shift(
+        Severity.warn,
+        Platform.isIOS
+            ? 'Clock-in iOS snapshot failed'
+            : 'Clock-in Android snapshot failed',
+        metadata: {'error': e.toString()},
+      );
+    } finally {
+      ref.read(syncProvider.notifier).notifyPendingData();
+    }
+  }
 
   @override
   void initState() {
@@ -139,134 +221,222 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
   }
 
   Future<void> _handleClockIn() async {
-    // Version check: block clock-in if app is outdated
-    final versionResult = await VersionCheckService(
-      ref.read(supabaseClientProvider),
-    ).checkVersionForClockIn();
+    if (_isClockInPreparing) return;
+    setState(() {
+      _isClockInPreparing = true;
+      _cancelClockInPreparing = false;
+    });
 
-    if (!versionResult.allowed) {
-      if (!mounted) return;
-      _showUpdateRequiredDialog(versionResult);
-      return;
-    }
+    try {
+      await _logClockInEnvironmentSnapshot();
 
-    final locationService = ref.read(locationServiceProvider);
-    final shiftNotifier = ref.read(shiftProvider.notifier);
-    final guardState = ref.read(permissionGuardProvider);
+      // Version check: block clock-in if app is outdated
+      final versionResult = await VersionCheckService(
+        ref.read(supabaseClientProvider),
+      ).checkVersionForClockIn();
 
-    // Pre-shift permission check: Block if critical permission issue
-    if (guardState.shouldBlockClockIn) {
-      if (!mounted) return;
-      await _handlePermissionBlock(guardState);
-      return;
-    }
-
-    // Pre-shift permission check: Warn if partial permission
-    if (guardState.shouldWarnOnClockIn) {
-      if (!mounted) return;
-      final proceed = await _showClockInWarningDialog(guardState);
-      if (!proceed) return;
-    }
-
-    // Check and request location permission (fallback to legacy behavior)
-    final hasPermission = await locationService.ensureLocationPermission();
-
-    if (!hasPermission) {
-      if (!mounted) return;
-
-      final permission = await locationService.checkPermission();
-      if (permission == LocationPermission.deniedForever) {
-        _showLocationSettingsDialog();
-        return;
-      } else {
-        _showLocationPermissionDialog();
+      if (!versionResult.allowed) {
+        if (!mounted) return;
+        _showUpdateRequiredDialog(versionResult);
         return;
       }
-    }
 
-    // Show loading indicator
-    if (!mounted) return;
+      final locationService = ref.read(locationServiceProvider);
+      final shiftNotifier = ref.read(shiftProvider.notifier);
+      final guardState = ref.read(permissionGuardProvider);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Row(
-          children: [
-            SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Colors.white,
-              ),
-            ),
-            SizedBox(width: 16),
-            Text('Vérification du GPS...'),
-          ],
-        ),
-        duration: Duration(seconds: 12),
-      ),
-    );
+      // Pre-shift permission check: Block if critical permission issue
+      if (guardState.shouldBlockClockIn) {
+        if (!mounted) return;
+        await _handlePermissionBlock(guardState);
+        return;
+      }
 
-    // Strict GPS health check — requires fresh position, no stale fallback
-    final gpsResult = await locationService.verifyGpsForClockIn();
+      // Pre-shift permission check: Warn if partial permission
+      if (guardState.shouldWarnOnClockIn) {
+        if (!mounted) return;
+        final proceed = await _showClockInWarningDialog(guardState);
+        if (!proceed) return;
+      }
 
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      // Check and request location permission (fallback to legacy behavior)
+      final hasPermission = await locationService.ensureLocationPermission();
 
-    // Block clock-in if GPS is not working
-    if (gpsResult.failureReason != null) {
-      _showGpsNotWorkingDialog(gpsResult.failureReason!);
-      return;
-    }
+      if (!hasPermission) {
+        if (!mounted) return;
 
-    // Clock in (location is guaranteed non-null after validation above)
-    final success = await shiftNotifier.clockIn(
-      location: gpsResult.location!,
-      accuracy: gpsResult.accuracy,
-    );
+        final permission = await locationService.checkPermission();
+        if (permission == LocationPermission.deniedForever) {
+          _showLocationSettingsDialog();
+          return;
+        } else {
+          _showLocationPermissionDialog();
+          return;
+        }
+      }
 
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      // Show loading indicator
+      if (!mounted) return;
 
-    if (success) {
-      // Notify permission guard of active shift for monitoring
-      ref.read(permissionGuardProvider.notifier).setActiveShift(true);
-      _startPermissionMonitoring();
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.white),
-              SizedBox(width: 12),
-              Text('Quart débuté!'),
-            ],
-          ),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ),
-      );
-    } else {
-      final error = ref.read(shiftProvider).error;
-      ScaffoldMessenger.of(context).showSnackBar(
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.showSnackBar(
         SnackBar(
           content: Row(
             children: [
-              const Icon(Icons.error, color: Colors.white),
-              const SizedBox(width: 12),
-              Expanded(child: Text(error ?? 'Échec du démarrage du quart')),
+              const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 16),
+              const Expanded(
+                child: Text('Validation du démarrage du suivi...'),
+              ),
             ],
           ),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+          duration: const Duration(days: 1),
+          action: SnackBarAction(
+            label: 'Annuler',
+            textColor: Colors.white,
+            onPressed: () {
+              _cancelClockInPreparing = true;
+            },
           ),
         ),
       );
+
+      final waitStopwatch = Stopwatch()..start();
+      var gpsAttempt = 0;
+      _logger?.gps(
+        Severity.info,
+        'Clock-in GPS validation started',
+      );
+
+      // Keep trying until a valid GPS point is obtained (or user cancels).
+      ({GeoPoint? location, double? accuracy, String? failureReason}) gpsResult;
+      while (true) {
+        if (_cancelClockInPreparing || !mounted) {
+          _logger?.gps(
+            Severity.warn,
+            'Clock-in GPS validation cancelled',
+            metadata: {
+              'attempts': gpsAttempt,
+              'elapsed_ms': waitStopwatch.elapsedMilliseconds,
+            },
+          );
+          ref.read(syncProvider.notifier).notifyPendingData();
+          messenger.hideCurrentSnackBar();
+          return;
+        }
+
+        gpsAttempt++;
+        gpsResult = await locationService.verifyGpsForClockIn();
+        final failure = gpsResult.failureReason;
+
+        if (failure == null && gpsResult.location != null) {
+          _logger?.gps(
+            Severity.info,
+            'Clock-in GPS validation succeeded',
+            metadata: {
+              'attempt': gpsAttempt,
+              'elapsed_ms': waitStopwatch.elapsedMilliseconds,
+              'accuracy': gpsResult.accuracy,
+            },
+          );
+          ref.read(syncProvider.notifier).notifyPendingData();
+          break;
+        }
+
+        _logger?.gps(
+          Severity.warn,
+          'Clock-in GPS validation attempt failed',
+          metadata: {
+            'attempt': gpsAttempt,
+            'failure_reason': failure,
+            'elapsed_ms': waitStopwatch.elapsedMilliseconds,
+          },
+        );
+        ref.read(syncProvider.notifier).notifyPendingData();
+
+        if (failure == 'permission_denied') {
+          messenger.hideCurrentSnackBar();
+          final permission = await locationService.checkPermission();
+          if (permission == LocationPermission.deniedForever) {
+            _showLocationSettingsDialog();
+          } else {
+            _showLocationPermissionDialog();
+          }
+          return;
+        }
+
+        await Future<void>.delayed(const Duration(seconds: 2));
+      }
+
+      if (!mounted) return;
+      messenger.hideCurrentSnackBar();
+
+      // Clock in (location is guaranteed non-null after validation above)
+      final success = await shiftNotifier.clockIn(
+        location: gpsResult.location!,
+        accuracy: gpsResult.accuracy,
+      );
+
+      if (!mounted) return;
+      messenger.hideCurrentSnackBar();
+
+      if (success) {
+        // Notify permission guard of active shift for monitoring
+        ref.read(permissionGuardProvider.notifier).setActiveShift(true);
+        _startPermissionMonitoring();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 12),
+                Text('Quart débuté!'),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        );
+      } else {
+        final error = ref.read(shiftProvider).error;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error, color: Colors.white),
+                const SizedBox(width: 12),
+                Expanded(child: Text(error ?? 'Échec du démarrage du quart')),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isClockInPreparing = false;
+          _cancelClockInPreparing = false;
+        });
+      } else {
+        _isClockInPreparing = false;
+        _cancelClockInPreparing = false;
+      }
     }
   }
 
@@ -317,6 +487,10 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
       // Battery optimization must be disabled for reliable background tracking
       if (!mounted) return;
       await BatteryOptimizationDialog.show(context);
+    } else if (!guardState.isPreciseLocationEnabled) {
+      // Precise/exact location must be enabled for GPS tracking
+      if (!mounted) return;
+      await PreciseLocationDialog.show(context);
     } else {
       // Permission not granted yet
       final proceed = await PermissionExplanationDialog.show(context);
@@ -723,46 +897,6 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
     );
   }
 
-  void _showGpsNotWorkingDialog(String reason) {
-    final String title;
-    final String message;
-
-    switch (reason) {
-      case 'timeout':
-        title = 'GPS non disponible';
-        message = 'Impossible d\'obtenir votre position GPS. '
-            'Assurez-vous d\'être dans un endroit avec un signal GPS '
-            '(à l\'extérieur ou près d\'une fenêtre) et réessayez.';
-      case 'poor_accuracy':
-        title = 'Signal GPS faible';
-        message = 'Le signal GPS est trop faible pour démarrer le quart. '
-            'Attendez quelques secondes pour un meilleur signal ou '
-            'déplacez-vous vers un endroit plus ouvert.';
-      case 'permission_denied':
-        title = 'Permission GPS requise';
-        message = 'L\'accès à la localisation est nécessaire pour '
-            'démarrer un quart de travail.';
-      default:
-        title = 'Erreur GPS';
-        message = 'Une erreur est survenue avec le GPS. '
-            'Veuillez réessayer dans quelques instants.';
-    }
-
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
-
   /// Show dialog when app version is too old to clock in.
   void _showUpdateRequiredDialog(VersionCheckResult result) {
     showDialog<void>(
@@ -1085,6 +1219,7 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
                       child: ClockButton(
                         onClockIn: _handleClockIn,
                         onClockOut: _handleClockOut,
+                        isExternallyLoading: _isClockInPreparing,
                       ),
                     ),
                     const SizedBox(height: 32),

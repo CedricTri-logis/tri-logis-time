@@ -37,9 +37,28 @@ class MileageLocalDb {
             confidence_score REAL NOT NULL DEFAULT 1.0,
             gps_point_count INTEGER NOT NULL DEFAULT 0,
             synced INTEGER NOT NULL DEFAULT 0,
-            created_at TEXT NOT NULL
+            created_at TEXT NOT NULL,
+            route_geometry TEXT,
+            road_distance_km REAL,
+            match_status TEXT NOT NULL DEFAULT 'pending',
+            match_confidence REAL
           )
         ''');
+
+        // Add route matching columns to existing tables (schema migration)
+        await txn.execute('''
+          CREATE TABLE IF NOT EXISTS _mileage_schema_version (version INTEGER)
+        ''');
+        final versionResult = await txn.query('_mileage_schema_version');
+        final currentVersion = versionResult.isEmpty ? 0 : (versionResult.first['version'] as num?)?.toInt() ?? 0;
+        if (currentVersion < 1) {
+          // Add columns if they don't exist (for existing databases)
+          try { await txn.execute('ALTER TABLE local_trips ADD COLUMN route_geometry TEXT'); } catch (_) {}
+          try { await txn.execute('ALTER TABLE local_trips ADD COLUMN road_distance_km REAL'); } catch (_) {}
+          try { await txn.execute('ALTER TABLE local_trips ADD COLUMN match_status TEXT NOT NULL DEFAULT \'pending\''); } catch (_) {}
+          try { await txn.execute('ALTER TABLE local_trips ADD COLUMN match_confidence REAL'); } catch (_) {}
+          await txn.execute('INSERT OR REPLACE INTO _mileage_schema_version (version) VALUES (1)');
+        }
 
         await txn.execute('''
           CREATE INDEX IF NOT EXISTS idx_local_trips_shift

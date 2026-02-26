@@ -356,21 +356,26 @@ class SyncService {
     if (errorShifts.isNotEmpty) return true;
 
     final pendingPoints = await _localDb.getPendingGpsPoints(limit: 1);
-    return pendingPoints.isNotEmpty;
+    if (pendingPoints.isNotEmpty) return true;
+
+    final pendingDiagnostics = await _localDb.getPendingDiagnosticEventCount();
+    return pendingDiagnostics > 0;
   }
 
   /// Get count of pending items.
-  Future<({int shifts, int gpsPoints})> getPendingCounts() async {
+  Future<({int shifts, int gpsPoints, int diagnostics})> getPendingCounts() async {
     final userId = _currentUserId;
-    if (userId == null) return (shifts: 0, gpsPoints: 0);
+    if (userId == null) return (shifts: 0, gpsPoints: 0, diagnostics: 0);
 
     final pendingShifts = await _localDb.getPendingShifts(userId);
     final errorShifts = await _localDb.getErrorShifts(userId);
     final pendingGpsCount = await _localDb.getPendingGpsPointCount();
+    final pendingDiagnosticCount = await _localDb.getPendingDiagnosticEventCount();
 
     return (
       shifts: pendingShifts.length + errorShifts.length,
       gpsPoints: pendingGpsCount,
+      diagnostics: pendingDiagnosticCount,
     );
   }
 

@@ -172,6 +172,15 @@ class PermissionStatusBanner extends ConsumerWidget {
           actionLabel: 'Désactiver',
           canDismiss: true,
         ),
+      PermissionGuardStatus.preciseLocationRequired => _BannerConfig(
+          backgroundColor: theme.colorScheme.errorContainer,
+          iconColor: theme.colorScheme.onErrorContainer,
+          icon: Icons.gps_off,
+          title: 'Position exacte désactivée',
+          subtitle: 'Activez la position exacte pour le suivi GPS',
+          actionLabel: 'Activer',
+          canDismiss: false,
+        ),
       PermissionGuardStatus.allGranted => _BannerConfig(
           // This case shouldn't be reached since shouldShowBanner is false
           backgroundColor: Colors.green.shade100,
@@ -203,6 +212,8 @@ class PermissionStatusBanner extends ConsumerWidget {
         await notifier.requestPermission();
       case PermissionGuardStatus.batteryOptimizationRequired:
         await notifier.requestBatteryOptimization();
+      case PermissionGuardStatus.preciseLocationRequired:
+        await notifier.openAppSettings();
       case PermissionGuardStatus.allGranted:
         // No action needed
         break;

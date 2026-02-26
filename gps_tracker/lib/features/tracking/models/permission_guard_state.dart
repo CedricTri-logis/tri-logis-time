@@ -18,6 +18,9 @@ class PermissionGuardState {
   /// Whether battery optimization is disabled (Android only, always true on iOS).
   final bool isBatteryOptimizationDisabled;
 
+  /// Whether precise/exact location is enabled (Android 12+, always true on iOS).
+  final bool isPreciseLocationEnabled;
+
   /// Set of warning types the user has dismissed this session.
   final Set<DismissibleWarningType> dismissedWarnings;
 
@@ -31,6 +34,7 @@ class PermissionGuardState {
     required this.permission,
     required this.deviceStatus,
     required this.isBatteryOptimizationDisabled,
+    required this.isPreciseLocationEnabled,
     required this.dismissedWarnings,
     required this.hasActiveShift,
     required this.lastChecked,
@@ -41,6 +45,7 @@ class PermissionGuardState {
         permission: LocationPermissionState.initial(),
         deviceStatus: DeviceLocationStatus.unknown,
         isBatteryOptimizationDisabled: true,
+        isPreciseLocationEnabled: true,
         dismissedWarnings: const {},
         hasActiveShift: false,
         lastChecked: DateTime.now(),
@@ -63,6 +68,9 @@ class PermissionGuardState {
     if (!isBatteryOptimizationDisabled) {
       return PermissionGuardStatus.batteryOptimizationRequired;
     }
+    if (!isPreciseLocationEnabled) {
+      return PermissionGuardStatus.preciseLocationRequired;
+    }
     return PermissionGuardStatus.allGranted;
   }
 
@@ -84,7 +92,8 @@ class PermissionGuardState {
     return deviceStatus == DeviceLocationStatus.disabled ||
         !permission.hasAnyPermission ||
         permission.level == LocationPermissionLevel.whileInUse ||
-        !isBatteryOptimizationDisabled;
+        !isBatteryOptimizationDisabled ||
+        !isPreciseLocationEnabled;
   }
 
   /// Computed: Whether clock-in should show warning (but allow proceeding)
@@ -101,6 +110,7 @@ class PermissionGuardState {
     LocationPermissionState? permission,
     DeviceLocationStatus? deviceStatus,
     bool? isBatteryOptimizationDisabled,
+    bool? isPreciseLocationEnabled,
     Set<DismissibleWarningType>? dismissedWarnings,
     bool? hasActiveShift,
     DateTime? lastChecked,
@@ -110,6 +120,8 @@ class PermissionGuardState {
         deviceStatus: deviceStatus ?? this.deviceStatus,
         isBatteryOptimizationDisabled:
             isBatteryOptimizationDisabled ?? this.isBatteryOptimizationDisabled,
+        isPreciseLocationEnabled:
+            isPreciseLocationEnabled ?? this.isPreciseLocationEnabled,
         dismissedWarnings: dismissedWarnings ?? this.dismissedWarnings,
         hasActiveShift: hasActiveShift ?? this.hasActiveShift,
         lastChecked: lastChecked ?? this.lastChecked,

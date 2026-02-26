@@ -128,6 +128,9 @@ function TeamListItem({ employee }: TeamListItemProps) {
                 <span className="flex items-center gap-1">
                   <Smartphone className="h-3 w-3" />
                   {formatDeviceModel(employee.deviceModel) || employee.devicePlatform}
+                  {employee.deviceOsVersion && (
+                    <span className="text-slate-300">· {formatOsVersion(employee.deviceOsVersion)}</span>
+                  )}
                 </span>
               )}
             </div>
@@ -202,6 +205,11 @@ function LocationInfo({ location }: LocationInfoProps) {
       <LastUpdatedBadge capturedAt={location.capturedAt} />
     </div>
   );
+}
+
+function formatOsVersion(osVersion: string): string {
+  // "Android 14 (SDK 34)" → "Android 14"
+  return osVersion.replace(/\s*\(SDK \d+\)/, '');
 }
 
 function formatLastConnection(date: Date): string {

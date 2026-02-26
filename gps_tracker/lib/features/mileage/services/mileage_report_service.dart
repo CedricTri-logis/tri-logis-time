@@ -240,8 +240,9 @@ class MileageReportService {
         1: const pw.FlexColumnWidth(2.0), // From
         2: const pw.FlexColumnWidth(2.0), // To
         3: const pw.FlexColumnWidth(1.0), // Distance
-        4: const pw.FlexColumnWidth(1.0), // Duration
-        5: const pw.FlexColumnWidth(1.2), // Reimbursement
+        4: const pw.FlexColumnWidth(0.6), // Source
+        5: const pw.FlexColumnWidth(1.0), // Duration
+        6: const pw.FlexColumnWidth(1.2), // Reimbursement
       },
       children: [
         // Header row
@@ -252,6 +253,7 @@ class MileageReportService {
             _buildTableCell('From', isHeader: true),
             _buildTableCell('To', isHeader: true),
             _buildTableCell('Distance (km)', isHeader: true),
+            _buildTableCell('Source', isHeader: true),
             _buildTableCell('Duration', isHeader: true),
             _buildTableCell('Reimbursement', isHeader: true),
           ],
@@ -276,8 +278,11 @@ class MileageReportService {
                 maxLines: 2,
               ),
               _buildTableCell(
-                trip.distanceKm.toStringAsFixed(1),
+                trip.effectiveDistanceKm.toStringAsFixed(1),
                 alignment: pw.Alignment.centerRight,
+              ),
+              _buildTableCell(
+                trip.isRouteMatched ? 'GPS' : 'Est.',
               ),
               _buildTableCell(
                 _formatDuration(trip.durationMinutes),
@@ -301,6 +306,7 @@ class MileageReportService {
               isHeader: true,
               alignment: pw.Alignment.centerRight,
             ),
+            _buildTableCell(''),
             _buildTableCell(''),
             _buildTableCell(
               currencyFormat.format(totalReimbursement),

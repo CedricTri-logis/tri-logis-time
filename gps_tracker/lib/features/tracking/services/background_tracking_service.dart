@@ -77,16 +77,47 @@ class BackgroundTrackingService with WidgetsBindingObserver {
     required String shiftId,
     required String employeeId,
     DateTime? clockedInAt,
+    int initialPointCount = 0,
     TrackingConfig config = const TrackingConfig(),
   }) async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    bool? batteryOptimizationDisabled;
+    if (Platform.isAndroid) {
+      batteryOptimizationDisabled =
+          await FlutterForegroundTask.isIgnoringBatteryOptimizations;
+    }
+    _logger?.gps(
+      Severity.info,
+      'Background startTracking requested',
+      metadata: {
+        'shift_id': shiftId,
+        'platform': Platform.isIOS ? 'ios' : 'android',
+        'service_enabled': serviceEnabled,
+        'battery_optimization_disabled': batteryOptimizationDisabled,
+        'active_interval_seconds': config.activeIntervalSeconds,
+        'stationary_interval_seconds': config.stationaryIntervalSeconds,
+        'distance_filter_meters': config.distanceFilterMeters,
+      },
+    );
+
     // Check if already tracking
     if (await FlutterForegroundTask.isRunningService) {
+      _logger?.gps(
+        Severity.warn,
+        'startTracking aborted: foreground service already running',
+        metadata: {'shift_id': shiftId},
+      );
       return const TrackingAlreadyActive();
     }
 
     // Check permissions
     final permissionState = await checkPermissions();
     if (!permissionState.hasAnyPermission) {
+      _logger?.permission(
+        Severity.warn,
+        'startTracking denied: no location permission',
+        metadata: {'shift_id': shiftId, 'permission_level': permissionState.level.name},
+      );
       return const TrackingPermissionDenied();
     }
 
@@ -110,6 +141,10 @@ class BackgroundTrackingService with WidgetsBindingObserver {
         key: 'distance_filter_meters',
         value: config.distanceFilterMeters,
       );
+      await FlutterForegroundTask.saveData(
+        key: 'initial_point_count',
+        value: initialPointCount,
+      );
       if (clockedInAt != null) {
         await FlutterForegroundTask.saveData(
           key: 'clocked_in_at_ms',
@@ -129,11 +164,26 @@ class BackgroundTrackingService with WidgetsBindingObserver {
       );
 
       if (result is ServiceRequestSuccess) {
+        _logger?.gps(
+          Severity.info,
+          'Foreground service start success',
+          metadata: {'shift_id': shiftId},
+        );
         return const TrackingSuccess();
       } else {
+        _logger?.gps(
+          Severity.error,
+          'Foreground service start failed',
+          metadata: {'shift_id': shiftId, 'result': result.runtimeType.toString()},
+        );
         return const TrackingServiceError('Failed to start tracking service');
       }
     } catch (e) {
+      _logger?.gps(
+        Severity.error,
+        'Foreground service start threw exception',
+        metadata: {'shift_id': shiftId, 'error': e.toString()},
+      );
       return TrackingServiceError(e.toString());
     }
   }
@@ -147,6 +197,7 @@ class BackgroundTrackingService with WidgetsBindingObserver {
     await FlutterForegroundTask.removeData(key: 'active_interval_seconds');
     await FlutterForegroundTask.removeData(key: 'stationary_interval_seconds');
     await FlutterForegroundTask.removeData(key: 'distance_filter_meters');
+    await FlutterForegroundTask.removeData(key: 'initial_point_count');
     await FlutterForegroundTask.removeData(key: 'clocked_in_at_ms');
   }
 
@@ -158,6 +209,7 @@ class BackgroundTrackingService with WidgetsBindingObserver {
     required String shiftId,
     required String employeeId,
     DateTime? clockedInAt,
+    int initialPointCount = 0,
     TrackingConfig config = const TrackingConfig(),
   }) async {
     _logger?.gps(
@@ -178,6 +230,7 @@ class BackgroundTrackingService with WidgetsBindingObserver {
       shiftId: shiftId,
       employeeId: employeeId,
       clockedInAt: clockedInAt,
+      initialPointCount: initialPointCount,
       config: config,
     );
   }
@@ -189,9 +242,11 @@ class BackgroundTrackingService with WidgetsBindingObserver {
 
   /// Request all required permissions for background tracking.
   static Future<LocationPermissionState> requestPermissions() async {
+    String? notificationPermissionResult;
     // Request notification permission (Android 13+)
     if (Platform.isAndroid) {
-      await FlutterForegroundTask.requestNotificationPermission();
+      final result = await FlutterForegroundTask.requestNotificationPermission();
+      notificationPermissionResult = result.toString();
     }
 
     // Check current location permission
@@ -216,7 +271,21 @@ class BackgroundTrackingService with WidgetsBindingObserver {
       }
     }
 
-    return _mapPermission(permission);
+    final mapped = _mapPermission(permission);
+    _logger?.permission(
+      Severity.info,
+      'Background permission request completed',
+      metadata: {
+        'platform': Platform.isIOS ? 'ios' : 'android',
+        'location_permission': permission.name,
+        'mapped_level': mapped.level.name,
+        'notification_permission': notificationPermissionResult,
+        if (Platform.isAndroid)
+          'battery_optimization_disabled':
+              await FlutterForegroundTask.isIgnoringBatteryOptimizations,
+      },
+    );
+    return mapped;
   }
 
   /// Check current permission status without requesting.

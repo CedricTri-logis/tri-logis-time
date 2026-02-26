@@ -2,8 +2,48 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../mileage/models/trip.dart';
 import '../models/route_point.dart';
 import 'gps_point_marker.dart';
+
+/// Decode polyline6 to latlong2 LatLng (for flutter_map compatibility).
+List<LatLng> _decodePolyline6(String encoded) {
+  final List<LatLng> points = [];
+  int index = 0;
+  int lat = 0;
+  int lng = 0;
+  while (index < encoded.length) {
+    int shift = 0;
+    int result = 0;
+    int byte;
+    do {
+      byte = encoded.codeUnitAt(index++) - 63;
+      result |= (byte & 0x1F) << shift;
+      shift += 5;
+    } while (byte >= 0x20);
+    lat += (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
+    shift = 0;
+    result = 0;
+    do {
+      byte = encoded.codeUnitAt(index++) - 63;
+      result |= (byte & 0x1F) << shift;
+      shift += 5;
+    } while (byte >= 0x20);
+    lng += (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
+    points.add(LatLng(lat / 1e6, lng / 1e6));
+  }
+  return points;
+}
+
+/// Color palette for trip route overlays.
+const _tripRouteColors = [
+  Color(0xFF8b5cf6), // purple
+  Color(0xFF22c55e), // green
+  Color(0xFFf97316), // orange
+  Color(0xFFec4899), // pink
+  Color(0xFF14b8a6), // teal
+  Color(0xFFeab308), // yellow
+];
 
 /// Display GPS points as a route on an interactive map.
 class RouteMapWidget extends StatefulWidget {
@@ -22,6 +62,9 @@ class RouteMapWidget extends StatefulWidget {
   /// Initial zoom level (default: auto-fit to bounds).
   final double? initialZoom;
 
+  /// Optional trips to overlay matched routes on the map.
+  final List<Trip>? trips;
+
   const RouteMapWidget({
     required this.points,
     super.key,
@@ -29,6 +72,7 @@ class RouteMapWidget extends StatefulWidget {
     this.showAccuracy = true,
     this.onPointTap,
     this.initialZoom,
+    this.trips,
   });
 
   @override
@@ -80,6 +124,16 @@ class _RouteMapWidgetState extends State<RouteMapWidget> {
       if (point.longitude > maxLng) maxLng = point.longitude;
     }
 
+    // Include trip route points in bounds
+    for (final polyline in _tripPolylines) {
+      for (final pt in polyline.points) {
+        if (pt.latitude < minLat) minLat = pt.latitude;
+        if (pt.latitude > maxLat) maxLat = pt.latitude;
+        if (pt.longitude < minLng) minLng = pt.longitude;
+        if (pt.longitude > maxLng) maxLng = pt.longitude;
+      }
+    }
+
     // Add padding
     const padding = 0.001;
     return LatLngBounds(
@@ -92,6 +146,35 @@ class _RouteMapWidgetState extends State<RouteMapWidget> {
     return widget.points
         .map((p) => LatLng(p.latitude, p.longitude))
         .toList();
+  }
+
+  List<Polyline> get _tripPolylines {
+    final trips = widget.trips;
+    if (trips == null || trips.isEmpty) return [];
+
+    return trips.asMap().entries.map((entry) {
+      final index = entry.key;
+      final trip = entry.value;
+      final color = _tripRouteColors[index % _tripRouteColors.length];
+      final isMatched = trip.isRouteMatched && trip.routeGeometry != null;
+
+      final List<LatLng> points;
+      if (isMatched) {
+        points = _decodePolyline6(trip.routeGeometry!);
+      } else {
+        points = [
+          LatLng(trip.startLatitude, trip.startLongitude),
+          LatLng(trip.endLatitude, trip.endLongitude),
+        ];
+      }
+
+      return Polyline(
+        points: points,
+        color: color,
+        strokeWidth: isMatched ? 5 : 3,
+        isDotted: !isMatched,
+      );
+    }).toList();
   }
 
   @override
@@ -132,14 +215,16 @@ class _RouteMapWidgetState extends State<RouteMapWidget> {
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           userAgentPackageName: 'com.gps_tracker.app',
         ),
-        if (_routeCoordinates.length >= 2)
+        if (_routeCoordinates.length >= 2 || _tripPolylines.isNotEmpty)
           PolylineLayer(
             polylines: [
-              Polyline(
-                points: _routeCoordinates,
-                color: Colors.blue,
-                strokeWidth: 3,
-              ),
+              if (_routeCoordinates.length >= 2)
+                Polyline(
+                  points: _routeCoordinates,
+                  color: Colors.blue,
+                  strokeWidth: 3,
+                ),
+              ..._tripPolylines,
             ],
           ),
         if (widget.showMarkers)

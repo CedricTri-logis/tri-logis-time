@@ -17,4 +17,7 @@ enum PermissionGuardStatus {
 
   /// Battery optimization enabled (Android) - optional action.
   batteryOptimizationRequired,
+
+  /// Precise/exact location not enabled (Android 12+) - action required.
+  preciseLocationRequired,
 }
