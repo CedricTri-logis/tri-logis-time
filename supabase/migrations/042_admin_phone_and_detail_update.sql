@@ -145,6 +145,9 @@ GRANT EXECUTE ON FUNCTION admin_update_phone_number(UUID, TEXT) TO authenticated
 -- PART 2: Updated get_employee_detail — add phone_number column
 -- =============================================================================
 
+-- Must drop first because return type changed (added phone_number column)
+DROP FUNCTION IF EXISTS get_employee_detail(UUID);
+
 CREATE OR REPLACE FUNCTION get_employee_detail(p_employee_id UUID)
 RETURNS TABLE (
     id UUID,
