@@ -48,13 +48,12 @@ function haversineM(
 // ── Core filter ────────────────────────────────────────────────────────────
 /**
  * Determines if a point should be considered stationary relative to an anchor.
- * Takes accuracy into account: a point 200m away with 250m accuracy is still
- * stationary because its error circle includes the anchor position.
+ * Takes accuracy into account ONLY when GPS is imprecise (accuracy > threshold).
  *
- * Logic: the point is stationary if the distance minus the point's accuracy
- * is within the stationary radius. In other words, if the closest possible
- * true position (distance - accuracy) is within the threshold, the point
- * could still be at the anchor.
+ * - Good GPS (accuracy ≤ 30m): use raw distance — the position is reliable
+ * - Poor GPS (accuracy > 30m): the error circle is large, so if the closest
+ *   possible true position (distance - accuracy) is within the threshold,
+ *   the point could still be at the anchor (e.g. 200m away with 250m accuracy)
  */
 function isStationary(
   anchorLat: number,
@@ -62,9 +61,15 @@ function isStationary(
   point: GpsTrailPoint,
 ): boolean {
   const dist = haversineM(anchorLat, anchorLon, point.latitude, point.longitude);
-  // Effective distance: subtract accuracy (the true position could be closer)
-  const effectiveDist = Math.max(0, dist - point.accuracy);
-  return effectiveDist <= STATIONARY_RADIUS_M;
+
+  if (point.accuracy > STATIONARY_RADIUS_M) {
+    // Poor GPS: the true position could be much closer than reported
+    const closestPossible = Math.max(0, dist - point.accuracy);
+    return closestPossible <= STATIONARY_RADIUS_M;
+  }
+
+  // Good GPS: trust the distance as-is
+  return dist <= STATIONARY_RADIUS_M;
 }
 
 /**

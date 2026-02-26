@@ -159,20 +159,7 @@ export async function matchTripToRoad(
 
   const geometryPoints = countPolylinePoints(routeGeometry);
 
-  // Validate: confidence check
-  if (avgConfidence < 0.3) {
-    return {
-      success: false,
-      match_status: "failed",
-      route_geometry: null,
-      road_distance_km: null,
-      match_confidence: avgConfidence,
-      match_error: `Match confidence too low: ${avgConfidence.toFixed(2)}`,
-      geometry_points: 0,
-    };
-  }
-
-  // Validate: matched points check
+  // Validate: matched points check (primary quality gate)
   const matchedCount = osrmData.tracepoints
     ? osrmData.tracepoints.filter((tp: unknown) => tp !== null).length
     : 0;
@@ -185,6 +172,21 @@ export async function matchTripToRoad(
       road_distance_km: null,
       match_confidence: avgConfidence,
       match_error: `Only ${Math.round(matchedPct * 100)}% of GPS points matched to roads`,
+      geometry_points: 0,
+    };
+  }
+
+  // Validate: reject only if confidence is extremely low AND few points matched
+  // OSRM confidence reflects alternative route count, not match quality.
+  // In grid cities, many alternative routes exist → low confidence even for perfect matches.
+  if (avgConfidence < 0.05 && matchedPct < 0.8) {
+    return {
+      success: false,
+      match_status: "failed",
+      route_geometry: null,
+      road_distance_km: null,
+      match_confidence: avgConfidence,
+      match_error: `Match confidence too low: ${avgConfidence.toFixed(2)} with only ${Math.round(matchedPct * 100)}% points matched`,
       geometry_points: 0,
     };
   }
