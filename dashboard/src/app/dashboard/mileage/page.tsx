@@ -24,7 +24,9 @@ import {
   ArrowRight,
   ChevronDown,
   ChevronUp,
+  Play,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { supabaseClient } from '@/lib/supabase/client';
 import { MatchStatusBadge } from '@/components/trips/match-status-badge';
 import { GoogleTripRouteMap } from '@/components/trips/google-trip-route-map';
@@ -272,6 +274,52 @@ export default function MileagePage() {
     [fetchTrips]
   );
 
+  const handleProcessPending = useCallback(async () => {
+    setIsProcessing(true);
+    const toastId = toast.loading(`Traitement de ${stats.pending} trajet(s) en attente...`);
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!.trim();
+      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!.trim();
+
+      const res = await fetch(`${supabaseUrl}/functions/v1/batch-match-trips`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${anonKey}`,
+          apikey: anonKey,
+        },
+        body: JSON.stringify({ reprocess_failed: true, limit: 500 }),
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        toast.error(`Erreur HTTP ${res.status}: ${errorText}`, { id: toastId });
+        return;
+      }
+
+      const response = (await res.json()) as BatchResponse;
+      if (!response.success && response.error) {
+        toast.error(response.error, { id: toastId });
+        return;
+      }
+
+      const s = response.summary;
+      if (s.total_requested === 0) {
+        toast.info('Aucun trajet en attente à traiter.', { id: toastId });
+      } else {
+        toast.success(
+          `${s.matched} apparié(s), ${s.failed} échoué(s), ${s.skipped} ignoré(s) — ${s.duration_seconds}s`,
+          { id: toastId }
+        );
+      }
+      fetchTrips();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur inattendue', { id: toastId });
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [fetchTrips, stats.pending]);
+
   const openDialog = useCallback((mode: 'failed' | 'all') => {
     setDialogMode(mode);
     setBatchResult(null);
@@ -307,6 +355,17 @@ export default function MileagePage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap gap-3">
+            <Button
+              onClick={handleProcessPending}
+              disabled={isProcessing || stats.pending === 0}
+            >
+              {isProcessing ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Play className="h-4 w-4 mr-2" />
+              )}
+              Traiter les en attente ({stats.pending})
+            </Button>
             <Button
               variant="outline"
               onClick={() => openDialog('failed')}
