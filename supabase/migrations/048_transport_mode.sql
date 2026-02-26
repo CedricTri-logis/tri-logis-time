@@ -170,6 +170,8 @@ DECLARE
     v_is_active BOOLEAN;
     v_cutoff_time TIMESTAMPTZ := NULL;
     v_noise_floor DECIMAL;
+    v_last_stationary_point RECORD;  -- last truly stationary point (departure origin)
+    v_has_last_stationary BOOLEAN := FALSE;
 BEGIN
     -- Validate shift exists
     SELECT s.id, s.employee_id, s.status
@@ -254,6 +256,19 @@ BEGIN
             IF v_prev_point.speed IS NOT NULL AND v_point.speed IS NOT NULL
                AND v_prev_point.speed < v_sensor_stationary AND v_point.speed < v_sensor_stationary THEN
                 v_speed := 0;
+            END IF;
+
+            -- Track last truly stationary point (departure origin for next trip)
+            -- Only update if still near the original stationary position (<30m)
+            -- to avoid drifting the departure point as the person starts slow movement
+            IF v_speed = 0 AND NOT v_in_trip THEN
+                IF NOT v_has_last_stationary THEN
+                    v_last_stationary_point := v_prev_point;
+                    v_has_last_stationary := TRUE;
+                ELSIF haversine_km(v_last_stationary_point.latitude, v_last_stationary_point.longitude,
+                                   v_prev_point.latitude, v_prev_point.longitude) * 1000.0 < 30 THEN
+                    v_last_stationary_point := v_prev_point;
+                END IF;
             END IF;
 
             -- Skip impossible speeds (GPS glitch)
@@ -344,6 +359,7 @@ BEGIN
                 v_trip_low_accuracy := 0;
                 v_trip_points := '{}';
                 v_stationary_since := NULL;
+                v_has_last_stationary := FALSE;
             END IF;
 
             IF v_speed >= v_movement_speed THEN
@@ -351,16 +367,26 @@ BEGIN
                 v_stationary_since := NULL;
 
                 IF NOT v_in_trip THEN
-                    -- Start new trip
+                    -- Start new trip from the last stationary point (departure origin)
                     v_in_trip := TRUE;
-                    v_trip_start_point := v_prev_point;
+                    IF v_has_last_stationary THEN
+                        v_trip_start_point := v_last_stationary_point;
+                    ELSE
+                        v_trip_start_point := v_prev_point;
+                    END IF;
                     v_trip_distance := 0;
                     v_trip_point_count := 1;
                     v_trip_low_accuracy := 0;
-                    v_trip_points := ARRAY[v_prev_point.id];
+                    v_trip_points := ARRAY[v_trip_start_point.id];
 
-                    IF v_prev_point.accuracy IS NOT NULL AND v_prev_point.accuracy > 50 THEN
+                    IF v_trip_start_point.accuracy IS NOT NULL AND v_trip_start_point.accuracy > 50 THEN
                         v_trip_low_accuracy := v_trip_low_accuracy + 1;
+                    END IF;
+
+                    -- Add intermediate points between stationary and current
+                    IF v_has_last_stationary AND v_prev_point.id != v_last_stationary_point.id THEN
+                        v_trip_points := v_trip_points || v_prev_point.id;
+                        v_trip_point_count := v_trip_point_count + 1;
                     END IF;
                 END IF;
 
@@ -465,6 +491,7 @@ BEGIN
                     v_trip_low_accuracy := 0;
                     v_trip_points := '{}';
                     v_stationary_since := NULL;
+                    v_has_last_stationary := FALSE;
                 END IF;
             END IF;
         END IF;
