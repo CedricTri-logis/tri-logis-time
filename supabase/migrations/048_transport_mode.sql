@@ -108,14 +108,17 @@ END;
 $$;
 
 -- =============================================================================
--- 4. Replace detect_trips with walking trip support
+-- 4. Replace detect_trips with GPS accuracy filtering + active shift support
 -- =============================================================================
 -- Changes from original (migration 035):
--- - Lower movement start threshold from 15 km/h to 3 km/h
--- - Lower stationary threshold from 5 km/h to 2 km/h
--- - Lower minimum distance from 0.5 km to 0.2 km
--- - After each trip insert, classify transport_mode via sensor speed
--- - Walking trips with < 100m straight-line displacement are deleted (GPS noise)
+-- - GPS accuracy noise floor: displacement < max(accuracy) → speed = 0
+-- - GPS sensor speed cross-check: both < 0.5 m/s → speed = 0
+-- - Movement threshold raised to 8 km/h (filters GPS drift)
+-- - Stationary threshold raised to 3 km/h
+-- - Active shifts: incremental detection (preserves matched trips)
+-- - Transport mode classification after each trip
+-- - Walking trips with < 100m displacement are deleted (GPS noise)
+-- - See docs/trip-detection-algorithm.md for full documentation
 -- =============================================================================
 CREATE OR REPLACE FUNCTION detect_trips(p_shift_id UUID)
 RETURNS TABLE (
@@ -139,6 +142,7 @@ DECLARE
     v_prev_point RECORD;
     v_speed DECIMAL;
     v_dist DECIMAL;
+    v_dist_meters DECIMAL;
     v_time_delta DECIMAL;
     v_in_trip BOOLEAN := FALSE;
     v_trip_start_point RECORD;
@@ -150,20 +154,22 @@ DECLARE
     v_trip_id UUID;
     v_stationary_since TIMESTAMPTZ := NULL;
     v_correction_factor CONSTANT DECIMAL := 1.3;
-    v_min_distance_km CONSTANT DECIMAL := 0.2;       -- lowered from 0.5
-    v_min_distance_driving CONSTANT DECIMAL := 0.5;   -- driving-specific min
-    v_movement_speed CONSTANT DECIMAL := 3.0;          -- km/h — trip start (was 15.0)
-    v_stationary_speed CONSTANT DECIMAL := 2.0;        -- km/h — trip end (was 5.0)
-    v_max_speed CONSTANT DECIMAL := 200.0;             -- km/h
-    v_max_accuracy CONSTANT DECIMAL := 200.0;          -- meters
+    v_min_distance_km CONSTANT DECIMAL := 0.2;
+    v_min_distance_driving CONSTANT DECIMAL := 0.5;
+    v_movement_speed CONSTANT DECIMAL := 8.0;          -- km/h — raised from 3 to filter GPS drift
+    v_stationary_speed CONSTANT DECIMAL := 3.0;         -- km/h — raised from 2
+    v_max_speed CONSTANT DECIMAL := 200.0;
+    v_max_accuracy CONSTANT DECIMAL := 200.0;
     v_stationary_gap_minutes CONSTANT INTEGER := 3;
     v_gps_gap_minutes CONSTANT INTEGER := 15;
-    v_min_displacement_walking CONSTANT DECIMAL := 0.1; -- 100m straight-line
+    v_min_displacement_walking CONSTANT DECIMAL := 0.1;
+    v_sensor_stationary CONSTANT DECIMAL := 0.5;        -- m/s — GPS sensor speed below this = stationary
     v_seq INTEGER;
     v_transport_mode TEXT;
     v_displacement DECIMAL;
     v_is_active BOOLEAN;
     v_cutoff_time TIMESTAMPTZ := NULL;
+    v_noise_floor DECIMAL;
 BEGIN
     -- Validate shift exists
     SELECT s.id, s.employee_id, s.status
@@ -204,6 +210,7 @@ BEGIN
             gp.latitude,
             gp.longitude,
             gp.accuracy,
+            gp.speed,
             gp.captured_at
         FROM gps_points gp
         WHERE gp.shift_id = p_shift_id
@@ -230,6 +237,24 @@ BEGIN
             END IF;
 
             v_speed := v_dist / v_time_delta;
+            v_dist_meters := v_dist * 1000.0;
+
+            -- FILTER 1: GPS accuracy noise floor
+            -- If displacement < max(accuracy of both points), it's GPS drift not real movement
+            v_noise_floor := GREATEST(
+                COALESCE(v_prev_point.accuracy, 10),
+                COALESCE(v_point.accuracy, 10)
+            );
+            IF v_dist_meters < v_noise_floor THEN
+                v_speed := 0;
+            END IF;
+
+            -- FILTER 2: GPS sensor speed cross-check
+            -- If both points report near-zero sensor speed, person is stationary
+            IF v_prev_point.speed IS NOT NULL AND v_point.speed IS NOT NULL
+               AND v_prev_point.speed < v_sensor_stationary AND v_point.speed < v_sensor_stationary THEN
+                v_speed := 0;
+            END IF;
 
             -- Skip impossible speeds (GPS glitch)
             IF v_speed > v_max_speed THEN
