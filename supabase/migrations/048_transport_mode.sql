@@ -27,6 +27,7 @@ SET search_path = public
 AS $$
 DECLARE
     v_median_speed DECIMAL;
+    v_max_speed DECIMAL;
     v_point_count INTEGER;
     v_avg_speed_kmh DECIMAL;
     v_distance_km DECIMAL;
@@ -35,8 +36,9 @@ BEGIN
     -- Try GPS sensor speed first (more accurate, in m/s)
     SELECT
         percentile_cont(0.5) WITHIN GROUP (ORDER BY gp.speed),
+        MAX(gp.speed),
         COUNT(*)
-    INTO v_median_speed, v_point_count
+    INTO v_median_speed, v_max_speed, v_point_count
     FROM trip_gps_points tgp
     JOIN gps_points gp ON gp.id = tgp.gps_point_id
     WHERE tgp.trip_id = p_trip_id
@@ -44,6 +46,10 @@ BEGIN
       AND gp.speed >= 0;
 
     IF v_point_count >= 3 AND v_median_speed IS NOT NULL THEN
+        -- Hard ceiling: if max speed > 6 m/s (21.6 km/h), nobody walks that fast
+        IF v_max_speed > 6.0 THEN
+            RETURN 'driving';
+        END IF;
         -- Sensor speed thresholds (m/s):
         -- > 4.0 m/s = 14.4 km/h → driving
         -- 0.3–4.0 m/s = 1–14.4 km/h → walking

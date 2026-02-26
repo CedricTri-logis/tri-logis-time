@@ -142,7 +142,12 @@ class ShiftNotifier extends StateNotifier<ShiftState>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) {
       _logger?.shift(Severity.debug, 'App resumed, checking server shift status');
-      _checkServerShiftStatus();
+      // On iOS, Dart timers don't fire while suspended. The token refresh
+      // timer (50 min) may not have fired for hours. Force a refresh before
+      // any server queries to avoid stale JWT causing false "not found".
+      _ensureFreshToken(thresholdMinutes: 30).then((_) {
+        if (mounted) _checkServerShiftStatus();
+      });
     }
   }
 
@@ -171,7 +176,18 @@ class ShiftNotifier extends StateNotifier<ShiftState>
       // Proactively refresh the token if it's close to expiry.
       // This prevents the query from running with an expired JWT,
       // which would cause RLS to return empty results.
-      await _ensureFreshToken(thresholdMinutes: 5);
+      //
+      // IMPORTANT: If the refresh fails (e.g. app was in iOS background
+      // for hours and timer-based refresh never fired), we must NOT
+      // proceed — an expired JWT causes RLS to silently return empty
+      // results, leading to a false "server_not_found" closure.
+      final tokenOk = await _ensureFreshToken(thresholdMinutes: 5);
+      if (!tokenOk) {
+        _logger?.shift(Severity.warn, 'Server shift check: skipping — token refresh failed', metadata: {
+          'shift_id': serverId,
+        },);
+        return;
+      }
 
       final response = await client
           .from('shifts')
@@ -205,7 +221,48 @@ class ShiftNotifier extends StateNotifier<ShiftState>
           }
         }
 
-        // Session looks valid — shift is genuinely not found on server
+        // Session looks valid but shift was not found. Retry once with
+        // a forced token refresh to rule out stale JWT edge cases (e.g.
+        // iOS background where the cached session object has a future
+        // expiresAt but the actual JWT was never refreshed server-side).
+        _logger?.shift(Severity.info, 'Server shift check: null response with valid session — retrying with forced refresh', metadata: {
+          'shift_id': serverId,
+        },);
+        try {
+          await client.auth.refreshSession();
+          final retryResponse = await client
+              .from('shifts')
+              .select('id, status, clock_out_reason')
+              .eq('id', serverId)
+              .maybeSingle();
+
+          if (retryResponse != null) {
+            // Token was stale — shift actually exists. Process normally.
+            _logger?.shift(Severity.warn, 'Server shift check: shift found after token refresh (stale JWT was the issue)', metadata: {
+              'shift_id': serverId,
+            },);
+            final serverStatus = retryResponse['status'] as String?;
+            if (serverStatus == 'completed') {
+              final reason = retryResponse['clock_out_reason'] as String? ?? 'server_closed';
+              _logger?.shift(Severity.warn, 'Shift closed by server', metadata: {
+                'shift_id': serverId,
+                'reason': reason,
+                'source': 'polling_retry',
+              },);
+              _closeShiftLocally(activeShift, reason);
+            }
+            return;
+          }
+        } catch (e) {
+          // Retry refresh failed — fail-open, don't close the shift
+          _logger?.shift(Severity.warn, 'Server shift check: retry refresh failed — skipping', metadata: {
+            'shift_id': serverId,
+            'error': e.toString(),
+          },);
+          return;
+        }
+
+        // Still null after fresh token — shift is genuinely not found
         _logger?.shift(Severity.warn, 'Shift closed by server', metadata: {
           'shift_id': serverId,
           'reason': 'server_not_found',
