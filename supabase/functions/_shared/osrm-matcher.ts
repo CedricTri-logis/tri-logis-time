@@ -78,6 +78,56 @@ function haversineKm(
 }
 
 /**
+ * OSRM region definitions. Each region has a bounding box and env var for its URL.
+ * Regions are checked in order; first match wins.
+ */
+interface OsrmRegion {
+  name: string;
+  envVar: string;
+  bbox: { minLat: number; maxLat: number; minLon: number; maxLon: number };
+}
+
+const OSRM_REGIONS: OsrmRegion[] = [
+  {
+    name: "mexico",
+    envVar: "OSRM_MEXICO_BASE_URL",
+    bbox: { minLat: 14.5, maxLat: 32.7, minLon: -118.5, maxLon: -86.7 },
+  },
+  {
+    name: "quebec",
+    envVar: "OSRM_BASE_URL",
+    bbox: { minLat: 44.0, maxLat: 63.0, minLon: -80.0, maxLon: -57.0 },
+  },
+];
+
+/**
+ * Select the appropriate OSRM server URL based on the GPS coordinates.
+ * Falls back to the default OSRM_BASE_URL if no region matches.
+ */
+export function selectOsrmUrl(points: GpsPoint[]): string | null {
+  if (points.length === 0) return Deno.env.get("OSRM_BASE_URL") ?? null;
+
+  // Use the first point's coordinates to determine region
+  const lat = points[0].latitude;
+  const lon = points[0].longitude;
+
+  for (const region of OSRM_REGIONS) {
+    if (
+      lat >= region.bbox.minLat &&
+      lat <= region.bbox.maxLat &&
+      lon >= region.bbox.minLon &&
+      lon <= region.bbox.maxLon
+    ) {
+      const url = Deno.env.get(region.envVar);
+      if (url) return url;
+    }
+  }
+
+  // Default fallback
+  return Deno.env.get("OSRM_BASE_URL") ?? null;
+}
+
+/**
  * Match a trip's GPS points to the road network using OSRM.
  */
 export async function matchTripToRoad(

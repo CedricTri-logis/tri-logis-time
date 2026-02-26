@@ -16,7 +16,15 @@ CREATE INDEX IF NOT EXISTS idx_trips_transport_mode ON trips(transport_mode);
 UPDATE trips SET transport_mode = 'driving' WHERE transport_mode = 'unknown';
 
 -- =============================================================================
--- 3. classify_trip_transport_mode: Classify a trip based on GPS sensor speeds
+-- 3. classify_trip_transport_mode: Classify using calculated speeds (haversine)
+-- =============================================================================
+-- Logic:
+--   1. Trip average speed (distance/duration) as primary indicator
+--      > 10 km/h → driving (impossible on foot for a full trip)
+--      < 4 km/h  → walking
+--   2. Grey zone (4–10 km/h): calculate inter-point speeds via haversine
+--      If >80% of segments < 5 km/h AND distance < 1 km → walking
+--      Otherwise → driving (city driving with stops)
 -- =============================================================================
 CREATE OR REPLACE FUNCTION classify_trip_transport_mode(p_trip_id UUID)
 RETURNS TEXT
@@ -26,44 +34,14 @@ STABLE
 SET search_path = public
 AS $$
 DECLARE
-    v_median_speed DECIMAL;
-    v_max_speed DECIMAL;
-    v_point_count INTEGER;
-    v_avg_speed_kmh DECIMAL;
     v_distance_km DECIMAL;
     v_duration_min INTEGER;
+    v_avg_speed_kmh DECIMAL;
+    v_total_segments INTEGER;
+    v_slow_segments INTEGER;
+    v_slow_ratio DECIMAL;
 BEGIN
-    -- Try GPS sensor speed first (more accurate, in m/s)
-    SELECT
-        percentile_cont(0.5) WITHIN GROUP (ORDER BY gp.speed),
-        MAX(gp.speed),
-        COUNT(*)
-    INTO v_median_speed, v_max_speed, v_point_count
-    FROM trip_gps_points tgp
-    JOIN gps_points gp ON gp.id = tgp.gps_point_id
-    WHERE tgp.trip_id = p_trip_id
-      AND gp.speed IS NOT NULL
-      AND gp.speed >= 0;
-
-    IF v_point_count >= 3 AND v_median_speed IS NOT NULL THEN
-        -- Hard ceiling: if max speed > 6 m/s (21.6 km/h), nobody walks that fast
-        IF v_max_speed > 6.0 THEN
-            RETURN 'driving';
-        END IF;
-        -- Sensor speed thresholds (m/s):
-        -- > 4.0 m/s = 14.4 km/h → driving
-        -- 0.3–4.0 m/s = 1–14.4 km/h → walking
-        -- < 0.3 m/s → unknown (mostly stationary)
-        IF v_median_speed > 4.0 THEN
-            RETURN 'driving';
-        ELSIF v_median_speed >= 0.3 THEN
-            RETURN 'walking';
-        ELSE
-            RETURN 'unknown';
-        END IF;
-    END IF;
-
-    -- Fallback: use trip average speed (distance / duration)
+    -- Get trip-level average speed (most robust indicator)
     SELECT distance_km, duration_minutes
     INTO v_distance_km, v_duration_min
     FROM trips
@@ -75,13 +53,57 @@ BEGIN
 
     v_avg_speed_kmh := v_distance_km / (v_duration_min / 60.0);
 
-    IF v_avg_speed_kmh > 15.0 THEN
+    -- Clear-cut cases based on trip average speed
+    IF v_avg_speed_kmh > 10.0 THEN
         RETURN 'driving';
-    ELSIF v_avg_speed_kmh >= 3.0 THEN
-        RETURN 'walking';
-    ELSE
-        RETURN 'unknown';
     END IF;
+
+    IF v_avg_speed_kmh < 4.0 THEN
+        RETURN 'walking';
+    END IF;
+
+    -- Grey zone (4–10 km/h): use inter-point calculated speeds
+    -- Calculate speed between consecutive GPS points via haversine
+    SELECT
+        COUNT(*),
+        COUNT(*) FILTER (WHERE segment_speed_kmh < 5.0)
+    INTO v_total_segments, v_slow_segments
+    FROM (
+        SELECT
+            haversine_km(prev_lat, prev_lon, cur_lat, cur_lon)
+            / NULLIF(EXTRACT(EPOCH FROM (cur_time - prev_time)) / 3600.0, 0) AS segment_speed_kmh
+        FROM (
+            SELECT
+                gp.latitude AS cur_lat,
+                gp.longitude AS cur_lon,
+                gp.captured_at AS cur_time,
+                LAG(gp.latitude) OVER (ORDER BY tgp.sequence_order) AS prev_lat,
+                LAG(gp.longitude) OVER (ORDER BY tgp.sequence_order) AS prev_lon,
+                LAG(gp.captured_at) OVER (ORDER BY tgp.sequence_order) AS prev_time
+            FROM trip_gps_points tgp
+            JOIN gps_points gp ON gp.id = tgp.gps_point_id
+            WHERE tgp.trip_id = p_trip_id
+        ) pts
+        WHERE prev_lat IS NOT NULL
+          AND EXTRACT(EPOCH FROM (cur_time - prev_time)) > 0
+    ) segments
+    WHERE segment_speed_kmh IS NOT NULL
+      AND segment_speed_kmh < 200; -- filter GPS glitches
+
+    IF v_total_segments IS NULL OR v_total_segments < 2 THEN
+        -- Not enough data, use avg speed as tiebreaker
+        RETURN CASE WHEN v_avg_speed_kmh >= 6.0 THEN 'driving' ELSE 'walking' END;
+    END IF;
+
+    v_slow_ratio := v_slow_segments::DECIMAL / v_total_segments;
+
+    -- If >80% of segments are slow AND short distance → walking
+    IF v_slow_ratio > 0.8 AND v_distance_km < 1.0 THEN
+        RETURN 'walking';
+    END IF;
+
+    -- Otherwise it's driving (city driving with stops)
+    RETURN 'driving';
 END;
 $$;
 

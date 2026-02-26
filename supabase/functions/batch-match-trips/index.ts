@@ -3,6 +3,7 @@ import {
   createServiceClient,
   fetchTripGpsPoints,
   matchTripToRoad,
+  selectOsrmUrl,
   storeMatchResult,
   type MatchResult,
 } from "../_shared/osrm-matcher.ts";
@@ -61,21 +62,6 @@ serve(async (req: Request) => {
 
     const effectiveLimit = Math.min(limit ?? DEFAULT_LIMIT, MAX_TRIPS);
     const supabase = createServiceClient();
-    const osrmBaseUrl = Deno.env.get("OSRM_BASE_URL");
-
-    if (!osrmBaseUrl) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "OSRM_BASE_URL not configured",
-          code: "OSRM_UNAVAILABLE",
-        }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
 
     // Resolve trip IDs based on request type
     let tripIds: string[] = [];
@@ -247,6 +233,20 @@ serve(async (req: Request) => {
             road_distance_km: null,
             match_confidence: null,
             error: result.match_error,
+          });
+          failed++;
+          continue;
+        }
+
+        // Select OSRM server based on GPS coordinates
+        const osrmBaseUrl = selectOsrmUrl(gpsPoints);
+        if (!osrmBaseUrl) {
+          results.push({
+            trip_id: tripId,
+            status: "failed",
+            road_distance_km: null,
+            match_confidence: null,
+            error: "No OSRM server for this region",
           });
           failed++;
           continue;
