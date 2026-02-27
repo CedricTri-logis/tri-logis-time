@@ -13,6 +13,7 @@ import '../services/auth_service.dart';
 import '../services/biometric_service.dart';
 import '../services/device_info_service.dart';
 import '../services/validators.dart';
+import '../../../shared/services/session_backup_service.dart';
 import '../widgets/auth_button.dart';
 import '../widgets/auth_form_field.dart';
 import '../widgets/otp_input_field.dart';
@@ -389,6 +390,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
 
       // No phone saved and no legacy credentials — clear and inform user
       await bio.clearCredentials();
+      await SessionBackupService.clear();
       if (mounted) {
         setState(() => _biometricReady = false);
         ErrorSnackbar.show(context, 'Session expiree. Reconnectez-vous.');
@@ -397,6 +399,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       if (mounted) {
         final bio = ref.read(biometricServiceProvider);
         await bio.clearCredentials();
+        await SessionBackupService.clear();
         setState(() => _biometricReady = false);
         ErrorSnackbar.show(
           context,
