@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../models/carpool_info.dart';
 import '../models/trip.dart';
 import '../providers/reimbursement_rate_provider.dart';
 import '../providers/trip_provider.dart';
@@ -122,6 +124,24 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final rateAsync = ref.watch(reimbursementRateProvider);
+
+    // Fetch carpool info for this trip
+    final carpoolAsync = ref.watch(carpoolInfoProvider([_trip.id]));
+    final carpoolInfo = carpoolAsync.valueOrNull?[_trip.id];
+
+    // Fetch company vehicle dates for the trip's date
+    final tripDate = _trip.startedAt.toLocal();
+    final dayStart = DateTime(tripDate.year, tripDate.month, tripDate.day);
+    final dayEnd = dayStart.add(const Duration(days: 1));
+    final userId =
+        Supabase.instance.client.auth.currentUser?.id ?? '';
+    final companyVehicleAsync = ref.watch(companyVehicleDatesProvider(
+      TripPeriodParams(employeeId: userId, start: dayStart, end: dayEnd),
+    ));
+    final isCompanyVehicle = companyVehicleAsync.valueOrNull?.contains(
+          tripDate.toIso8601String().substring(0, 10),
+        ) ??
+        false;
 
     return Scaffold(
       appBar: AppBar(
@@ -327,6 +347,147 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
                 ),
               ),
             ),
+
+            // Carpool section
+            if (carpoolInfo != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.people,
+                                color: theme.colorScheme.primary),
+                            const SizedBox(width: 12),
+                            Text(
+                              'Covoiturage',
+                              style: theme.textTheme.titleSmall,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          carpoolInfo.isPassenger
+                              ? 'Vous \u00e9tiez passager'
+                              : 'Vous \u00eates le conducteur',
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                        if (carpoolInfo.isPassenger &&
+                            carpoolInfo.driverName != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            'Conducteur : ${carpoolInfo.driverName}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                        if (carpoolInfo.isPassenger) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            '0 km rembours\u00e9',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: Colors.orange.shade700,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                        if (carpoolInfo.members.isNotEmpty) ...[
+                          const Divider(height: 24),
+                          Text(
+                            'Membres du groupe',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: Colors.grey.shade600,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          ...carpoolInfo.members.map(
+                            (member) => Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 2),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    member.role == CarpoolRole.driver
+                                        ? Icons.drive_eta
+                                        : Icons.person,
+                                    size: 16,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      member.employeeName,
+                                      style:
+                                          theme.textTheme.bodySmall,
+                                    ),
+                                  ),
+                                  Text(
+                                    member.role.displayName,
+                                    style: theme.textTheme.bodySmall
+                                        ?.copyWith(
+                                      color: Colors.grey.shade500,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+            // Company vehicle section
+            if (isCompanyVehicle)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                child: Card(
+                  color: Colors.purple.shade50,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.business,
+                                color: Colors.purple.shade700),
+                            const SizedBox(width: 12),
+                            Text(
+                              'V\u00e9hicule d\u2019entreprise',
+                              style: theme.textTheme.titleSmall,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Ce trajet a \u00e9t\u00e9 effectu\u00e9 avec un v\u00e9hicule de l\u2019entreprise',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '0 km rembours\u00e9',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: Colors.purple.shade700,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
 
             if (_trip.isLowConfidence)
               Padding(

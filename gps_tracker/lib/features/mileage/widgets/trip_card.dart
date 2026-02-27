@@ -1,16 +1,23 @@
 import 'package:flutter/material.dart';
+import '../models/carpool_info.dart';
 import '../models/trip.dart';
+import 'carpool_badge.dart';
+import 'company_vehicle_badge.dart';
 import 'match_status_badge.dart';
 import 'trip_classification_chip.dart';
 
 class TripCard extends StatelessWidget {
   final Trip trip;
+  final CarpoolInfo? carpoolInfo;
+  final bool hasCompanyVehicle;
   final VoidCallback? onTap;
   final VoidCallback? onClassificationToggle;
 
   const TripCard({
     super.key,
     required this.trip,
+    this.carpoolInfo,
+    this.hasCompanyVehicle = false,
     this.onTap,
     this.onClassificationToggle,
   });
@@ -92,9 +99,20 @@ class TripCard extends StatelessWidget {
                     icon: Icons.timer_outlined,
                     label: '${trip.durationMinutes} min',
                   ),
-                  const SizedBox(width: 6),
-                  MatchStatusBadge(trip: trip, compact: true),
                   const Spacer(),
+                  MatchStatusBadge(trip: trip, compact: true),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                alignment: WrapAlignment.end,
+                children: [
+                  if (carpoolInfo != null)
+                    CarpoolBadge(carpoolInfo: carpoolInfo!),
+                  if (hasCompanyVehicle)
+                    const CompanyVehicleBadge(),
                   TripClassificationChip(
                     classification: trip.classification,
                     onTap: onClassificationToggle,

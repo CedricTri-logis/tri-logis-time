@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../models/carpool_info.dart';
 import '../models/trip.dart';
 import '../providers/mileage_summary_provider.dart';
 import '../providers/trip_provider.dart';
@@ -115,8 +116,23 @@ class _MileageScreenState extends ConsumerState<MileageScreen> {
                 if (filtered.isEmpty) {
                   return _buildEmptyState();
                 }
+
+                // Fetch carpool info for loaded trips
+                final tripIds = trips.map((t) => t.id).toList();
+                final carpoolAsync = ref.watch(carpoolInfoProvider(tripIds));
+                final companyVehicleAsync =
+                    ref.watch(companyVehicleDatesProvider(_periodParams));
+
+                final carpoolMap = carpoolAsync.valueOrNull ?? {};
+                final companyVehicleDates =
+                    companyVehicleAsync.valueOrNull ?? {};
+
                 return Column(
-                  children: _buildGroupedTrips(filtered),
+                  children: _buildGroupedTrips(
+                    filtered,
+                    carpoolMap,
+                    companyVehicleDates,
+                  ),
                 );
               },
               loading: () => const Padding(
@@ -161,7 +177,11 @@ class _MileageScreenState extends ConsumerState<MileageScreen> {
     );
   }
 
-  List<Widget> _buildGroupedTrips(List<Trip> trips) {
+  List<Widget> _buildGroupedTrips(
+    List<Trip> trips,
+    Map<String, CarpoolInfo> carpoolMap,
+    Set<String> companyVehicleDates,
+  ) {
     final grouped = <String, List<Trip>>{};
     for (final trip in trips) {
       final date = trip.startedAt.toLocal();
@@ -189,6 +209,13 @@ class _MileageScreenState extends ConsumerState<MileageScreen> {
         widgets.add(
           TripCard(
             trip: trip,
+            carpoolInfo: carpoolMap[trip.id],
+            hasCompanyVehicle: companyVehicleDates.contains(
+              trip.startedAt
+                  .toLocal()
+                  .toIso8601String()
+                  .substring(0, 10),
+            ),
             onTap: () => _navigateToTripDetail(context, trip),
             onClassificationToggle: () => _toggleClassification(trip),
           ),
