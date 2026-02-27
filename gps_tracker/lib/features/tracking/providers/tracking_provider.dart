@@ -10,6 +10,7 @@ import 'package:uuid/uuid.dart';
 import '../../../shared/models/diagnostic_event.dart';
 import '../../../shared/services/diagnostic_logger.dart';
 import '../../../shared/services/local_database.dart';
+import '../../../shared/services/device_status_service.dart';
 import '../../../shared/services/notification_service.dart';
 import '../../shifts/models/local_gps_gap.dart';
 import '../../shifts/models/local_gps_point.dart';
@@ -532,6 +533,8 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     if (previous?.activeShift == null && next.activeShift != null) {
       // Request notification permission at clock-in
       NotificationService().requestPermission();
+      // Report device status (permissions, device info) to server
+      DeviceStatusService.reportStatus();
       startTracking();
     }
 
