@@ -93,12 +93,14 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 2. Replace get_cluster_occurrences
--- Must DROP first: return type changed (trip-centric fields replaced with cluster fields)
+-- Replays the same DBSCAN as get_unmatched_trip_clusters, then returns only
+-- the members of the group whose centroid is closest to the requested point.
+-- This guarantees perfect consistency with the cluster listing.
 DROP FUNCTION IF EXISTS get_cluster_occurrences(DOUBLE PRECISION, DOUBLE PRECISION, DOUBLE PRECISION);
 CREATE OR REPLACE FUNCTION get_cluster_occurrences(
     p_centroid_lat DOUBLE PRECISION,
     p_centroid_lng DOUBLE PRECISION,
-    p_radius_meters DOUBLE PRECISION DEFAULT 150
+    p_radius_meters DOUBLE PRECISION DEFAULT 60
 )
 RETURNS TABLE (
     cluster_id UUID,
@@ -114,25 +116,70 @@ RETURNS TABLE (
 ) AS $$
 BEGIN
     RETURN QUERY
+    WITH unmatched AS (
+        SELECT
+            sc.id,
+            sc.centroid_latitude AS lat,
+            sc.centroid_longitude AS lng,
+            sc.centroid_accuracy AS acc,
+            sc.employee_id,
+            sc.started_at AS s_at,
+            sc.ended_at AS e_at,
+            sc.duration_seconds AS dur,
+            sc.gps_point_count AS pts,
+            sc.shift_id AS sid
+        FROM stationary_clusters sc
+        WHERE sc.matched_location_id IS NULL
+    ),
+    clustered AS (
+        SELECT
+            u.*,
+            ST_ClusterDBSCAN(
+                ST_SetSRID(ST_MakePoint(u.lng, u.lat), 4326)::geometry,
+                eps := 0.0005,
+                minpoints := 1
+            ) OVER () AS cid
+        FROM unmatched u
+    ),
+    group_centroids AS (
+        SELECT
+            c.cid,
+            (SUM(c.lat::DOUBLE PRECISION / GREATEST(c.acc::DOUBLE PRECISION, 0.1))
+             / SUM(1.0 / GREATEST(c.acc::DOUBLE PRECISION, 0.1))) AS g_lat,
+            (SUM(c.lng::DOUBLE PRECISION / GREATEST(c.acc::DOUBLE PRECISION, 0.1))
+             / SUM(1.0 / GREATEST(c.acc::DOUBLE PRECISION, 0.1))) AS g_lng
+        FROM clustered c
+        WHERE c.cid IS NOT NULL
+        GROUP BY c.cid
+    ),
+    target_group AS (
+        SELECT gc.cid
+        FROM group_centroids gc
+        WHERE ST_DWithin(
+            ST_SetSRID(ST_MakePoint(gc.g_lng, gc.g_lat), 4326)::geography,
+            ST_SetSRID(ST_MakePoint(p_centroid_lng, p_centroid_lat), 4326)::geography,
+            p_radius_meters
+        )
+        ORDER BY ST_Distance(
+            ST_SetSRID(ST_MakePoint(gc.g_lng, gc.g_lat), 4326)::geography,
+            ST_SetSRID(ST_MakePoint(p_centroid_lng, p_centroid_lat), 4326)::geography
+        )
+        LIMIT 1
+    )
     SELECT
-        sc.id AS cluster_id,
+        c.id AS cluster_id,
         ep.full_name::TEXT AS employee_name,
-        sc.centroid_latitude::DOUBLE PRECISION,
-        sc.centroid_longitude::DOUBLE PRECISION,
-        sc.centroid_accuracy::DOUBLE PRECISION,
-        sc.started_at,
-        sc.ended_at,
-        sc.duration_seconds,
-        sc.gps_point_count,
-        sc.shift_id
-    FROM stationary_clusters sc
-    JOIN employee_profiles ep ON ep.id = sc.employee_id
-    WHERE sc.matched_location_id IS NULL
-      AND ST_DWithin(
-          ST_SetSRID(ST_MakePoint(sc.centroid_longitude, sc.centroid_latitude), 4326)::geography,
-          ST_SetSRID(ST_MakePoint(p_centroid_lng, p_centroid_lat), 4326)::geography,
-          p_radius_meters
-      )
-    ORDER BY sc.started_at DESC;
+        c.lat::DOUBLE PRECISION,
+        c.lng::DOUBLE PRECISION,
+        c.acc::DOUBLE PRECISION,
+        c.s_at,
+        c.e_at,
+        c.dur,
+        c.pts,
+        c.sid
+    FROM clustered c
+    JOIN employee_profiles ep ON ep.id = c.employee_id
+    JOIN target_group tg ON c.cid = tg.cid
+    ORDER BY c.s_at DESC;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
