@@ -16,6 +16,7 @@ import 'features/auth/services/device_info_service.dart';
 import 'shared/models/diagnostic_event.dart';
 import 'shared/services/diagnostic_logger.dart';
 import 'shared/services/realtime_service.dart';
+import 'shared/services/session_backup_service.dart';
 
 /// Grace period for skipping phone registration (7 days).
 const _phoneSkipGraceDays = 7;
@@ -267,6 +268,15 @@ class _GpsTrackerAppState extends ConsumerState<GpsTrackerApp>
             'Failed to persist biometric session tokens',
             metadata: {'error': e.toString()},
           );
+        }
+        // Backup: write to SharedPreferences (survives Keystore corruption)
+        try {
+          await SessionBackupService.saveRefreshToken(state.session!.refreshToken!);
+          if (phone != null && phone.isNotEmpty) {
+            await SessionBackupService.savePhone(phone);
+          }
+        } catch (_) {
+          // Best-effort backup — don't block auth flow
         }
       });
     });

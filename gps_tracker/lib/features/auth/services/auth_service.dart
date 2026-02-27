@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../shared/models/diagnostic_event.dart';
 import '../../../shared/services/diagnostic_logger.dart';
+import '../../../shared/services/session_backup_service.dart';
 
 /// Exception thrown for authentication errors
 class AuthServiceException implements Exception {
@@ -108,6 +109,10 @@ class AuthService {
       // Sign out should still clear local session even if network fails
       // Supabase SDK handles this automatically
     }
+    // Clear backup tokens on sign-out
+    try {
+      await SessionBackupService.clear();
+    } catch (_) {}
   }
 
   /// Send password reset email

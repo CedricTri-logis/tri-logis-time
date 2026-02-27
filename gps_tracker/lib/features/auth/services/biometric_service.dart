@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_auth/local_auth.dart';
 
 import '../../../shared/services/secure_storage.dart';
+import '../../../shared/services/session_backup_service.dart';
 
 /// Service for biometric authentication (Face ID / Fingerprint).
 ///
@@ -62,11 +63,22 @@ class BiometricService {
     required String refreshToken,
     String? phone,
   }) async {
+    // Primary: encrypted storage (for biometric auth)
     await secureStorage.write(key: _keyAccessToken, value: accessToken);
     await secureStorage.write(key: _keyRefreshToken, value: refreshToken);
     await secureStorage.write(key: _keyEnabled, value: 'true');
     if (phone != null) {
       await secureStorage.write(key: _keyPhone, value: phone);
+    }
+
+    // Backup: plain SharedPreferences (survives Keystore corruption)
+    try {
+      await SessionBackupService.saveRefreshToken(refreshToken);
+      if (phone != null) {
+        await SessionBackupService.savePhone(phone);
+      }
+    } catch (_) {
+      // Best-effort — secure storage is the primary
     }
 
     // Clean up legacy keys
