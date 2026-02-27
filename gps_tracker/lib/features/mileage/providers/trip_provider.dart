@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../shifts/providers/shift_provider.dart';
+import '../models/carpool_info.dart';
 import '../models/trip.dart';
 import '../services/mileage_local_db.dart';
 import '../services/route_match_service.dart';
@@ -53,4 +54,18 @@ final tripsForPeriodProvider =
     FutureProvider.family<List<Trip>, TripPeriodParams>((ref, params) async {
   final service = ref.read(tripServiceProvider);
   return service.getTripsForPeriod(params.employeeId, params.start, params.end);
+});
+
+/// Provider for carpool info for a list of trip IDs.
+final carpoolInfoProvider =
+    FutureProvider.family<Map<String, CarpoolInfo>, List<String>>((ref, tripIds) async {
+  final service = ref.read(tripServiceProvider);
+  return service.getCarpoolInfoForTrips(tripIds);
+});
+
+/// Provider for company vehicle dates in a period.
+final companyVehicleDatesProvider =
+    FutureProvider.family<Set<String>, TripPeriodParams>((ref, params) async {
+  final service = ref.read(tripServiceProvider);
+  return service.getCompanyVehicleDates(params.employeeId, params.start, params.end);
 });

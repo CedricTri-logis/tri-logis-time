@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../shared/models/diagnostic_event.dart';
 import '../../../shared/services/diagnostic_logger.dart';
+import '../models/carpool_info.dart';
 import '../models/local_trip.dart';
 import '../models/trip.dart';
 import 'mileage_local_db.dart';
@@ -276,6 +277,144 @@ class TripService {
     } catch (e) {
       _logger?.sync(Severity.warn, 'Failed to get local trips for period', metadata: {'error': e.toString()});
       return [];
+    }
+  }
+
+  /// Get carpool info for a list of trip IDs.
+  /// Returns a map keyed by trip_id with carpool details.
+  Future<Map<String, CarpoolInfo>> getCarpoolInfoForTrips(List<String> tripIds) async {
+    if (tripIds.isEmpty) return {};
+
+    try {
+      // Fetch carpool_members for these trips
+      final membersResponse = await _supabase
+          .from('carpool_members')
+          .select()
+          .inFilter('trip_id', tripIds);
+
+      final members = membersResponse as List;
+      if (members.isEmpty) return {};
+
+      // Get unique group IDs
+      final groupIds = members.map((m) => m['carpool_group_id'] as String).toSet().toList();
+
+      // Fetch all members for these groups (to get co-members)
+      final allMembersResponse = await _supabase
+          .from('carpool_members')
+          .select()
+          .inFilter('carpool_group_id', groupIds);
+
+      final allMembers = (allMembersResponse as List?) ?? [];
+
+      // Fetch employee names
+      final employeeIds = allMembers.map((m) => m['employee_id'] as String).toSet().toList();
+      final employeesResponse = await _supabase
+          .from('employee_profiles')
+          .select('id, name')
+          .inFilter('id', employeeIds);
+
+      final employeeMap = <String, String>{};
+      for (final ep in (employeesResponse as List)) {
+        employeeMap[ep['id'] as String] = ep['name'] as String? ?? 'Inconnu';
+      }
+
+      // Fetch carpool_groups for driver info
+      final groupsResponse = await _supabase
+          .from('carpool_groups')
+          .select()
+          .inFilter('id', groupIds);
+
+      final groupMap = <String, Map<String, dynamic>>{};
+      for (final g in (groupsResponse as List)) {
+        groupMap[g['id'] as String] = g as Map<String, dynamic>;
+      }
+
+      // Build result map
+      final result = <String, CarpoolInfo>{};
+
+      for (final member in members) {
+        final tripId = member['trip_id'] as String;
+        final groupId = member['carpool_group_id'] as String;
+        final group = groupMap[groupId];
+        final driverEmployeeId = group?['driver_employee_id'] as String?;
+        final driverName = driverEmployeeId != null ? employeeMap[driverEmployeeId] : null;
+
+        // Get all members of this group
+        final groupMembers = allMembers
+            .where((m) => m['carpool_group_id'] == groupId)
+            .map((m) => CarpoolMemberInfo(
+                  employeeId: m['employee_id'] as String,
+                  employeeName: employeeMap[m['employee_id'] as String] ?? 'Inconnu',
+                  role: CarpoolRole.fromJson(m['role'] as String? ?? 'unassigned'),
+                ),)
+            .toList();
+
+        result[tripId] = CarpoolInfo(
+          groupId: groupId,
+          myRole: CarpoolRole.fromJson(member['role'] as String? ?? 'unassigned'),
+          driverName: driverName,
+          members: groupMembers,
+        );
+      }
+
+      return result;
+    } catch (e) {
+      _logger?.sync(Severity.warn, 'Failed to fetch carpool info', metadata: {'error': e.toString()});
+      return {};
+    }
+  }
+
+  /// Check if employee has an active company vehicle period in the given date range.
+  Future<bool> hasCompanyVehicleInRange(String employeeId, DateTime start, DateTime end) async {
+    try {
+      final response = await _supabase
+          .from('employee_vehicle_periods')
+          .select('id')
+          .eq('employee_id', employeeId)
+          .eq('vehicle_type', 'company')
+          .lte('started_at', end.toIso8601String().substring(0, 10))
+          .or('ended_at.is.null,ended_at.gte.${start.toIso8601String().substring(0, 10)}')
+          .limit(1);
+
+      return (response as List).isNotEmpty;
+    } catch (e) {
+      _logger?.sync(Severity.warn, 'Failed to check company vehicle', metadata: {'error': e.toString()});
+      return false;
+    }
+  }
+
+  /// Get active company vehicle dates for an employee in a period.
+  /// Returns set of ISO date strings (YYYY-MM-DD) where company vehicle is active.
+  Future<Set<String>> getCompanyVehicleDates(String employeeId, DateTime start, DateTime end) async {
+    try {
+      final response = await _supabase
+          .from('employee_vehicle_periods')
+          .select('started_at, ended_at')
+          .eq('employee_id', employeeId)
+          .eq('vehicle_type', 'company')
+          .lte('started_at', end.toIso8601String().substring(0, 10))
+          .or('ended_at.is.null,ended_at.gte.${start.toIso8601String().substring(0, 10)}');
+
+      final periods = response as List;
+      final dates = <String>{};
+
+      for (final period in periods) {
+        final pStart = DateTime.parse(period['started_at'] as String);
+        final pEnd = period['ended_at'] != null
+            ? DateTime.parse(period['ended_at'] as String)
+            : end;
+        final effectiveStart = pStart.isAfter(start) ? pStart : start;
+        final effectiveEnd = pEnd.isBefore(end) ? pEnd : end;
+
+        for (var d = effectiveStart; !d.isAfter(effectiveEnd); d = d.add(const Duration(days: 1))) {
+          dates.add(d.toIso8601String().substring(0, 10));
+        }
+      }
+
+      return dates;
+    } catch (e) {
+      _logger?.sync(Severity.warn, 'Failed to get company vehicle dates', metadata: {'error': e.toString()});
+      return {};
     }
   }
 }
