@@ -31,7 +31,7 @@ Auto-generated from all feature plans. Last updated: 2026-01-08
 - PostgreSQL via Supabase (new: `locations`, `location_matches` tables), PostGIS extension for spatial queries (015-location-geofences)
 - Dart >=3.0.0 / Flutter >=3.29.0 (mobile), TypeScript 5.x / Node.js 18.x LTS (dashboard) + flutter_riverpod 2.5.0, supabase_flutter 2.12.0, mobile_scanner 7.1.4 (NEW), sqflite_sqlcipher 3.1.0 (mobile); Next.js 14+, Refine, shadcn/ui, Zod (dashboard) (016-cleaning-qr-tracking)
 - PostgreSQL via Supabase (buildings, studios, cleaning_sessions tables); SQLCipher local encrypted storage (local_studios, local_cleaning_sessions) (016-cleaning-qr-tracking)
-- PostgreSQL via Supabase (new: `trips`, `trip_gps_points`, `reimbursement_rates`, `mileage_reports` tables); SQLCipher local (new: `local_trips`) (017-mileage-tracking)
+- PostgreSQL via Supabase (new: `trips`, `trip_gps_points`, `reimbursement_rates`, `mileage_reports`, `employee_vehicle_periods`, `carpool_groups`, `carpool_members` tables); SQLCipher local (new: `local_trips`) (017-mileage-tracking)
 - Dart >=3.0.0 / Flutter >=3.29.0 (mobile), Swift 5.9+ (iOS native), Kotlin (Android native) + flutter_foreground_task 8.0.0, geolocator 12.0.0, flutter_riverpod 2.5.0, supabase_flutter 2.12.0, device_info_plus (already in pubspec), sqflite_sqlcipher 3.1.0 (018-background-tracking-resilience)
 - N/A (no new database tables — uses existing Supabase + SQLCipher infrastructure) (018-background-tracking-resilience)
 - Dart >=3.0.0 / Flutter >=3.29.0 (mobile app only — no dashboard changes) + supabase_flutter 2.12.0, sqflite_sqlcipher 3.1.0, flutter_riverpod 2.5.0, package_info_plus, device_info_plus, flutter_secure_storage (all existing — no new dependencies) (019-diagnostic-logging)
@@ -115,6 +115,7 @@ Dart 3.x / Flutter 3.x (latest stable): Follow standard conventions
 - 018-route-map-matching: Added OSRM v5 (Docker), Supabase Edge Functions (Deno), polyline6 encoding; extends trips table with route_geometry, road_distance_km, match_status
 - 019-diagnostic-logging: Added Dart >=3.0.0 / Flutter >=3.29.0 (mobile app only — no dashboard changes) + supabase_flutter 2.12.0, sqflite_sqlcipher 3.1.0, flutter_riverpod 2.5.0, package_info_plus, device_info_plus, flutter_secure_storage (all existing — no new dependencies)
 - 018-background-tracking-resilience: Added Dart >=3.0.0 / Flutter >=3.29.0 (mobile), Swift 5.9+ (iOS native), Kotlin (Android native) + flutter_foreground_task 8.0.0, geolocator 12.0.0, flutter_riverpod 2.5.0, supabase_flutter 2.12.0, device_info_plus (already in pubspec), sqflite_sqlcipher 3.1.0
+- 020-mileage-carpooling-vehicles: Added employee_vehicle_periods (period-based personal/company vehicle tracking), carpool_groups + carpool_members tables, detect_carpools RPC (union-find grouping), updated get_mileage_summary (excludes passengers + company vehicles). Dashboard: VehiclePeriodsTab, CarpoolingTab, carpool/vehicle columns in trips. Flutter: CarpoolInfo model, carpool/vehicle badges, trip detail sections, sync integration.
 
 
 <!-- MANUAL ADDITIONS START -->
