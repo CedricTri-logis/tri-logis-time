@@ -6,10 +6,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Loader2, MapPin, Plus } from 'lucide-react';
+import { EyeOff, Loader2, MapPin, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabaseClient } from '@/lib/supabase/client';
-import type { MapCluster, ClusterOccurrence } from './suggested-locations-map';
+import type { MapCluster } from './suggested-locations-map';
 import type { Location } from '@/types/location';
 
 const SuggestedLocationsMap = dynamic(
@@ -42,7 +42,7 @@ async function enrichClusters(rawClusters: UnmatchedCluster[]): Promise<Unmatche
 
   const enriched = await Promise.all(
     rawClusters.map(async (cluster) => {
-      let address: string | null = cluster.sample_addresses?.[0] || null;
+      let address: string | null = null;
       let placeName: string | null = null;
 
       // 1. Reverse geocode for address
@@ -99,6 +99,13 @@ async function enrichClusters(rawClusters: UnmatchedCluster[]): Promise<Unmatche
   return enriched;
 }
 
+function formatDuration(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours > 0) return `${hours}h ${minutes}min`;
+  return `${minutes}min`;
+}
+
 export function SuggestedLocationsTab({ onCreateLocation, locations = [], refreshKey }: SuggestedLocationsTabProps) {
   const [clusters, setClusters] = useState<UnmatchedCluster[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -138,7 +145,7 @@ export function SuggestedLocationsTab({ onCreateLocation, locations = [], refres
       cluster.place_name ||
       cluster.google_address?.split(',')[0] ||
       `Emplacement ${cluster.cluster_id}`;
-    const address = cluster.google_address || cluster.sample_addresses?.[0] || '';
+    const address = cluster.google_address || '';
     onCreateLocation({
       latitude: cluster.centroid_latitude,
       longitude: cluster.centroid_longitude,
@@ -147,26 +154,21 @@ export function SuggestedLocationsTab({ onCreateLocation, locations = [], refres
     });
   };
 
-  const handleIgnoreOccurrence = useCallback(async (occurrence: ClusterOccurrence) => {
-    const { error } = await supabaseClient.rpc('ignore_trip_endpoint', {
-      p_trip_id: occurrence.trip_id,
-      p_endpoint_type: occurrence.endpoint_type,
+  const handleIgnoreCluster = useCallback(async (cluster: UnmatchedCluster) => {
+    const { error } = await supabaseClient.rpc('ignore_location_cluster', {
+      p_centroid_latitude: cluster.centroid_latitude,
+      p_centroid_longitude: cluster.centroid_longitude,
+      p_occurrence_count: cluster.occurrence_count,
     });
     if (error) {
-      toast.error('Erreur lors de l\'ignorance du point');
+      toast.error('Erreur lors de l\'ignorance du groupe');
       return;
     }
-    // Optimistically decrement cluster count; remove cluster if it hits 0
-    setClusters((prev) =>
-      prev
-        .map((c) => {
-          if (c.cluster_id !== selectedClusterId) return c;
-          return { ...c, occurrence_count: c.occurrence_count - 1 };
-        })
-        .filter((c) => c.occurrence_count > 0)
-    );
-    toast.success('Point ignoré');
-  }, [selectedClusterId]);
+    // Remove the cluster from the list
+    setClusters((prev) => prev.filter((c) => c.cluster_id !== cluster.cluster_id));
+    setSelectedClusterId(null);
+    toast.success('Groupe ignoré');
+  }, []);
 
   const handleClusterSelect = useCallback((clusterId: number) => {
     if (clusterId < 0) {
@@ -197,7 +199,7 @@ export function SuggestedLocationsTab({ onCreateLocation, locations = [], refres
         <MapPin className="h-8 w-8 mx-auto mb-2 opacity-50" />
         <p>Aucun emplacement non vérifié</p>
         <p className="text-xs mt-1">
-          Tous les départs et arrivées de trajets correspondent à des emplacements connus.
+          Tous les arrêts détectés correspondent à des emplacements connus.
         </p>
       </div>
     );
@@ -213,7 +215,6 @@ export function SuggestedLocationsTab({ onCreateLocation, locations = [], refres
           const cluster = clusters.find((c) => c.cluster_id === mapCluster.cluster_id);
           if (cluster) handleCreate(cluster);
         }}
-        onIgnoreOccurrence={handleIgnoreOccurrence}
         locations={locations}
       />
 
@@ -245,19 +246,15 @@ export function SuggestedLocationsTab({ onCreateLocation, locations = [], refres
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <Badge variant="secondary" className="text-xs">
-                      {cluster.occurrence_count} occurrence
+                      {cluster.occurrence_count} arrêt
                       {cluster.occurrence_count > 1 ? 's' : ''}
                     </Badge>
-                    {cluster.has_start_endpoints && (
-                      <Badge variant="outline" className="text-xs">
-                        Départ
-                      </Badge>
-                    )}
-                    {cluster.has_end_endpoints && (
-                      <Badge variant="outline" className="text-xs">
-                        Arrivée
-                      </Badge>
-                    )}
+                    <Badge variant="outline" className="text-xs">
+                      {formatDuration(cluster.total_duration_seconds)}
+                    </Badge>
+                    <Badge variant="outline" className="text-xs text-slate-400">
+                      ~{Math.round(cluster.avg_accuracy)}m
+                    </Badge>
                   </div>
 
                   {cluster.place_name && (
@@ -269,10 +266,6 @@ export function SuggestedLocationsTab({ onCreateLocation, locations = [], refres
                   {cluster.google_address ? (
                     <p className={`text-sm ${cluster.place_name ? 'text-muted-foreground' : 'font-medium'}`}>
                       {cluster.google_address}
-                    </p>
-                  ) : cluster.sample_addresses?.length > 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      {cluster.sample_addresses[0]}
                     </p>
                   ) : (
                     <p className="text-sm text-muted-foreground">
@@ -304,6 +297,18 @@ export function SuggestedLocationsTab({ onCreateLocation, locations = [], refres
                   >
                     <Plus className="h-3 w-3 mr-1" />
                     Créer
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-muted-foreground"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleIgnoreCluster(cluster);
+                    }}
+                  >
+                    <EyeOff className="h-3 w-3 mr-1" />
+                    Ignorer
                   </Button>
                 </div>
               </div>
