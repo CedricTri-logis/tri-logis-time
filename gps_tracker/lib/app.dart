@@ -178,7 +178,10 @@ class _GpsTrackerAppState extends ConsumerState<GpsTrackerApp>
         }
       }
 
-      // Path 2: Try SharedPreferences backup (fallback after BAD_DECRYPT)
+      // Path 2: Try SharedPreferences backup (fallback after BAD_DECRYPT).
+      // No biometric gate needed: this only runs during automatic recovery
+      // (the user was already authenticated before the signedOut event).
+      // The real security boundary is the device lock screen, not biometrics.
       try {
         final backupToken = await SessionBackupService.getRefreshToken();
         if (backupToken != null) {
@@ -270,10 +273,23 @@ class _GpsTrackerAppState extends ConsumerState<GpsTrackerApp>
         }
 
         if (state.session?.refreshToken == null) return;
+        final phone = Supabase.instance.client.auth.currentUser?.phone;
+
+        // Backup: write to SharedPreferences (survives Keystore corruption).
+        // Runs for ALL users regardless of biometric status.
+        try {
+          await SessionBackupService.saveRefreshToken(state.session!.refreshToken!);
+          if (phone != null && phone.isNotEmpty) {
+            await SessionBackupService.savePhone(phone);
+          }
+        } catch (_) {
+          // Best-effort backup — don't block auth flow
+        }
+
+        // Biometric: write to encrypted storage (for Face ID / fingerprint)
         final bio = ref.read(biometricServiceProvider);
         final enabled = await bio.isEnabled();
         if (!enabled) return;
-        final phone = Supabase.instance.client.auth.currentUser?.phone;
         try {
           await bio.saveSessionTokens(
             accessToken: state.session!.accessToken,
@@ -286,15 +302,6 @@ class _GpsTrackerAppState extends ConsumerState<GpsTrackerApp>
             'Failed to persist biometric session tokens',
             metadata: {'error': e.toString()},
           );
-        }
-        // Backup: write to SharedPreferences (survives Keystore corruption)
-        try {
-          await SessionBackupService.saveRefreshToken(state.session!.refreshToken!);
-          if (phone != null && phone.isNotEmpty) {
-            await SessionBackupService.savePhone(phone);
-          }
-        } catch (_) {
-          // Best-effort backup — don't block auth flow
         }
       });
     });

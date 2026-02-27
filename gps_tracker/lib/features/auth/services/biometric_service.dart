@@ -151,7 +151,7 @@ class BiometricService {
     }
   }
 
-  /// Clear all saved credentials and tokens (both legacy and new).
+  /// Clear all saved credentials and tokens (both legacy, new, and backup).
   Future<void> clearCredentials() async {
     await secureStorage.delete(key: _keyAccessToken);
     await secureStorage.delete(key: _keyRefreshToken);
@@ -159,6 +159,10 @@ class BiometricService {
     await secureStorage.delete(key: _keyPhone);
     await secureStorage.delete(key: _keyLegacyEmail);
     await secureStorage.delete(key: _keyLegacyPassword);
+    // Also clear SharedPreferences backup to prevent stale token recovery
+    try {
+      await SessionBackupService.clear();
+    } catch (_) {}
   }
 }
 
