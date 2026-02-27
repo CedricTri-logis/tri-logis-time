@@ -10,6 +10,7 @@ import 'features/auth/screens/phone_registration_screen.dart';
 import 'features/auth/screens/sign_in_screen.dart';
 import 'features/auth/services/biometric_service.dart';
 import 'features/home/home_screen.dart';
+import 'features/shifts/providers/shift_provider.dart';
 import 'shared/providers/supabase_provider.dart';
 import 'features/auth/services/device_info_service.dart';
 import 'shared/models/diagnostic_event.dart';
@@ -19,6 +20,9 @@ import 'shared/services/realtime_service.dart';
 /// Grace period for skipping phone registration (7 days).
 const _phoneSkipGraceDays = 7;
 const _phoneSkipStorageKey = 'phone_registration_skipped_at';
+
+final _authRecoveryInProgressProvider = StateProvider<bool>((ref) => false);
+final _authRecoveryPendingProvider = StateProvider<bool>((ref) => false);
 
 /// Checks phone registration status, accounting for skip grace period.
 /// Returns ({bool needsRegistration, bool canSkip}).
@@ -65,12 +69,154 @@ final _phoneRegistrationStatusProvider =
   return (needsRegistration: true, canSkip: true);
 });
 
-class GpsTrackerApp extends ConsumerWidget {
+class GpsTrackerApp extends ConsumerStatefulWidget {
   const GpsTrackerApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<GpsTrackerApp> createState() => _GpsTrackerAppState();
+}
+
+class _GpsTrackerAppState extends ConsumerState<GpsTrackerApp>
+    with WidgetsBindingObserver {
+  AppLifecycleState? _lifecycleState;
+
+  bool get _isResumed =>
+      _lifecycleState == null || _lifecycleState == AppLifecycleState.resumed;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _lifecycleState = WidgetsBinding.instance.lifecycleState;
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _lifecycleState = state;
+    if (state == AppLifecycleState.resumed) {
+      // Refresh token on resume — covers the gap when no shift is active
+      // (shift_provider only refreshes during active shifts). Do this BEFORE
+      // pending auth recovery so the session stays fresh.
+      _refreshTokenOnResume();
+      _runPendingAuthRecovery();
+    }
+  }
+
+  Future<void> _refreshTokenOnResume() async {
+    if (!mounted) return;
+    final client = Supabase.instance.client;
+    if (client.auth.currentUser == null) return;
+    try {
+      await ref.read(authServiceProvider).refreshSession(thresholdMinutes: 10);
+    } catch (_) {
+      // Best-effort — don't block resume on refresh failure
+    }
+  }
+
+  Future<void> _runPendingAuthRecovery() async {
+    if (!mounted) return;
+    final pending = ref.read(_authRecoveryPendingProvider);
+    if (!pending) return;
+    ref.read(_authRecoveryPendingProvider.notifier).state = false;
+    await _attemptAuthRecovery(trigger: 'resume_pending');
+  }
+
+  Future<void> _attemptAuthRecovery({required String trigger}) async {
+    if (ref.read(_authRecoveryInProgressProvider)) return;
+    ref.read(_authRecoveryInProgressProvider.notifier).state = true;
+
+    final logger = DiagnosticLogger.isInitialized
+        ? DiagnosticLogger.instance
+        : null;
+
+    try {
+      final bio = ref.read(biometricServiceProvider);
+      final enabled = await bio.isEnabled();
+      final hasCreds = await bio.hasCredentials();
+
+      logger?.auth(
+        Severity.warn,
+        'Auth recovery attempt',
+        metadata: {
+          'trigger': trigger,
+          'biometric_enabled': enabled,
+          'has_bio_credentials': hasCreds,
+        },
+      );
+
+      if (!enabled || !hasCreds) {
+        return;
+      }
+
+      final tokens = await bio.authenticate();
+      if (tokens == null) {
+        logger?.auth(
+          Severity.warn,
+          'Auth recovery cancelled/failed',
+          metadata: {'trigger': trigger},
+        );
+        return;
+      }
+
+      final authService = ref.read(authServiceProvider);
+      final response = await authService.restoreSession(
+        refreshToken: tokens.refreshToken,
+      );
+
+      if (response.session != null) {
+        final phone = Supabase.instance.client.auth.currentUser?.phone;
+        await bio.saveSessionTokens(
+          accessToken: response.session!.accessToken,
+          refreshToken: response.session!.refreshToken!,
+          phone: (phone != null && phone.isNotEmpty) ? phone : null,
+        );
+        logger?.auth(
+          Severity.info,
+          'Auth recovery succeeded',
+          metadata: {'trigger': trigger},
+        );
+        return;
+      }
+    } catch (e) {
+      logger?.auth(
+        Severity.warn,
+        'Auth recovery failed',
+        metadata: {'trigger': trigger, 'error': e.toString()},
+      );
+    } finally {
+      if (mounted) {
+        ref.read(_authRecoveryInProgressProvider.notifier).state = false;
+      }
+    }
+
+    // Recovery failed — attempt a safety clock-out to avoid zombie shifts.
+    try {
+      final shiftState = ref.read(shiftProvider);
+      if (shiftState.activeShift != null) {
+        await ref
+            .read(shiftProvider.notifier)
+            .clockOut(reason: 'auth_signed_out');
+      }
+    } catch (e) {
+      logger?.auth(
+        Severity.error,
+        'Clock-out during auth recovery failed',
+        metadata: {'error': e.toString()},
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final authState = ref.watch(authStateChangesProvider);
+    final isRecovering = ref.watch(_authRecoveryInProgressProvider);
+    final recoveryPending = ref.watch(_authRecoveryPendingProvider);
 
     // Keep biometric tokens in sync with the current session.
     // Without this, Supabase refresh-token rotation (on app restart or
@@ -97,6 +243,11 @@ class GpsTrackerApp extends ConsumerWidget {
             'Auth signed out',
             metadata: {'source': 'auth_state_stream'},
           );
+          if (!_isResumed) {
+            ref.read(_authRecoveryPendingProvider.notifier).state = true;
+            return;
+          }
+          await _attemptAuthRecovery(trigger: 'auth_state_signed_out');
         }
 
         if (state.session?.refreshToken == null) return;
@@ -128,6 +279,9 @@ class GpsTrackerApp extends ConsumerWidget {
       themeMode: ThemeMode.system,
       home: authState.when(
         data: (state) {
+          if (isRecovering || recoveryPending) {
+            return const _SplashScreen();
+          }
           if (state.session != null) {
             final isLocked = ref.watch(appLockProvider);
             if (!isLocked) {

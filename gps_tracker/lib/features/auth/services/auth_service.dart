@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../shared/models/diagnostic_event.dart';
@@ -22,6 +24,9 @@ class AuthService {
   final SupabaseClient _client;
   DiagnosticLogger? get _logger =>
       DiagnosticLogger.isInitialized ? DiagnosticLogger.instance : null;
+
+  /// Mutex for token refresh — prevents concurrent refresh calls from racing.
+  Completer<bool>? _refreshInFlight;
 
   /// Web redirect URL for auth (redirects to deep link)
   static const String _redirectUrl = 'https://time.trilogis.ca/auth/callback';
@@ -300,12 +305,53 @@ class AuthService {
     }
   }
 
-  /// Refresh the current session
+  /// Refresh the current session with mutex protection.
   ///
-  /// Called automatically by SDK, but can be triggered manually.
-  Future<void> refreshSession() async {
+  /// If a refresh is already in-flight, concurrent callers await its result
+  /// instead of firing a second request (which would race and invalidate
+  /// the first caller's new refresh token).
+  ///
+  /// [thresholdMinutes] — skip refresh if the token still has more than
+  /// this many minutes remaining. Set to 0 to force a refresh.
+  ///
+  /// Returns true if the session is valid (still fresh or successfully
+  /// refreshed), false if the refresh failed.
+  Future<bool> refreshSession({int thresholdMinutes = 10}) async {
+    // If a refresh is already in flight, piggyback on it.
+    if (_refreshInFlight != null) {
+      return _refreshInFlight!.future;
+    }
+
+    // Check if token actually needs refresh.
+    final session = _client.auth.currentSession;
+    if (session != null && session.expiresAt != null) {
+      final nowEpoch = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final remaining = session.expiresAt! - nowEpoch;
+      if (remaining > thresholdMinutes * 60) {
+        _logger?.auth(
+          Severity.debug,
+          'Token refresh skipped — still fresh',
+          metadata: {
+            'remaining_seconds': remaining,
+            'threshold_minutes': thresholdMinutes,
+          },
+        );
+        return true; // Still fresh
+      }
+    }
+
+    _refreshInFlight = Completer<bool>();
     try {
       await _client.auth.refreshSession();
+      _logger?.auth(
+        Severity.info,
+        'Token refreshed via AuthService mutex',
+        metadata: {
+          'threshold_minutes': thresholdMinutes,
+        },
+      );
+      _refreshInFlight!.complete(true);
+      return true;
     } catch (e) {
       final error = e.toString();
       final lowerError = error.toLowerCase();
@@ -319,8 +365,15 @@ class AuthService {
         looksLikeInvalidRefreshToken
             ? 'Auth refresh failed: refresh token invalid'
             : 'Auth refresh failed',
-        metadata: {'error': error},
+        metadata: {
+          'error': error,
+          'threshold_minutes': thresholdMinutes,
+        },
       );
+      _refreshInFlight!.complete(false);
+      return false;
+    } finally {
+      _refreshInFlight = null;
     }
   }
 

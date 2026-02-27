@@ -229,7 +229,7 @@ class ShiftNotifier extends StateNotifier<ShiftState>
           'shift_id': serverId,
         },);
         try {
-          await client.auth.refreshSession();
+          await _ref.read(authServiceProvider).refreshSession(thresholdMinutes: 0);
           final retryResponse = await client
               .from('shifts')
               .select('id, status, clock_out_reason')
@@ -379,33 +379,31 @@ class ShiftNotifier extends StateNotifier<ShiftState>
 
   /// Proactively refresh the JWT token if it expires within [thresholdMinutes].
   ///
+  /// Routes through [AuthService.refreshSession()] which uses a mutex to
+  /// prevent concurrent refresh calls from racing (the root cause of
+  /// unexplained logouts — two callers rotating the refresh token
+  /// simultaneously, invalidating the first caller's new token).
+  ///
   /// Returns true if the session is valid (either already fresh or successfully
   /// refreshed). Returns false only if the refresh fails — caller should
   /// handle this as a degraded-auth scenario, not block the operation.
   Future<bool> _ensureFreshToken({int thresholdMinutes = 10}) async {
     try {
       final client = _ref.read(supabaseClientProvider);
-      final session = client.auth.currentSession;
-      if (session == null) return false;
+      if (client.auth.currentSession == null) return false;
 
-      final expiresAt = session.expiresAt;
-      if (expiresAt == null) return true;
-
-      final nowEpoch = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-      final remainingSeconds = expiresAt - nowEpoch;
-
-      if (remainingSeconds < thresholdMinutes * 60) {
-        await client.auth.refreshSession();
-        _logger?.auth(Severity.info, 'Token refreshed proactively', metadata: {
-          'remaining_seconds_before': remainingSeconds,
-          'trigger': 'shift_lifecycle',
-        },);
-      }
-      return true;
+      final result = await _ref.read(authServiceProvider).refreshSession(
+        thresholdMinutes: thresholdMinutes,
+      );
+      return result;
     } catch (e) {
-      _logger?.auth(Severity.warn, 'Proactive token refresh failed', metadata: {
-        'error': e.toString(),
-      },);
+      _logger?.auth(
+        Severity.warn,
+        'Proactive token refresh failed',
+        metadata: {
+          'error': e.toString(),
+        },
+      );
       return false;
     }
   }

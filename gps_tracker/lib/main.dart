@@ -75,6 +75,7 @@ Future<void> main() async {
       await Supabase.initialize(
         url: EnvConfig.supabaseUrl,
         anonKey: EnvConfig.supabaseAnonKey,
+        authOptions: const FlutterAuthClientOptions(autoRefreshToken: false),
       );
     } catch (e) {
       initError = 'Failed to initialize Supabase: $e';
