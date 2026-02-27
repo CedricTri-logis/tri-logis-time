@@ -145,10 +145,34 @@ export default function MileagePage() {
         }
       }
 
-      // 3. Merge employee data into trips
-      const mergedTrips = tripsData.map((trip) => ({
+      // 3. Fetch location names for all referenced location IDs
+      const locationIds = [
+        ...new Set([
+          ...tripsData.map((t: any) => t.start_location_id).filter(Boolean),
+          ...tripsData.map((t: any) => t.end_location_id).filter(Boolean),
+        ]),
+      ];
+      const locationMap: Record<string, { id: string; name: string }> = {};
+
+      if (locationIds.length > 0) {
+        const { data: locations } = await supabaseClient
+          .from('locations')
+          .select('id, name')
+          .in('id', locationIds);
+
+        if (locations) {
+          for (const loc of locations) {
+            locationMap[loc.id] = loc;
+          }
+        }
+      }
+
+      // 4. Merge employee + location data into trips
+      const mergedTrips = tripsData.map((trip: any) => ({
         ...trip,
         employee: employeeMap[trip.employee_id] ?? null,
+        start_location: trip.start_location_id ? locationMap[trip.start_location_id] ?? null : null,
+        end_location: trip.end_location_id ? locationMap[trip.end_location_id] ?? null : null,
       }));
 
       setTrips(mergedTrips as Trip[]);
@@ -696,8 +720,10 @@ function TripRow({
   const [gpsPoints, setGpsPoints] = useState<TripGpsPoint[]>([]);
   const [isLoadingPoints, setIsLoadingPoints] = useState(false);
 
-  const startLoc = formatLocation(trip.start_address, trip.start_latitude, trip.start_longitude);
-  const endLoc = formatLocation(trip.end_address, trip.end_latitude, trip.end_longitude);
+  const startLocationName = trip.start_location?.name;
+  const endLocationName = trip.end_location?.name;
+  const startLoc = startLocationName || formatLocation(trip.start_address, trip.start_latitude, trip.start_longitude);
+  const endLoc = endLocationName || formatLocation(trip.end_address, trip.end_latitude, trip.end_longitude);
 
   // Fetch GPS points when row is expanded
   useEffect(() => {
@@ -766,9 +792,23 @@ function TripRow({
         </td>
         <td className="px-4 py-3 max-w-[250px]">
           <div className="flex items-center gap-1 text-xs text-muted-foreground truncate">
-            <span className="truncate" title={startLoc}>{startLoc}</span>
+            {startLocationName ? (
+              <span className="flex items-center gap-0.5 text-emerald-700 font-medium truncate" title={startLocationName}>
+                <MapPin className="h-3 w-3 flex-shrink-0 text-emerald-500" />
+                {startLocationName}
+              </span>
+            ) : (
+              <span className="truncate opacity-70" title={startLoc}>{startLoc}</span>
+            )}
             <ArrowRight className="h-3 w-3 flex-shrink-0" />
-            <span className="truncate" title={endLoc}>{endLoc}</span>
+            {endLocationName ? (
+              <span className="flex items-center gap-0.5 text-emerald-700 font-medium truncate" title={endLocationName}>
+                <MapPin className="h-3 w-3 flex-shrink-0 text-emerald-500" />
+                {endLocationName}
+              </span>
+            ) : (
+              <span className="truncate opacity-70" title={endLoc}>{endLoc}</span>
+            )}
           </div>
         </td>
         <td className="px-4 py-3 text-right tabular-nums">

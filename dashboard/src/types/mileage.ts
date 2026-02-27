@@ -31,6 +31,10 @@ export interface Trip {
   matched_at: string | null;
   match_attempts: number;
 
+  // Location match methods
+  start_location_match_method: 'auto' | 'manual';
+  end_location_match_method: 'auto' | 'manual';
+
   // Transport mode
   transport_mode: "driving" | "walking" | "unknown";
 
