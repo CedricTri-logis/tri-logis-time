@@ -193,24 +193,35 @@ export function SuggestedLocationsMap({
             );
           })}
 
-          {/* Individual occurrence GPS marker */}
+          {/* Individual occurrence: accuracy circle + center dot */}
           {selectedCluster && currentOccurrence && (
-            <AdvancedMarker
-              position={{
-                lat: currentOccurrence.latitude,
-                lng: currentOccurrence.longitude,
-              }}
-            >
-              <div
-                className="rounded-full shadow-md"
-                style={{
-                  width: 12,
-                  height: 12,
-                  backgroundColor: '#ef4444',
-                  border: '2px solid white',
-                }}
+            <>
+              <OccurrenceAccuracyCircle
+                center={{ lat: currentOccurrence.latitude, lng: currentOccurrence.longitude }}
+                radius={currentOccurrence.gps_accuracy ?? 0}
               />
-            </AdvancedMarker>
+              <AdvancedMarker
+                position={{
+                  lat: currentOccurrence.latitude,
+                  lng: currentOccurrence.longitude,
+                }}
+                zIndex={1000}
+              >
+                <div
+                  className="rounded-full shadow-md"
+                  style={{
+                    width: 10,
+                    height: 10,
+                    backgroundColor: '#ef4444',
+                    border: '2px solid white',
+                  }}
+                />
+              </AdvancedMarker>
+              <PanToOccurrence
+                position={{ lat: currentOccurrence.latitude, lng: currentOccurrence.longitude }}
+                occurrenceIndex={occurrenceIndex}
+              />
+            </>
           )}
 
           {selectedCluster && (
@@ -412,6 +423,36 @@ function GeofenceCircle({ center, radius, locationType }: { center: google.maps.
     });
     return () => circle.setMap(null);
   }, [map, center, radius, color]);
+  return null;
+}
+
+function OccurrenceAccuracyCircle({ center, radius }: { center: google.maps.LatLngLiteral; radius: number }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!map || radius <= 0) return;
+    const circle = new google.maps.Circle({
+      map, center, radius,
+      fillColor: '#ef4444',
+      fillOpacity: 0.12,
+      strokeColor: '#ef4444',
+      strokeOpacity: 0.5,
+      strokeWeight: 1.5,
+      clickable: false,
+    });
+    return () => circle.setMap(null);
+  }, [map, center.lat, center.lng, radius]);
+  return null;
+}
+
+function PanToOccurrence({ position, occurrenceIndex }: { position: google.maps.LatLngLiteral; occurrenceIndex: number }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!map) return;
+    // Pan so the GPS point is visible (offset up to leave room for InfoWindow above)
+    map.panTo(position);
+    // Nudge down so the point isn't hidden behind the InfoWindow
+    map.panBy(0, 60);
+  }, [map, position.lat, position.lng, occurrenceIndex]);
   return null;
 }
 
