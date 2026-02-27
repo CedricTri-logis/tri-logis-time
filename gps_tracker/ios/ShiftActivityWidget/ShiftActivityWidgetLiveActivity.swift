@@ -9,6 +9,9 @@ import ActivityKit
 import WidgetKit
 import SwiftUI
 
+// Tri-Logis brand color — Pantone 200 (#D11848)
+private let brandRed = Color(red: 209/255, green: 24/255, blue: 72/255)
+
 @available(iOSApplicationExtension 16.1, *)
 struct ShiftActivityWidgetLiveActivity: Widget {
     var body: some WidgetConfiguration {
@@ -16,19 +19,20 @@ struct ShiftActivityWidgetLiveActivity: Widget {
             // Lock Screen banner
             lockScreenView(context: context)
                 .widgetURL(URL(string: "ca.trilogis.gpstracker://home"))
-                .activityBackgroundTint(Color.black.opacity(0.75))
+                .activityBackgroundTint(Color.black.opacity(0.8))
                 .activitySystemActionForegroundColor(Color.white)
         } dynamicIsland: { context in
             DynamicIsland {
                 // Expanded regions
                 DynamicIslandExpandedRegion(.leading) {
-                    Image(systemName: "clock.fill")
-                        .foregroundColor(.blue)
-                        .font(.title2)
+                    Image("LogoSymbol")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 32, height: 16)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     gpsStatusIcon(status: context.state.status)
-                        .font(.title2)
+                        .font(.title3)
                 }
                 DynamicIslandExpandedRegion(.center) {
                     let clockedInAt = clockedInDate(ms: context.state.clockedInAtMs)
@@ -43,17 +47,24 @@ struct ShiftActivityWidgetLiveActivity: Widget {
                         HStack(spacing: 6) {
                             Image(systemName: sessionIcon(for: context.state.sessionType))
                                 .font(.caption)
-                                .foregroundColor(.blue)
+                                .foregroundColor(brandRed)
                             Text(sessionLocation)
                                 .font(.caption)
                                 .foregroundColor(.white.opacity(0.9))
                                 .lineLimit(1)
-                            Spacer()
+                            if let sessionMs = context.state.sessionStartedAtMs {
+                                let sessionStart = Date(timeIntervalSince1970: Double(sessionMs) / 1000.0)
+                                Text(timerInterval: sessionStart...Date.distantFuture, countsDown: false)
+                                    .font(.caption)
+                                    .monospacedDigit()
+                                    .foregroundColor(brandRed)
+                            }
+                            Spacer(minLength: 0)
                             Link(destination: URL(string: "ca.trilogis.gpstracker://home")!) {
                                 Text("Voir")
                                     .font(.caption)
                                     .fontWeight(.medium)
-                                    .foregroundColor(.blue)
+                                    .foregroundColor(brandRed)
                             }
                         }
                     } else {
@@ -64,7 +75,7 @@ struct ShiftActivityWidgetLiveActivity: Widget {
                 }
             } compactLeading: {
                 Image(systemName: "clock.fill")
-                    .foregroundColor(.blue)
+                    .foregroundColor(brandRed)
             } compactTrailing: {
                 let clockedInAt = clockedInDate(ms: context.state.clockedInAtMs)
                 Text(timerInterval: clockedInAt...Date.distantFuture, countsDown: false)
@@ -73,7 +84,7 @@ struct ShiftActivityWidgetLiveActivity: Widget {
                     .frame(width: 48)
             } minimal: {
                 Image(systemName: "clock.fill")
-                    .foregroundColor(.blue)
+                    .foregroundColor(brandRed)
             }
         }
     }
@@ -84,12 +95,14 @@ struct ShiftActivityWidgetLiveActivity: Widget {
     private func lockScreenView(context: ActivityViewContext<ShiftActivityAttributes>) -> some View {
         let clockedInAt = clockedInDate(ms: context.state.clockedInAtMs)
 
-        VStack(spacing: 0) {
+        VStack(spacing: 8) {
+            // Main row: logo + info + timer + GPS
             HStack(spacing: 12) {
-                // Clock icon
-                Image(systemName: "clock.fill")
-                    .font(.title2)
-                    .foregroundColor(.blue)
+                // Tri-Logis logo mark
+                Image("LogoSymbol")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 36, height: 18)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Quart actif")
@@ -99,16 +112,16 @@ struct ShiftActivityWidgetLiveActivity: Widget {
                     HStack(spacing: 4) {
                         Text("Depuis")
                             .font(.caption)
-                            .foregroundColor(.white.opacity(0.7))
+                            .foregroundColor(.white.opacity(0.6))
                         Text(clockedInAt, style: .time)
                             .font(.caption)
-                            .foregroundColor(.white.opacity(0.7))
+                            .foregroundColor(.white.opacity(0.6))
                     }
                 }
 
                 Spacer()
 
-                // Timer
+                // Shift timer
                 Text(timerInterval: clockedInAt...Date.distantFuture, countsDown: false)
                     .font(.title)
                     .fontWeight(.bold)
@@ -122,21 +135,32 @@ struct ShiftActivityWidgetLiveActivity: Widget {
 
             // Session info row (when active)
             if let sessionLocation = context.state.sessionLocation {
+                Divider()
+                    .background(Color.white.opacity(0.2))
+
                 HStack(spacing: 6) {
                     Image(systemName: sessionIcon(for: context.state.sessionType))
-                        .font(.caption)
-                        .foregroundColor(.blue)
+                        .font(.subheadline)
+                        .foregroundColor(brandRed)
                     Text(sessionLocation)
-                        .font(.caption)
+                        .font(.subheadline)
                         .foregroundColor(.white.opacity(0.9))
                         .lineLimit(1)
-                    Spacer()
+                    Spacer(minLength: 4)
+                    // Session duration timer
+                    if let sessionMs = context.state.sessionStartedAtMs {
+                        let sessionStart = Date(timeIntervalSince1970: Double(sessionMs) / 1000.0)
+                        Text(timerInterval: sessionStart...Date.distantFuture, countsDown: false)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .monospacedDigit()
+                            .foregroundColor(brandRed)
+                    }
                     Text("Voir \u{203A}")
                         .font(.caption)
                         .fontWeight(.medium)
-                        .foregroundColor(.blue)
+                        .foregroundColor(.white.opacity(0.5))
                 }
-                .padding(.top, 6)
             }
         }
         .padding(.horizontal, 16)

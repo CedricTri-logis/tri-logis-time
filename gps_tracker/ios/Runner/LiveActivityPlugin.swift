@@ -18,6 +18,7 @@ struct ShiftActivityAttributes: ActivityAttributes {
         var status: String
         var sessionType: String?
         var sessionLocation: String?
+        var sessionStartedAtMs: Int?
     }
 }
 
@@ -79,13 +80,15 @@ class LiveActivityPlugin: NSObject, FlutterPlugin {
         let removeWhenAppIsKilled = args["removeWhenAppIsKilled"] as? Bool ?? true
         let sessionType = args["sessionType"] as? String
         let sessionLocation = args["sessionLocation"] as? String
+        let sessionStartedAtMs = args["sessionStartedAtMs"] as? Int
 
         let attributes = ShiftActivityAttributes()
         let contentState = ShiftActivityAttributes.ContentState(
             clockedInAtMs: clockedInAtMs,
             status: status,
             sessionType: sessionType,
-            sessionLocation: sessionLocation
+            sessionLocation: sessionLocation,
+            sessionStartedAtMs: sessionStartedAtMs
         )
 
         do {
@@ -136,12 +139,14 @@ class LiveActivityPlugin: NSObject, FlutterPlugin {
 
         let sessionType = args["sessionType"] as? String
         let sessionLocation = args["sessionLocation"] as? String
+        let sessionStartedAtMs = args["sessionStartedAtMs"] as? Int
 
         let newState = ShiftActivityAttributes.ContentState(
             clockedInAtMs: clockedInAtMs,
             status: status,
             sessionType: sessionType,
-            sessionLocation: sessionLocation
+            sessionLocation: sessionLocation,
+            sessionStartedAtMs: sessionStartedAtMs
         )
 
         Task {

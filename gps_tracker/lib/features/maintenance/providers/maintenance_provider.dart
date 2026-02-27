@@ -185,6 +185,7 @@ class MaintenanceSessionNotifier
         ShiftActivityService.instance.updateSessionInfo(
           sessionType: 'maintenance',
           sessionLocation: result.session!.locationLabel,
+          sessionStartedAt: result.session!.startedAt,
         );
       } else {
         state = state.copyWith(

@@ -200,6 +200,7 @@ class CleaningSessionNotifier extends StateNotifier<CleaningSessionState> {
         ShiftActivityService.instance.updateSessionInfo(
           sessionType: 'cleaning',
           sessionLocation: result.session!.studioLabel,
+          sessionStartedAt: result.session!.startedAt,
         );
       } else {
         state = state.copyWith(

@@ -17,5 +17,6 @@ struct ShiftActivityAttributes: ActivityAttributes {
         var status: String
         var sessionType: String?
         var sessionLocation: String?
+        var sessionStartedAtMs: Int?
     }
 }

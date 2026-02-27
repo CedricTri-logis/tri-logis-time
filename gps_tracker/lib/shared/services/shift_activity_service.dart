@@ -24,6 +24,7 @@ class ShiftActivityService {
   int? _clockedInAtMs;
   String? _currentSessionType;
   String? _currentSessionLocation;
+  int? _currentSessionStartedAtMs;
 
   /// Initialize the service. No-op on Android.
   Future<void> initialize() async {
@@ -86,6 +87,8 @@ class ShiftActivityService {
         if (_currentSessionType != null) 'sessionType': _currentSessionType,
         if (_currentSessionLocation != null)
           'sessionLocation': _currentSessionLocation,
+        if (_currentSessionStartedAtMs != null)
+          'sessionStartedAtMs': _currentSessionStartedAtMs,
       });
     } catch (e) {
       _logger?.shift(
@@ -101,9 +104,11 @@ class ShiftActivityService {
   Future<void> updateSessionInfo({
     String? sessionType,
     String? sessionLocation,
+    DateTime? sessionStartedAt,
   }) async {
     _currentSessionType = sessionType;
     _currentSessionLocation = sessionLocation;
+    _currentSessionStartedAtMs = sessionStartedAt?.millisecondsSinceEpoch;
 
     if (!Platform.isIOS || _currentActivityId == null || _clockedInAtMs == null) return;
 
@@ -114,6 +119,8 @@ class ShiftActivityService {
         'status': 'active',
         if (sessionType != null) 'sessionType': sessionType,
         if (sessionLocation != null) 'sessionLocation': sessionLocation,
+        if (_currentSessionStartedAtMs != null)
+          'sessionStartedAtMs': _currentSessionStartedAtMs,
       });
       _logger?.shift(Severity.info, 'Live Activity session info updated', metadata: {
         'session_type': sessionType,
@@ -139,6 +146,7 @@ class ShiftActivityService {
       _clockedInAtMs = null;
       _currentSessionType = null;
       _currentSessionLocation = null;
+      _currentSessionStartedAtMs = null;
     } catch (e) {
       _logger?.shift(
         Severity.warn,
