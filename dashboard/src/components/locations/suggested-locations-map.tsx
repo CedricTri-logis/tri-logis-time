@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import {
   APIProvider,
   Map,
@@ -10,7 +10,7 @@ import {
 } from '@vis.gl/react-google-maps';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, EyeOff, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Location } from '@/types/location';
 import { getLocationTypeColor, getLocationTypeLabel } from '@/lib/utils/segment-colors';
 import { supabaseClient } from '@/lib/supabase/client';
@@ -50,8 +50,14 @@ interface SuggestedLocationsMapProps {
   selectedClusterId: number | null;
   onClusterSelect: (clusterId: number) => void;
   onCreateFromCluster: (cluster: MapCluster) => void;
-  onIgnoreOccurrence?: (occurrence: ClusterOccurrence) => void;
   locations?: Location[];
+}
+
+function formatDuration(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours > 0) return `${hours}h ${minutes}min`;
+  return `${minutes}min`;
 }
 
 export function SuggestedLocationsMap({
@@ -59,7 +65,6 @@ export function SuggestedLocationsMap({
   selectedClusterId,
   onClusterSelect,
   onCreateFromCluster,
-  onIgnoreOccurrence,
   locations = [],
 }: SuggestedLocationsMapProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
@@ -198,13 +203,13 @@ export function SuggestedLocationsMap({
           {selectedCluster && currentOccurrence && (
             <>
               <OccurrenceAccuracyCircle
-                center={{ lat: currentOccurrence.latitude, lng: currentOccurrence.longitude }}
-                radius={currentOccurrence.gps_accuracy ?? 0}
+                center={{ lat: currentOccurrence.centroid_latitude, lng: currentOccurrence.centroid_longitude }}
+                radius={currentOccurrence.centroid_accuracy ?? 0}
               />
               <AdvancedMarker
                 position={{
-                  lat: currentOccurrence.latitude,
-                  lng: currentOccurrence.longitude,
+                  lat: currentOccurrence.centroid_latitude,
+                  lng: currentOccurrence.centroid_longitude,
                 }}
                 zIndex={1000}
               >
@@ -219,7 +224,7 @@ export function SuggestedLocationsMap({
                 />
               </AdvancedMarker>
               <PanToOccurrence
-                position={{ lat: currentOccurrence.latitude, lng: currentOccurrence.longitude }}
+                position={{ lat: currentOccurrence.centroid_latitude, lng: currentOccurrence.centroid_longitude }}
                 occurrenceIndex={occurrenceIndex}
               />
             </>
@@ -228,7 +233,7 @@ export function SuggestedLocationsMap({
           {selectedCluster && (
             <InfoWindow
               position={currentOccurrence
-                ? { lat: currentOccurrence.latitude, lng: currentOccurrence.longitude }
+                ? { lat: currentOccurrence.centroid_latitude, lng: currentOccurrence.centroid_longitude }
                 : { lat: selectedCluster.centroid_latitude, lng: selectedCluster.centroid_longitude }
               }
               onCloseClick={() => onClusterSelect(-1)}
@@ -245,19 +250,12 @@ export function SuggestedLocationsMap({
                 </p>
                 <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
                   <Badge variant="secondary" className="text-[10px]">
-                    {selectedCluster.occurrence_count} occurrence
+                    {selectedCluster.occurrence_count} arrêt
                     {selectedCluster.occurrence_count > 1 ? 's' : ''}
                   </Badge>
-                  {selectedCluster.has_start_endpoints && (
-                    <Badge variant="outline" className="text-[10px]">
-                      Départ
-                    </Badge>
-                  )}
-                  {selectedCluster.has_end_endpoints && (
-                    <Badge variant="outline" className="text-[10px]">
-                      Arrivée
-                    </Badge>
-                  )}
+                  <Badge variant="outline" className="text-[10px]">
+                    {formatDuration(selectedCluster.total_duration_seconds)}
+                  </Badge>
                 </div>
 
                 {/* Occurrence browser */}
@@ -269,38 +267,33 @@ export function SuggestedLocationsMap({
                       <span className="text-[11px] font-medium text-slate-700">
                         {currentOccurrence.employee_name}
                       </span>
-                      <Badge
-                        variant={currentOccurrence.endpoint_type === 'start' ? 'default' : 'secondary'}
-                        className="text-[9px] h-4"
-                      >
-                        {currentOccurrence.endpoint_type === 'start' ? 'Départ' : 'Arrivée'}
-                      </Badge>
+                      <span className="text-[10px] text-slate-400">
+                        {currentOccurrence.gps_point_count} pts GPS
+                      </span>
                     </div>
                     <p className="text-[10px] text-slate-500">
-                      {new Date(currentOccurrence.seen_at).toLocaleDateString('fr-CA', {
+                      {new Date(currentOccurrence.started_at).toLocaleDateString('fr-CA', {
                         day: 'numeric',
                         month: 'short',
-                        year: 'numeric',
                       })},{' '}
-                      {new Date(currentOccurrence.seen_at).toLocaleTimeString('fr-CA', {
+                      {new Date(currentOccurrence.started_at).toLocaleTimeString('fr-CA', {
                         hour: '2-digit',
                         minute: '2-digit',
                       })}
-                      {currentOccurrence.stop_duration_minutes != null && (
-                        <span className="text-slate-400">
-                          {' · '}
-                          {currentOccurrence.stop_duration_minutes >= 60
-                            ? `${Math.floor(currentOccurrence.stop_duration_minutes / 60)}h${Math.round(currentOccurrence.stop_duration_minutes % 60).toString().padStart(2, '0')}`
-                            : `${Math.round(currentOccurrence.stop_duration_minutes)} min`}
-                          {' sur place'}
-                        </span>
-                      )}
+                      {' — '}
+                      {new Date(currentOccurrence.ended_at).toLocaleTimeString('fr-CA', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                      <span className="text-slate-400">
+                        {' · '}{formatDuration(currentOccurrence.duration_seconds)}
+                      </span>
                     </p>
                     <p className="text-[9px] text-slate-400 font-mono">
-                      ({currentOccurrence.latitude.toFixed(5)}, {currentOccurrence.longitude.toFixed(5)})
-                      {currentOccurrence.gps_accuracy != null && (
+                      ({currentOccurrence.centroid_latitude.toFixed(5)}, {currentOccurrence.centroid_longitude.toFixed(5)})
+                      {currentOccurrence.centroid_accuracy != null && (
                         <span className="text-slate-300">
-                          {' '}± {Math.round(currentOccurrence.gps_accuracy)}m
+                          {' '}± {Math.round(currentOccurrence.centroid_accuracy)}m
                         </span>
                       )}
                     </p>
@@ -349,27 +342,6 @@ export function SuggestedLocationsMap({
                     <Plus className="h-3 w-3 mr-1" />
                     Créer
                   </Button>
-                  {onIgnoreOccurrence && currentOccurrence && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-[11px]"
-                      onClick={() => {
-                        onIgnoreOccurrence(currentOccurrence);
-                        // Remove from local list
-                        setOccurrences((prev) => {
-                          const next = prev.filter((_, i) => i !== occurrenceIndex);
-                          if (occurrenceIndex >= next.length && next.length > 0) {
-                            setOccurrenceIndex(next.length - 1);
-                          }
-                          return next;
-                        });
-                      }}
-                    >
-                      <EyeOff className="h-3 w-3 mr-1" />
-                      Ignorer
-                    </Button>
-                  )}
                 </div>
               </div>
             </InfoWindow>
