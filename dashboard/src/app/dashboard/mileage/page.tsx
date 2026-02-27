@@ -104,6 +104,7 @@ export default function MileagePage() {
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [expandedTrip, setExpandedTrip] = useState<string | null>(null);
+  const [isRematching, setIsRematching] = useState(false);
   const [modeFilter, setModeFilter] = useState<ModeFilter>('all');
 
   // Fetch trips — uses two separate queries to avoid PostgREST recursive RLS
@@ -187,6 +188,23 @@ export default function MileagePage() {
   useEffect(() => {
     fetchTrips();
   }, [fetchTrips]);
+
+  const handleRematchLocations = async () => {
+    setIsRematching(true);
+    try {
+      const { data, error } = await supabaseClient.rpc('rematch_all_trip_locations');
+      if (error) throw error;
+      const result = Array.isArray(data) ? data[0] : data;
+      toast.success(
+        `Re-match terminé: ${result.matched_count} associés, ${result.skipped_manual} manuels ignorés`
+      );
+      fetchTrips();
+    } catch (err) {
+      toast.error('Erreur lors du re-match des emplacements');
+    } finally {
+      setIsRematching(false);
+    }
+  };
 
   // Summary stats
   const stats = useMemo(() => {
@@ -406,6 +424,18 @@ export default function MileagePage() {
             >
               <RefreshCw className="h-4 w-4 mr-2" />
               Retraiter tous les trajets
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleRematchLocations}
+              disabled={isRematching}
+            >
+              {isRematching ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <MapPin className="h-4 w-4 mr-2" />
+              )}
+              Re-match emplacements
             </Button>
           </div>
         </CardContent>
