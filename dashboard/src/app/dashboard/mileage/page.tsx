@@ -36,6 +36,7 @@ import { detectTripStops, detectGpsClusters } from '@/lib/utils/detect-trip-stop
 import { LocationPickerDropdown } from '@/components/trips/location-picker-dropdown';
 import { StationaryClustersTab } from '@/components/mileage/stationary-clusters-tab';
 import { VehiclePeriodsTab } from '@/components/mileage/vehicle-periods-tab';
+import { CarpoolingTab } from '@/components/mileage/carpooling-tab';
 import type { Trip, TripGpsPoint, EmployeeVehiclePeriod } from '@/types/mileage';
 
 interface BatchResult {
@@ -523,6 +524,7 @@ export default function MileagePage() {
           <TabsTrigger value="trips">Trajets</TabsTrigger>
           <TabsTrigger value="clusters">Arrêts</TabsTrigger>
           <TabsTrigger value="vehicles">Véhicules</TabsTrigger>
+          <TabsTrigger value="carpools">Covoiturages</TabsTrigger>
         </TabsList>
 
         <TabsContent value="trips" className="space-y-6 mt-4">
@@ -945,6 +947,10 @@ export default function MileagePage() {
 
         <TabsContent value="vehicles" className="mt-4">
           <VehiclePeriodsTab />
+        </TabsContent>
+
+        <TabsContent value="carpools" className="mt-4">
+          <CarpoolingTab />
         </TabsContent>
       </Tabs>
     </div>
