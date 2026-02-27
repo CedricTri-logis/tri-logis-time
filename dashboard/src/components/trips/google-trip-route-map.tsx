@@ -39,7 +39,6 @@ function formatTime(dateStr: string): string {
 }
 
 const STOP_COLORS: Record<TripStop['category'], string> = {
-  brief: '#f59e0b',
   moderate: '#f97316',
   extended: '#ef4444',
 };

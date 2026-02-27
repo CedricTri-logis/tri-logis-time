@@ -7,14 +7,28 @@ export interface TripStop {
   endTime: string;
   durationSeconds: number;
   pointCount: number;
-  category: 'brief' | 'moderate' | 'extended';
+  category: 'moderate' | 'extended';
 }
 
-const STOP_SPEED_THRESHOLD = 0.83; // m/s (~3 km/h)
-const MIN_STOP_DURATION = 15; // seconds
+// Thresholds aligned with detect_trips server-side
+const SENSOR_STOP_SPEED = 0.28; // m/s (< 1 km/h)
+const NOISE_SPEED_LIMIT = 3.0; // m/s — GPS noise ceiling within radius
+const SPATIAL_RADIUS_M = 50; // meters
+const MIN_STOP_DURATION = 60; // seconds (1 minute)
+
+function haversineM(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 function categorize(durationSeconds: number): TripStop['category'] {
-  if (durationSeconds <= 60) return 'brief';
   if (durationSeconds <= 180) return 'moderate';
   return 'extended';
 }
@@ -28,6 +42,8 @@ export function detectTripStops(points: TripGpsPoint[]): TripStop[] {
 
   const stops: TripStop[] = [];
   let cluster: TripGpsPoint[] = [];
+  let centerLat = 0;
+  let centerLng = 0;
 
   function flushCluster() {
     if (cluster.length < 2) {
@@ -62,17 +78,24 @@ export function detectTripStops(points: TripGpsPoint[]): TripStop[] {
   }
 
   for (const pt of sorted) {
-    const isStopped = pt.speed === null || pt.speed < STOP_SPEED_THRESHOLD;
+    const sensorStopped = pt.speed === null || pt.speed < SENSOR_STOP_SPEED;
+    const withinRadius =
+      cluster.length > 0 &&
+      haversineM(centerLat, centerLng, pt.latitude, pt.longitude) < SPATIAL_RADIUS_M;
+    const noiseSuppressed =
+      withinRadius && pt.speed !== null && pt.speed < NOISE_SPEED_LIMIT;
 
-    if (isStopped) {
+    if (sensorStopped || noiseSuppressed) {
+      if (cluster.length === 0) {
+        centerLat = pt.latitude;
+        centerLng = pt.longitude;
+      }
       cluster.push(pt);
     } else {
       flushCluster();
     }
   }
 
-  // Flush any trailing cluster
   flushCluster();
-
   return stops;
 }

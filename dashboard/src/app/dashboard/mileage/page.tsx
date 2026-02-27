@@ -952,14 +952,6 @@ function TripRow({
                       {stops.length} arrêt{stops.length > 1 ? 's' : ''} détecté{stops.length > 1 ? 's' : ''}
                     </span>
                     <div className="flex flex-wrap gap-x-3 gap-y-1">
-                      {stops.filter((s) => s.category === 'brief').length > 0 && (
-                        <div className="flex items-center gap-1">
-                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#f59e0b' }} />
-                          <span className="text-[10px] text-muted-foreground">
-                            Bref &lt;1min ({stops.filter((s) => s.category === 'brief').length})
-                          </span>
-                        </div>
-                      )}
                       {stops.filter((s) => s.category === 'moderate').length > 0 && (
                         <div className="flex items-center gap-1">
                           <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#f97316' }} />
