@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
@@ -18,6 +19,7 @@ import '../models/diagnostic_event.dart';
 import 'diagnostic_logger.dart';
 import 'local_database_exception.dart';
 import 'secure_storage.dart';
+import 'session_backup_service.dart';
 
 /// Local SQLite database service with encrypted storage.
 class LocalDatabase {
@@ -95,15 +97,22 @@ class LocalDatabase {
 
       // Log BAD_DECRYPT recovery after DB is fully initialized
       // (logger uses the local database internally, so it must be ready first)
-      if (recoveredFromBadDecrypt && DiagnosticLogger.isInitialized) {
-        DiagnosticLogger.instance.lifecycle(
-          Severity.critical,
-          'Database recovery from BAD_DECRYPT',
-          metadata: {
-            'reason': 'bad_decrypt',
-            'action': 'wipe_and_recreate',
-          },
-        );
+      if (recoveredFromBadDecrypt) {
+        // Always print to console (logger may not be ready)
+        debugPrint('[LocalDatabase] BAD_DECRYPT recovery: wiped secure storage + DB');
+
+        if (DiagnosticLogger.isInitialized) {
+          DiagnosticLogger.instance.lifecycle(
+            Severity.critical,
+            'Database recovery from BAD_DECRYPT',
+            metadata: {
+              'reason': 'bad_decrypt',
+              'action': 'wipe_and_recreate',
+              'device_id_preserved': (await SessionBackupService.getDeviceId()) != null,
+              'backup_token_available': (await SessionBackupService.getRefreshToken()) != null,
+            },
+          );
+        }
       }
     } catch (e) {
       throw LocalDatabaseException(
