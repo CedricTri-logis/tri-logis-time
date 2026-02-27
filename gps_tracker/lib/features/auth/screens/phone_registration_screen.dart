@@ -3,9 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-
 import '../../../core/config/theme.dart';
+import '../../../shared/services/secure_storage.dart';
 import '../../../shared/providers/supabase_provider.dart';
 import '../../../shared/widgets/error_snackbar.dart';
 import '../services/auth_service.dart';
@@ -200,7 +199,7 @@ class _PhoneRegistrationScreenState
 
   Future<void> _handleSkipRegistration() async {
     // Store skip timestamp for 7-day grace period
-    const storage = FlutterSecureStorage();
+    const storage = secureStorage;
     await storage.write(
       key: 'phone_registration_skipped_at',
       value: DateTime.now().toIso8601String(),

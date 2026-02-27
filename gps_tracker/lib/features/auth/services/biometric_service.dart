@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
+
+import '../../../shared/services/secure_storage.dart';
 
 /// Service for biometric authentication (Face ID / Fingerprint).
 ///
@@ -18,7 +19,6 @@ class BiometricService {
   static const _keyLegacyPassword = 'bio_password';
 
   final LocalAuthentication _localAuth = LocalAuthentication();
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
   /// Check if the device supports biometrics and has enrolled biometrics.
   Future<bool> isAvailable() async {
@@ -36,7 +36,7 @@ class BiometricService {
 
   /// Whether the user has opted in to biometric login.
   Future<bool> isEnabled() async {
-    final value = await _storage.read(key: _keyEnabled);
+    final value = await secureStorage.read(key: _keyEnabled);
     return value == 'true';
   }
 
@@ -46,12 +46,12 @@ class BiometricService {
     if (!enabled) return false;
 
     // Check new token-based storage first
-    final refreshToken = await _storage.read(key: _keyRefreshToken);
+    final refreshToken = await secureStorage.read(key: _keyRefreshToken);
     if (refreshToken != null) return true;
 
     // Fall back to legacy credentials
-    final email = await _storage.read(key: _keyLegacyEmail);
-    final password = await _storage.read(key: _keyLegacyPassword);
+    final email = await secureStorage.read(key: _keyLegacyEmail);
+    final password = await secureStorage.read(key: _keyLegacyPassword);
     return email != null && password != null;
   }
 
@@ -62,21 +62,21 @@ class BiometricService {
     required String refreshToken,
     String? phone,
   }) async {
-    await _storage.write(key: _keyAccessToken, value: accessToken);
-    await _storage.write(key: _keyRefreshToken, value: refreshToken);
-    await _storage.write(key: _keyEnabled, value: 'true');
+    await secureStorage.write(key: _keyAccessToken, value: accessToken);
+    await secureStorage.write(key: _keyRefreshToken, value: refreshToken);
+    await secureStorage.write(key: _keyEnabled, value: 'true');
     if (phone != null) {
-      await _storage.write(key: _keyPhone, value: phone);
+      await secureStorage.write(key: _keyPhone, value: phone);
     }
 
     // Clean up legacy keys
-    await _storage.delete(key: _keyLegacyEmail);
-    await _storage.delete(key: _keyLegacyPassword);
+    await secureStorage.delete(key: _keyLegacyEmail);
+    await secureStorage.delete(key: _keyLegacyPassword);
   }
 
   /// Get the saved phone number for OTP fallback when refresh token expires.
   Future<String?> getSavedPhone() async {
-    return _storage.read(key: _keyPhone);
+    return secureStorage.read(key: _keyPhone);
   }
 
   /// Authenticate with biometrics and return saved session tokens.
@@ -93,8 +93,8 @@ class BiometricService {
 
       if (!authenticated) return null;
 
-      final accessToken = await _storage.read(key: _keyAccessToken);
-      final refreshToken = await _storage.read(key: _keyRefreshToken);
+      final accessToken = await secureStorage.read(key: _keyAccessToken);
+      final refreshToken = await secureStorage.read(key: _keyRefreshToken);
 
       if (accessToken != null && refreshToken != null) {
         return (accessToken: accessToken, refreshToken: refreshToken);
@@ -110,8 +110,8 @@ class BiometricService {
   /// Returns null if no legacy credentials exist.
   Future<({String email, String password})?> getLegacyCredentials() async {
     try {
-      final email = await _storage.read(key: _keyLegacyEmail);
-      final password = await _storage.read(key: _keyLegacyPassword);
+      final email = await secureStorage.read(key: _keyLegacyEmail);
+      final password = await secureStorage.read(key: _keyLegacyPassword);
 
       if (email != null && password != null) {
         return (email: email, password: password);
@@ -141,12 +141,12 @@ class BiometricService {
 
   /// Clear all saved credentials and tokens (both legacy and new).
   Future<void> clearCredentials() async {
-    await _storage.delete(key: _keyAccessToken);
-    await _storage.delete(key: _keyRefreshToken);
-    await _storage.delete(key: _keyEnabled);
-    await _storage.delete(key: _keyPhone);
-    await _storage.delete(key: _keyLegacyEmail);
-    await _storage.delete(key: _keyLegacyPassword);
+    await secureStorage.delete(key: _keyAccessToken);
+    await secureStorage.delete(key: _keyRefreshToken);
+    await secureStorage.delete(key: _keyEnabled);
+    await secureStorage.delete(key: _keyPhone);
+    await secureStorage.delete(key: _keyLegacyEmail);
+    await secureStorage.delete(key: _keyLegacyPassword);
   }
 }
 

@@ -3,7 +3,6 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/services.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
@@ -18,6 +17,7 @@ import '../../features/shifts/models/sync_metadata.dart';
 import '../models/diagnostic_event.dart';
 import 'diagnostic_logger.dart';
 import 'local_database_exception.dart';
+import 'secure_storage.dart';
 
 /// Local SQLite database service with encrypted storage.
 class LocalDatabase {
@@ -27,9 +27,8 @@ class LocalDatabase {
 
   static LocalDatabase? _instance;
   Database? _database;
-  final FlutterSecureStorage _secureStorage;
 
-  LocalDatabase._internal() : _secureStorage = const FlutterSecureStorage();
+  LocalDatabase._internal();
 
   /// Get singleton instance.
   factory LocalDatabase() {
@@ -43,21 +42,17 @@ class LocalDatabase {
   /// Initialize database with encrypted storage.
   /// If the Android Keystore encryption key is corrupted (BAD_DECRYPT),
   /// automatically wipes the local database and creates a fresh one.
+  /// If iOS keychain is temporarily inaccessible (-25308), retries with delay.
   Future<void> initialize() async {
     if (_database != null) return;
 
     try {
-      // Get or create encryption key (may throw BAD_DECRYPT on Android)
+      // Get or create encryption key (may throw BAD_DECRYPT on Android,
+      // or -25308 errSecInteractionNotAllowed on iOS)
       String encryptionKey;
       bool recoveredFromBadDecrypt = false;
       try {
-        final storedKey = await _secureStorage.read(key: _encryptionKeyKey);
-        if (storedKey != null) {
-          encryptionKey = storedKey;
-        } else {
-          encryptionKey = _generateEncryptionKey();
-          await _secureStorage.write(key: _encryptionKeyKey, value: encryptionKey);
-        }
+        encryptionKey = await _readOrCreateEncryptionKey();
       } on PlatformException catch (e) {
         // BAD_DECRYPT can appear in message, details, or code depending on
         // the Android version. Check the full exception string.
@@ -68,8 +63,14 @@ class LocalDatabase {
           // Wipe corrupt secure storage and local DB, then start fresh.
           await _recoverFromCorruptKeystore();
           encryptionKey = _generateEncryptionKey();
-          await _secureStorage.write(key: _encryptionKeyKey, value: encryptionKey);
+          await secureStorage.write(key: _encryptionKeyKey, value: encryptionKey);
           recoveredFromBadDecrypt = true;
+        } else if (fullError.contains('-25308') ||
+            fullError.contains('errSecInteractionNotAllowed') ||
+            fullError.contains('User interaction is not allowed')) {
+          // iOS keychain temporarily inaccessible (device locked / pre-launch).
+          // Retry up to 3 times with increasing delay.
+          encryptionKey = await _retryEncryptionKeyRead(maxRetries: 3);
         } else {
           rethrow;
         }
@@ -113,12 +114,41 @@ class LocalDatabase {
     }
   }
 
+  /// Read or create the encryption key from secure storage.
+  Future<String> _readOrCreateEncryptionKey() async {
+    final storedKey = await secureStorage.read(key: _encryptionKeyKey);
+    if (storedKey != null) {
+      // Re-write with current IOSOptions to migrate accessibility level.
+      // This is a no-op if the item already has the correct accessibility.
+      await secureStorage.write(key: _encryptionKeyKey, value: storedKey);
+      return storedKey;
+    }
+    final newKey = _generateEncryptionKey();
+    await secureStorage.write(key: _encryptionKeyKey, value: newKey);
+    return newKey;
+  }
+
+  /// Retry reading the encryption key when iOS keychain is temporarily
+  /// inaccessible (-25308 errSecInteractionNotAllowed).
+  Future<String> _retryEncryptionKeyRead({required int maxRetries}) async {
+    for (var attempt = 1; attempt <= maxRetries; attempt++) {
+      await Future<void>.delayed(Duration(milliseconds: 500 * attempt));
+      try {
+        return await _readOrCreateEncryptionKey();
+      } catch (_) {
+        if (attempt == maxRetries) rethrow;
+      }
+    }
+    // Unreachable, but Dart needs it for type safety.
+    throw StateError('Retry loop exited unexpectedly');
+  }
+
   /// Recover from a corrupted Android Keystore by wiping secure storage
   /// and deleting the old encrypted database file.
   Future<void> _recoverFromCorruptKeystore() async {
     // Delete all secure storage entries (the keys are unreadable anyway)
     try {
-      await _secureStorage.deleteAll();
+      await secureStorage.deleteAll();
     } catch (_) {
       // Best-effort — if deleteAll also fails, we still continue
     }

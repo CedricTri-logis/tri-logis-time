@@ -1,5 +1,6 @@
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:uuid/uuid.dart';
+
+import '../../../shared/services/secure_storage.dart';
 
 /// Provides a persistent unique device identifier.
 ///
@@ -7,17 +8,16 @@ import 'package:uuid/uuid.dart';
 /// so the ID persists across app reinstalls on most devices.
 class DeviceIdService {
   static const _key = 'persistent_device_id';
-  static const _storage = FlutterSecureStorage();
   static String? _cachedId;
 
   /// Get the persistent device ID, creating one if it doesn't exist.
   static Future<String> getDeviceId() async {
     if (_cachedId != null) return _cachedId!;
 
-    var id = await _storage.read(key: _key);
+    var id = await secureStorage.read(key: _key);
     if (id == null || id.isEmpty) {
       id = const Uuid().v4();
-      await _storage.write(key: _key, value: id);
+      await secureStorage.write(key: _key, value: id);
     }
 
     _cachedId = id;

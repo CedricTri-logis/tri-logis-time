@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/config/theme.dart';
@@ -12,6 +11,7 @@ import 'features/auth/services/biometric_service.dart';
 import 'features/home/home_screen.dart';
 import 'features/shifts/providers/shift_provider.dart';
 import 'shared/providers/supabase_provider.dart';
+import 'shared/services/secure_storage.dart';
 import 'features/auth/services/device_info_service.dart';
 import 'shared/models/diagnostic_event.dart';
 import 'shared/services/diagnostic_logger.dart';
@@ -37,7 +37,7 @@ final _phoneRegistrationStatusProvider =
     final result = await client.rpc<bool>('check_phone_registered');
     if (result == true) {
       // Phone registered — clean up any leftover skip timestamp
-      const storage = FlutterSecureStorage();
+      const storage = secureStorage;
       await storage.delete(key: _phoneSkipStorageKey);
       return (needsRegistration: false, canSkip: false);
     }
@@ -47,7 +47,7 @@ final _phoneRegistrationStatusProvider =
   }
 
   // Phone not registered — check if grace period is active
-  const storage = FlutterSecureStorage();
+  const storage = secureStorage;
   final skippedAt = await storage.read(key: _phoneSkipStorageKey);
 
   if (skippedAt != null) {
