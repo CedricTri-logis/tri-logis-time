@@ -151,45 +151,63 @@ class _GpsTrackerAppState extends ConsumerState<GpsTrackerApp>
         },
       );
 
-      if (!enabled || !hasCreds) {
-        return;
+      // Path 1: Try biometric recovery (primary)
+      if (enabled && hasCreds) {
+        final tokens = await bio.authenticate();
+        if (tokens != null) {
+          try {
+            final authService = ref.read(authServiceProvider);
+            final response = await authService.restoreSession(
+              refreshToken: tokens.refreshToken,
+            );
+            if (response.session != null) {
+              final phone = Supabase.instance.client.auth.currentUser?.phone;
+              await bio.saveSessionTokens(
+                accessToken: response.session!.accessToken,
+                refreshToken: response.session!.refreshToken!,
+                phone: (phone != null && phone.isNotEmpty) ? phone : null,
+              );
+              logger?.auth(Severity.info, 'Auth recovery succeeded',
+                  metadata: {'trigger': trigger, 'method': 'biometric'},);
+              return;
+            }
+          } catch (e) {
+            logger?.auth(Severity.warn, 'Biometric recovery failed, trying backup',
+                metadata: {'trigger': trigger, 'error': e.toString()},);
+          }
+        }
       }
 
-      final tokens = await bio.authenticate();
-      if (tokens == null) {
-        logger?.auth(
-          Severity.warn,
-          'Auth recovery cancelled/failed',
-          metadata: {'trigger': trigger},
-        );
-        return;
+      // Path 2: Try SharedPreferences backup (fallback after BAD_DECRYPT)
+      try {
+        final backupToken = await SessionBackupService.getRefreshToken();
+        if (backupToken != null) {
+          logger?.auth(Severity.warn, 'Attempting backup token recovery',
+              metadata: {'trigger': trigger},);
+          final authService = ref.read(authServiceProvider);
+          final response = await authService.restoreSession(
+              refreshToken: backupToken,);
+          if (response.session != null) {
+            // Re-save to biometric storage (if secure storage is working again)
+            final phone = Supabase.instance.client.auth.currentUser?.phone;
+            try {
+              await bio.saveSessionTokens(
+                accessToken: response.session!.accessToken,
+                refreshToken: response.session!.refreshToken!,
+                phone: (phone != null && phone.isNotEmpty) ? phone : null,
+              );
+            } catch (_) {}
+            logger?.auth(Severity.info, 'Auth recovery succeeded',
+                metadata: {'trigger': trigger, 'method': 'backup_token'},);
+            return;
+          }
+        }
+      } catch (e) {
+        logger?.auth(Severity.warn, 'Backup token recovery failed',
+            metadata: {'trigger': trigger, 'error': e.toString()},);
       }
 
-      final authService = ref.read(authServiceProvider);
-      final response = await authService.restoreSession(
-        refreshToken: tokens.refreshToken,
-      );
-
-      if (response.session != null) {
-        final phone = Supabase.instance.client.auth.currentUser?.phone;
-        await bio.saveSessionTokens(
-          accessToken: response.session!.accessToken,
-          refreshToken: response.session!.refreshToken!,
-          phone: (phone != null && phone.isNotEmpty) ? phone : null,
-        );
-        logger?.auth(
-          Severity.info,
-          'Auth recovery succeeded',
-          metadata: {'trigger': trigger},
-        );
-        return;
-      }
-    } catch (e) {
-      logger?.auth(
-        Severity.warn,
-        'Auth recovery failed',
-        metadata: {'trigger': trigger, 'error': e.toString()},
-      );
+      // Both paths failed — no recovery possible
     } finally {
       if (mounted) {
         ref.read(_authRecoveryInProgressProvider.notifier).state = false;
