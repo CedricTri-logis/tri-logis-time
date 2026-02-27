@@ -110,6 +110,7 @@ DECLARE
     v_arr_centroid_lat DECIMAL;
     v_arr_centroid_lng DECIMAL;
     v_arr_centroid_acc DECIMAL;
+    v_has_prev_point BOOLEAN := FALSE;
 BEGIN
     -- =========================================================================
     -- 1. Validate shift and set up incremental mode
@@ -175,8 +176,8 @@ BEGIN
         -- GPS gap check: if > 15 min since prev point AND we have a
         -- confirmed cluster, finalize it and discard tentative state
         -- =================================================================
-        IF v_prev_point IS NOT NULL
-           AND EXTRACT(EPOCH FROM (v_point.captured_at - v_prev_point.captured_at)) / 60.0 > v_gps_gap_minutes THEN
+        IF v_has_prev_point THEN
+         IF EXTRACT(EPOCH FROM (v_point.captured_at - v_prev_point.captured_at)) / 60.0 > v_gps_gap_minutes THEN
 
             IF v_cluster_confirmed THEN
                 -- Finalize the confirmed cluster
@@ -227,6 +228,7 @@ BEGIN
             v_cluster_id := NULL;
             v_has_db_cluster := FALSE;
             v_transit_point_ids := '{}';
+         END IF;
         END IF;
 
         -- =================================================================
@@ -665,6 +667,7 @@ BEGIN
         END IF;
 
         v_prev_point := v_point;
+        v_has_prev_point := TRUE;
     END LOOP;
 
     -- =========================================================================
@@ -725,7 +728,7 @@ BEGIN
         -- =====================================================================
         -- If there are transit points + tentative points after the last cluster,
         -- create a trip from the last cluster to the last known position
-        IF v_prev_cluster_id IS NOT NULL AND v_prev_point IS NOT NULL THEN
+        IF v_prev_cluster_id IS NOT NULL AND v_has_prev_point THEN
             -- Collect all trailing points (transit + tentative)
             IF v_has_tentative THEN
                 v_transit_point_ids := v_transit_point_ids || v_tent_point_ids;
