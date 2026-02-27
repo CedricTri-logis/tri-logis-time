@@ -30,6 +30,7 @@ import { toast } from 'sonner';
 import { supabaseClient } from '@/lib/supabase/client';
 import { MatchStatusBadge } from '@/components/trips/match-status-badge';
 import { GoogleTripRouteMap } from '@/components/trips/google-trip-route-map';
+import { LocationPickerDropdown } from '@/components/trips/location-picker-dropdown';
 import type { Trip, TripGpsPoint } from '@/types/mileage';
 
 interface BatchResult {
@@ -598,6 +599,7 @@ export default function MileagePage() {
                       onToggle={() =>
                         setExpandedTrip(expandedTrip === trip.id ? null : trip.id)
                       }
+                      onLocationChanged={fetchTrips}
                     />
                   ))}
                 </tbody>
@@ -712,10 +714,12 @@ function TripRow({
   trip,
   isExpanded,
   onToggle,
+  onLocationChanged,
 }: {
   trip: Trip;
   isExpanded: boolean;
   onToggle: () => void;
+  onLocationChanged: () => void;
 }) {
   const [gpsPoints, setGpsPoints] = useState<TripGpsPoint[]>([]);
   const [isLoadingPoints, setIsLoadingPoints] = useState(false);
@@ -792,23 +796,27 @@ function TripRow({
         </td>
         <td className="px-4 py-3 max-w-[250px]">
           <div className="flex items-center gap-1 text-xs text-muted-foreground truncate">
-            {startLocationName ? (
-              <span className="flex items-center gap-0.5 text-emerald-700 font-medium truncate" title={startLocationName}>
-                <MapPin className="h-3 w-3 flex-shrink-0 text-emerald-500" />
-                {startLocationName}
-              </span>
-            ) : (
-              <span className="truncate opacity-70" title={startLoc}>{startLoc}</span>
-            )}
+            <LocationPickerDropdown
+              tripId={trip.id}
+              endpoint="start"
+              latitude={trip.start_latitude}
+              longitude={trip.start_longitude}
+              currentLocationId={trip.start_location_id}
+              currentLocationName={trip.start_location?.name ?? null}
+              displayText={startLoc}
+              onLocationChanged={onLocationChanged}
+            />
             <ArrowRight className="h-3 w-3 flex-shrink-0" />
-            {endLocationName ? (
-              <span className="flex items-center gap-0.5 text-emerald-700 font-medium truncate" title={endLocationName}>
-                <MapPin className="h-3 w-3 flex-shrink-0 text-emerald-500" />
-                {endLocationName}
-              </span>
-            ) : (
-              <span className="truncate opacity-70" title={endLoc}>{endLoc}</span>
-            )}
+            <LocationPickerDropdown
+              tripId={trip.id}
+              endpoint="end"
+              latitude={trip.end_latitude}
+              longitude={trip.end_longitude}
+              currentLocationId={trip.end_location_id}
+              currentLocationName={trip.end_location?.name ?? null}
+              displayText={endLoc}
+              onLocationChanged={onLocationChanged}
+            />
           </div>
         </td>
         <td className="px-4 py-3 text-right tabular-nums">
