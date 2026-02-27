@@ -32,6 +32,9 @@
 # Keep Flutter Foreground Task
 -keep class com.pravera.flutter_foreground_task.** { *; }
 
+# Keep Flutter Activity Recognition (fixes K3.e component error on Android 16)
+-keep class com.pravera.flutter_activity_recognition.** { *; }
+
 # Keep Disable Battery Optimization (fixes K3.e component error on Samsung)
 -keep class in.jvapps.disable_battery_optimization.** { *; }
 

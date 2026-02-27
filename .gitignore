@@ -57,3 +57,11 @@ supabase/.env
 supabase/.env.*
 !supabase/.env.local.example
 supabase/.temp/
+
+# Scripts (Playwright)
+scripts/node_modules/
+scripts/package.json
+scripts/package-lock.json
+
+# Playwright MCP screenshots
+.playwright-mcp/

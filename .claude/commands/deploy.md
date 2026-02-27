@@ -21,11 +21,13 @@ Steps:
    - **NEVER leave iOS and Android on different build numbers.** This is the #1 rule of this workflow.
 5. **Verify build number parity**: After both deploys succeed, confirm the deployed build numbers match. If they don't, redeploy the lagging platform.
 6. Sync pubspec.yaml to match the actual deployed build number (so it stays in sync for next deploy).
-7. **Check Google Play build availability**: After both deploys succeed, check if the new build is live on Google Play alpha:
-   - Run: `cd gps_tracker/android && bundle exec fastlane check_status` (requires Homebrew Ruby path)
-   - Parse the output for "ALPHA_VERSION_CODES:" and check if the deployed build number appears in the list
-   - If the build IS live: inform the user and proceed to the minimum version step
-   - If the build is NOT yet live: inform the user it's still in Google Play review, then offer to poll every 60 seconds (up to 15 minutes). If the user accepts, re-run `check_status` in a loop until the build appears or timeout is reached.
+7. **Check Google Play review status via Playwright**: After both deploys succeed, check the real review status by scraping the Play Console:
+   - Run the Playwright script: `node scripts/check-play-status.js`
+   - The script uses saved Google session cookies to navigate to the Play Console app list page and reads the "Update status" column
+   - Possible statuses: "In review", "Update available", "Draft", "Rejected", etc.
+   - If status is "In review": inform the user the build is still being reviewed by Google, then offer to poll every 60 seconds (up to 15 minutes). If the user accepts, re-run the script in a loop until the status changes or timeout is reached.
+   - If status is "Update available" or similar: the build is live and available to testers
+   - If cookies are expired or login fails: inform the user and ask them to re-authenticate (run `node scripts/save-play-cookies.js`)
 8. **Ask before enforcing minimum version**: ASK the user before updating the minimum app version. Present the options:
    - Set minimum to the NEW build number (recommended if confirmed live on both stores)
    - Set minimum to the PREVIOUS build number (safer — if Google Play review is still pending)
