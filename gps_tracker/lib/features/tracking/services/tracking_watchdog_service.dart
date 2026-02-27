@@ -22,6 +22,10 @@ class TrackingWatchdogService {
   static const String _workManagerTaskName = 'gps_tracking_watchdog';
   static const String _workManagerUniqueId = 'ca.trilogis.gpstracker.watchdog';
 
+  /// SharedPreferences key for watchdog breadcrumbs.
+  /// Written by watchdog isolates so the main app can read & sync them later.
+  static const String _prefsName = 'watchdog_log';
+
   // ── Initialization (call once at app startup) ──
 
   /// Initialize AlarmManager and WorkManager engines.
@@ -90,6 +94,8 @@ class TrackingWatchdogService {
   ///
   /// May run in a fresh isolate (AlarmManager/WorkManager callbacks), so we
   /// ensure Flutter bindings and foreground task notification channels are ready.
+  /// All steps are logged to SharedPreferences so the main app can read them
+  /// later — DiagnosticLogger is not available in watchdog isolates.
   static Future<bool> _checkAndRestart(String source) async {
     try {
       WidgetsFlutterBinding.ensureInitialized();
@@ -97,15 +103,26 @@ class TrackingWatchdogService {
 
       final shiftId =
           await FlutterForegroundTask.getData<String>(key: 'shift_id');
-      if (shiftId == null || shiftId.isEmpty) return false;
+      if (shiftId == null || shiftId.isEmpty) {
+        await _writeLog(source, 'no_shift', null);
+        return false;
+      }
 
       final isRunning = await FlutterForegroundTask.isRunningService;
-      if (isRunning) return false;
+      if (isRunning) {
+        await _writeLog(source, 'service_alive', shiftId);
+        return false;
+      }
 
       // Service is dead with an active shift — restart
       final employeeId =
           await FlutterForegroundTask.getData<String>(key: 'employee_id');
-      if (employeeId == null || employeeId.isEmpty) return false;
+      if (employeeId == null || employeeId.isEmpty) {
+        await _writeLog(source, 'no_employee_id', shiftId);
+        return false;
+      }
+
+      await _writeLog(source, 'restarting', shiftId);
 
       await FlutterForegroundTask.startService(
         notificationTitle: 'Suivi de position actif',
@@ -113,12 +130,64 @@ class TrackingWatchdogService {
         callback: startCallback,
       );
 
-      // Log the restart (fire-and-forget — logger may not be initialized in isolate)
+      await _writeLog(source, 'restart_success', shiftId);
+
+      // Also try DiagnosticLogger (may not be initialized in isolate)
       _tryLog(source, shiftId);
       return true;
-    } catch (_) {
-      // Fail silently — watchdog must never crash
+    } catch (e) {
+      // Log the error instead of failing silently
+      try {
+        await _writeLog(source, 'error: $e', null);
+      } catch (_) {}
       return false;
+    }
+  }
+
+  /// Write a breadcrumb log entry to SharedPreferences.
+  /// Uses flutter_foreground_task's data store (SharedPreferences-based),
+  /// which works in any isolate without extra initialization.
+  static Future<void> _writeLog(
+    String source,
+    String outcome,
+    String? shiftId,
+  ) async {
+    try {
+      final now = DateTime.now().toUtc().toIso8601String();
+      final entry = '$now|$source|$outcome|${shiftId ?? ''}';
+
+      // Read existing log (keep last 20 entries to avoid bloat)
+      final existing =
+          await FlutterForegroundTask.getData<String>(key: _prefsName) ?? '';
+      final lines = existing.isEmpty ? <String>[] : existing.split('\n');
+      lines.add(entry);
+      // Keep only last 20 entries
+      while (lines.length > 20) {
+        lines.removeAt(0);
+      }
+
+      await FlutterForegroundTask.saveData(
+        key: _prefsName,
+        value: lines.join('\n'),
+      );
+    } catch (_) {
+      // Best-effort — never crash the watchdog for logging
+    }
+  }
+
+  /// Read and clear the watchdog log. Called by the main app on resume
+  /// to sync breadcrumbs into DiagnosticLogger.
+  static Future<List<String>> consumeLog() async {
+    try {
+      final raw =
+          await FlutterForegroundTask.getData<String>(key: _prefsName) ?? '';
+      if (raw.isEmpty) return [];
+
+      // Clear after reading
+      await FlutterForegroundTask.saveData(key: _prefsName, value: '');
+      return raw.split('\n').where((l) => l.isNotEmpty).toList();
+    } catch (_) {
+      return [];
     }
   }
 

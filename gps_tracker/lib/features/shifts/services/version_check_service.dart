@@ -104,11 +104,18 @@ class VersionCheckService {
   }
 
   /// Parse "major.minor.patch+build" into [major, minor, patch, build].
+  /// Also handles build-number-only strings like "73" → [1, 0, 0, 73].
   static List<int> _parseVersion(String version) {
     // Split on '+' to separate version from build number
     final plusParts = version.split('+');
-    final versionPart = plusParts[0]; // "1.0.0"
+    final versionPart = plusParts[0]; // "1.0.0" or "73"
     final buildPart = plusParts.length > 1 ? plusParts[1] : '0';
+
+    // If the version part has no dots and no '+', it's just a build number
+    // (e.g., "73" stored by accident instead of "1.0.0+73").
+    if (!version.contains('.') && !version.contains('+')) {
+      return [1, 0, 0, int.parse(version)];
+    }
 
     final versionNumbers = versionPart.split('.').map((s) => int.parse(s)).toList();
 

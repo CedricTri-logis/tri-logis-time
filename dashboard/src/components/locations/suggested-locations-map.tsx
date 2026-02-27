@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   APIProvider,
   Map,
@@ -10,10 +10,12 @@ import {
 } from '@vis.gl/react-google-maps';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus } from 'lucide-react';
+import { Plus, EyeOff, MapPin } from 'lucide-react';
+import type { Location } from '@/types/location';
+import { getLocationTypeColor, getLocationTypeLabel } from '@/lib/utils/segment-colors';
 
-const DEFAULT_CENTER = { lat: 45.5017, lng: -73.5673 };
-const DEFAULT_ZOOM = 11;
+const DEFAULT_CENTER = { lat: 48.2410, lng: -79.0280 };
+const DEFAULT_ZOOM = 13;
 
 export interface MapCluster {
   cluster_id: number;
@@ -34,6 +36,8 @@ interface SuggestedLocationsMapProps {
   selectedClusterId: number | null;
   onClusterSelect: (clusterId: number) => void;
   onCreateFromCluster: (cluster: MapCluster) => void;
+  onIgnoreCluster?: (cluster: MapCluster) => void;
+  locations?: Location[];
 }
 
 export function SuggestedLocationsMap({
@@ -41,12 +45,16 @@ export function SuggestedLocationsMap({
   selectedClusterId,
   onClusterSelect,
   onCreateFromCluster,
+  onIgnoreCluster,
+  locations = [],
 }: SuggestedLocationsMapProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
   const selectedCluster = clusters.find((c) => c.cluster_id === selectedClusterId) || null;
+  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
+  const selectedLocation = locations.find((l) => l.id === selectedLocationId) || null;
 
   return (
-    <div className="h-[350px] w-full rounded-xl overflow-hidden border border-slate-200 shadow-sm">
+    <div className="h-[500px] w-full rounded-xl overflow-hidden border border-slate-200 shadow-sm">
       <APIProvider apiKey={apiKey}>
         <Map
           defaultCenter={DEFAULT_CENTER}
@@ -55,6 +63,42 @@ export function SuggestedLocationsMap({
           disableDefaultUI={true}
           zoomControl={true}
         >
+          {/* Existing location geofence circles + small markers */}
+          {locations.map((loc) => (
+            <GeofenceCircle
+              key={loc.id}
+              center={{ lat: loc.latitude, lng: loc.longitude }}
+              radius={loc.radiusMeters}
+              locationType={loc.locationType}
+            />
+          ))}
+          {locations.map((loc) => {
+            const isLocSelected = loc.id === selectedLocationId;
+            return (
+              <AdvancedMarker
+                key={`loc-${loc.id}`}
+                position={{ lat: loc.latitude, lng: loc.longitude }}
+                onClick={() => {
+                  setSelectedLocationId(isLocSelected ? null : loc.id);
+                  if (selectedClusterId) onClusterSelect(-1);
+                }}
+              >
+                <div
+                  className="rounded-full flex items-center justify-center shadow-sm cursor-pointer"
+                  style={{
+                    width: isLocSelected ? 26 : 20,
+                    height: isLocSelected ? 26 : 20,
+                    backgroundColor: getLocationTypeColor(loc.locationType),
+                    border: isLocSelected ? '3px solid white' : '2px solid white',
+                  }}
+                >
+                  <MapPin className="h-2.5 w-2.5 text-white" />
+                </div>
+              </AdvancedMarker>
+            );
+          })}
+
+          {/* Cluster markers */}
           {clusters.map((cluster) => {
             const minSize = 24;
             const maxSize = 48;
@@ -71,7 +115,10 @@ export function SuggestedLocationsMap({
                   lat: cluster.centroid_latitude,
                   lng: cluster.centroid_longitude,
                 }}
-                onClick={() => onClusterSelect(cluster.cluster_id)}
+                onClick={() => {
+                  onClusterSelect(cluster.cluster_id);
+                  setSelectedLocationId(null);
+                }}
               >
                 <div
                   className="rounded-full flex items-center justify-center font-bold text-white shadow-md transition-all"
@@ -133,43 +180,106 @@ export function SuggestedLocationsMap({
                   {new Date(selectedCluster.first_seen).toLocaleDateString('fr-CA')} —{' '}
                   {new Date(selectedCluster.last_seen).toLocaleDateString('fr-CA')}
                 </p>
-                <Button
-                  size="sm"
-                  className="w-full h-7 text-[11px]"
-                  onClick={() => onCreateFromCluster(selectedCluster)}
-                >
-                  <Plus className="h-3 w-3 mr-1" />
-                  Créer
-                </Button>
+                <div className="flex gap-1.5">
+                  <Button
+                    size="sm"
+                    className="flex-1 h-7 text-[11px]"
+                    onClick={() => onCreateFromCluster(selectedCluster)}
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    Créer
+                  </Button>
+                  {onIgnoreCluster && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-[11px]"
+                      onClick={() => onIgnoreCluster(selectedCluster)}
+                    >
+                      <EyeOff className="h-3 w-3 mr-1" />
+                      Ignorer
+                    </Button>
+                  )}
+                </div>
               </div>
             </InfoWindow>
           )}
 
-          <AutoFitClusters clusters={clusters} selectedClusterId={selectedClusterId} />
+          {selectedLocation && (
+            <InfoWindow
+              position={{
+                lat: selectedLocation.latitude,
+                lng: selectedLocation.longitude,
+              }}
+              onCloseClick={() => setSelectedLocationId(null)}
+              pixelOffset={[0, -16]}
+            >
+              <div className="p-1 min-w-[160px] max-w-[240px]">
+                <h4 className="font-bold text-slate-900 text-sm mb-0.5">
+                  {selectedLocation.name}
+                </h4>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <span
+                    className="px-1.5 py-0.5 rounded text-[10px] font-medium"
+                    style={{
+                      backgroundColor: `${getLocationTypeColor(selectedLocation.locationType)}20`,
+                      color: getLocationTypeColor(selectedLocation.locationType),
+                    }}
+                  >
+                    {getLocationTypeLabel(selectedLocation.locationType)}
+                  </span>
+                  <span className="text-[10px] text-slate-400">
+                    {selectedLocation.radiusMeters}m
+                  </span>
+                </div>
+                {selectedLocation.address && (
+                  <p className="text-[10px] text-slate-500">
+                    {selectedLocation.address}
+                  </p>
+                )}
+              </div>
+            </InfoWindow>
+          )}
+
+          <AutoFitClusters clusters={clusters} locations={locations} selectedClusterId={selectedClusterId} />
         </Map>
       </APIProvider>
     </div>
   );
 }
 
+function GeofenceCircle({ center, radius, locationType }: { center: google.maps.LatLngLiteral; radius: number; locationType: string }) {
+  const map = useMap();
+  const color = getLocationTypeColor(locationType as any);
+  useEffect(() => {
+    if (!map) return;
+    const circle = new google.maps.Circle({
+      map, center, radius,
+      fillColor: color,
+      fillOpacity: 0.15,
+      strokeColor: color,
+      strokeOpacity: 0.6,
+      strokeWeight: 1,
+      clickable: false,
+    });
+    return () => circle.setMap(null);
+  }, [map, center, radius, color]);
+  return null;
+}
+
 function AutoFitClusters({
   clusters,
+  locations = [],
   selectedClusterId,
 }: {
   clusters: MapCluster[];
+  locations?: Location[];
   selectedClusterId: number | null;
 }) {
   const map = useMap();
 
-  // Fit bounds on initial load
-  useEffect(() => {
-    if (!map || clusters.length === 0) return;
-    const bounds = new google.maps.LatLngBounds();
-    clusters.forEach((c) =>
-      bounds.extend({ lat: c.centroid_latitude, lng: c.centroid_longitude })
-    );
-    map.fitBounds(bounds, { top: 50, right: 50, bottom: 50, left: 50 });
-  }, [map, clusters]);
+  // No auto-fit — default center/zoom is Rouyn-Noranda
+  // User can pan/zoom manually; clicking a cluster pans to it
 
   // Pan to selected cluster
   useEffect(() => {

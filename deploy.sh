@@ -134,6 +134,13 @@ if [ "$ENFORCE_VERSION" = true ]; then
   if [ "$IOS_OK" = false ] || [ "$ANDROID_OK" = false ]; then
     error "Not both deploys succeeded — skipping minimum version update to avoid locking out users on the failed platform"
   else
+    # Validate format: must be "X.Y.Z+N" (e.g., "1.0.0+76")
+    if ! echo "$NEW_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\+[0-9]+$'; then
+      error "ABORT: minimum_app_version '$NEW_VERSION' is not in 'X.Y.Z+N' format!"
+      error "The app parser requires the full format (e.g., '1.0.0+76'), not just a build number."
+      exit 1
+    fi
+
     log "Updating minimum_app_version to $NEW_VERSION..."
     HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
       -X PATCH \

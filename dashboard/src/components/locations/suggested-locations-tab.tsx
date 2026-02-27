@@ -1,15 +1,16 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Loader2, MapPin, Plus } from 'lucide-react';
+import { Loader2, MapPin, Plus, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabaseClient } from '@/lib/supabase/client';
 import type { MapCluster } from './suggested-locations-map';
+import type { Location } from '@/types/location';
 
 const SuggestedLocationsMap = dynamic(
   () =>
@@ -18,7 +19,7 @@ const SuggestedLocationsMap = dynamic(
     })),
   {
     ssr: false,
-    loading: () => <Skeleton className="h-[350px] w-full rounded-xl" />,
+    loading: () => <Skeleton className="h-[500px] w-full rounded-xl" />,
   }
 );
 
@@ -33,6 +34,8 @@ interface SuggestedLocationsTabProps {
     name: string;
     address: string;
   }) => void;
+  locations?: Location[];
+  refreshKey?: number;
 }
 
 async function enrichClusters(rawClusters: UnmatchedCluster[]): Promise<UnmatchedCluster[]> {
@@ -98,12 +101,11 @@ async function enrichClusters(rawClusters: UnmatchedCluster[]): Promise<Unmatche
   return enriched;
 }
 
-export function SuggestedLocationsTab({ onCreateLocation }: SuggestedLocationsTabProps) {
+export function SuggestedLocationsTab({ onCreateLocation, locations = [], refreshKey }: SuggestedLocationsTabProps) {
   const [clusters, setClusters] = useState<UnmatchedCluster[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isEnriching, setIsEnriching] = useState(false);
   const [selectedClusterId, setSelectedClusterId] = useState<number | null>(null);
-  const cardRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
   const fetchClusters = useCallback(async () => {
     setIsLoading(true);
@@ -131,7 +133,7 @@ export function SuggestedLocationsTab({ onCreateLocation }: SuggestedLocationsTa
 
   useEffect(() => {
     fetchClusters();
-  }, [fetchClusters]);
+  }, [fetchClusters, refreshKey]);
 
   const handleCreate = (cluster: UnmatchedCluster) => {
     const name =
@@ -147,6 +149,24 @@ export function SuggestedLocationsTab({ onCreateLocation }: SuggestedLocationsTa
     });
   };
 
+  const handleIgnore = useCallback(async (cluster: UnmatchedCluster) => {
+    const { error } = await supabaseClient.rpc('ignore_location_cluster', {
+      p_latitude: cluster.centroid_latitude,
+      p_longitude: cluster.centroid_longitude,
+      p_occurrence_count: cluster.occurrence_count,
+    });
+    if (error) {
+      toast.error('Erreur lors de l\'ignorance de la suggestion');
+      return;
+    }
+    // Optimistic removal
+    setClusters((prev) => prev.filter((c) => c.cluster_id !== cluster.cluster_id));
+    if (selectedClusterId === cluster.cluster_id) {
+      setSelectedClusterId(null);
+    }
+    toast.success('Suggestion ignorée');
+  }, [selectedClusterId]);
+
   const handleClusterSelect = useCallback((clusterId: number) => {
     if (clusterId < 0) {
       setSelectedClusterId(null);
@@ -159,15 +179,8 @@ export function SuggestedLocationsTab({ onCreateLocation }: SuggestedLocationsTa
     setSelectedClusterId((prev) => (prev === clusterId ? null : clusterId));
   }, []);
 
-  // Scroll card into view when selected from map
-  useEffect(() => {
-    if (selectedClusterId && cardRefs.current[selectedClusterId]) {
-      cardRefs.current[selectedClusterId]?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'nearest',
-      });
-    }
-  }, [selectedClusterId]);
+  // Highlight card when selected from map (no scroll — details visible in map InfoWindow)
+  // Card highlight is handled via the ring-2 class in the render below
 
   if (isLoading) {
     return (
@@ -199,6 +212,11 @@ export function SuggestedLocationsTab({ onCreateLocation }: SuggestedLocationsTa
           const cluster = clusters.find((c) => c.cluster_id === mapCluster.cluster_id);
           if (cluster) handleCreate(cluster);
         }}
+        onIgnoreCluster={(mapCluster) => {
+          const cluster = clusters.find((c) => c.cluster_id === mapCluster.cluster_id);
+          if (cluster) handleIgnore(cluster);
+        }}
+        locations={locations}
       />
 
       <p className="text-sm text-muted-foreground">
@@ -217,9 +235,6 @@ export function SuggestedLocationsTab({ onCreateLocation }: SuggestedLocationsTa
         return (
           <Card
             key={cluster.cluster_id}
-            ref={(el) => {
-              cardRefs.current[cluster.cluster_id] = el;
-            }}
             className={`cursor-pointer transition-all ${
               isSelected
                 ? 'ring-2 ring-amber-500 shadow-md'
@@ -291,6 +306,17 @@ export function SuggestedLocationsTab({ onCreateLocation }: SuggestedLocationsTa
                   >
                     <Plus className="h-3 w-3 mr-1" />
                     Créer
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleIgnore(cluster);
+                    }}
+                  >
+                    <EyeOff className="h-3 w-3 mr-1" />
+                    Ignorer
                   </Button>
                 </div>
               </div>

@@ -45,7 +45,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { LocationForm } from '@/components/locations/location-form';
 import { CsvImportDialog } from '@/components/locations/csv-import-dialog';
 import { SuggestedLocationsTab } from '@/components/locations/suggested-locations-tab';
-import { useLocations, useLocationMutations, type LocationFilters } from '@/lib/hooks/use-locations';
+import { useLocations, useActiveLocations, useLocationMutations, type LocationFilters } from '@/lib/hooks/use-locations';
 import {
   LOCATION_TYPE_VALUES,
   LOCATION_TYPE_LABELS,
@@ -57,6 +57,7 @@ import {
 } from '@/lib/utils/segment-colors';
 import type { Location, LocationType } from '@/types/location';
 import { format } from 'date-fns';
+import { supabaseClient } from '@/lib/supabase/client';
 
 // Dynamically import the locations map to avoid SSR issues
 const LocationsOverviewMap = dynamic(
@@ -104,6 +105,10 @@ export default function LocationsPage() {
     name: string;
     address: string;
   } | null>(null);
+  const [suggestedRefreshKey, setSuggestedRefreshKey] = useState(0);
+
+  // Active locations for the suggested tab overlay
+  const { locations: activeLocations } = useActiveLocations();
 
   // Debounce search
   useEffect(() => {
@@ -188,7 +193,7 @@ export default function LocationsPage() {
   const handleCreateLocation = useCallback(
     async (data: LocationFormInput) => {
       try {
-        await createLocation({
+        const newLocation = await createLocation({
           name: data.name,
           locationType: data.location_type,
           latitude: data.latitude,
@@ -201,11 +206,28 @@ export default function LocationsPage() {
         toast.success('Emplacement créé avec succès');
         setIsCreateDialogOpen(false);
         refetch();
+
+        // If created from Suggested tab, rematch nearby trips
+        if (createPrefill && newLocation?.id) {
+          try {
+            const { data: rematchResult } = await supabaseClient.rpc('rematch_trips_near_location', {
+              p_location_id: newLocation.id,
+            });
+            const row = rematchResult?.[0];
+            const totalMatched = (row?.matched_start ?? 0) + (row?.matched_end ?? 0);
+            if (totalMatched > 0) {
+              toast.success(`${totalMatched} trajet(s) associé(s) automatiquement`);
+            }
+          } catch {
+            // Non-blocking — rematch failure shouldn't affect location creation
+          }
+          setSuggestedRefreshKey((k) => k + 1);
+        }
       } catch (error) {
         toast.error('Échec de la création de l\'emplacement');
       }
     },
-    [createLocation, refetch]
+    [createLocation, refetch, createPrefill]
   );
 
   const handleViewLocation = useCallback(
@@ -413,6 +435,8 @@ export default function LocationsPage() {
               setCreatePrefill(prefill);
               setIsCreateDialogOpen(true);
             }}
+            locations={activeLocations}
+            refreshKey={suggestedRefreshKey}
           />
         </TabsContent>
       </Tabs>

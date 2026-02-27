@@ -55,8 +55,8 @@ class BackgroundTrackingService with WidgetsBindingObserver {
         channelId: 'gps_tracking_channel',
         channelName: 'Suivi de position',
         channelDescription: 'Background location tracking during shifts',
-        channelImportance: NotificationChannelImportance.LOW,
-        priority: NotificationPriority.LOW,
+        channelImportance: NotificationChannelImportance.DEFAULT,
+        priority: NotificationPriority.DEFAULT,
         onlyAlertOnce: true,
       ),
       iosNotificationOptions: const IOSNotificationOptions(
@@ -391,6 +391,37 @@ class BackgroundTrackingService with WidgetsBindingObserver {
       }
       // Both platforms: check if foreground service died while backgrounded
       _checkForegroundServiceHealth();
+      // Sync watchdog breadcrumbs into diagnostic logs
+      _syncWatchdogLog();
+    }
+  }
+
+  /// Read watchdog breadcrumbs written by AlarmManager/WorkManager isolates
+  /// and forward them to DiagnosticLogger so they get synced to the server.
+  Future<void> _syncWatchdogLog() async {
+    if (!Platform.isAndroid) return;
+    try {
+      final entries = await TrackingWatchdogService.consumeLog();
+      for (final entry in entries) {
+        // Format: "2026-02-27T12:00:00Z|alarm|service_alive|shift-uuid"
+        final parts = entry.split('|');
+        if (parts.length < 3) continue;
+        final timestamp = parts[0];
+        final source = parts[1];
+        final outcome = parts[2];
+        final shiftId = parts.length > 3 ? parts[3] : '';
+        final isRestart = outcome.contains('restart');
+        _logger?.lifecycle(
+          isRestart ? Severity.warn : Severity.info,
+          'Watchdog check ($source): $outcome',
+          metadata: {
+            'watchdog_ts': timestamp,
+            if (shiftId.isNotEmpty) 'shift_id': shiftId,
+          },
+        );
+      }
+    } catch (_) {
+      // Best-effort
     }
   }
 

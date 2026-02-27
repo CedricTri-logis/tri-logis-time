@@ -35,6 +35,25 @@ class OtpInputFieldState extends State<OtpInputField> {
   bool _submitted = false;
 
   @override
+  void initState() {
+    super.initState();
+    // Handle backspace on empty fields via the FocusNode's onKeyEvent.
+    for (var i = 0; i < _length; i++) {
+      _focusNodes[i].onKeyEvent = (node, event) {
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.backspace &&
+            _controllers[i].text.isEmpty &&
+            i > 0) {
+          _controllers[i - 1].clear();
+          _focusNodes[i - 1].requestFocus();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      };
+    }
+  }
+
+  @override
   void dispose() {
     for (final c in _controllers) {
       c.dispose();
@@ -98,20 +117,10 @@ class OtpInputFieldState extends State<OtpInputField> {
     }
   }
 
-  void _onKeyEvent(int index, KeyEvent event) {
-    // Handle backspace: go back to previous field
-    if (event is KeyDownEvent &&
-        event.logicalKey == LogicalKeyboardKey.backspace &&
-        _controllers[index].text.isEmpty &&
-        index > 0) {
-      _controllers[index - 1].clear();
-      _focusNodes[index - 1].requestFocus();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return AutofillGroup(
       child: Row(
@@ -124,35 +133,47 @@ class OtpInputFieldState extends State<OtpInputField> {
               left: index == 0 ? 0 : 6,
               right: index == _length - 1 ? 0 : 6,
             ),
-            child: KeyboardListener(
-              focusNode: FocusNode(),
-              onKeyEvent: (event) => _onKeyEvent(index, event),
-              child: TextFormField(
-                controller: _controllers[index],
-                focusNode: _focusNodes[index],
-                enabled: widget.enabled,
-                autofocus: index == 0,
-                autofillHints: index == 0
-                    ? const [AutofillHints.oneTimeCode]
-                    : null,
-                textAlign: TextAlign.center,
-                keyboardType: TextInputType.number,
-                // NOTE: do NOT set maxLength here — it adds a
-                // LengthLimitingTextInputFormatter that truncates pasted /
-                // autofilled OTP codes BEFORE onChanged fires, breaking
-                // _handlePaste.  Length is enforced in _onChanged instead.
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                ],
-                decoration: const InputDecoration(
-                  counterText: '',
-                  contentPadding: EdgeInsets.symmetric(vertical: 12),
-                ),
-                onChanged: (value) => _onChanged(index, value),
+            child: TextFormField(
+              controller: _controllers[index],
+              focusNode: _focusNodes[index],
+              enabled: widget.enabled,
+              autofocus: index == 0,
+              autofillHints: index == 0
+                  ? const [AutofillHints.oneTimeCode]
+                  : null,
+              textAlign: TextAlign.center,
+              keyboardType: TextInputType.number,
+              // NOTE: do NOT set maxLength here — it adds a
+              // LengthLimitingTextInputFormatter that truncates pasted /
+              // autofilled OTP codes BEFORE onChanged fires, breaking
+              // _handlePaste.  Length is enforced in _onChanged instead.
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : Colors.black,
               ),
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+              ],
+              decoration: InputDecoration(
+                counterText: '',
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                filled: true,
+                fillColor: isDark ? const Color(0xFF2C2C2C) : Colors.white,
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(
+                    color: isDark ? Colors.grey.shade600 : const Color(0xFFE9ECEF),
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(
+                    color: theme.colorScheme.primary,
+                    width: 2,
+                  ),
+                ),
+              ),
+              onChanged: (value) => _onChanged(index, value),
             ),
           );
         }),
