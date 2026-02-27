@@ -32,6 +32,13 @@ interface GpsPoint {
   longitude: number;
   accuracy: number;
   received_at: string;
+  speed: number | null;
+  speed_accuracy: number | null;
+  heading: number | null;
+  altitude: number | null;
+  altitude_accuracy: number | null;
+  activity_type: string | null;
+  is_mocked: boolean | null;
 }
 
 interface StationaryClustersMapProps {
@@ -69,6 +76,8 @@ export function StationaryClustersMap({
 
   const [gpsPoints, setGpsPoints] = useState<GpsPoint[]>([]);
   const [loadingGps, setLoadingGps] = useState(false);
+  const [selectedGpsIndex, setSelectedGpsIndex] = useState<number | null>(null);
+  const selectedGpsPoint = selectedGpsIndex != null ? gpsPoints[selectedGpsIndex] ?? null : null;
 
   // Sync external selection with detail card
   useEffect(() => {
@@ -79,6 +88,7 @@ export function StationaryClustersMap({
 
   // Fetch GPS points when a cluster is selected
   useEffect(() => {
+    setSelectedGpsIndex(null);
     if (!infoClusterId) {
       setGpsPoints([]);
       return;
@@ -161,25 +171,30 @@ export function StationaryClustersMap({
             );
           })}
 
-          {/* GPS footprint: blue dots */}
-          {infoClusterId && gpsPoints.map((pt, i) => (
-            <AdvancedMarker
-              key={`gps-${i}`}
-              position={{ lat: pt.latitude, lng: pt.longitude }}
-              zIndex={500}
-            >
-              <div
-                className="rounded-full"
-                style={{
-                  width: 6,
-                  height: 6,
-                  backgroundColor: '#3b82f6',
-                  opacity: 0.6,
-                  border: '1px solid white',
-                }}
-              />
-            </AdvancedMarker>
-          ))}
+          {/* GPS footprint: blue dots (clickable) */}
+          {infoClusterId && gpsPoints.map((pt, i) => {
+            const isGpsSelected = i === selectedGpsIndex;
+            return (
+              <AdvancedMarker
+                key={`gps-${i}`}
+                position={{ lat: pt.latitude, lng: pt.longitude }}
+                zIndex={isGpsSelected ? 900 : 500}
+                onClick={() => setSelectedGpsIndex(isGpsSelected ? null : i)}
+              >
+                <div
+                  className="rounded-full cursor-pointer"
+                  style={{
+                    width: isGpsSelected ? 10 : 6,
+                    height: isGpsSelected ? 10 : 6,
+                    backgroundColor: isGpsSelected ? '#2563eb' : '#3b82f6',
+                    opacity: isGpsSelected ? 1 : 0.6,
+                    border: isGpsSelected ? '2px solid white' : '1px solid white',
+                    boxShadow: isGpsSelected ? '0 0 6px rgba(37,99,235,0.5)' : 'none',
+                  }}
+                />
+              </AdvancedMarker>
+            );
+          })}
 
           {/* Red accuracy circle + centroid dot */}
           {infoCluster && (
@@ -206,6 +221,15 @@ export function StationaryClustersMap({
                 />
               </AdvancedMarker>
             </>
+          )}
+
+          {/* Selected GPS point accuracy circle */}
+          {selectedGpsPoint && (
+            <AccuracyCircle
+              center={{ lat: selectedGpsPoint.latitude, lng: selectedGpsPoint.longitude }}
+              radius={selectedGpsPoint.accuracy}
+              color="#3b82f6"
+            />
           )}
 
           <FitBoundsHelper
@@ -246,25 +270,82 @@ export function StationaryClustersMap({
           )}
         </div>
       )}
+
+      {/* GPS point detail card (bottom-right) */}
+      {selectedGpsPoint && (
+        <div className="absolute bottom-3 right-3 z-[10] bg-white rounded-lg shadow-lg border border-blue-200 p-3 min-w-[200px] max-w-[260px]">
+          <button
+            onClick={() => setSelectedGpsIndex(null)}
+            className="absolute top-1.5 right-1.5 p-0.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+          <h4 className="font-bold text-blue-600 text-xs mb-1.5 pr-5">
+            Point GPS #{(selectedGpsIndex ?? 0) + 1}/{gpsPoints.length}
+          </h4>
+          <div className="space-y-0.5 text-[11px] text-slate-600">
+            <p>
+              Heure: <strong>
+                {new Date(selectedGpsPoint.received_at).toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </strong>
+            </p>
+            <p className="font-mono text-[10px] text-slate-500">
+              {selectedGpsPoint.latitude.toFixed(6)}, {selectedGpsPoint.longitude.toFixed(6)}
+            </p>
+            <p>
+              Pr&eacute;cision: <strong>&plusmn;{Math.round(selectedGpsPoint.accuracy)}m</strong>
+            </p>
+            {selectedGpsPoint.speed != null && (
+              <p>
+                Vitesse: <strong>{(selectedGpsPoint.speed * 3.6).toFixed(1)} km/h</strong>
+                {selectedGpsPoint.speed_accuracy != null && (
+                  <span className="text-slate-400"> (&plusmn;{(selectedGpsPoint.speed_accuracy * 3.6).toFixed(1)})</span>
+                )}
+              </p>
+            )}
+            {selectedGpsPoint.altitude != null && (
+              <p>
+                Altitude: <strong>{Math.round(selectedGpsPoint.altitude)}m</strong>
+                {selectedGpsPoint.altitude_accuracy != null && (
+                  <span className="text-slate-400"> (&plusmn;{Math.round(selectedGpsPoint.altitude_accuracy)}m)</span>
+                )}
+              </p>
+            )}
+            {selectedGpsPoint.heading != null && (
+              <p>
+                Cap: <strong>{Math.round(selectedGpsPoint.heading)}&deg;</strong>
+              </p>
+            )}
+            {selectedGpsPoint.activity_type && (
+              <p>
+                Activit&eacute;: <strong>{selectedGpsPoint.activity_type}</strong>
+              </p>
+            )}
+            {selectedGpsPoint.is_mocked && (
+              <p className="text-red-500 font-medium">Mocked</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function AccuracyCircle({ center, radius }: { center: google.maps.LatLngLiteral; radius: number }) {
+function AccuracyCircle({ center, radius, color = '#ef4444' }: { center: google.maps.LatLngLiteral; radius: number; color?: string }) {
   const map = useMap();
   useEffect(() => {
     if (!map || radius <= 0) return;
     const circle = new google.maps.Circle({
       map, center, radius,
-      fillColor: '#ef4444',
+      fillColor: color,
       fillOpacity: 0.12,
-      strokeColor: '#ef4444',
+      strokeColor: color,
       strokeOpacity: 0.5,
       strokeWeight: 1.5,
       clickable: false,
     });
     return () => circle.setMap(null);
-  }, [map, center.lat, center.lng, radius]);
+  }, [map, center.lat, center.lng, radius, color]);
   return null;
 }
 
