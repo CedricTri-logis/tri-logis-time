@@ -226,12 +226,12 @@ export function SuggestedLocationsMap({
 
           {selectedCluster && (
             <InfoWindow
-              position={{
-                lat: selectedCluster.centroid_latitude,
-                lng: selectedCluster.centroid_longitude,
-              }}
+              position={currentOccurrence
+                ? { lat: currentOccurrence.latitude, lng: currentOccurrence.longitude }
+                : { lat: selectedCluster.centroid_latitude, lng: selectedCluster.centroid_longitude }
+              }
               onCloseClick={() => onClusterSelect(-1)}
-              pixelOffset={[0, -24]}
+              pixelOffset={[0, -10]}
             >
               <div className="p-1 min-w-[200px] max-w-[280px]">
                 {selectedCluster.place_name && (
@@ -448,10 +448,7 @@ function PanToOccurrence({ position, occurrenceIndex }: { position: google.maps.
   const map = useMap();
   useEffect(() => {
     if (!map) return;
-    // Pan so the GPS point is visible (offset up to leave room for InfoWindow above)
     map.panTo(position);
-    // Nudge down so the point isn't hidden behind the InfoWindow
-    map.panBy(0, 60);
   }, [map, position.lat, position.lng, occurrenceIndex]);
   return null;
 }
