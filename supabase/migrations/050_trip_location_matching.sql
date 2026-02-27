@@ -621,3 +621,215 @@ BEGIN
     END IF;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- =============================================================================
+-- 6. update_trip_location() — Admin manual override for trip location
+-- =============================================================================
+CREATE OR REPLACE FUNCTION update_trip_location(
+    p_trip_id UUID,
+    p_endpoint TEXT,  -- 'start' or 'end'
+    p_location_id UUID  -- NULL to clear
+)
+RETURNS VOID AS $$
+BEGIN
+    IF p_endpoint NOT IN ('start', 'end') THEN
+        RAISE EXCEPTION 'p_endpoint must be ''start'' or ''end''';
+    END IF;
+
+    IF p_endpoint = 'start' THEN
+        UPDATE trips SET
+            start_location_id = p_location_id,
+            start_location_match_method = CASE WHEN p_location_id IS NULL THEN 'auto' ELSE 'manual' END,
+            updated_at = NOW()
+        WHERE id = p_trip_id;
+    ELSE
+        UPDATE trips SET
+            end_location_id = p_location_id,
+            end_location_match_method = CASE WHEN p_location_id IS NULL THEN 'auto' ELSE 'manual' END,
+            updated_at = NOW()
+        WHERE id = p_trip_id;
+    END IF;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- =============================================================================
+-- 7. rematch_all_trip_locations() — Batch re-match trips to locations
+-- =============================================================================
+CREATE OR REPLACE FUNCTION rematch_all_trip_locations()
+RETURNS TABLE (
+    matched_count INTEGER,
+    skipped_manual INTEGER,
+    total_processed INTEGER
+) AS $$
+DECLARE
+    v_matched INTEGER := 0;
+    v_skipped INTEGER := 0;
+    v_total INTEGER := 0;
+    v_trip RECORD;
+    v_start_loc UUID;
+    v_end_loc UUID;
+BEGIN
+    FOR v_trip IN
+        SELECT t.id, t.start_latitude, t.start_longitude, t.end_latitude, t.end_longitude,
+               t.start_location_match_method, t.end_location_match_method,
+               gp_start.accuracy AS start_accuracy, gp_end.accuracy AS end_accuracy
+        FROM trips t
+        LEFT JOIN LATERAL (
+            SELECT gp.accuracy FROM trip_gps_points tgp
+            JOIN gps_points gp ON gp.id = tgp.gps_point_id
+            WHERE tgp.trip_id = t.id ORDER BY tgp.sequence_order ASC LIMIT 1
+        ) gp_start ON TRUE
+        LEFT JOIN LATERAL (
+            SELECT gp.accuracy FROM trip_gps_points tgp
+            JOIN gps_points gp ON gp.id = tgp.gps_point_id
+            WHERE tgp.trip_id = t.id ORDER BY tgp.sequence_order DESC LIMIT 1
+        ) gp_end ON TRUE
+    LOOP
+        v_total := v_total + 1;
+
+        IF v_trip.start_location_match_method != 'manual' THEN
+            v_start_loc := match_trip_to_location(
+                v_trip.start_latitude, v_trip.start_longitude,
+                COALESCE(v_trip.start_accuracy, 0)
+            );
+            UPDATE trips SET start_location_id = v_start_loc WHERE id = v_trip.id;
+            IF v_start_loc IS NOT NULL THEN v_matched := v_matched + 1; END IF;
+        ELSE
+            v_skipped := v_skipped + 1;
+        END IF;
+
+        IF v_trip.end_location_match_method != 'manual' THEN
+            v_end_loc := match_trip_to_location(
+                v_trip.end_latitude, v_trip.end_longitude,
+                COALESCE(v_trip.end_accuracy, 0)
+            );
+            UPDATE trips SET end_location_id = v_end_loc WHERE id = v_trip.id;
+            IF v_end_loc IS NOT NULL THEN v_matched := v_matched + 1; END IF;
+        ELSE
+            v_skipped := v_skipped + 1;
+        END IF;
+    END LOOP;
+
+    RETURN QUERY SELECT v_matched, v_skipped, v_total;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- =============================================================================
+-- 8. get_nearby_locations() — Locations near a GPS point (for inline dropdown)
+-- =============================================================================
+CREATE OR REPLACE FUNCTION get_nearby_locations(
+    p_latitude DECIMAL,
+    p_longitude DECIMAL,
+    p_limit INTEGER DEFAULT 10
+)
+RETURNS TABLE (
+    id UUID,
+    name TEXT,
+    location_type TEXT,
+    distance_meters DOUBLE PRECISION,
+    radius_meters NUMERIC
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        l.id,
+        l.name,
+        l.location_type::TEXT,
+        ST_Distance(
+            l.location,
+            ST_SetSRID(ST_MakePoint(p_longitude, p_latitude), 4326)::geography
+        ) AS distance_meters,
+        l.radius_meters
+    FROM locations l
+    WHERE l.is_active = TRUE
+    ORDER BY distance_meters ASC
+    LIMIT p_limit;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+
+-- =============================================================================
+-- 9. get_unmatched_trip_clusters() — Cluster unmatched trip endpoints
+-- =============================================================================
+CREATE OR REPLACE FUNCTION get_unmatched_trip_clusters(
+    p_min_occurrences INTEGER DEFAULT 1
+)
+RETURNS TABLE (
+    cluster_id INTEGER,
+    centroid_latitude DOUBLE PRECISION,
+    centroid_longitude DOUBLE PRECISION,
+    occurrence_count BIGINT,
+    has_start_endpoints BOOLEAN,
+    has_end_endpoints BOOLEAN,
+    employee_names TEXT[],
+    first_seen TIMESTAMPTZ,
+    last_seen TIMESTAMPTZ,
+    sample_addresses TEXT[]
+) AS $$
+BEGIN
+    RETURN QUERY
+    WITH unmatched_endpoints AS (
+        SELECT
+            t.start_latitude AS lat,
+            t.start_longitude AS lng,
+            'start'::TEXT AS endpoint_type,
+            t.employee_id,
+            t.started_at AS seen_at,
+            t.start_address AS address
+        FROM trips t
+        WHERE t.start_location_id IS NULL
+
+        UNION ALL
+
+        SELECT
+            t.end_latitude AS lat,
+            t.end_longitude AS lng,
+            'end'::TEXT AS endpoint_type,
+            t.employee_id,
+            t.ended_at AS seen_at,
+            t.end_address AS address
+        FROM trips t
+        WHERE t.end_location_id IS NULL
+    ),
+    clustered AS (
+        SELECT
+            ue.*,
+            ST_ClusterDBSCAN(
+                ST_SetSRID(ST_MakePoint(ue.lng, ue.lat), 4326)::geometry,
+                eps := 0.001,
+                minpoints := 1
+            ) OVER () AS cid
+        FROM unmatched_endpoints ue
+    ),
+    aggregated AS (
+        SELECT
+            c.cid,
+            AVG(c.lat) AS centroid_lat,
+            AVG(c.lng) AS centroid_lng,
+            COUNT(*) AS cnt,
+            BOOL_OR(c.endpoint_type = 'start') AS has_starts,
+            BOOL_OR(c.endpoint_type = 'end') AS has_ends,
+            ARRAY_AGG(DISTINCT ep.full_name) FILTER (WHERE ep.full_name IS NOT NULL) AS emp_names,
+            MIN(c.seen_at) AS first_at,
+            MAX(c.seen_at) AS last_at,
+            ARRAY_AGG(DISTINCT c.address) FILTER (WHERE c.address IS NOT NULL) AS addrs
+        FROM clustered c
+        LEFT JOIN employee_profiles ep ON ep.id = c.employee_id
+        WHERE c.cid IS NOT NULL
+        GROUP BY c.cid
+        HAVING COUNT(*) >= p_min_occurrences
+    )
+    SELECT
+        a.cid::INTEGER,
+        a.centroid_lat,
+        a.centroid_lng,
+        a.cnt,
+        a.has_starts,
+        a.has_ends,
+        a.emp_names,
+        a.first_at,
+        a.last_at,
+        a.addrs
+    FROM aggregated a
+    ORDER BY a.cnt DESC;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
