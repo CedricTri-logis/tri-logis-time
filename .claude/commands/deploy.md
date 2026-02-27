@@ -21,25 +21,28 @@ Steps:
    - **NEVER leave iOS and Android on different build numbers.** This is the #1 rule of this workflow.
 5. **Verify build number parity**: After both deploys succeed, confirm the deployed build numbers match. If they don't, redeploy the lagging platform.
 6. Sync pubspec.yaml to match the actual deployed build number (so it stays in sync for next deploy).
-7. **Check Google Play review status via Playwright**: After both deploys succeed, check the real review status by scraping the Play Console:
-   - Run the Playwright script: `node scripts/check-play-status.js`
-   - The script uses saved Google session cookies to navigate to the Play Console app list page and reads the "Update status" column
-   - Possible statuses: "In review", "Update available", "Draft", "Rejected", etc.
-   - If status is "In review": inform the user the build is still being reviewed by Google, then offer to poll every 60 seconds (up to 15 minutes). If the user accepts, re-run the script in a loop until the status changes or timeout is reached.
-   - If status is "Update available" or similar: the build is live and available to testers
-   - If cookies are expired or login fails: inform the user and ask them to re-authenticate (run `node scripts/save-play-cookies.js`)
-8. **Ask before enforcing minimum version**: ASK the user before updating the minimum app version. Present the options:
-   - Set minimum to the NEW build number (recommended if confirmed live on both stores)
-   - Set minimum to the PREVIOUS build number (safer — if Google Play review is still pending)
-   - Skip the minimum version update entirely
-   - Once the user confirms, use Supabase MCP tool `execute_sql`: `UPDATE app_config SET value = '<chosen_version>', updated_at = NOW() WHERE key = 'minimum_app_version';`
-   - Project ID: `xdyzdclwvhkfwbkrdsiz`
-9. **Push (run the full /push workflow)** — only if both deploys succeeded:
+7. **Wait for Google Play review approval, then enforce minimum version**:
+   a. Run `node scripts/check-play-status.js` to get the review status.
+   b. Run `cd gps_tracker/android && bundle exec fastlane check_status` to confirm the build number on the alpha track.
+   c. If `PLAY_NORMALIZED_STATUS` is `update_available`:
+      → Build is live. Enforce minimum version = deployed build number via Supabase MCP tool `execute_sql`:
+        `UPDATE app_config SET value = '<build>', updated_at = NOW() WHERE key = 'minimum_app_version';`
+        (Project ID: `xdyzdclwvhkfwbkrdsiz`)
+      → Report success and move to step 8.
+   d. If `PLAY_NORMALIZED_STATUS` is `in_review`:
+      → Inform the user: "Build XX is still In Review on Google Play. Polling every 5 minutes..."
+      → Poll: re-run `node scripts/check-play-status.js` every 5 minutes.
+      → Max wait: 60 minutes (12 checks). After that, ask the user what to do.
+      → When status changes to `update_available`: enforce minimum version automatically (same SQL as above).
+   e. If cookies expired (exit code 1): warn user, suggest `node scripts/save-play-cookies.js`, skip enforcement.
+   f. If status is `rejected` or other unexpected status: warn user, skip enforcement.
+   g. If the user passed "no enforce" / "sans bloquer": skip this entire step.
+8. **Push (run the full /push workflow)** — only if both deploys succeeded:
    - **Apply pending migrations**: Check `git status --short supabase/migrations/` and `git diff --name-only HEAD supabase/migrations/` for new/modified migration files. If any are found, list them and run `supabase db push --linked` from the project root. If it fails, stop and report the error.
    - **Commit**: Stage all modified files (pubspec.yaml, build configs, code changes, migrations, etc.). Create a commit with message: `chore: Deploy v<version>+<build> to TestFlight & Google Play` (using HEREDOC, with `Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>`).
    - **Push**: `git push` (or `git push -u origin HEAD` if no upstream).
    - **Vercel deployment**: Run `npx vercel --prod --yes` to trigger and watch the production deployment. Report the deployment URL and status.
-10. Report the summary: both deploy statuses, the SINGLE build number deployed to both platforms, Google Play alpha availability status, what minimum version is now enforced, and the git push status.
+9. Report the summary: both deploy statuses, the SINGLE build number deployed to both platforms, Google Play review status, what minimum version is now enforced, and the git push status.
 
 Important notes:
 - **Both platforms are ALWAYS deployed together** — there is no option to skip one. If the user asks to deploy only one platform, warn them that both must be deployed to keep build numbers in sync, and deploy both.
