@@ -22,9 +22,12 @@ class ErrorSnackbar {
           action: SnackBarAction(
             label: 'Fermer',
             textColor: Colors.white,
-            onPressed: () {
-              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            },
+            // Flutter's SnackBarAction auto-dismisses the snackbar after
+            // onPressed returns.  Previously we called
+            // ScaffoldMessenger.of(context).hideCurrentSnackBar() here, but
+            // the captured context can be stale (widget rebuilt/unmounted),
+            // causing a throw that *also* prevented the auto-dismiss.
+            onPressed: () {},
           ),
         ),
       );

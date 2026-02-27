@@ -137,7 +137,10 @@ class OtpInputFieldState extends State<OtpInputField> {
                     : null,
                 textAlign: TextAlign.center,
                 keyboardType: TextInputType.number,
-                maxLength: 1,
+                // NOTE: do NOT set maxLength here — it adds a
+                // LengthLimitingTextInputFormatter that truncates pasted /
+                // autofilled OTP codes BEFORE onChanged fires, breaking
+                // _handlePaste.  Length is enforced in _onChanged instead.
                 style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
