@@ -156,8 +156,8 @@ export function SuggestedLocationsTab({ onCreateLocation, locations = [], refres
 
   const handleIgnoreCluster = useCallback(async (cluster: UnmatchedCluster) => {
     const { error } = await supabaseClient.rpc('ignore_location_cluster', {
-      p_centroid_latitude: cluster.centroid_latitude,
-      p_centroid_longitude: cluster.centroid_longitude,
+      p_latitude: cluster.centroid_latitude,
+      p_longitude: cluster.centroid_longitude,
       p_occurrence_count: cluster.occurrence_count,
     });
     if (error) {
