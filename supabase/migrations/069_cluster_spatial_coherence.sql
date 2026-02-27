@@ -226,6 +226,7 @@ BEGIN
                 IF v_create_clusters THEN
                     -- Check spatial coherence: is this stopped point too far from cluster?
                     IF array_length(v_cluster_lats, 1) >= 3 THEN
+                        -- Unweighted centroid is sufficient for coarse 50m drift check
                         SELECT AVG(lat), AVG(lng)
                         INTO v_running_centroid_lat, v_running_centroid_lng
                         FROM unnest(v_cluster_lats, v_cluster_lngs) AS t(lat, lng);
@@ -355,6 +356,11 @@ BEGIN
                                             start_location_id = match_trip_to_location(v_eff_start_lat, v_eff_start_lng, v_eff_start_acc),
                                             end_location_id = match_trip_to_location(v_eff_end_lat, v_eff_end_lng, v_eff_end_acc)
                                         WHERE id = v_split_trip_id;
+
+                                        -- Update trip continuity for next trip's start-location optimization
+                                        SELECT end_location_id INTO v_prev_trip_end_location_id FROM trips WHERE id = v_split_trip_id;
+                                        v_prev_trip_end_lat := v_eff_end_lat;
+                                        v_prev_trip_end_lng := v_eff_end_lng;
 
                                         RETURN QUERY SELECT
                                             v_split_trip_id,
