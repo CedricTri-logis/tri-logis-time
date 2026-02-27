@@ -397,6 +397,14 @@ class SyncService {
           'p_shift_id': activeShift.serverId,
         }).then((_) {
           _logger?.sync(Severity.debug, 'Active shift trip detection completed', metadata: {'shift_id': activeShift.serverId});
+          // Fire-and-forget carpool detection for today
+          _supabase.rpc('detect_carpools', params: {
+            'p_date': DateTime.now().toIso8601String().substring(0, 10),
+          }).then((_) {
+            _logger?.sync(Severity.debug, 'Carpool detection completed');
+          }).catchError((e) {
+            _logger?.sync(Severity.warn, 'Carpool detection failed', metadata: {'error': e.toString()});
+          });
         }).catchError((e) {
           _logger?.sync(Severity.warn, 'Active shift trip detection failed', metadata: {'shift_id': activeShift.serverId, 'error': e.toString()});
         });
@@ -415,6 +423,15 @@ class SyncService {
             'p_shift_id': shift.serverId,
           }).then((_) {
             _logger?.sync(Severity.debug, 'Trip re-detection completed', metadata: {'shift_id': shift.serverId});
+            // Fire-and-forget carpool detection for the shift's date
+            final shiftDate = shift.clockedInAt.toIso8601String().substring(0, 10);
+            _supabase.rpc('detect_carpools', params: {
+              'p_date': shiftDate,
+            }).then((_) {
+              _logger?.sync(Severity.debug, 'Carpool detection completed for completed shift');
+            }).catchError((e) {
+              _logger?.sync(Severity.warn, 'Carpool detection failed', metadata: {'error': e.toString()});
+            });
           }).catchError((e) {
             _logger?.sync(Severity.warn, 'Trip re-detection failed', metadata: {'shift_id': shift.serverId, 'error': e.toString()});
           });
