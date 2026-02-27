@@ -77,19 +77,31 @@ export function SuggestedLocationsMap({
     }
 
     let cancelled = false;
-    async function fetchOccurrences() {
-      setLoadingOccurrences(true);
-      const { data, error } = await supabaseClient.rpc('get_cluster_occurrences', {
-        p_centroid_lat: selectedCluster!.centroid_latitude,
-        p_centroid_lng: selectedCluster!.centroid_longitude,
-      });
-      if (!cancelled) {
-        setOccurrences(error ? [] : (data as ClusterOccurrence[]) || []);
-        setOccurrenceIndex(0);
-        setLoadingOccurrences(false);
+    setLoadingOccurrences(true);
+    (async () => {
+      try {
+        const { data, error } = await supabaseClient.rpc('get_cluster_occurrences', {
+          p_centroid_lat: selectedCluster!.centroid_latitude,
+          p_centroid_lng: selectedCluster!.centroid_longitude,
+        });
+        if (cancelled) return;
+        if (error) {
+          console.error('[cluster-occurrences] RPC error:', error);
+          setOccurrences([]);
+        } else {
+          setOccurrences((data as ClusterOccurrence[]) || []);
+        }
+      } catch (err) {
+        if (cancelled) return;
+        console.error('[cluster-occurrences] fetch failed:', err);
+        setOccurrences([]);
+      } finally {
+        if (!cancelled) {
+          setOccurrenceIndex(0);
+          setLoadingOccurrences(false);
+        }
       }
-    }
-    fetchOccurrences();
+    })();
     return () => { cancelled = true; };
   }, [selectedCluster?.cluster_id]);
 
