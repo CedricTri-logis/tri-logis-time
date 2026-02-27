@@ -60,6 +60,8 @@
 	</array>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Utilisez Face ID pour vous connecter rapidement sans entrer votre mot de passe.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>Tri-Logis Time uses motion data to improve GPS tracking accuracy and prevent false trip detection.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Camera access is needed to scan QR codes for room check-in and check-out.</string>
 	<key>GOOGLE_MAPS_API_KEY</key>

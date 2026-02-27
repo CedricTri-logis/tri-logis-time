@@ -26,6 +26,10 @@
     <!-- Biometric Authentication -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 
+    <!-- Activity Recognition for motion state detection (ghost trip prevention) -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <uses-permission android:name="com.google.android.gms.permission.ACTIVITY_RECOGNITION" />
+
     <!-- Camera Permission for QR code scanning (Spec 016) -->
     <uses-permission android:name="android.permission.CAMERA" />
 

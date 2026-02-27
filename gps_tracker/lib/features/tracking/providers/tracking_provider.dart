@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter_activity_recognition/flutter_activity_recognition.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -64,6 +65,9 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
   StreamSubscription<ThermalLevel>? _thermalSubscription;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   bool _wasDisconnected = false;
+
+  /// Activity recognition subscription for motion state detection.
+  StreamSubscription<Activity>? _activitySubscription;
 
   TrackingNotifier(this._ref) : super(const TrackingState()) {
     _initializeListeners();
@@ -594,6 +598,8 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     BackgroundTrackingService.startLifecycleObserver();
     // Subscribe to thermal state changes for GPS frequency adaptation
     _startThermalMonitoring();
+    // Start activity recognition for motion state tagging
+    _startActivityRecognition();
     // Start verification timer to detect tracking start failures
     _startTrackingVerification();
   }
@@ -801,6 +807,8 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     BackgroundTrackingService.stopLifecycleObserver();
     // Stop thermal monitoring
     _stopThermalMonitoring();
+    // Stop activity recognition
+    _stopActivityRecognition();
     state = state.stopTracking();
   }
 
@@ -848,6 +856,56 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
       BackgroundExecutionService.startBackgroundSession();
       startTracking();
     }
+  }
+
+  /// Start activity recognition to tag GPS points with motion state.
+  /// Runs in the main isolate and forwards updates to the background handler.
+  Future<void> _startActivityRecognition() async {
+    _activitySubscription?.cancel();
+
+    final activityRecognition = FlutterActivityRecognition.instance;
+
+    // Request permission (no-op if already granted)
+    final permissionResult = await activityRecognition.checkPermission();
+    if (permissionResult != ActivityPermission.GRANTED) {
+      final requestResult = await activityRecognition.requestPermission();
+      if (requestResult != ActivityPermission.GRANTED) {
+        _logger?.permission(
+          Severity.warn,
+          'Activity recognition permission denied — GPS points will not have activity_type',
+        );
+        return;
+      }
+    }
+
+    _activitySubscription = activityRecognition.activityStream.listen(
+      (Activity activity) {
+        // Map ActivityType to simplified string for server-side filtering
+        final activityStr = switch (activity.type) {
+          ActivityType.STILL => 'still',
+          ActivityType.WALKING => 'walking',
+          ActivityType.RUNNING => 'walking',
+          ActivityType.ON_BICYCLE => 'in_vehicle',
+          ActivityType.IN_VEHICLE => 'in_vehicle',
+          _ => 'unknown',
+        };
+
+        // Forward to background handler
+        FlutterForegroundTask.sendDataToTask({
+          'command': 'activityUpdate',
+          'activity': activityStr,
+        });
+      },
+      onError: (Object error) {
+        _logger?.gps(Severity.warn, 'Activity recognition error', metadata: {'error': error.toString()});
+      },
+    );
+  }
+
+  /// Stop activity recognition.
+  void _stopActivityRecognition() {
+    _activitySubscription?.cancel();
+    _activitySubscription = null;
   }
 
   /// Start listening for thermal state changes and adapting GPS config.
@@ -955,6 +1013,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     FlutterForegroundTask.removeTaskDataCallback(_handleTaskData);
     _shiftSubscription?.close();
     _thermalSubscription?.cancel();
+    _activitySubscription?.cancel();
     _connectivitySubscription?.cancel();
     super.dispose();
   }

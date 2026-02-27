@@ -3,7 +3,8 @@ import 'package:flutter/foundation.dart';
 /// Configuration settings for background GPS tracking.
 @immutable
 class TrackingConfig {
-  /// GPS capture interval when moving (in seconds). Used as fallback when speed data unavailable.
+  /// GPS capture interval when moving or recently stopped (in seconds).
+  /// 120s stationary interval only activates after 5-minute confirmed stop.
   final int activeIntervalSeconds;
 
   /// GPS capture interval when stationary (in seconds).
@@ -22,7 +23,7 @@ class TrackingConfig {
   final bool adaptivePolling;
 
   const TrackingConfig({
-    this.activeIntervalSeconds = 60, // Fallback when speed unavailable
+    this.activeIntervalSeconds = 10, // 10s for all active states (moving or recently stopped)
     this.stationaryIntervalSeconds = 120, // 2 min when not moving (was 300s)
     this.distanceFilterMeters = 0, // 0 = continuous updates (filtered by interval logic)
     this.highAccuracyThreshold = 50.0, // SC-003: 95% under 50m
@@ -40,21 +41,19 @@ class TrackingConfig {
     distanceFilterMeters: 10,
   );
 
-  /// Compute the optimal capture interval based on current speed.
+  /// Compute capture interval: 10s active, 120s stationary.
   ///
-  /// Uses speed-based tiers for adaptive frequency:
-  /// - Stationary (< 0.5 m/s): 120s — battery saving
-  /// - Walking (0.5 - 2.0 m/s): 30s — detailed pedestrian tracking
-  /// - Vehicle/city (2.0 - 8.0 m/s): 15s — precise route following
-  /// - Vehicle/highway (> 8.0 m/s): 10s — maximum precision
+  /// Simplified two-tier system:
+  /// - Active (any speed, or recently stopped < 5 min): 10s
+  /// - Confirmed stationary (> 5 min at same spot): 120s
   ///
-  /// Returns [activeIntervalSeconds] as fallback when speed is null or negative.
+  /// Stationary detection is handled by the background handler's
+  /// `_checkStationaryState()`, not by speed thresholds.
+  /// This method returns [activeIntervalSeconds] (10s) as the default.
   int intervalForSpeed(double? speedMs) {
     if (speedMs == null || speedMs < 0) return activeIntervalSeconds;
     if (speedMs < 0.5) return stationaryIntervalSeconds;
-    if (speedMs < 2.0) return 30;
-    if (speedMs < 8.0) return 15;
-    return 10;
+    return activeIntervalSeconds;
   }
 
   TrackingConfig copyWith({
@@ -84,7 +83,7 @@ class TrackingConfig {
       };
 
   factory TrackingConfig.fromJson(Map<String, dynamic> json) => TrackingConfig(
-        activeIntervalSeconds: json['active_interval_seconds'] as int? ?? 60,
+        activeIntervalSeconds: json['active_interval_seconds'] as int? ?? 10,
         stationaryIntervalSeconds: json['stationary_interval_seconds'] as int? ?? 120,
         distanceFilterMeters: json['distance_filter_meters'] as int? ?? 0,
         highAccuracyThreshold: (json['high_accuracy_threshold'] as num?)?.toDouble() ?? 50.0,

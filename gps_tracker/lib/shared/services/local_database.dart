@@ -22,7 +22,7 @@ import 'local_database_exception.dart';
 /// Local SQLite database service with encrypted storage.
 class LocalDatabase {
   static const String _databaseName = 'gps_tracker.db';
-  static const int _databaseVersion = 5;
+  static const int _databaseVersion = 6;
   static const String _encryptionKeyKey = 'local_db_encryption_key';
 
   static LocalDatabase? _instance;
@@ -200,6 +200,7 @@ class LocalDatabase {
         altitude REAL,
         altitude_accuracy REAL,
         is_mocked INTEGER,
+        activity_type TEXT,
         FOREIGN KEY (shift_id) REFERENCES local_shifts(id) ON DELETE CASCADE
       )
     ''');
@@ -404,6 +405,10 @@ class LocalDatabase {
     // Migration from v4 to v5: Add extended GPS data columns
     if (oldVersion < 5) {
       await _addExtendedGpsColumns(db);
+    }
+    // Migration from v5 to v6: Add activity_type column for activity recognition
+    if (oldVersion < 6) {
+      await db.execute('ALTER TABLE local_gps_points ADD COLUMN activity_type TEXT');
     }
   }
 

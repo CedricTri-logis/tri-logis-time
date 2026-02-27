@@ -11,7 +11,7 @@ class GPSTrackingHandler extends TaskHandler {
   StreamSubscription<Position>? _positionSubscription;
   String? _shiftId;
   String? _employeeId;
-  int _activeIntervalSeconds = 60;
+  int _activeIntervalSeconds = 10;
   int _stationaryIntervalSeconds = 120;
   int _distanceFilterMeters = 0;
   int _pointCount = 0;
@@ -23,6 +23,9 @@ class GPSTrackingHandler extends TaskHandler {
 
   // Thermal multiplier (received from main isolate)
   int _thermalMultiplier = 1;
+
+  // Activity recognition state (received from main isolate)
+  String? _currentActivity;
 
   // GPS loss detection — 45s threshold for faster SLC activation (C1)
   DateTime? _lastSuccessfulPositionAt;
@@ -61,7 +64,7 @@ class GPSTrackingHandler extends TaskHandler {
     _shiftId = await FlutterForegroundTask.getData<String>(key: 'shift_id');
     _employeeId = await FlutterForegroundTask.getData<String>(key: 'employee_id');
     _activeIntervalSeconds =
-        await FlutterForegroundTask.getData<int>(key: 'active_interval_seconds') ?? 60;
+        await FlutterForegroundTask.getData<int>(key: 'active_interval_seconds') ?? 10;
     _stationaryIntervalSeconds =
         await FlutterForegroundTask.getData<int>(key: 'stationary_interval_seconds') ?? 120;
     _distanceFilterMeters =
@@ -244,31 +247,14 @@ class GPSTrackingHandler extends TaskHandler {
     _capturePosition(position, now);
   }
 
-  /// Compute capture interval using speed-based adaptive logic (B6).
-  /// When speed data is unreliable or low, falls back to distance-based
-  /// stationary detection (5-minute confirmation threshold).
+  /// Compute capture interval: 10s when active, 120s when confirmed stationary.
+  /// "Recently stopped" (< 5 min at same spot) keeps 10s to capture micro-stops.
+  /// Only drops to 120s after 5-minute stationary confirmation.
   /// Applies thermal multiplier.
   Duration _computeInterval(Position position) {
-    final speed = position.speed;
-    final speedAccuracy = position.speedAccuracy;
-    int intervalSec;
-
-    // Speed data is reliable when: speed > 0, OR speed == 0 with valid
-    // speedAccuracy (> 0). When both speed and speedAccuracy are 0, the GPS
-    // chipset cannot determine speed — fall back to distance-based detection.
-    final hasReliableSpeed = speed > 0 || (speed == 0 && speedAccuracy > 0);
-
-    if (!hasReliableSpeed || speed < 0.5) {
-      // Speed unknown or near-zero — rely on 5-minute stationary confirmation.
-      // Default to 15s (assume moving) until confirmed stationary.
-      intervalSec = _isStationary ? _stationaryIntervalSeconds : 15;
-    } else if (speed < 2.0) {
-      intervalSec = 30; // Walking
-    } else if (speed < 8.0) {
-      intervalSec = 15; // Vehicle/city
-    } else {
-      intervalSec = 10; // Vehicle/highway
-    }
+    // 10s for all active states (moving or recently stopped).
+    // 120s only after 5-minute confirmed stationary (_checkStationaryState).
+    int intervalSec = _isStationary ? _stationaryIntervalSeconds : 10;
 
     // Apply thermal multiplier
     intervalSec *= _thermalMultiplier;
@@ -354,6 +340,7 @@ class GPSTrackingHandler extends TaskHandler {
         if (altitude != null) 'altitude': altitude,
         if (altitudeAccuracy != null) 'altitude_accuracy': altitudeAccuracy,
         'is_mocked': position.isMocked ? 1 : 0,
+        if (_currentActivity != null) 'activity_type': _currentActivity,
       },
     });
 
@@ -606,6 +593,8 @@ class GPSTrackingHandler extends TaskHandler {
             data['stationary_interval_seconds'] as int? ?? _stationaryIntervalSeconds;
         _distanceFilterMeters = data['distance_filter_meters'] as int? ?? _distanceFilterMeters;
         _thermalMultiplier = data['thermal_multiplier'] as int? ?? _thermalMultiplier;
+      } else if (command == 'activityUpdate') {
+        _currentActivity = data['activity'] as String?;
       } else if (command == 'recoverStream') {
         // Main isolate detected GPS gap — force one immediate recovery attempt
         _lastRecoveryAttemptAt = null; // Allow immediate attempt
