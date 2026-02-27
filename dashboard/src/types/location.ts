@@ -4,7 +4,7 @@
 /**
  * Location type classification for workplace geofences
  */
-export type LocationType = 'office' | 'building' | 'vendor' | 'home' | 'other';
+export type LocationType = 'office' | 'building' | 'vendor' | 'home' | 'cafe_restaurant' | 'other';
 
 /**
  * Segment type for timeline visualization

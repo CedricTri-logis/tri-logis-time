@@ -6,12 +6,13 @@ export const LocationTypeEnum = {
   BUILDING: 'building',
   VENDOR: 'vendor',
   HOME: 'home',
+  CAFE_RESTAURANT: 'cafe_restaurant',
   OTHER: 'other',
 } as const;
 
 export type LocationTypeValue = (typeof LocationTypeEnum)[keyof typeof LocationTypeEnum];
 
-export const LOCATION_TYPE_VALUES = ['office', 'building', 'vendor', 'home', 'other'] as const;
+export const LOCATION_TYPE_VALUES = ['office', 'building', 'vendor', 'home', 'cafe_restaurant', 'other'] as const;
 
 // Location type display names
 export const LOCATION_TYPE_LABELS: Record<LocationTypeValue, string> = {
@@ -19,6 +20,7 @@ export const LOCATION_TYPE_LABELS: Record<LocationTypeValue, string> = {
   building: 'Construction Site',
   vendor: 'Vendor',
   home: 'Home',
+  cafe_restaurant: 'Café / Restaurant',
   other: 'Other',
 };
 

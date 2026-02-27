@@ -48,6 +48,13 @@ export const LOCATION_TYPE_COLORS: Record<LocationType, LocationTypeColor> = {
     label: 'Home',
     icon: 'Home',
   },
+  cafe_restaurant: {
+    color: '#ec4899', // pink-500
+    bgColor: 'bg-pink-100 dark:bg-pink-900/30',
+    textColor: 'text-pink-700 dark:text-pink-300',
+    label: 'Café / Restaurant',
+    icon: 'Coffee',
+  },
   other: {
     color: '#6b7280', // gray-500
     bgColor: 'bg-gray-100 dark:bg-gray-800',

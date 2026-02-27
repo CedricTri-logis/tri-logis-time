@@ -43,7 +43,7 @@ import {
 } from '@/lib/validations/location';
 import { LOCATION_TYPE_COLORS } from '@/lib/utils/segment-colors';
 import type { Location, LocationType } from '@/types/location';
-import { Building2, HardHat, Truck, Home, MapPin, Search, Loader2 } from 'lucide-react';
+import { Building2, HardHat, Truck, Home, Coffee, MapPin, Search, Loader2 } from 'lucide-react';
 
 interface LocationFormProps {
   location?: Location | null;
@@ -64,6 +64,7 @@ const LOCATION_TYPE_ICONS: Record<LocationType, React.ElementType> = {
   building: HardHat,
   vendor: Truck,
   home: Home,
+  cafe_restaurant: Coffee,
   other: MapPin,
 };
 
