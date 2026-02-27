@@ -15,6 +15,7 @@ import 'shared/providers/diagnostic_provider.dart';
 import 'shared/services/diagnostic_logger.dart';
 import 'shared/services/local_database.dart';
 import 'shared/services/notification_service.dart';
+import 'shared/services/session_backup_service.dart';
 import 'shared/services/shift_activity_service.dart';
 
 Future<void> main() async {
@@ -75,7 +76,7 @@ Future<void> main() async {
       await Supabase.initialize(
         url: EnvConfig.supabaseUrl,
         anonKey: EnvConfig.supabaseAnonKey,
-        authOptions: const FlutterAuthClientOptions(autoRefreshToken: false),
+        authOptions: const FlutterAuthClientOptions(autoRefreshToken: true),
       );
     } catch (e) {
       initError = 'Failed to initialize Supabase: $e';
@@ -89,6 +90,7 @@ Future<void> main() async {
         LocalDatabase().initialize(),
         _initializeTracking(),
         ShiftActivityService.instance.initialize(),
+        SessionBackupService.initialize(),
       ]);
       // Initialize notifications separately (non-critical — don't block app startup)
       try {
