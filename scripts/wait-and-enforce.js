@@ -6,15 +6,16 @@
  * enforces the minimum app version in Supabase when the build is live.
  *
  * Usage:
- *   node scripts/wait-and-enforce.js <version>
- *   node scripts/wait-and-enforce.js 1.0.0+80
+ *   node scripts/wait-and-enforce.js <version+build>
+ *   node scripts/wait-and-enforce.js 1.0.0+81
  *
  * Behavior:
- *   1. Runs check-play-status.js to get the alpha track status
- *   2. If update_available → immediately enforces minimum version and exits
- *   3. If in_review/not_sent_for_review → polls every 5 minutes (max 60 min)
- *   4. On success: updates app_config.minimum_app_version via Supabase REST API
- *   5. On timeout/error: exits with non-zero code
+ *   1. Extracts build number from version arg (e.g. "1.0.0+81" → build "81")
+ *   2. Runs check-play-status.js --build <number> to get THAT build's status
+ *   3. If update_available → immediately enforces minimum version and exits
+ *   4. If in_review/not_sent_for_review → polls every 5 minutes (max 60 min)
+ *   5. On success: updates app_config.minimum_app_version via Supabase REST API
+ *   6. On timeout/error: exits with non-zero code
  *
  * Exit codes:
  *   0 = enforced successfully
@@ -51,9 +52,13 @@ function getServiceRoleKey() {
   return null;
 }
 
-function checkPlayStatus() {
+function checkPlayStatus(buildNumber) {
   try {
-    const output = execFileSync("node", [CHECK_SCRIPT], {
+    const args = [CHECK_SCRIPT];
+    if (buildNumber) {
+      args.push("--build", buildNumber);
+    }
+    const output = execFileSync("node", args, {
       encoding: "utf-8",
       timeout: 120000,
       cwd: path.join(__dirname),
@@ -68,6 +73,7 @@ function checkPlayStatus() {
     return { status, raw: output };
   } catch (err) {
     if (err.status === 1) return { status: "expired", raw: err.stderr || "" };
+    if (err.status === 2) return { status: "not_found", raw: err.stderr || err.message };
     return { status: "error", raw: err.message };
   }
 }
@@ -104,9 +110,18 @@ function sleep(ms) {
 async function main() {
   const version = process.argv[2];
   if (!version) {
-    console.error("Usage: node scripts/wait-and-enforce.js <version>");
-    console.error("Example: node scripts/wait-and-enforce.js 1.0.0+80");
+    console.error("Usage: node scripts/wait-and-enforce.js <version+build>");
+    console.error("Example: node scripts/wait-and-enforce.js 1.0.0+81");
     process.exit(3);
+  }
+
+  // Extract build number from version string (e.g. "1.0.0+81" → "81")
+  const buildNumber = version.includes("+") ? version.split("+")[1] : null;
+  if (!buildNumber) {
+    console.error(
+      "WARNING: No build number found in version string. " +
+      "Expected format: 1.0.0+81. Will check any available build."
+    );
   }
 
   const serviceKey = getServiceRoleKey();
@@ -120,6 +135,9 @@ async function main() {
     `[${startTime.toLocaleTimeString()}] Waiting for Google Play alpha track to show build as available...`
   );
   console.log(`  Target version: ${version}`);
+  if (buildNumber) {
+    console.log(`  Target build: ${buildNumber}`);
+  }
   console.log(
     `  Will poll every 5 minutes for up to 60 minutes.\n`
   );
@@ -130,7 +148,7 @@ async function main() {
       `[${now.toLocaleTimeString()}] Check ${attempt}/${MAX_POLLS}...`
     );
 
-    const result = checkPlayStatus();
+    const result = checkPlayStatus(buildNumber);
     console.log(`  Status: ${result.status}`);
 
     if (result.status === "update_available") {
@@ -157,6 +175,11 @@ async function main() {
         "  ERROR: Google Play cookies expired. Run: node scripts/save-play-cookies.js"
       );
       process.exit(2);
+    }
+
+    if (result.status === "not_found") {
+      console.log(`  Build ${buildNumber} not yet visible on track. Waiting...`);
+      // Continue polling — build may not have appeared yet
     }
 
     if (result.status === "error") {

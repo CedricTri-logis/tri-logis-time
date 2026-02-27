@@ -12,10 +12,17 @@
  * authenticate without needing to log in each time.
  *
  * Usage:
- *   node scripts/check-play-status.js
+ *   node scripts/check-play-status.js [--build <number>]
+ *
+ * Options:
+ *   --build <number>  Only report status for this specific build number.
+ *                     The final PLAY_NORMALIZED_STATUS reflects this build's
+ *                     status (not any other available build on the track).
  *
  * Output (machine-readable lines):
  *   PLAY_TRACK:Closed testing - Alpha
+ *   PLAY_VERSION:<version>             e.g. "1.0.0"
+ *   PLAY_BUILD:<build number>          e.g. "81"
  *   PLAY_STATUS:<status text>          e.g. "Available to selected testers", "In review"
  *   PLAY_RELEASED_ON:<date>            e.g. "Feb 27 1:27 PM" (only if available)
  *   PLAY_NORMALIZED_STATUS:<status>    Normalized English status for scripting
@@ -91,90 +98,132 @@ async function checkStatus() {
     await manageTrack.click();
     await page.waitForTimeout(4000);
 
-    // Step 3: Extract release statuses from the track page
-    // The page shows releases in reverse chronological order.
-    // Each release has a status like:
-    //   - "Available to selected testers" (with check_circle icon)
-    //   - "In review" (with schedule icon)
-    //   - etc.
+    // Step 3: Expand all "Show summary" sections to reveal version codes (build numbers)
+    // Use JavaScript to click all matching elements (avoids scroll/visibility issues)
+    await page.evaluate(() => {
+      const allElements = document.querySelectorAll("*");
+      for (const el of allElements) {
+        if (el.textContent?.trim() === "Show summary" && el.children.length === 0) {
+          el.click();
+        }
+      }
+    });
+    await page.waitForTimeout(2000);
+
+    // Step 4: Extract release statuses from the track page
+    // After expanding summaries, the page shows for each release:
+    //   1.0.0                          (version)
+    //   ...
+    //   In review / Available to ...   (status)
+    //   ...
+    //   Version codes
+    //   81                             (build number, under expanded summary)
     const releaseInfo = await page.evaluate(() => {
       const body = document.body.innerText;
       const releases = [];
 
-      // Split page text into lines and find release blocks
+      // Split page text into lines and find release blocks.
+      // After expanding summaries, each release block looks like:
+      //   "1.0.0"                         ← version
+      //   "Manage release"
+      //   "In review. Go to ..."          ← status (or "Available to selected testers")
+      //   "1 version code"
+      //   "Hide summary" / "Show summary"
+      //   "Version codes"
+      //   "81"                            ← build number (after expanding)
+      //   "Countries / regions"
+      //   ...
       const lines = body.split("\n").map((l) => l.trim()).filter(Boolean);
 
       let currentVersion = null;
+      let currentStatus = null;
+      let currentReleasedOn = "";
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
 
         // Match version lines like "1.0.0"
         if (/^\d+\.\d+\.\d+$/.test(line)) {
+          // If we already have a pending release without a build number, push it
+          if (currentVersion && currentStatus) {
+            releases.push({
+              version: currentVersion,
+              build: null,
+              status: currentStatus,
+              releasedOn: currentReleasedOn,
+            });
+          }
           currentVersion = line;
+          currentStatus = null;
+          currentReleasedOn = "";
           continue;
         }
 
-        // Look for status indicators
-        if (currentVersion) {
-          const lower = line.toLowerCase();
+        if (!currentVersion) continue;
 
-          if (
-            lower.includes("available to") &&
-            lower.includes("tester")
-          ) {
-            // Find "Released on" date in nearby lines
-            let releasedOn = "";
-            for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
+        const lower = line.toLowerCase();
+
+        // Detect status lines
+        if (!currentStatus) {
+          if (lower.includes("available to") && lower.includes("tester")) {
+            currentStatus = line;
+            // Look for "Released on" nearby
+            for (let j = i + 1; j < Math.min(i + 8, lines.length); j++) {
               if (lines[j].toLowerCase().startsWith("released on")) {
-                releasedOn = lines[j].replace(/^released on\s*/i, "");
+                currentReleasedOn = lines[j].replace(/^released on\s*/i, "");
                 break;
               }
             }
-            releases.push({
-              version: currentVersion,
-              status: line,
-              releasedOn,
-            });
-            currentVersion = null;
           } else if (lower.includes("in review")) {
-            releases.push({
-              version: currentVersion,
-              status: "In review",
-              releasedOn: "",
-            });
-            currentVersion = null;
-          } else if (
-            lower.includes("draft") ||
-            lower.includes("brouillon")
-          ) {
-            releases.push({
-              version: currentVersion,
-              status: "Draft",
-              releasedOn: "",
-            });
-            currentVersion = null;
-          } else if (
-            lower.includes("rejected") ||
-            lower.includes("rejeté")
-          ) {
-            releases.push({
-              version: currentVersion,
-              status: "Rejected",
-              releasedOn: "",
-            });
-            currentVersion = null;
-          } else if (
-            lower.includes("halted") ||
-            lower.includes("suspended")
-          ) {
-            releases.push({
-              version: currentVersion,
-              status: line,
-              releasedOn: "",
-            });
-            currentVersion = null;
+            currentStatus = "In review";
+          } else if (lower.includes("draft") || lower.includes("brouillon")) {
+            currentStatus = "Draft";
+          } else if (lower.includes("rejected") || lower.includes("rejeté")) {
+            currentStatus = "Rejected";
+          } else if (lower.includes("halted") || lower.includes("suspended")) {
+            currentStatus = line;
           }
+          continue;
         }
+
+        // After status is set, look for "Version codes" followed by the build number
+        if (lower === "version codes") {
+          // The next line(s) should be the build number(s)
+          for (let j = i + 1; j < Math.min(i + 3, lines.length); j++) {
+            if (/^\d+$/.test(lines[j])) {
+              releases.push({
+                version: currentVersion,
+                build: lines[j],
+                status: currentStatus,
+                releasedOn: currentReleasedOn,
+              });
+              currentVersion = null;
+              currentStatus = null;
+              currentReleasedOn = "";
+              break;
+            }
+          }
+          // If we found the build, currentVersion is now null
+          if (!currentVersion) continue;
+        }
+
+        // Also check for "N version code" without expansion (fallback)
+        const versionCodeMatch = line.match(/^(\d+)\s+version\s+codes?$/i);
+        if (versionCodeMatch && currentStatus && !releases.find(
+          r => r.version === currentVersion && r.status === currentStatus
+        )) {
+          // "Show summary" wasn't expanded — no build number available
+          // Push the release without build number so we at least capture status
+        }
+      }
+
+      // Push any remaining pending release
+      if (currentVersion && currentStatus) {
+        releases.push({
+          version: currentVersion,
+          build: null,
+          status: currentStatus,
+          releasedOn: currentReleasedOn,
+        });
       }
 
       // Also extract track name from page heading
@@ -235,7 +284,22 @@ function refreshCookies() {
   }
 }
 
+// Parse --build <number> from CLI args
+function parseArgs() {
+  const args = process.argv.slice(2);
+  let targetBuild = null;
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--build" && i + 1 < args.length) {
+      targetBuild = args[i + 1];
+      break;
+    }
+  }
+  return { targetBuild };
+}
+
 async function main() {
+  const { targetBuild } = parseArgs();
+
   let result = await checkStatus();
 
   // Auto-recover: if cookies expired, refresh and retry once
@@ -276,25 +340,33 @@ async function main() {
     const r = releases[i];
     const prefix = i === 0 ? "" : `_${i + 1}`;
     console.log(`PLAY_VERSION${prefix}:${r.version}`);
+    if (r.build) console.log(`PLAY_BUILD${prefix}:${r.build}`);
     console.log(`PLAY_STATUS${prefix}:${r.status}`);
     if (r.releasedOn) console.log(`PLAY_RELEASED_ON${prefix}:${r.releasedOn}`);
     console.log(`PLAY_NORMALIZED_STATUS${prefix}:${normalizeStatus(r.status)}`);
   }
 
-  // The primary status is the MOST RECENT "available" release, or the top release
-  // For deploy workflow: check if any release is available to testers
-  const availableRelease = releases.find(
-    (r) => normalizeStatus(r.status) === "update_available"
-  );
-  const topRelease = releases[0];
-
-  // Output the primary normalized status for scripting
-  // If there's an available release, report update_available
-  // Otherwise report the top release's status
-  if (availableRelease) {
-    console.log(`PLAY_NORMALIZED_STATUS:update_available`);
+  // Determine the final PLAY_NORMALIZED_STATUS for scripting
+  if (targetBuild) {
+    // --build mode: only report the status of the specific target build
+    const targetRelease = releases.find((r) => r.build === targetBuild);
+    if (!targetRelease) {
+      console.error(`WARNING: Build ${targetBuild} not found on the alpha track.`);
+      console.log(`PLAY_NORMALIZED_STATUS:not_found`);
+      process.exit(2);
+    }
+    console.log(`PLAY_NORMALIZED_STATUS:${normalizeStatus(targetRelease.status)}`);
   } else {
-    console.log(`PLAY_NORMALIZED_STATUS:${normalizeStatus(topRelease.status)}`);
+    // Default mode: report most recent available, or top release
+    const availableRelease = releases.find(
+      (r) => normalizeStatus(r.status) === "update_available"
+    );
+    const topRelease = releases[0];
+    if (availableRelease) {
+      console.log(`PLAY_NORMALIZED_STATUS:update_available`);
+    } else {
+      console.log(`PLAY_NORMALIZED_STATUS:${normalizeStatus(topRelease.status)}`);
+    }
   }
 }
 
