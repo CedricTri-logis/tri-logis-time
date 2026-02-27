@@ -26,6 +26,8 @@ import {
   ChevronDown,
   ChevronUp,
   Play,
+  Users,
+  CarFront,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabaseClient } from '@/lib/supabase/client';
@@ -34,7 +36,8 @@ import { GoogleTripRouteMap } from '@/components/trips/google-trip-route-map';
 import { detectTripStops, detectGpsClusters } from '@/lib/utils/detect-trip-stops';
 import { LocationPickerDropdown } from '@/components/trips/location-picker-dropdown';
 import { StationaryClustersTab } from '@/components/mileage/stationary-clusters-tab';
-import type { Trip, TripGpsPoint } from '@/types/mileage';
+import { VehiclePeriodsTab } from '@/components/mileage/vehicle-periods-tab';
+import type { Trip, TripGpsPoint, CarpoolMember, EmployeeVehiclePeriod } from '@/types/mileage';
 
 interface BatchResult {
   trip_id: string;
@@ -66,6 +69,17 @@ type SortField = 'started_at' | 'distance_km' | 'road_distance_km' | 'match_stat
 type SortOrder = 'asc' | 'desc';
 type StatusFilter = 'all' | 'matched' | 'pending' | 'failed' | 'anomalous';
 type ModeFilter = 'all' | 'driving' | 'walking';
+type CarpoolFilter = 'all' | 'carpool' | 'solo';
+
+interface CarpoolInfo {
+  role: 'driver' | 'passenger' | 'unassigned';
+  groupId: string;
+  driverName: string | null;
+}
+
+interface VehicleInfo {
+  vehicleType: 'personal' | 'company';
+}
 
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr);
@@ -110,6 +124,11 @@ export default function MileagePage() {
   const [expandedTrip, setExpandedTrip] = useState<string | null>(null);
   const [isRematching, setIsRematching] = useState(false);
   const [modeFilter, setModeFilter] = useState<ModeFilter>('all');
+  const [carpoolFilter, setCarpoolFilter] = useState<CarpoolFilter>('all');
+
+  // Carpool and vehicle data
+  const [carpoolByTripId, setCarpoolByTripId] = useState<Record<string, CarpoolInfo>>({});
+  const [vehiclePeriods, setVehiclePeriods] = useState<EmployeeVehiclePeriod[]>([]);
 
   // Fetch trips — uses two separate queries to avoid PostgREST recursive RLS
   // on employee_profiles (self-referencing subquery in SELECT policy)
@@ -193,6 +212,110 @@ export default function MileagePage() {
     fetchTrips();
   }, [fetchTrips]);
 
+  // Fetch carpool members after trips load
+  useEffect(() => {
+    if (trips.length === 0) {
+      setCarpoolByTripId({});
+      return;
+    }
+    const tripIds = trips.map((t) => t.id);
+    (async () => {
+      try {
+        // Fetch carpool members for all loaded trip IDs
+        const { data: members } = await supabaseClient
+          .from('carpool_members')
+          .select('id, carpool_group_id, trip_id, employee_id, role')
+          .in('trip_id', tripIds);
+
+        if (!members || members.length === 0) {
+          setCarpoolByTripId({});
+          return;
+        }
+
+        // Gather unique group IDs to find driver names
+        const groupIds = [...new Set(members.map((m) => m.carpool_group_id))];
+        // For each group, find the driver member
+        const driverByGroup: Record<string, string | null> = {};
+        for (const m of members) {
+          if (m.role === 'driver') {
+            // Look up employee name from trips data (already loaded)
+            const driverTrip = trips.find((t) => t.employee_id === m.employee_id);
+            driverByGroup[m.carpool_group_id] =
+              (driverTrip?.employee as any)?.full_name ||
+              (driverTrip?.employee as any)?.email ||
+              null;
+          }
+        }
+
+        // If we didn't find driver names from trips, fetch from employee_profiles
+        const missingGroups = groupIds.filter((g) => !(g in driverByGroup));
+        if (missingGroups.length > 0) {
+          const driverMembers = members.filter(
+            (m) => m.role === 'driver' && missingGroups.includes(m.carpool_group_id)
+          );
+          if (driverMembers.length > 0) {
+            const driverEmpIds = driverMembers.map((m) => m.employee_id);
+            const { data: driverProfiles } = await supabaseClient
+              .from('employee_profiles')
+              .select('id, full_name')
+              .in('id', driverEmpIds);
+            if (driverProfiles) {
+              for (const dm of driverMembers) {
+                const prof = driverProfiles.find((p) => p.id === dm.employee_id);
+                driverByGroup[dm.carpool_group_id] = prof?.full_name || null;
+              }
+            }
+          }
+        }
+
+        const map: Record<string, CarpoolInfo> = {};
+        for (const m of members) {
+          map[m.trip_id] = {
+            role: m.role as CarpoolInfo['role'],
+            groupId: m.carpool_group_id,
+            driverName: driverByGroup[m.carpool_group_id] || null,
+          };
+        }
+        setCarpoolByTripId(map);
+      } catch {
+        setCarpoolByTripId({});
+      }
+    })();
+  }, [trips]);
+
+  // Fetch vehicle periods once
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await supabaseClient
+          .from('employee_vehicle_periods')
+          .select('*')
+          .order('started_at', { ascending: false });
+        setVehiclePeriods(data ?? []);
+      } catch {
+        setVehiclePeriods([]);
+      }
+    })();
+  }, []);
+
+  // Lookup: get vehicle type for employee on a given date
+  const getVehicleForTrip = useCallback(
+    (employeeId: string, tripDate: string): VehicleInfo | null => {
+      const date = tripDate.slice(0, 10); // YYYY-MM-DD
+      for (const period of vehiclePeriods) {
+        if (
+          period.employee_id === employeeId &&
+          period.started_at <= date &&
+          (period.ended_at === null || period.ended_at >= date)
+        ) {
+          return { vehicleType: period.vehicle_type };
+        }
+      }
+      return null;
+    },
+    [vehiclePeriods]
+  );
+
   const handleRematchLocations = async () => {
     setIsRematching(true);
     try {
@@ -219,8 +342,10 @@ export default function MileagePage() {
     const anomalous = trips.filter((t) => t.match_status === 'anomalous').length;
     const driving = trips.filter((t) => t.transport_mode === 'driving').length;
     const walking = trips.filter((t) => t.transport_mode === 'walking').length;
-    return { total, matched, pending, failed, anomalous, driving, walking };
-  }, [trips]);
+    const carpool = trips.filter((t) => t.id in carpoolByTripId).length;
+    const solo = total - carpool;
+    return { total, matched, pending, failed, anomalous, driving, walking, carpool, solo };
+  }, [trips, carpoolByTripId]);
 
   // Filter and sort
   const filteredTrips = useMemo(() => {
@@ -234,6 +359,13 @@ export default function MileagePage() {
     }
     if (modeFilter !== 'all') {
       filtered = filtered.filter((t) => t.transport_mode === modeFilter);
+    }
+    if (carpoolFilter !== 'all') {
+      if (carpoolFilter === 'carpool') {
+        filtered = filtered.filter((t) => t.id in carpoolByTripId);
+      } else {
+        filtered = filtered.filter((t) => !(t.id in carpoolByTripId));
+      }
     }
 
     return [...filtered].sort((a, b) => {
@@ -256,7 +388,7 @@ export default function MileagePage() {
       }
       return sortOrder === 'asc' ? cmp : -cmp;
     });
-  }, [trips, statusFilter, modeFilter, sortField, sortOrder]);
+  }, [trips, statusFilter, modeFilter, carpoolFilter, carpoolByTripId, sortField, sortOrder]);
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) {
@@ -391,6 +523,7 @@ export default function MileagePage() {
         <TabsList>
           <TabsTrigger value="trips">Trajets</TabsTrigger>
           <TabsTrigger value="clusters">Arrêts</TabsTrigger>
+          <TabsTrigger value="vehicles">Véhicules</TabsTrigger>
         </TabsList>
 
         <TabsContent value="trips" className="space-y-6 mt-4">
@@ -490,6 +623,43 @@ export default function MileagePage() {
         </Card>
       </div>
 
+      {/* Carpool Filter */}
+      <div className="grid grid-cols-3 gap-4">
+        <Card
+          className={`cursor-pointer hover:ring-2 hover:ring-primary/20 ${carpoolFilter === 'all' ? 'ring-2 ring-primary' : ''}`}
+          onClick={() => setCarpoolFilter('all')}
+        >
+          <CardContent className="pt-4 pb-3 text-center">
+            <p className="text-2xl font-bold">{stats.total}</p>
+            <p className="text-xs text-muted-foreground">Tous</p>
+          </CardContent>
+        </Card>
+        <Card
+          className={`cursor-pointer hover:ring-2 hover:ring-green-500/20 ${carpoolFilter === 'carpool' ? 'ring-2 ring-green-500' : ''}`}
+          onClick={() => setCarpoolFilter('carpool')}
+        >
+          <CardContent className="pt-4 pb-3 text-center">
+            <div className="flex items-center justify-center gap-1.5 mb-0.5">
+              <Users className="h-4 w-4 text-green-600" />
+              <p className="text-2xl font-bold text-green-600">{stats.carpool}</p>
+            </div>
+            <p className="text-xs text-muted-foreground">Covoiturage</p>
+          </CardContent>
+        </Card>
+        <Card
+          className={`cursor-pointer hover:ring-2 hover:ring-slate-500/20 ${carpoolFilter === 'solo' ? 'ring-2 ring-slate-500' : ''}`}
+          onClick={() => setCarpoolFilter('solo')}
+        >
+          <CardContent className="pt-4 pb-3 text-center">
+            <div className="flex items-center justify-center gap-1.5 mb-0.5">
+              <Car className="h-4 w-4 text-slate-600" />
+              <p className="text-2xl font-bold text-slate-600">{stats.solo}</p>
+            </div>
+            <p className="text-xs text-muted-foreground">Solo</p>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Match Status Stats */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
         <Card className="cursor-pointer hover:ring-2 hover:ring-primary/20" onClick={() => setStatusFilter('all')}>
@@ -547,6 +717,17 @@ export default function MileagePage() {
                   {modeFilter === 'driving' ? 'Auto' : 'À pied'} ({filteredTrips.length})
                   <button
                     onClick={() => setModeFilter('all')}
+                    className="ml-1 hover:text-destructive"
+                  >
+                    &times;
+                  </button>
+                </Badge>
+              )}
+              {carpoolFilter !== 'all' && (
+                <Badge variant="secondary" className="ml-2 text-xs">
+                  {carpoolFilter === 'carpool' ? 'Covoiturage' : 'Solo'} ({filteredTrips.length})
+                  <button
+                    onClick={() => setCarpoolFilter('all')}
                     className="ml-1 hover:text-destructive"
                   >
                     &times;
@@ -627,6 +808,12 @@ export default function MileagePage() {
                     >
                       Statut {sortIndicator('match_status')}
                     </th>
+                    <th className="px-4 py-3 text-center font-medium text-muted-foreground">
+                      Covoiturage
+                    </th>
+                    <th className="px-4 py-3 text-center font-medium text-muted-foreground">
+                      Véhicule
+                    </th>
                     <th className="px-4 py-3 text-right font-medium text-muted-foreground">
                       Confiance
                     </th>
@@ -642,6 +829,8 @@ export default function MileagePage() {
                         setExpandedTrip(expandedTrip === trip.id ? null : trip.id)
                       }
                       onLocationChanged={fetchTrips}
+                      carpoolInfo={carpoolByTripId[trip.id] ?? null}
+                      vehicleInfo={getVehicleForTrip(trip.employee_id, trip.started_at)}
                     />
                   ))}
                 </tbody>
@@ -754,6 +943,10 @@ export default function MileagePage() {
         <TabsContent value="clusters" className="mt-4">
           <StationaryClustersTab />
         </TabsContent>
+
+        <TabsContent value="vehicles" className="mt-4">
+          <VehiclePeriodsTab />
+        </TabsContent>
       </Tabs>
     </div>
   );
@@ -764,11 +957,15 @@ function TripRow({
   isExpanded,
   onToggle,
   onLocationChanged,
+  carpoolInfo,
+  vehicleInfo,
 }: {
   trip: Trip;
   isExpanded: boolean;
   onToggle: () => void;
   onLocationChanged: () => void;
+  carpoolInfo: CarpoolInfo | null;
+  vehicleInfo: VehicleInfo | null;
 }) {
   const [gpsPoints, setGpsPoints] = useState<TripGpsPoint[]>([]);
   const [isLoadingPoints, setIsLoadingPoints] = useState(false);
@@ -880,6 +1077,40 @@ function TripRow({
         <td className="px-4 py-3 text-center">
           <MatchStatusBadge match_status={trip.match_status} />
         </td>
+        <td className="px-4 py-3 text-center">
+          {carpoolInfo ? (
+            carpoolInfo.role === 'driver' ? (
+              <Badge className="bg-green-100 text-green-700 hover:bg-green-100 text-xs">
+                Conducteur
+              </Badge>
+            ) : carpoolInfo.role === 'passenger' ? (
+              <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 text-xs">
+                Passager
+              </Badge>
+            ) : (
+              <Badge className="bg-gray-100 text-gray-600 hover:bg-gray-100 text-xs">
+                Non assigné
+              </Badge>
+            )
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          )}
+        </td>
+        <td className="px-4 py-3 text-center">
+          {vehicleInfo ? (
+            vehicleInfo.vehicleType === 'company' ? (
+              <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 text-xs">
+                Entreprise
+              </Badge>
+            ) : (
+              <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-xs">
+                Personnel
+              </Badge>
+            )
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          )}
+        </td>
         <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
           {formatConfidence(trip.match_confidence)}
         </td>
@@ -888,7 +1119,7 @@ function TripRow({
       {/* Expanded detail row */}
       {isExpanded && (
         <tr className="bg-muted/30">
-          <td colSpan={8} className="px-6 py-4">
+          <td colSpan={10} className="px-6 py-4">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2">
                 <GoogleTripRouteMap
