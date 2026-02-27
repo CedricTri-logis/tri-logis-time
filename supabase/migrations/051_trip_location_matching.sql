@@ -803,8 +803,8 @@ BEGIN
     aggregated AS (
         SELECT
             c.cid,
-            AVG(c.lat) AS centroid_lat,
-            AVG(c.lng) AS centroid_lng,
+            AVG(c.lat)::DOUBLE PRECISION AS centroid_lat,
+            AVG(c.lng)::DOUBLE PRECISION AS centroid_lng,
             COUNT(*) AS cnt,
             BOOL_OR(c.endpoint_type = 'start') AS has_starts,
             BOOL_OR(c.endpoint_type = 'end') AS has_ends,
