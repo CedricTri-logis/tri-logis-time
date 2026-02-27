@@ -55,7 +55,6 @@ export function StationaryClustersMap({
   onClusterSelect,
 }: StationaryClustersMapProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
-  const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || '';
 
   const [infoClusterId, setInfoClusterId] = useState<string | null>(null);
   const infoCluster = clusters.find((c) => c.id === infoClusterId) || null;
@@ -84,7 +83,7 @@ export function StationaryClustersMap({
         <Map
           defaultCenter={DEFAULT_CENTER}
           defaultZoom={DEFAULT_ZOOM}
-          mapId={mapId}
+          mapId="stationary_clusters_map"
           disableDefaultUI
           zoomControl
         >
