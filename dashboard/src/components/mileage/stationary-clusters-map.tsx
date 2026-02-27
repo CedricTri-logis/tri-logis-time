@@ -6,8 +6,9 @@ import {
   Map,
   useMap,
   AdvancedMarker,
-  InfoWindow,
 } from '@vis.gl/react-google-maps';
+import { X } from 'lucide-react';
+import { supabaseClient } from '@/lib/supabase/client';
 
 export interface StationaryCluster {
   id: string;
@@ -24,6 +25,13 @@ export interface StationaryCluster {
   matched_location_id: string | null;
   matched_location_name: string | null;
   created_at: string;
+}
+
+interface GpsPoint {
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+  received_at: string;
 }
 
 interface StationaryClustersMapProps {
@@ -59,12 +67,49 @@ export function StationaryClustersMap({
   const [infoClusterId, setInfoClusterId] = useState<string | null>(null);
   const infoCluster = clusters.find((c) => c.id === infoClusterId) || null;
 
-  // Sync external selection with InfoWindow
+  const [gpsPoints, setGpsPoints] = useState<GpsPoint[]>([]);
+  const [loadingGps, setLoadingGps] = useState(false);
+
+  // Sync external selection with detail card
   useEffect(() => {
     if (selectedClusterId) {
       setInfoClusterId(selectedClusterId);
     }
   }, [selectedClusterId]);
+
+  // Fetch GPS points when a cluster is selected
+  useEffect(() => {
+    if (!infoClusterId) {
+      setGpsPoints([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingGps(true);
+    (async () => {
+      try {
+        const { data, error } = await supabaseClient.rpc('get_cluster_gps_points', {
+          p_cluster_id: infoClusterId,
+        });
+        if (cancelled) return;
+        if (error) {
+          console.error('[cluster-gps-points] RPC error:', error);
+          setGpsPoints([]);
+        } else {
+          setGpsPoints((data as GpsPoint[]) || []);
+        }
+      } catch (err) {
+        if (!cancelled) setGpsPoints([]);
+      } finally {
+        if (!cancelled) setLoadingGps(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [infoClusterId]);
+
+  const handleClose = () => {
+    setInfoClusterId(null);
+    onClusterSelect?.(null);
+  };
 
   if (clusters.length === 0) {
     return (
@@ -78,7 +123,7 @@ export function StationaryClustersMap({
   }
 
   return (
-    <div className="rounded-xl overflow-hidden border border-slate-200 shadow-sm" style={{ height }}>
+    <div className="relative rounded-xl overflow-hidden border border-slate-200 shadow-sm" style={{ height }}>
       <APIProvider apiKey={apiKey}>
         <Map
           defaultCenter={DEFAULT_CENTER}
@@ -116,64 +161,171 @@ export function StationaryClustersMap({
             );
           })}
 
-          {infoCluster && (
-            <InfoWindow
-              position={{
-                lat: infoCluster.centroid_latitude,
-                lng: infoCluster.centroid_longitude,
-              }}
-              onCloseClick={() => {
-                setInfoClusterId(null);
-                onClusterSelect?.(null);
-              }}
-              pixelOffset={[0, -10]}
+          {/* GPS footprint: blue dots */}
+          {infoClusterId && gpsPoints.map((pt, i) => (
+            <AdvancedMarker
+              key={`gps-${i}`}
+              position={{ lat: pt.latitude, lng: pt.longitude }}
+              zIndex={500}
             >
-              <div className="p-1 min-w-[180px] max-w-[260px]">
-                <h4 className="font-bold text-slate-900 text-sm mb-0.5">
-                  {infoCluster.employee_name}
-                </h4>
-                <p className="text-xs mb-1" style={{ color: infoCluster.matched_location_id ? '#16a34a' : '#d97706' }}>
-                  {infoCluster.matched_location_name || 'Non associ\u00e9'}
-                </p>
-                <p className="text-[11px] text-slate-600 mb-0.5">
-                  Dur\u00e9e: <strong>{formatDuration(infoCluster.duration_seconds)}</strong>
-                </p>
-                <p className="text-[11px] text-slate-600 mb-0.5">
-                  Points GPS: <strong>{infoCluster.gps_point_count}</strong>
-                </p>
-                <p className="text-[10px] text-slate-400">
-                  {formatDateTime(infoCluster.started_at)} &mdash; {formatDateTime(infoCluster.ended_at)}
-                </p>
-              </div>
-            </InfoWindow>
+              <div
+                className="rounded-full"
+                style={{
+                  width: 6,
+                  height: 6,
+                  backgroundColor: '#3b82f6',
+                  opacity: 0.6,
+                  border: '1px solid white',
+                }}
+              />
+            </AdvancedMarker>
+          ))}
+
+          {/* Red accuracy circle + centroid dot */}
+          {infoCluster && (
+            <>
+              <AccuracyCircle
+                center={{ lat: infoCluster.centroid_latitude, lng: infoCluster.centroid_longitude }}
+                radius={infoCluster.centroid_accuracy ?? 0}
+              />
+              <AdvancedMarker
+                position={{
+                  lat: infoCluster.centroid_latitude,
+                  lng: infoCluster.centroid_longitude,
+                }}
+                zIndex={1000}
+              >
+                <div
+                  className="rounded-full shadow-md"
+                  style={{
+                    width: 10,
+                    height: 10,
+                    backgroundColor: '#ef4444',
+                    border: '2px solid white',
+                  }}
+                />
+              </AdvancedMarker>
+            </>
           )}
 
-          <FitBoundsHelper clusters={clusters} />
+          <FitBoundsHelper
+            clusters={clusters}
+            selectedClusterId={infoClusterId}
+            gpsPoints={gpsPoints}
+            selectedCluster={infoCluster}
+          />
         </Map>
       </APIProvider>
+
+      {/* Floating detail card (bottom-left) */}
+      {infoCluster && (
+        <div className="absolute bottom-3 left-3 z-[10] bg-white rounded-lg shadow-lg border border-slate-200 p-3 min-w-[200px] max-w-[280px]">
+          <button
+            onClick={handleClose}
+            className="absolute top-1.5 right-1.5 p-0.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+          <h4 className="font-bold text-slate-900 text-sm mb-0.5 pr-5">
+            {infoCluster.employee_name}
+          </h4>
+          <p className="text-xs mb-1" style={{ color: infoCluster.matched_location_id ? '#16a34a' : '#d97706' }}>
+            {infoCluster.matched_location_name || 'Non associ\u00e9'}
+          </p>
+          <p className="text-[11px] text-slate-600 mb-0.5">
+            Dur&eacute;e: <strong>{formatDuration(infoCluster.duration_seconds)}</strong>
+          </p>
+          <p className="text-[11px] text-slate-600 mb-0.5">
+            Points GPS: <strong>{infoCluster.gps_point_count}</strong>
+          </p>
+          <p className="text-[10px] text-slate-400">
+            {formatDateTime(infoCluster.started_at)} &mdash; {formatDateTime(infoCluster.ended_at)}
+          </p>
+          {loadingGps && (
+            <p className="text-[10px] text-blue-400 mt-1">Chargement GPS...</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
-function FitBoundsHelper({ clusters }: { clusters: StationaryCluster[] }) {
+function AccuracyCircle({ center, radius }: { center: google.maps.LatLngLiteral; radius: number }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!map || radius <= 0) return;
+    const circle = new google.maps.Circle({
+      map, center, radius,
+      fillColor: '#ef4444',
+      fillOpacity: 0.12,
+      strokeColor: '#ef4444',
+      strokeOpacity: 0.5,
+      strokeWeight: 1.5,
+      clickable: false,
+    });
+    return () => circle.setMap(null);
+  }, [map, center.lat, center.lng, radius]);
+  return null;
+}
+
+function FitBoundsHelper({
+  clusters,
+  selectedClusterId,
+  gpsPoints,
+  selectedCluster,
+}: {
+  clusters: StationaryCluster[];
+  selectedClusterId: string | null;
+  gpsPoints: GpsPoint[];
+  selectedCluster: StationaryCluster | null;
+}) {
   const map = useMap();
 
+  // Fit all clusters on initial load
   useEffect(() => {
-    if (!map || clusters.length === 0) return;
+    if (!map || clusters.length === 0 || selectedClusterId) return;
 
     const bounds = new google.maps.LatLngBounds();
     for (const c of clusters) {
       bounds.extend({ lat: c.centroid_latitude, lng: c.centroid_longitude });
     }
 
-    // Only fit if we have multiple points spread across the map
     if (clusters.length === 1) {
       map.setCenter({ lat: clusters[0].centroid_latitude, lng: clusters[0].centroid_longitude });
       map.setZoom(15);
     } else {
       map.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
     }
-  }, [map, clusters]);
+  }, [map, clusters, selectedClusterId]);
+
+  // Pan to selected cluster
+  useEffect(() => {
+    if (!map || !selectedClusterId || !selectedCluster) return;
+    map.panTo({ lat: selectedCluster.centroid_latitude, lng: selectedCluster.centroid_longitude });
+    const currentZoom = map.getZoom();
+    if (currentZoom != null && currentZoom < 16) {
+      map.setZoom(17);
+    }
+  }, [map, selectedClusterId, selectedCluster]);
+
+  // Fit GPS points when they load
+  useEffect(() => {
+    if (!map || !selectedCluster || gpsPoints.length === 0) return;
+
+    const bounds = new google.maps.LatLngBounds();
+    bounds.extend({ lat: selectedCluster.centroid_latitude, lng: selectedCluster.centroid_longitude });
+    for (const pt of gpsPoints) {
+      bounds.extend({ lat: pt.latitude, lng: pt.longitude });
+    }
+    map.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 60 });
+
+    // Cap max zoom at 19
+    const listener = google.maps.event.addListenerOnce(map, 'idle', () => {
+      const z = map.getZoom();
+      if (z != null && z > 19) map.setZoom(19);
+    });
+    return () => google.maps.event.removeListener(listener);
+  }, [map, gpsPoints, selectedCluster]);
 
   return null;
 }
