@@ -40,6 +40,8 @@ interface ClusterOccurrence {
   longitude: number;
   seen_at: string;
   address: string | null;
+  gps_accuracy: number | null;
+  stop_duration_minutes: number | null;
 }
 
 interface SuggestedLocationsMapProps {
@@ -272,9 +274,23 @@ export function SuggestedLocationsMap({
                         hour: '2-digit',
                         minute: '2-digit',
                       })}
+                      {currentOccurrence.stop_duration_minutes != null && (
+                        <span className="text-slate-400">
+                          {' · '}
+                          {currentOccurrence.stop_duration_minutes >= 60
+                            ? `${Math.floor(currentOccurrence.stop_duration_minutes / 60)}h${Math.round(currentOccurrence.stop_duration_minutes % 60).toString().padStart(2, '0')}`
+                            : `${Math.round(currentOccurrence.stop_duration_minutes)} min`}
+                          {' sur place'}
+                        </span>
+                      )}
                     </p>
                     <p className="text-[9px] text-slate-400 font-mono">
                       ({currentOccurrence.latitude.toFixed(5)}, {currentOccurrence.longitude.toFixed(5)})
+                      {currentOccurrence.gps_accuracy != null && (
+                        <span className="text-slate-300">
+                          {' '}± {Math.round(currentOccurrence.gps_accuracy)}m
+                        </span>
+                      )}
                     </p>
                     {occurrences.length > 1 && (
                       <div className="flex items-center justify-center gap-2 mt-1.5">
