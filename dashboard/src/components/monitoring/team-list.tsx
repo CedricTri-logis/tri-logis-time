@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ChevronRight, Clock, LogIn, MapPin, MonitorSmartphone, Smartphone, User } from 'lucide-react';
+import { ChevronRight, Clock, LogIn, MapPin, MonitorSmartphone, PaintBucket, Smartphone, User, Wrench } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -107,6 +107,14 @@ function TeamListItem({ employee }: TeamListItemProps) {
                 />
               )}
             </div>
+            {/* Active session info (cleaning or maintenance) */}
+            {isOnShift && employee.activeSessionLocation && (
+              <SessionBadge
+                sessionType={employee.activeSessionType}
+                location={employee.activeSessionLocation}
+                startedAt={employee.activeSessionStartedAt}
+              />
+            )}
             {/* Device & last shift info */}
             <div className="flex items-center gap-3 text-xs text-slate-400 mt-0.5">
               {employee.lastSignInAt && (
@@ -148,6 +156,31 @@ function TeamListItem({ employee }: TeamListItemProps) {
         </div>
       </Link>
     </li>
+  );
+}
+
+interface SessionBadgeProps {
+  sessionType: 'cleaning' | 'maintenance' | null;
+  location: string;
+  startedAt: Date | null;
+}
+
+function SessionBadge({ sessionType, location, startedAt }: SessionBadgeProps) {
+  const isCleaning = sessionType === 'cleaning';
+  const Icon = isCleaning ? PaintBucket : Wrench;
+
+  return (
+    <div className="flex items-center gap-1.5 text-xs text-blue-600 mt-0.5">
+      <Icon className="h-3 w-3 flex-shrink-0" />
+      <span className="truncate">{location}</span>
+      {startedAt && (
+        <DurationCounter
+          startTime={startedAt}
+          format="hm"
+          className="text-blue-400 ml-1 flex-shrink-0"
+        />
+      )}
+    </div>
   );
 }
 

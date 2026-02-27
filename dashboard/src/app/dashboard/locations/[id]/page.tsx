@@ -22,6 +22,7 @@ import { LocationForm } from '@/components/locations/location-form';
 import { useLocation, useLocationMutations } from '@/lib/hooks/use-locations';
 import { LOCATION_TYPE_COLORS } from '@/lib/utils/segment-colors';
 import type { LocationFormInput } from '@/lib/validations/location';
+import { supabaseClient } from '@/lib/supabase/client';
 import { format } from 'date-fns';
 
 // Add AlertDialog components if not already present
@@ -40,6 +41,12 @@ export default function LocationDetailPage({ params }: LocationDetailPageProps) 
   const handleUpdate = useCallback(
     async (data: LocationFormInput) => {
       try {
+        const positionOrRadiusChanged =
+          location &&
+          (data.latitude !== location.latitude ||
+            data.longitude !== location.longitude ||
+            data.radius_meters !== location.radiusMeters);
+
         await updateLocation(id, {
           name: data.name,
           locationType: data.location_type,
@@ -52,11 +59,32 @@ export default function LocationDetailPage({ params }: LocationDetailPageProps) 
         });
         toast.success('Emplacement mis à jour avec succès');
         refetch();
+
+        // Rematch trips if position or radius changed
+        if (positionOrRadiusChanged) {
+          try {
+            const { data: result } = await supabaseClient.rpc(
+              'rematch_trips_for_updated_location',
+              { p_location_id: id }
+            );
+            const row = result?.[0];
+            const matched = (row?.newly_matched_start ?? 0) + (row?.newly_matched_end ?? 0);
+            const unmatched = (row?.unmatched_start ?? 0) + (row?.unmatched_end ?? 0);
+            if (matched > 0 || unmatched > 0) {
+              const parts: string[] = [];
+              if (matched > 0) parts.push(`${matched} trajet(s) associé(s)`);
+              if (unmatched > 0) parts.push(`${unmatched} trajet(s) dissocié(s)`);
+              toast.info(parts.join(', '));
+            }
+          } catch {
+            // Non-blocking
+          }
+        }
       } catch (error) {
         toast.error('Échec de la mise à jour de l\'emplacement');
       }
     },
-    [id, updateLocation, refetch]
+    [id, location, updateLocation, refetch]
   );
 
   const handleDelete = useCallback(async () => {

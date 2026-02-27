@@ -16,6 +16,9 @@ class TeamEmployeeStatus {
   final Duration weeklyHours;
   final int weeklyShiftCount;
   final DateTime? latestGpsCapturedAt;
+  final String? activeSessionType;
+  final String? activeSessionLocation;
+  final DateTime? activeSessionStartedAt;
 
   const TeamEmployeeStatus({
     required this.employeeId,
@@ -28,6 +31,9 @@ class TeamEmployeeStatus {
     this.weeklyHours = Duration.zero,
     this.weeklyShiftCount = 0,
     this.latestGpsCapturedAt,
+    this.activeSessionType,
+    this.activeSessionLocation,
+    this.activeSessionStartedAt,
   });
 
   /// Current shift duration if active.
@@ -84,6 +90,11 @@ class TeamEmployeeStatus {
       latestGpsCapturedAt: json['latest_gps_captured_at'] != null
           ? DateTime.parse(json['latest_gps_captured_at'] as String)
           : null,
+      activeSessionType: json['active_session_type'] as String?,
+      activeSessionLocation: json['active_session_location'] as String?,
+      activeSessionStartedAt: json['active_session_started_at'] != null
+          ? DateTime.parse(json['active_session_started_at'] as String)
+          : null,
     );
   }
 
@@ -98,6 +109,10 @@ class TeamEmployeeStatus {
         'weekly_hours_seconds': weeklyHours.inSeconds,
         'weekly_shift_count': weeklyShiftCount,
         'latest_gps_captured_at': latestGpsCapturedAt?.toIso8601String(),
+        'active_session_type': activeSessionType,
+        'active_session_location': activeSessionLocation,
+        'active_session_started_at':
+            activeSessionStartedAt?.toIso8601String(),
       };
 
   TeamEmployeeStatus copyWith({
@@ -111,8 +126,12 @@ class TeamEmployeeStatus {
     Duration? weeklyHours,
     int? weeklyShiftCount,
     DateTime? latestGpsCapturedAt,
+    String? activeSessionType,
+    String? activeSessionLocation,
+    DateTime? activeSessionStartedAt,
     bool clearCurrentShift = false,
     bool clearLatestGps = false,
+    bool clearActiveSession = false,
   }) {
     return TeamEmployeeStatus(
       employeeId: employeeId ?? this.employeeId,
@@ -129,6 +148,15 @@ class TeamEmployeeStatus {
       latestGpsCapturedAt: clearLatestGps
           ? null
           : (latestGpsCapturedAt ?? this.latestGpsCapturedAt),
+      activeSessionType: clearActiveSession
+          ? null
+          : (activeSessionType ?? this.activeSessionType),
+      activeSessionLocation: clearActiveSession
+          ? null
+          : (activeSessionLocation ?? this.activeSessionLocation),
+      activeSessionStartedAt: clearActiveSession
+          ? null
+          : (activeSessionStartedAt ?? this.activeSessionStartedAt),
     );
   }
 
@@ -145,11 +173,14 @@ class TeamEmployeeStatus {
         other.todayHours == todayHours &&
         other.weeklyHours == weeklyHours &&
         other.weeklyShiftCount == weeklyShiftCount &&
-        other.latestGpsCapturedAt == latestGpsCapturedAt;
+        other.latestGpsCapturedAt == latestGpsCapturedAt &&
+        other.activeSessionType == activeSessionType &&
+        other.activeSessionLocation == activeSessionLocation &&
+        other.activeSessionStartedAt == activeSessionStartedAt;
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
         employeeId,
         displayName,
         email,
@@ -160,7 +191,10 @@ class TeamEmployeeStatus {
         weeklyHours,
         weeklyShiftCount,
         latestGpsCapturedAt,
-      );
+        activeSessionType,
+        activeSessionLocation,
+        activeSessionStartedAt,
+      ]);
 
   @override
   String toString() =>

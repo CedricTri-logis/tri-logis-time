@@ -22,6 +22,8 @@ class ShiftActivityService {
   String? _currentActivityId;
   DateTime? _activityStartedAt;
   int? _clockedInAtMs;
+  String? _currentSessionType;
+  String? _currentSessionLocation;
 
   /// Initialize the service. No-op on Android.
   Future<void> initialize() async {
@@ -81,11 +83,46 @@ class ShiftActivityService {
         'activityId': _currentActivityId!,
         'clockedInAtMs': _clockedInAtMs!,
         'status': status,
+        if (_currentSessionType != null) 'sessionType': _currentSessionType,
+        if (_currentSessionLocation != null)
+          'sessionLocation': _currentSessionLocation,
       });
     } catch (e) {
       _logger?.shift(
         Severity.warn,
         'Failed to update Live Activity',
+        metadata: {'error': e.toString()},
+      );
+    }
+  }
+
+  /// Update session info on the Live Activity. No-op on Android.
+  /// Pass null values to clear session info.
+  Future<void> updateSessionInfo({
+    String? sessionType,
+    String? sessionLocation,
+  }) async {
+    _currentSessionType = sessionType;
+    _currentSessionLocation = sessionLocation;
+
+    if (!Platform.isIOS || _currentActivityId == null || _clockedInAtMs == null) return;
+
+    try {
+      await _channel.invokeMethod<void>('updateActivity', {
+        'activityId': _currentActivityId!,
+        'clockedInAtMs': _clockedInAtMs!,
+        'status': 'active',
+        if (sessionType != null) 'sessionType': sessionType,
+        if (sessionLocation != null) 'sessionLocation': sessionLocation,
+      });
+      _logger?.shift(Severity.info, 'Live Activity session info updated', metadata: {
+        'session_type': sessionType,
+        'session_location': sessionLocation,
+      });
+    } catch (e) {
+      _logger?.shift(
+        Severity.warn,
+        'Failed to update Live Activity session info',
         metadata: {'error': e.toString()},
       );
     }
@@ -100,6 +137,8 @@ class ShiftActivityService {
       _currentActivityId = null;
       _activityStartedAt = null;
       _clockedInAtMs = null;
+      _currentSessionType = null;
+      _currentSessionLocation = null;
     } catch (e) {
       _logger?.shift(
         Severity.warn,

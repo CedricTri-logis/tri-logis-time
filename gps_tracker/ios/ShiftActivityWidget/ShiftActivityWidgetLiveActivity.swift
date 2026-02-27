@@ -15,6 +15,7 @@ struct ShiftActivityWidgetLiveActivity: Widget {
         ActivityConfiguration(for: ShiftActivityAttributes.self) { context in
             // Lock Screen banner
             lockScreenView(context: context)
+                .widgetURL(URL(string: "ca.trilogis.gpstracker://home"))
                 .activityBackgroundTint(Color.black.opacity(0.75))
                 .activitySystemActionForegroundColor(Color.white)
         } dynamicIsland: { context in
@@ -38,9 +39,28 @@ struct ShiftActivityWidgetLiveActivity: Widget {
                         .foregroundColor(.white)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    Text("Quart actif")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    if let sessionLocation = context.state.sessionLocation {
+                        HStack(spacing: 6) {
+                            Image(systemName: sessionIcon(for: context.state.sessionType))
+                                .font(.caption)
+                                .foregroundColor(.blue)
+                            Text(sessionLocation)
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.9))
+                                .lineLimit(1)
+                            Spacer()
+                            Link(destination: URL(string: "ca.trilogis.gpstracker://home")!) {
+                                Text("Voir")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.blue)
+                            }
+                        }
+                    } else {
+                        Text("Quart actif")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
             } compactLeading: {
                 Image(systemName: "clock.fill")
@@ -64,39 +84,60 @@ struct ShiftActivityWidgetLiveActivity: Widget {
     private func lockScreenView(context: ActivityViewContext<ShiftActivityAttributes>) -> some View {
         let clockedInAt = clockedInDate(ms: context.state.clockedInAtMs)
 
-        HStack(spacing: 12) {
-            // Clock icon
-            Image(systemName: "clock.fill")
-                .font(.title2)
-                .foregroundColor(.blue)
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                // Clock icon
+                Image(systemName: "clock.fill")
+                    .font(.title2)
+                    .foregroundColor(.blue)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Quart actif")
-                    .font(.headline)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Quart actif")
+                        .font(.headline)
+                        .foregroundColor(.white)
+
+                    HStack(spacing: 4) {
+                        Text("Depuis")
+                            .font(.caption)
+                            .foregroundColor(.white.opacity(0.7))
+                        Text(clockedInAt, style: .time)
+                            .font(.caption)
+                            .foregroundColor(.white.opacity(0.7))
+                    }
+                }
+
+                Spacer()
+
+                // Timer
+                Text(timerInterval: clockedInAt...Date.distantFuture, countsDown: false)
+                    .font(.title)
+                    .fontWeight(.bold)
+                    .monospacedDigit()
                     .foregroundColor(.white)
 
-                HStack(spacing: 4) {
-                    Text("Depuis")
-                        .font(.caption)
-                        .foregroundColor(.white.opacity(0.7))
-                    Text(clockedInAt, style: .time)
-                        .font(.caption)
-                        .foregroundColor(.white.opacity(0.7))
-                }
+                // GPS status indicator
+                gpsStatusIcon(status: context.state.status)
+                    .font(.title3)
             }
 
-            Spacer()
-
-            // Timer
-            Text(timerInterval: clockedInAt...Date.distantFuture, countsDown: false)
-                .font(.title)
-                .fontWeight(.bold)
-                .monospacedDigit()
-                .foregroundColor(.white)
-
-            // GPS status indicator
-            gpsStatusIcon(status: context.state.status)
-                .font(.title3)
+            // Session info row (when active)
+            if let sessionLocation = context.state.sessionLocation {
+                HStack(spacing: 6) {
+                    Image(systemName: sessionIcon(for: context.state.sessionType))
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                    Text(sessionLocation)
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.9))
+                        .lineLimit(1)
+                    Spacer()
+                    Text("Voir \u{203A}")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.blue)
+                }
+                .padding(.top, 6)
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -106,6 +147,13 @@ struct ShiftActivityWidgetLiveActivity: Widget {
 
     private func clockedInDate(ms: Int) -> Date {
         return Date(timeIntervalSince1970: Double(ms) / 1000.0)
+    }
+
+    private func sessionIcon(for sessionType: String?) -> String {
+        if sessionType == "maintenance" {
+            return "wrench.fill"
+        }
+        return "bubbles.and.sparkles.fill"
     }
 
     @ViewBuilder

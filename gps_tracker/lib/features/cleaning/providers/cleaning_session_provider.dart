@@ -9,6 +9,7 @@ import '../../shifts/providers/shift_provider.dart';
 import '../models/cleaning_session.dart';
 import '../models/scan_result.dart';
 import '../../maintenance/services/maintenance_local_db.dart';
+import '../../../shared/services/shift_activity_service.dart';
 import '../services/cleaning_local_db.dart';
 import '../services/cleaning_session_service.dart';
 import '../services/studio_cache_service.dart';
@@ -195,6 +196,11 @@ class CleaningSessionNotifier extends StateNotifier<CleaningSessionState> {
           activeSession: result.session,
           isScanning: false,
         );
+        // Update Live Activity with session info
+        ShiftActivityService.instance.updateSessionInfo(
+          sessionType: 'cleaning',
+          sessionLocation: result.session!.studioLabel,
+        );
       } else {
         state = state.copyWith(
           isScanning: false,
@@ -240,6 +246,8 @@ class CleaningSessionNotifier extends StateNotifier<CleaningSessionState> {
           isScanning: false,
           clearActiveSession: true,
         );
+        // Clear session info from Live Activity
+        ShiftActivityService.instance.updateSessionInfo();
       } else {
         state = state.copyWith(
           isScanning: false,
@@ -269,6 +277,7 @@ class CleaningSessionNotifier extends StateNotifier<CleaningSessionState> {
       final result = await _service.manualClose(employeeId: employeeId);
       if (result != null) {
         state = state.copyWith(clearActiveSession: true);
+        ShiftActivityService.instance.updateSessionInfo();
         return true;
       }
       state = state.copyWith(error: 'Aucune session active');

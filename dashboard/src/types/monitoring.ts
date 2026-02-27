@@ -43,6 +43,9 @@ export interface MonitoredEmployee {
   devicePlatform: string | null;
   deviceOsVersion: string | null;
   lastSignInAt: Date | null;
+  activeSessionType: 'cleaning' | 'maintenance' | null;
+  activeSessionLocation: string | null;
+  activeSessionStartedAt: Date | null;
 }
 
 // GPS trail point for path rendering
@@ -151,6 +154,9 @@ export interface MonitoredTeamRow {
   device_platform: string | null;
   device_os_version: string | null;
   last_sign_in_at: string | null;
+  active_session_type: string | null;
+  active_session_location: string | null;
+  active_session_started_at: string | null;
 }
 
 export interface ShiftDetailRow {
@@ -261,6 +267,11 @@ export function transformMonitoredTeamRow(row: MonitoredTeamRow): MonitoredEmplo
     devicePlatform: row.device_platform ?? null,
     deviceOsVersion: row.device_os_version ?? null,
     lastSignInAt: row.last_sign_in_at ? new Date(row.last_sign_in_at) : null,
+    activeSessionType: (row.active_session_type as 'cleaning' | 'maintenance') ?? null,
+    activeSessionLocation: row.active_session_location ?? null,
+    activeSessionStartedAt: row.active_session_started_at
+      ? new Date(row.active_session_started_at)
+      : null,
   };
 }
 

@@ -168,6 +168,7 @@ class BackgroundTrackingService with WidgetsBindingObserver {
           notificationText: 'Suivi de votre position pendant le quart',
           notificationIcon: null,
           notificationButtons: [
+            const NotificationButton(id: 'open_app', text: 'Voir'),
             const NotificationButton(id: 'stop', text: 'Stop'),
           ],
           callback: startCallback,

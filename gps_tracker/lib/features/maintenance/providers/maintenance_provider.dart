@@ -8,6 +8,7 @@ import '../../shifts/providers/connectivity_provider.dart';
 import '../../shifts/providers/location_provider.dart';
 import '../../shifts/providers/shift_provider.dart';
 import '../models/maintenance_session.dart';
+import '../../../shared/services/shift_activity_service.dart';
 import '../services/maintenance_local_db.dart';
 import '../services/maintenance_session_service.dart';
 import '../services/property_cache_service.dart';
@@ -180,6 +181,11 @@ class MaintenanceSessionNotifier
           activeSession: result.session,
           isLoading: false,
         );
+        // Update Live Activity with session info
+        ShiftActivityService.instance.updateSessionInfo(
+          sessionType: 'maintenance',
+          sessionLocation: result.session!.locationLabel,
+        );
       } else {
         state = state.copyWith(
           isLoading: false,
@@ -224,6 +230,8 @@ class MaintenanceSessionNotifier
           isLoading: false,
           clearActiveSession: true,
         );
+        // Clear session info from Live Activity
+        ShiftActivityService.instance.updateSessionInfo();
         return true;
       } else {
         state = state.copyWith(
@@ -252,6 +260,7 @@ class MaintenanceSessionNotifier
       final result = await _service.manualClose(employeeId: employeeId);
       if (result != null) {
         state = state.copyWith(clearActiveSession: true);
+        ShiftActivityService.instance.updateSessionInfo();
         return true;
       }
       state = state.copyWith(error: 'Aucune session active');

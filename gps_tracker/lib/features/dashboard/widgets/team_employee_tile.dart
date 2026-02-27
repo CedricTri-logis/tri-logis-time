@@ -119,6 +119,13 @@ class TeamEmployeeTile extends StatelessWidget {
                           ),
                         ],
                       ),
+                      // Active session info (cleaning or maintenance)
+                      if (employee.activeSessionLocation != null)
+                        _SessionInfoChip(
+                          sessionType: employee.activeSessionType,
+                          location: employee.activeSessionLocation!,
+                          startedAt: employee.activeSessionStartedAt,
+                        ),
                     ] else
                       Text(
                         'Non pointé',
@@ -289,6 +296,60 @@ class _GpsRecencyChip extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _SessionInfoChip extends StatelessWidget {
+  final String? sessionType;
+  final String location;
+  final DateTime? startedAt;
+
+  const _SessionInfoChip({
+    required this.sessionType,
+    required this.location,
+    this.startedAt,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isCleaning = sessionType == 'cleaning';
+    const color = Colors.blue;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isCleaning ? Icons.cleaning_services : Icons.build,
+            size: 12,
+            color: color,
+          ),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              location,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w500,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (startedAt != null) ...[
+            const SizedBox(width: 6),
+            CompactLiveTimer(
+              startTime: startedAt!,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: color.withOpacity(0.7),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

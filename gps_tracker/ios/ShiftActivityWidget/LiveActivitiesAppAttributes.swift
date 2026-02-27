@@ -15,5 +15,7 @@ struct ShiftActivityAttributes: ActivityAttributes {
     public struct ContentState: Codable, Hashable {
         var clockedInAtMs: Int
         var status: String
+        var sessionType: String?
+        var sessionLocation: String?
     }
 }

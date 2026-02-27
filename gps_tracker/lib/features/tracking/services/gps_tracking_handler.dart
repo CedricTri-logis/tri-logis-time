@@ -615,6 +615,8 @@ class GPSTrackingHandler extends TaskHandler {
   void onNotificationButtonPressed(String id) {
     if (id == 'stop') {
       FlutterForegroundTask.stopService();
+    } else if (id == 'open_app') {
+      FlutterForegroundTask.launchApp('/');
     }
   }
 

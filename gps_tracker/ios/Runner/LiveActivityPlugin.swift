@@ -16,6 +16,8 @@ struct ShiftActivityAttributes: ActivityAttributes {
     public struct ContentState: Codable, Hashable {
         var clockedInAtMs: Int
         var status: String
+        var sessionType: String?
+        var sessionLocation: String?
     }
 }
 
@@ -75,11 +77,15 @@ class LiveActivityPlugin: NSObject, FlutterPlugin {
         }
 
         let removeWhenAppIsKilled = args["removeWhenAppIsKilled"] as? Bool ?? true
+        let sessionType = args["sessionType"] as? String
+        let sessionLocation = args["sessionLocation"] as? String
 
         let attributes = ShiftActivityAttributes()
         let contentState = ShiftActivityAttributes.ContentState(
             clockedInAtMs: clockedInAtMs,
-            status: status
+            status: status,
+            sessionType: sessionType,
+            sessionLocation: sessionLocation
         )
 
         do {
@@ -128,9 +134,14 @@ class LiveActivityPlugin: NSObject, FlutterPlugin {
             return
         }
 
+        let sessionType = args["sessionType"] as? String
+        let sessionLocation = args["sessionLocation"] as? String
+
         let newState = ShiftActivityAttributes.ContentState(
             clockedInAtMs: clockedInAtMs,
-            status: status
+            status: status,
+            sessionType: sessionType,
+            sessionLocation: sessionLocation
         )
 
         Task {
