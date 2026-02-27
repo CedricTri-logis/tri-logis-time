@@ -118,3 +118,43 @@ export interface MileageReport {
   generated_at: string;
   created_at: string;
 }
+
+export interface EmployeeVehiclePeriod {
+  id: string;
+  employee_id: string;
+  vehicle_type: "personal" | "company";
+  started_at: string;
+  ended_at: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joined
+  employee?: { id: string; name: string };
+}
+
+export interface CarpoolGroup {
+  id: string;
+  trip_date: string;
+  status: "auto_detected" | "confirmed" | "dismissed";
+  driver_employee_id: string | null;
+  review_needed: boolean;
+  review_note: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  // Joined
+  members?: CarpoolMember[];
+  driver?: { id: string; name: string };
+}
+
+export interface CarpoolMember {
+  id: string;
+  carpool_group_id: string;
+  trip_id: string;
+  employee_id: string;
+  role: "driver" | "passenger" | "unassigned";
+  // Joined
+  employee?: { id: string; name: string };
+  trip?: Trip;
+}
