@@ -30,6 +30,7 @@ import { toast } from 'sonner';
 import { supabaseClient } from '@/lib/supabase/client';
 import { MatchStatusBadge } from '@/components/trips/match-status-badge';
 import { GoogleTripRouteMap } from '@/components/trips/google-trip-route-map';
+import { detectTripStops } from '@/lib/utils/detect-trip-stops';
 import { LocationPickerDropdown } from '@/components/trips/location-picker-dropdown';
 import type { Trip, TripGpsPoint } from '@/types/mileage';
 
@@ -754,6 +755,8 @@ function TripRow({
   const [gpsPoints, setGpsPoints] = useState<TripGpsPoint[]>([]);
   const [isLoadingPoints, setIsLoadingPoints] = useState(false);
 
+  const stops = useMemo(() => detectTripStops(gpsPoints), [gpsPoints]);
+
   const startLocationName = trip.start_location?.name;
   const endLocationName = trip.end_location?.name;
   const startLoc = startLocationName || formatLocation(trip.start_address, trip.start_latitude, trip.start_longitude);
@@ -872,6 +875,7 @@ function TripRow({
                 <GoogleTripRouteMap
                   trips={[trip]}
                   gpsPoints={gpsPoints}
+                  stops={stops}
                   height={350}
                   showGpsPoints={gpsPoints.length > 0}
                 />
@@ -937,6 +941,41 @@ function TripRow({
                         <div className="w-2 h-2 rounded-full bg-indigo-500" />
                         <span className="text-[10px] text-muted-foreground">Route</span>
                       </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Stop markers legend */}
+                {stops.length > 0 && (
+                  <div className="col-span-2 pt-2 border-t">
+                    <span className="text-xs text-muted-foreground block mb-2">
+                      {stops.length} arrêt{stops.length > 1 ? 's' : ''} détecté{stops.length > 1 ? 's' : ''}
+                    </span>
+                    <div className="flex flex-wrap gap-x-3 gap-y-1">
+                      {stops.filter((s) => s.category === 'brief').length > 0 && (
+                        <div className="flex items-center gap-1">
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#f59e0b' }} />
+                          <span className="text-[10px] text-muted-foreground">
+                            Bref &lt;1min ({stops.filter((s) => s.category === 'brief').length})
+                          </span>
+                        </div>
+                      )}
+                      {stops.filter((s) => s.category === 'moderate').length > 0 && (
+                        <div className="flex items-center gap-1">
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#f97316' }} />
+                          <span className="text-[10px] text-muted-foreground">
+                            Moyen 1-3min ({stops.filter((s) => s.category === 'moderate').length})
+                          </span>
+                        </div>
+                      )}
+                      {stops.filter((s) => s.category === 'extended').length > 0 && (
+                        <div className="flex items-center gap-1">
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#ef4444' }} />
+                          <span className="text-[10px] text-muted-foreground">
+                            Long &gt;3min ({stops.filter((s) => s.category === 'extended').length})
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

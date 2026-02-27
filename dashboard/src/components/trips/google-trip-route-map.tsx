@@ -10,11 +10,13 @@ import {
 } from '@vis.gl/react-google-maps';
 import { decodePolyline6 } from '@/lib/polyline';
 import type { Trip, TripGpsPoint } from '@/types/mileage';
+import type { TripStop } from '@/lib/utils/detect-trip-stops';
 import { Card } from '@/components/ui/card';
 
 interface TripRouteMapProps {
   trips: Trip[];
   gpsPoints?: TripGpsPoint[];
+  stops?: TripStop[];
   height?: number;
   showGpsPoints?: boolean;
   apiKey?: string;
@@ -36,14 +38,29 @@ function formatTime(dateStr: string): string {
   return new Date(dateStr).toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
+const STOP_COLORS: Record<TripStop['category'], string> = {
+  brief: '#f59e0b',
+  moderate: '#f97316',
+  extended: '#ef4444',
+};
+
+function formatDuration(seconds: number): string {
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  const min = Math.floor(seconds / 60);
+  const sec = Math.round(seconds % 60);
+  return sec > 0 ? `${min}min ${sec}s` : `${min}min`;
+}
+
 export function GoogleTripRouteMap({
   trips,
   gpsPoints = [],
+  stops = [],
   height = 400,
   showGpsPoints = true,
   apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
 }: TripRouteMapProps) {
   const [selectedPoint, setSelectedPoint] = useState<TripGpsPoint | null>(null);
+  const [selectedStop, setSelectedStop] = useState<TripStop | null>(null);
 
   const routes = useMemo(() => {
     return trips.map((trip, index) => {
@@ -161,6 +178,34 @@ export function GoogleTripRouteMap({
             </InfoWindow>
           )}
 
+          {/* Stop markers */}
+          {stops.length > 0 && (
+            <StopsLayer
+              stops={stops}
+              onStopClick={(s) => { setSelectedPoint(null); setSelectedStop(s); }}
+            />
+          )}
+
+          {/* Stop info window */}
+          {selectedStop && (
+            <InfoWindow
+              position={{ lat: selectedStop.latitude, lng: selectedStop.longitude }}
+              onCloseClick={() => setSelectedStop(null)}
+            >
+              <div className="text-xs space-y-1 min-w-[140px]">
+                <p className="font-semibold text-slate-900">
+                  Arrêt ({formatDuration(selectedStop.durationSeconds)})
+                </p>
+                <p className="text-slate-600">
+                  {formatTime(selectedStop.startTime)} – {formatTime(selectedStop.endTime)}
+                </p>
+                <p className="text-slate-600">
+                  {selectedStop.pointCount} points GPS
+                </p>
+              </div>
+            </InfoWindow>
+          )}
+
           <AutoFitBounds routes={routes} gpsPoints={showGpsPoints ? gpsPoints : []} />
         </Map>
       </APIProvider>
@@ -272,6 +317,65 @@ function TripPolyline({ route }: { route: any }) {
     });
     return () => poly.setMap(null);
   }, [map, route]);
+  return null;
+}
+
+function StopsLayer({
+  stops,
+  onStopClick,
+}: {
+  stops: TripStop[];
+  onStopClick: (s: TripStop) => void;
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!map || stops.length === 0) return;
+
+    const overlays: google.maps.Circle[] = [];
+
+    stops.forEach((stop) => {
+      const position = { lat: stop.latitude, lng: stop.longitude };
+      const color = STOP_COLORS[stop.category];
+
+      // Pulsing outer ring for extended stops
+      if (stop.category === 'extended') {
+        const ring = new google.maps.Circle({
+          map,
+          center: position,
+          radius: 20,
+          fillColor: color,
+          fillOpacity: 0.25,
+          strokeColor: color,
+          strokeOpacity: 0.4,
+          strokeWeight: 1,
+          clickable: false,
+          zIndex: 19,
+        });
+        overlays.push(ring);
+      }
+
+      const circle = new google.maps.Circle({
+        map,
+        center: position,
+        radius: 12,
+        fillColor: color,
+        fillOpacity: 0.7,
+        strokeColor: '#fff',
+        strokeOpacity: 1,
+        strokeWeight: 2,
+        clickable: true,
+        zIndex: 20,
+      });
+      circle.addListener('click', () => onStopClick(stop));
+      overlays.push(circle);
+    });
+
+    return () => {
+      overlays.forEach((o) => o.setMap(null));
+    };
+  }, [map, stops, onStopClick]);
+
   return null;
 }
 
