@@ -32,7 +32,7 @@ export interface MapCluster {
   place_name?: string | null;
 }
 
-interface ClusterOccurrence {
+export interface ClusterOccurrence {
   trip_id: string;
   employee_name: string;
   endpoint_type: 'start' | 'end';
@@ -49,7 +49,7 @@ interface SuggestedLocationsMapProps {
   selectedClusterId: number | null;
   onClusterSelect: (clusterId: number) => void;
   onCreateFromCluster: (cluster: MapCluster) => void;
-  onIgnoreCluster?: (cluster: MapCluster) => void;
+  onIgnoreOccurrence?: (occurrence: ClusterOccurrence) => void;
   locations?: Location[];
 }
 
@@ -58,7 +58,7 @@ export function SuggestedLocationsMap({
   selectedClusterId,
   onClusterSelect,
   onCreateFromCluster,
-  onIgnoreCluster,
+  onIgnoreOccurrence,
   locations = [],
 }: SuggestedLocationsMapProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
@@ -348,12 +348,22 @@ export function SuggestedLocationsMap({
                     <Plus className="h-3 w-3 mr-1" />
                     Créer
                   </Button>
-                  {onIgnoreCluster && (
+                  {onIgnoreOccurrence && currentOccurrence && (
                     <Button
                       variant="outline"
                       size="sm"
                       className="h-7 text-[11px]"
-                      onClick={() => onIgnoreCluster(selectedCluster)}
+                      onClick={() => {
+                        onIgnoreOccurrence(currentOccurrence);
+                        // Remove from local list
+                        setOccurrences((prev) => {
+                          const next = prev.filter((_, i) => i !== occurrenceIndex);
+                          if (occurrenceIndex >= next.length && next.length > 0) {
+                            setOccurrenceIndex(next.length - 1);
+                          }
+                          return next;
+                        });
+                      }}
                     >
                       <EyeOff className="h-3 w-3 mr-1" />
                       Ignorer

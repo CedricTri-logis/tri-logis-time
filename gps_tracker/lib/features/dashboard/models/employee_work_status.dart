@@ -15,6 +15,7 @@ class TeamEmployeeStatus {
   final Duration todayHours;
   final Duration weeklyHours;
   final int weeklyShiftCount;
+  final DateTime? latestGpsCapturedAt;
 
   const TeamEmployeeStatus({
     required this.employeeId,
@@ -26,6 +27,7 @@ class TeamEmployeeStatus {
     this.todayHours = Duration.zero,
     this.weeklyHours = Duration.zero,
     this.weeklyShiftCount = 0,
+    this.latestGpsCapturedAt,
   });
 
   /// Current shift duration if active.
@@ -79,6 +81,9 @@ class TeamEmployeeStatus {
         seconds: (json['weekly_hours_seconds'] as num?)?.toInt() ?? 0,
       ),
       weeklyShiftCount: json['weekly_shift_count'] as int? ?? 0,
+      latestGpsCapturedAt: json['latest_gps_captured_at'] != null
+          ? DateTime.parse(json['latest_gps_captured_at'] as String)
+          : null,
     );
   }
 
@@ -92,6 +97,7 @@ class TeamEmployeeStatus {
         'today_hours_seconds': todayHours.inSeconds,
         'weekly_hours_seconds': weeklyHours.inSeconds,
         'weekly_shift_count': weeklyShiftCount,
+        'latest_gps_captured_at': latestGpsCapturedAt?.toIso8601String(),
       };
 
   TeamEmployeeStatus copyWith({
@@ -104,7 +110,9 @@ class TeamEmployeeStatus {
     Duration? todayHours,
     Duration? weeklyHours,
     int? weeklyShiftCount,
+    DateTime? latestGpsCapturedAt,
     bool clearCurrentShift = false,
+    bool clearLatestGps = false,
   }) {
     return TeamEmployeeStatus(
       employeeId: employeeId ?? this.employeeId,
@@ -118,6 +126,9 @@ class TeamEmployeeStatus {
       todayHours: todayHours ?? this.todayHours,
       weeklyHours: weeklyHours ?? this.weeklyHours,
       weeklyShiftCount: weeklyShiftCount ?? this.weeklyShiftCount,
+      latestGpsCapturedAt: clearLatestGps
+          ? null
+          : (latestGpsCapturedAt ?? this.latestGpsCapturedAt),
     );
   }
 
@@ -133,7 +144,8 @@ class TeamEmployeeStatus {
         other.currentShiftStartedAt == currentShiftStartedAt &&
         other.todayHours == todayHours &&
         other.weeklyHours == weeklyHours &&
-        other.weeklyShiftCount == weeklyShiftCount;
+        other.weeklyShiftCount == weeklyShiftCount &&
+        other.latestGpsCapturedAt == latestGpsCapturedAt;
   }
 
   @override
@@ -147,6 +159,7 @@ class TeamEmployeeStatus {
         todayHours,
         weeklyHours,
         weeklyShiftCount,
+        latestGpsCapturedAt,
       );
 
   @override

@@ -6,10 +6,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Loader2, MapPin, Plus, EyeOff } from 'lucide-react';
+import { Loader2, MapPin, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabaseClient } from '@/lib/supabase/client';
-import type { MapCluster } from './suggested-locations-map';
+import type { MapCluster, ClusterOccurrence } from './suggested-locations-map';
 import type { Location } from '@/types/location';
 
 const SuggestedLocationsMap = dynamic(
@@ -149,22 +149,25 @@ export function SuggestedLocationsTab({ onCreateLocation, locations = [], refres
     });
   };
 
-  const handleIgnore = useCallback(async (cluster: UnmatchedCluster) => {
-    const { error } = await supabaseClient.rpc('ignore_location_cluster', {
-      p_latitude: cluster.centroid_latitude,
-      p_longitude: cluster.centroid_longitude,
-      p_occurrence_count: cluster.occurrence_count,
+  const handleIgnoreOccurrence = useCallback(async (occurrence: ClusterOccurrence) => {
+    const { error } = await supabaseClient.rpc('ignore_trip_endpoint', {
+      p_trip_id: occurrence.trip_id,
+      p_endpoint_type: occurrence.endpoint_type,
     });
     if (error) {
-      toast.error('Erreur lors de l\'ignorance de la suggestion');
+      toast.error('Erreur lors de l\'ignorance du point');
       return;
     }
-    // Optimistic removal
-    setClusters((prev) => prev.filter((c) => c.cluster_id !== cluster.cluster_id));
-    if (selectedClusterId === cluster.cluster_id) {
-      setSelectedClusterId(null);
-    }
-    toast.success('Suggestion ignorée');
+    // Optimistically decrement cluster count; remove cluster if it hits 0
+    setClusters((prev) =>
+      prev
+        .map((c) => {
+          if (c.cluster_id !== selectedClusterId) return c;
+          return { ...c, occurrence_count: c.occurrence_count - 1 };
+        })
+        .filter((c) => c.occurrence_count > 0)
+    );
+    toast.success('Point ignoré');
   }, [selectedClusterId]);
 
   const handleClusterSelect = useCallback((clusterId: number) => {
@@ -212,10 +215,7 @@ export function SuggestedLocationsTab({ onCreateLocation, locations = [], refres
           const cluster = clusters.find((c) => c.cluster_id === mapCluster.cluster_id);
           if (cluster) handleCreate(cluster);
         }}
-        onIgnoreCluster={(mapCluster) => {
-          const cluster = clusters.find((c) => c.cluster_id === mapCluster.cluster_id);
-          if (cluster) handleIgnore(cluster);
-        }}
+        onIgnoreOccurrence={handleIgnoreOccurrence}
         locations={locations}
       />
 
@@ -306,17 +306,6 @@ export function SuggestedLocationsTab({ onCreateLocation, locations = [], refres
                   >
                     <Plus className="h-3 w-3 mr-1" />
                     Créer
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleIgnore(cluster);
-                    }}
-                  >
-                    <EyeOff className="h-3 w-3 mr-1" />
-                    Ignorer
                   </Button>
                 </div>
               </div>

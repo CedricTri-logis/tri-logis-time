@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { MapPin, Check, Loader2 } from 'lucide-react';
 import {
   Popover,
@@ -29,6 +29,30 @@ interface LocationPickerDropdownProps {
   onLocationChanged: () => void;
 }
 
+// Shared geocode cache + throttled queue (module-level, shared across all instances)
+const geocodeCache = new Map<string, string>();
+const geocodeQueue: Array<() => void> = [];
+let geocodeActive = 0;
+const MAX_CONCURRENT_GEOCODES = 3;
+
+function enqueueGeocode(fn: () => Promise<void>) {
+  const run = async () => {
+    geocodeActive++;
+    try {
+      await fn();
+    } finally {
+      geocodeActive--;
+      const next = geocodeQueue.shift();
+      if (next) next();
+    }
+  };
+  if (geocodeActive < MAX_CONCURRENT_GEOCODES) {
+    run();
+  } else {
+    geocodeQueue.push(run);
+  }
+}
+
 export function LocationPickerDropdown({
   tripId,
   endpoint,
@@ -43,6 +67,49 @@ export function LocationPickerDropdown({
   const [nearbyLocations, setNearbyLocations] = useState<NearbyLocation[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
+  const geocodedRef = useRef(false);
+
+  // Reverse geocode to get a readable address when no location name is set
+  useEffect(() => {
+    if (currentLocationName || geocodedRef.current) return;
+
+    const cacheKey = `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
+    const cached = geocodeCache.get(cacheKey);
+    if (cached) {
+      setResolvedAddress(cached);
+      geocodedRef.current = true;
+      return;
+    }
+
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    if (!apiKey) return;
+
+    geocodedRef.current = true;
+    let cancelled = false;
+    enqueueGeocode(async () => {
+      // Re-check cache (another instance may have resolved it while queued)
+      const cachedNow = geocodeCache.get(cacheKey);
+      if (cachedNow) {
+        if (!cancelled) setResolvedAddress(cachedNow);
+        return;
+      }
+      try {
+        const res = await fetch(
+          `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${apiKey}&language=fr`
+        );
+        const data = await res.json();
+        const addr = data.results?.[0]?.formatted_address;
+        if (addr) {
+          geocodeCache.set(cacheKey, addr);
+          if (!cancelled) setResolvedAddress(addr);
+        }
+      } catch {
+        /* keep displayText fallback */
+      }
+    });
+    return () => { cancelled = true; };
+  }, [latitude, longitude, currentLocationName]);
 
   const fetchNearby = useCallback(async () => {
     setIsLoading(true);
@@ -80,12 +147,18 @@ export function LocationPickerDropdown({
     setOpen(false);
   };
 
+  const triggerText = currentLocationName || resolvedAddress || displayText;
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+  const staticMapUrl = apiKey
+    ? `https://maps.googleapis.com/maps/api/staticmap?center=${latitude},${longitude}&zoom=16&size=268x140&scale=2&markers=color:red%7C${latitude},${longitude}&key=${apiKey}`
+    : '';
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
           className="flex items-center gap-0.5 text-xs cursor-pointer hover:underline truncate"
-          title={`Cliquer pour modifier (${endpoint === 'start' ? 'depart' : 'arrivee'})`}
+          title={`Cliquer pour modifier (${endpoint === 'start' ? 'départ' : 'arrivée'})`}
           onClick={(e) => e.stopPropagation()}
         >
           {currentLocationName ? (
@@ -94,14 +167,34 @@ export function LocationPickerDropdown({
               {currentLocationName}
             </span>
           ) : (
-            <span className="truncate opacity-70">{displayText}</span>
+            <span className="truncate opacity-70">{triggerText}</span>
           )}
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-72 p-2" align="start">
         <div className="text-xs font-medium text-muted-foreground mb-2">
-          {endpoint === 'start' ? 'Emplacement de depart' : "Emplacement d'arrivee"}
+          {endpoint === 'start' ? 'Emplacement de départ' : "Emplacement d'arrivée"}
         </div>
+
+        {/* Mini map preview */}
+        {staticMapUrl && (
+          <div className="mb-2 rounded-md overflow-hidden border border-slate-200">
+            <img
+              src={staticMapUrl}
+              alt="Aperçu de la localisation"
+              className="w-full h-[140px] object-cover"
+              loading="lazy"
+            />
+          </div>
+        )}
+
+        {/* Resolved address under map */}
+        {!currentLocationName && resolvedAddress && (
+          <p className="text-[10px] text-muted-foreground mb-2 leading-tight">
+            {resolvedAddress}
+          </p>
+        )}
+
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -138,7 +231,7 @@ export function LocationPickerDropdown({
             ))}
             {nearbyLocations.length === 0 && (
               <div className="text-xs text-muted-foreground text-center py-2">
-                Aucun emplacement trouve
+                Aucun emplacement trouvé
               </div>
             )}
           </div>

@@ -1,13 +1,15 @@
 -- =============================================================================
--- 053: Sensor Speed Stop Detection
--- Fix: Use GPS sensor speed + 50m spatial radius for stop detection
+-- 057: Fix trip endpoint to use first stationary point instead of last moving point
 -- =============================================================================
--- The previous detect_trips() used calculated speed (haversine / time) to
--- detect stops. GPS noise during real stops produces false calculated speeds
--- of 2-5 km/h, preventing stop detection. This migration switches to using
--- the GPS Doppler-derived sensor speed (gp.speed), which is much more
--- accurate at low velocities, combined with a 50m spatial radius check to
--- suppress GPS noise around a stop center.
+-- Bug: When a trip ended due to a 3+ minute stop, the trip's end_latitude/end_longitude
+-- was set to the last point where the car was still moving (e.g. 40 km/h on the road),
+-- not where it actually stopped. This caused trip endpoints to be ~100-200m off from
+-- the real stop location, creating false suggested locations and missed geofence matches.
+--
+-- Fix: Set v_trip_end_point to the first stationary point when a stop is first detected.
+-- This is symmetric with trip starts, which use v_last_stationary_point (last stationary
+-- point before movement). If the stop is a false alarm (car resumes), the endpoint gets
+-- corrected when movement resumes (lines 341/476 update v_trip_end_point).
 -- =============================================================================
 
 CREATE OR REPLACE FUNCTION detect_trips(p_shift_id UUID)
@@ -46,34 +48,31 @@ DECLARE
     v_correction_factor CONSTANT DECIMAL := 1.3;
     v_min_distance_km CONSTANT DECIMAL := 0.2;
     v_min_distance_driving CONSTANT DECIMAL := 0.5;
-    v_movement_speed CONSTANT DECIMAL := 8.0;          -- km/h — raised from 3 to filter GPS drift
-    v_stationary_speed CONSTANT DECIMAL := 3.0;         -- km/h — raised from 2
+    v_movement_speed CONSTANT DECIMAL := 8.0;
+    v_stationary_speed CONSTANT DECIMAL := 3.0;
     v_max_speed CONSTANT DECIMAL := 200.0;
     v_max_accuracy CONSTANT DECIMAL := 200.0;
     v_stationary_gap_minutes CONSTANT INTEGER := 3;
     v_gps_gap_minutes CONSTANT INTEGER := 15;
     v_min_displacement_walking CONSTANT DECIMAL := 0.1;
-    v_sensor_stationary CONSTANT DECIMAL := 0.5;        -- m/s — GPS sensor speed below this = stationary
+    v_sensor_stationary CONSTANT DECIMAL := 0.5;
     v_seq INTEGER;
     v_transport_mode TEXT;
     v_displacement DECIMAL;
     v_is_active BOOLEAN;
     v_cutoff_time TIMESTAMPTZ := NULL;
     v_noise_floor DECIMAL;
-    v_last_stationary_point RECORD;  -- last truly stationary point (departure origin)
+    v_last_stationary_point RECORD;
     v_has_last_stationary BOOLEAN := FALSE;
-    -- Trip-to-location continuity tracking
     v_prev_trip_end_location_id UUID := NULL;
     v_prev_trip_end_lat DECIMAL;
     v_prev_trip_end_lng DECIMAL;
-    -- Sensor speed stop detection (053)
     v_stationary_center_lat DECIMAL := NULL;
     v_stationary_center_lng DECIMAL := NULL;
-    v_sensor_stop_threshold CONSTANT DECIMAL := 0.28;  -- m/s (< 1 km/h)
-    v_spatial_radius_km CONSTANT DECIMAL := 0.05;       -- 50m
+    v_sensor_stop_threshold CONSTANT DECIMAL := 0.28;
+    v_spatial_radius_km CONSTANT DECIMAL := 0.05;
     v_point_is_stopped BOOLEAN;
 BEGIN
-    -- Validate shift exists
     SELECT s.id, s.employee_id, s.status
     INTO v_shift
     FROM shifts s
@@ -87,23 +86,19 @@ BEGIN
     v_is_active := (v_shift.status = 'active');
 
     IF v_is_active THEN
-        -- Active shift: preserve matched/failed/anomalous trips, only delete pending ones
         DELETE FROM trips
         WHERE shift_id = p_shift_id
           AND match_status IN ('pending', 'processing');
 
-        -- Find cutoff: latest GPS point in any preserved trip
         SELECT MAX(gp.captured_at) INTO v_cutoff_time
         FROM trips t
         JOIN trip_gps_points tgp ON tgp.trip_id = t.id
         JOIN gps_points gp ON gp.id = tgp.gps_point_id
         WHERE t.shift_id = p_shift_id;
     ELSE
-        -- Completed shift: full re-detection
         DELETE FROM trips WHERE shift_id = p_shift_id;
     END IF;
 
-    -- Process GPS points (after cutoff if incremental)
     v_prev_point := NULL;
 
     FOR v_point IN
@@ -119,20 +114,17 @@ BEGIN
           AND (v_cutoff_time IS NULL OR gp.captured_at > v_cutoff_time)
         ORDER BY gp.captured_at ASC
     LOOP
-        -- Skip points with poor accuracy
         IF v_point.accuracy IS NOT NULL AND v_point.accuracy > v_max_accuracy THEN
             CONTINUE;
         END IF;
 
         IF v_prev_point IS NOT NULL THEN
-            -- Calculate distance and speed
             v_dist := haversine_km(
                 v_prev_point.latitude, v_prev_point.longitude,
                 v_point.latitude, v_point.longitude
             );
             v_time_delta := EXTRACT(EPOCH FROM (v_point.captured_at - v_prev_point.captured_at)) / 3600.0;
 
-            -- Skip if time delta is zero
             IF v_time_delta <= 0 THEN
                 v_prev_point := v_point;
                 CONTINUE;
@@ -141,8 +133,6 @@ BEGIN
             v_speed := v_dist / v_time_delta;
             v_dist_meters := v_dist * 1000.0;
 
-            -- FILTER 1: GPS accuracy noise floor
-            -- If displacement < max(accuracy of both points), it's GPS drift not real movement
             v_noise_floor := GREATEST(
                 COALESCE(v_prev_point.accuracy, 10),
                 COALESCE(v_point.accuracy, 10)
@@ -151,14 +141,12 @@ BEGIN
                 v_speed := 0;
             END IF;
 
-            -- FILTER 2: GPS sensor speed cross-check
-            -- If both points report near-zero sensor speed, person is stationary
             IF v_prev_point.speed IS NOT NULL AND v_point.speed IS NOT NULL
                AND v_prev_point.speed < v_sensor_stationary AND v_point.speed < v_sensor_stationary THEN
                 v_speed := 0;
             END IF;
 
-            -- Determine if point is stopped using sensor speed + spatial radius (053)
+            -- Determine if point is stopped using sensor speed + spatial radius
             v_point_is_stopped := FALSE;
             IF v_point.speed IS NOT NULL AND v_point.speed < v_sensor_stop_threshold THEN
                 v_point_is_stopped := TRUE;
@@ -166,13 +154,10 @@ BEGIN
                   AND v_point.speed IS NOT NULL AND v_point.speed < 3.0
                   AND haversine_km(v_stationary_center_lat, v_stationary_center_lng,
                                    v_point.latitude, v_point.longitude) < v_spatial_radius_km THEN
-                -- GPS noise suppression: within 50m of stop center and speed < 3 m/s
                 v_point_is_stopped := TRUE;
             END IF;
 
             -- Track last truly stationary point (departure origin for next trip)
-            -- Only update if still near the original stationary position (<30m)
-            -- to avoid drifting the departure point as the person starts slow movement
             IF v_point_is_stopped AND NOT v_in_trip THEN
                 IF NOT v_has_last_stationary THEN
                     v_last_stationary_point := v_prev_point;
@@ -183,7 +168,6 @@ BEGIN
                 END IF;
             END IF;
 
-            -- Skip impossible speeds (GPS glitch)
             IF v_speed > v_max_speed THEN
                 v_prev_point := v_point;
                 CONTINUE;
@@ -191,7 +175,6 @@ BEGIN
 
             -- Check for GPS gap (>15 min between points)
             IF EXTRACT(EPOCH FROM (v_point.captured_at - v_prev_point.captured_at)) / 60.0 > v_gps_gap_minutes AND v_in_trip THEN
-                -- End current trip due to GPS gap
                 v_trip_distance := v_trip_distance * v_correction_factor;
                 IF v_trip_distance >= v_min_distance_km AND v_trip_point_count >= 2 THEN
                     v_trip_id := gen_random_uuid();
@@ -219,7 +202,6 @@ BEGIN
                         'unknown'
                     );
 
-                    -- Insert junction records
                     v_seq := 0;
                     FOR i IN 1..array_length(v_trip_points, 1) LOOP
                         v_seq := v_seq + 1;
@@ -228,27 +210,21 @@ BEGIN
                         ON CONFLICT DO NOTHING;
                     END LOOP;
 
-                    -- Classify transport mode from sensor speeds
                     v_transport_mode := classify_trip_transport_mode(v_trip_id);
-
-                    -- Validate mode-specific constraints
                     v_displacement := haversine_km(
                         v_trip_start_point.latitude, v_trip_start_point.longitude,
                         v_trip_end_point.latitude, v_trip_end_point.longitude
                     );
 
                     IF v_transport_mode = 'walking' AND v_displacement < v_min_displacement_walking THEN
-                        -- Walking trip with < 100m displacement = GPS noise
                         DELETE FROM trip_gps_points WHERE trip_id = v_trip_id;
                         DELETE FROM trips WHERE id = v_trip_id;
                     ELSIF v_transport_mode = 'driving' AND v_trip_distance < v_min_distance_driving THEN
-                        -- Driving trip too short
                         DELETE FROM trip_gps_points WHERE trip_id = v_trip_id;
                         DELETE FROM trips WHERE id = v_trip_id;
                     ELSE
                         UPDATE trips SET transport_mode = v_transport_mode WHERE id = v_trip_id;
 
-                        -- Location matching for start and end points
                         UPDATE trips SET
                             start_location_id = CASE
                                 WHEN v_prev_trip_end_location_id IS NOT NULL
@@ -270,7 +246,6 @@ BEGIN
                             )
                         WHERE id = v_trip_id;
 
-                        -- Track for next trip's continuity
                         SELECT end_location_id INTO v_prev_trip_end_location_id FROM trips WHERE id = v_trip_id;
                         v_prev_trip_end_lat := v_trip_end_point.latitude;
                         v_prev_trip_end_lng := v_trip_end_point.longitude;
@@ -291,7 +266,6 @@ BEGIN
                     END IF;
                 END IF;
 
-                -- Reset trip state
                 v_in_trip := FALSE;
                 v_trip_distance := 0;
                 v_trip_point_count := 0;
@@ -303,15 +277,13 @@ BEGIN
                 v_has_last_stationary := FALSE;
             END IF;
 
-            -- Main movement/stationary detection using sensor speed stop detection
+            -- Main movement/stationary detection
             IF v_speed >= v_movement_speed AND NOT v_point_is_stopped THEN
-                -- Fast movement: start or continue trip
                 v_stationary_since := NULL;
                 v_stationary_center_lat := NULL;
                 v_stationary_center_lng := NULL;
 
                 IF NOT v_in_trip THEN
-                    -- Start new trip from the last stationary point (departure origin)
                     v_in_trip := TRUE;
                     IF v_has_last_stationary THEN
                         v_trip_start_point := v_last_stationary_point;
@@ -327,7 +299,6 @@ BEGIN
                         v_trip_low_accuracy := v_trip_low_accuracy + 1;
                     END IF;
 
-                    -- Add intermediate points between stationary and current
                     IF v_has_last_stationary THEN
                         IF v_prev_point.id != v_last_stationary_point.id THEN
                             v_trip_points := v_trip_points || v_prev_point.id;
@@ -336,7 +307,6 @@ BEGIN
                     END IF;
                 END IF;
 
-                -- Add distance
                 v_trip_distance := v_trip_distance + v_dist;
                 v_trip_point_count := v_trip_point_count + 1;
                 v_trip_points := v_trip_points || v_point.id;
@@ -356,16 +326,13 @@ BEGIN
                     v_trip_end_point := v_point;
                 END IF;
 
-                -- Include stationary point in trip (but do NOT add distance)
                 v_trip_point_count := v_trip_point_count + 1;
                 v_trip_points := v_trip_points || v_point.id;
                 IF v_point.accuracy IS NOT NULL AND v_point.accuracy > 50 THEN
                     v_trip_low_accuracy := v_trip_low_accuracy + 1;
                 END IF;
 
-                -- Check if stop duration exceeds cutoff -> end trip
                 IF EXTRACT(EPOCH FROM (v_point.captured_at - v_stationary_since)) / 60.0 >= v_stationary_gap_minutes THEN
-                    -- End trip
                     v_trip_distance := v_trip_distance * v_correction_factor;
                     IF v_trip_distance >= v_min_distance_km AND v_trip_point_count >= 2 THEN
                         v_trip_id := gen_random_uuid();
@@ -401,7 +368,6 @@ BEGIN
                             ON CONFLICT DO NOTHING;
                         END LOOP;
 
-                        -- Classify transport mode
                         v_transport_mode := classify_trip_transport_mode(v_trip_id);
                         v_displacement := haversine_km(
                             v_trip_start_point.latitude, v_trip_start_point.longitude,
@@ -417,7 +383,6 @@ BEGIN
                         ELSE
                             UPDATE trips SET transport_mode = v_transport_mode WHERE id = v_trip_id;
 
-                            -- Location matching for start and end points
                             UPDATE trips SET
                                 start_location_id = CASE
                                     WHEN v_prev_trip_end_location_id IS NOT NULL
@@ -439,7 +404,6 @@ BEGIN
                                 )
                             WHERE id = v_trip_id;
 
-                            -- Track for next trip's continuity
                             SELECT end_location_id INTO v_prev_trip_end_location_id FROM trips WHERE id = v_trip_id;
                             v_prev_trip_end_lat := v_trip_end_point.latitude;
                             v_prev_trip_end_lng := v_trip_end_point.longitude;
@@ -460,7 +424,6 @@ BEGIN
                         END IF;
                     END IF;
 
-                    -- Reset
                     v_in_trip := FALSE;
                     v_trip_distance := 0;
                     v_trip_point_count := 0;
@@ -487,9 +450,7 @@ BEGIN
         v_prev_point := v_point;
     END LOOP;
 
-    -- If still in a trip at end of data:
-    -- Completed shift -> close the trip (shift is done, trip must be done too)
-    -- Active shift -> don't close (person might still be moving)
+    -- If still in a trip at end of data (completed shift only)
     IF v_in_trip AND v_trip_point_count >= 2 AND NOT v_is_active THEN
         v_trip_distance := v_trip_distance * v_correction_factor;
         IF v_trip_distance >= v_min_distance_km THEN
@@ -526,7 +487,6 @@ BEGIN
                 ON CONFLICT DO NOTHING;
             END LOOP;
 
-            -- Classify transport mode
             v_transport_mode := classify_trip_transport_mode(v_trip_id);
             v_displacement := haversine_km(
                 v_trip_start_point.latitude, v_trip_start_point.longitude,
@@ -542,7 +502,6 @@ BEGIN
             ELSE
                 UPDATE trips SET transport_mode = v_transport_mode WHERE id = v_trip_id;
 
-                -- Location matching for start and end points
                 UPDATE trips SET
                     start_location_id = CASE
                         WHEN v_prev_trip_end_location_id IS NOT NULL
@@ -564,7 +523,6 @@ BEGIN
                     )
                 WHERE id = v_trip_id;
 
-                -- Track for next trip's continuity
                 SELECT end_location_id INTO v_prev_trip_end_location_id FROM trips WHERE id = v_trip_id;
                 v_prev_trip_end_lat := v_trip_end_point.latitude;
                 v_prev_trip_end_lng := v_trip_end_point.longitude;

@@ -82,7 +82,7 @@ class TeamEmployeeTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     // Status line
-                    if (employee.isActive)
+                    if (employee.isActive) ...[
                       Row(
                         children: [
                           Container(
@@ -113,9 +113,13 @@ class TeamEmployeeTile extends StatelessWidget {
                               ],
                             ),
                           ),
+                          const SizedBox(width: 6),
+                          _GpsRecencyChip(
+                            latestGpsCapturedAt: employee.latestGpsCapturedAt,
+                          ),
                         ],
-                      )
-                    else
+                      ),
+                    ] else
                       Text(
                         'Non pointé',
                         style: theme.textTheme.bodySmall?.copyWith(
@@ -219,6 +223,69 @@ class _StatChip extends StatelessWidget {
           style: theme.textTheme.labelMedium?.copyWith(
             color: color,
             fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _GpsRecencyChip extends StatelessWidget {
+  final DateTime? latestGpsCapturedAt;
+
+  const _GpsRecencyChip({required this.latestGpsCapturedAt});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    if (latestGpsCapturedAt == null) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.gps_off, size: 12, color: Colors.grey),
+          const SizedBox(width: 2),
+          Text(
+            'Aucun GPS',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: Colors.grey,
+            ),
+          ),
+        ],
+      );
+    }
+
+    final ago = DateTime.now().difference(latestGpsCapturedAt!);
+    final minutes = ago.inMinutes;
+    final Color color;
+    if (minutes < 5) {
+      color = Colors.green;
+    } else if (minutes < 15) {
+      color = Colors.orange;
+    } else {
+      color = Colors.red;
+    }
+
+    final String label;
+    if (minutes < 1) {
+      label = '< 1 min';
+    } else if (minutes < 60) {
+      label = '$minutes min';
+    } else {
+      final hours = ago.inHours;
+      label = '${hours}h${minutes.remainder(60) > 0 ? ' ${minutes.remainder(60)}m' : ''}';
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.gps_fixed, size: 12, color: color),
+        const SizedBox(width: 2),
+        Text(
+          label,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: color,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ],

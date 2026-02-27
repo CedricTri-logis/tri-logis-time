@@ -27,6 +27,7 @@
  */
 
 const { chromium } = require("playwright");
+const { execFileSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 
@@ -64,12 +65,9 @@ function normalizeStatus(raw) {
   return "unknown";
 }
 
-async function main() {
+async function checkStatus() {
   if (!fs.existsSync(STATE_PATH)) {
-    console.error(
-      "ERROR: No saved session found. Run 'node scripts/save-play-cookies.js' first."
-    );
-    process.exit(1);
+    return { expired: true };
   }
 
   const browser = await chromium.launch({ headless: true });
@@ -89,10 +87,7 @@ async function main() {
       url.includes("/signin") ||
       url.includes("/ServiceLogin")
     ) {
-      console.error(
-        "ERROR: Session expired. Run 'node scripts/save-play-cookies.js' to re-authenticate."
-      );
-      process.exit(1);
+      return { expired: true };
     }
 
     // Wait for the app list grid to load
@@ -134,24 +129,59 @@ async function main() {
       const updateStatus = cells.length >= 4 ? cells[3] : "";
       const lastUpdated = cells.length >= 5 ? cells[4] : "";
 
-      console.log(`PLAY_APP_STATE:${appState}`);
-      console.log(`PLAY_STATUS:${updateStatus}`);
-      if (lastUpdated) console.log(`PLAY_LAST_UPDATED:${lastUpdated}`);
-      console.log(`PLAY_NORMALIZED_STATUS:${normalizeStatus(updateStatus)}`);
-    } else {
-      console.error("WARNING: Could not find app row in the grid.");
-      console.error("Page snippet:", statusInfo.body);
-      process.exit(2);
-    }
+      // Refresh cookies for next time
+      await context.storageState({ path: STATE_PATH });
 
-    // Refresh cookies for next time
-    await context.storageState({ path: STATE_PATH });
+      return { appState, updateStatus, lastUpdated };
+    } else {
+      return { error: true, body: statusInfo.body };
+    }
   } catch (err) {
-    console.error(`ERROR: ${err.message}`);
-    process.exit(2);
+    return { error: true, message: err.message };
   } finally {
     await browser.close();
   }
+}
+
+function refreshCookies() {
+  const savScript = path.join(__dirname, "save-play-cookies.js");
+  console.error("Session expired. Auto-refreshing cookies via save-play-cookies.js...");
+  try {
+    execFileSync("node", [savScript], { stdio: "inherit", timeout: 60000 });
+    return true;
+  } catch (err) {
+    console.error(`ERROR: Cookie refresh failed: ${err.message}`);
+    return false;
+  }
+}
+
+async function main() {
+  let result = await checkStatus();
+
+  // Auto-recover: if cookies expired, refresh and retry once
+  if (result.expired) {
+    if (!refreshCookies()) {
+      console.error("ERROR: Could not refresh session. Run 'node scripts/save-play-cookies.js' manually.");
+      process.exit(1);
+    }
+    result = await checkStatus();
+    if (result.expired) {
+      console.error("ERROR: Session still expired after refresh. Run 'node scripts/save-play-cookies.js --visible' to debug.");
+      process.exit(1);
+    }
+  }
+
+  if (result.error) {
+    console.error("WARNING: Could not find app row in the grid.");
+    if (result.body) console.error("Page snippet:", result.body);
+    if (result.message) console.error("Error:", result.message);
+    process.exit(2);
+  }
+
+  console.log(`PLAY_APP_STATE:${result.appState}`);
+  console.log(`PLAY_STATUS:${result.updateStatus}`);
+  if (result.lastUpdated) console.log(`PLAY_LAST_UPDATED:${result.lastUpdated}`);
+  console.log(`PLAY_NORMALIZED_STATUS:${normalizeStatus(result.updateStatus)}`);
 }
 
 main();
