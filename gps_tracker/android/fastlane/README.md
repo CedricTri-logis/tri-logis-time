@@ -31,6 +31,14 @@ Build and upload to Google Play closed testing (alpha)
 
 Build and upload to Google Play open testing (beta)
 
+### android check_status
+
+```sh
+[bundle exec] fastlane android check_status
+```
+
+Check current version code on alpha track
+
 ### android production
 
 ```sh

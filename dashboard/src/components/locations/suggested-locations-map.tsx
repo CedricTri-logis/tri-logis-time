@@ -10,9 +10,10 @@ import {
 } from '@vis.gl/react-google-maps';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, EyeOff, MapPin } from 'lucide-react';
+import { Plus, EyeOff, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Location } from '@/types/location';
 import { getLocationTypeColor, getLocationTypeLabel } from '@/lib/utils/segment-colors';
+import { supabaseClient } from '@/lib/supabase/client';
 
 const DEFAULT_CENTER = { lat: 48.2410, lng: -79.0280 };
 const DEFAULT_ZOOM = 13;
@@ -29,6 +30,16 @@ export interface MapCluster {
   last_seen: string;
   google_address?: string | null;
   place_name?: string | null;
+}
+
+interface ClusterOccurrence {
+  trip_id: string;
+  employee_name: string;
+  endpoint_type: 'start' | 'end';
+  latitude: number;
+  longitude: number;
+  seen_at: string;
+  address: string | null;
 }
 
 interface SuggestedLocationsMapProps {
@@ -52,6 +63,37 @@ export function SuggestedLocationsMap({
   const selectedCluster = clusters.find((c) => c.cluster_id === selectedClusterId) || null;
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const selectedLocation = locations.find((l) => l.id === selectedLocationId) || null;
+
+  const [occurrences, setOccurrences] = useState<ClusterOccurrence[]>([]);
+  const [occurrenceIndex, setOccurrenceIndex] = useState(0);
+  const [loadingOccurrences, setLoadingOccurrences] = useState(false);
+
+  // Fetch occurrences when a cluster is selected
+  useEffect(() => {
+    if (!selectedCluster) {
+      setOccurrences([]);
+      setOccurrenceIndex(0);
+      return;
+    }
+
+    let cancelled = false;
+    async function fetchOccurrences() {
+      setLoadingOccurrences(true);
+      const { data, error } = await supabaseClient.rpc('get_cluster_occurrences', {
+        p_centroid_lat: selectedCluster!.centroid_latitude,
+        p_centroid_lng: selectedCluster!.centroid_longitude,
+      });
+      if (!cancelled) {
+        setOccurrences(error ? [] : (data as ClusterOccurrence[]) || []);
+        setOccurrenceIndex(0);
+        setLoadingOccurrences(false);
+      }
+    }
+    fetchOccurrences();
+    return () => { cancelled = true; };
+  }, [selectedCluster?.cluster_id]);
+
+  const currentOccurrence = occurrences[occurrenceIndex] || null;
 
   return (
     <div className="h-[500px] w-full rounded-xl overflow-hidden border border-slate-200 shadow-sm">
@@ -137,6 +179,26 @@ export function SuggestedLocationsMap({
             );
           })}
 
+          {/* Individual occurrence GPS marker */}
+          {selectedCluster && currentOccurrence && (
+            <AdvancedMarker
+              position={{
+                lat: currentOccurrence.latitude,
+                lng: currentOccurrence.longitude,
+              }}
+            >
+              <div
+                className="rounded-full shadow-md"
+                style={{
+                  width: 12,
+                  height: 12,
+                  backgroundColor: '#ef4444',
+                  border: '2px solid white',
+                }}
+              />
+            </AdvancedMarker>
+          )}
+
           {selectedCluster && (
             <InfoWindow
               position={{
@@ -171,15 +233,73 @@ export function SuggestedLocationsMap({
                     </Badge>
                   )}
                 </div>
-                {selectedCluster.employee_names?.length > 0 && (
-                  <p className="text-[10px] text-slate-400 mb-1">
-                    {selectedCluster.employee_names.join(', ')}
-                  </p>
+
+                {/* Occurrence browser */}
+                {loadingOccurrences ? (
+                  <p className="text-[10px] text-slate-400 mb-2">Chargement...</p>
+                ) : occurrences.length > 0 && currentOccurrence ? (
+                  <div className="border-t border-slate-200 pt-1.5 mt-1 mb-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[11px] font-medium text-slate-700">
+                        {currentOccurrence.employee_name}
+                      </span>
+                      <Badge
+                        variant={currentOccurrence.endpoint_type === 'start' ? 'default' : 'secondary'}
+                        className="text-[9px] h-4"
+                      >
+                        {currentOccurrence.endpoint_type === 'start' ? 'Départ' : 'Arrivée'}
+                      </Badge>
+                    </div>
+                    <p className="text-[10px] text-slate-500">
+                      {new Date(currentOccurrence.seen_at).toLocaleDateString('fr-CA', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                      })},{' '}
+                      {new Date(currentOccurrence.seen_at).toLocaleTimeString('fr-CA', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </p>
+                    <p className="text-[9px] text-slate-400 font-mono">
+                      ({currentOccurrence.latitude.toFixed(5)}, {currentOccurrence.longitude.toFixed(5)})
+                    </p>
+                    {occurrences.length > 1 && (
+                      <div className="flex items-center justify-center gap-2 mt-1.5">
+                        <button
+                          className="p-0.5 rounded hover:bg-slate-100 disabled:opacity-30"
+                          disabled={occurrenceIndex === 0}
+                          onClick={() => setOccurrenceIndex((i) => i - 1)}
+                        >
+                          <ChevronLeft className="h-3.5 w-3.5 text-slate-600" />
+                        </button>
+                        <span className="text-[10px] text-slate-500 tabular-nums">
+                          {occurrenceIndex + 1} / {occurrences.length}
+                        </span>
+                        <button
+                          className="p-0.5 rounded hover:bg-slate-100 disabled:opacity-30"
+                          disabled={occurrenceIndex === occurrences.length - 1}
+                          onClick={() => setOccurrenceIndex((i) => i + 1)}
+                        >
+                          <ChevronRight className="h-3.5 w-3.5 text-slate-600" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    {selectedCluster.employee_names?.length > 0 && (
+                      <p className="text-[10px] text-slate-400 mb-1">
+                        {selectedCluster.employee_names.join(', ')}
+                      </p>
+                    )}
+                    <p className="text-[10px] text-slate-400 mb-2">
+                      {new Date(selectedCluster.first_seen).toLocaleDateString('fr-CA')} —{' '}
+                      {new Date(selectedCluster.last_seen).toLocaleDateString('fr-CA')}
+                    </p>
+                  </>
                 )}
-                <p className="text-[10px] text-slate-400 mb-2">
-                  {new Date(selectedCluster.first_seen).toLocaleDateString('fr-CA')} —{' '}
-                  {new Date(selectedCluster.last_seen).toLocaleDateString('fr-CA')}
-                </p>
+
                 <div className="flex gap-1.5">
                   <Button
                     size="sm"

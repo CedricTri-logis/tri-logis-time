@@ -6,7 +6,7 @@ Steps:
 1. **Pre-flight check**: Run `flutter analyze` on the full project BEFORE bumping the version. If there are any errors (not warnings), fix them first. Do NOT proceed with the deploy if there are compile errors.
 2. **Determine the next build number** — query BOTH stores to find the highest existing build number:
    - Query TestFlight: `cd gps_tracker/ios && bundle exec fastlane latest_build` (look for "LATEST_TF_BUILD:XX")
-   - Query Google Play: check the current pubspec build number
+   - Query Google Play: `cd gps_tracker/android && bundle exec fastlane check_status` (look for "ALPHA_VERSION_CODES:XX" — may be comma-separated, take the highest)
    - Take the MAX of: pubspec build number, TestFlight build number, Google Play build number
    - New build = MAX + 1
    - Update `gps_tracker/pubspec.yaml` with the new build number
@@ -21,18 +21,23 @@ Steps:
    - **NEVER leave iOS and Android on different build numbers.** This is the #1 rule of this workflow.
 5. **Verify build number parity**: After both deploys succeed, confirm the deployed build numbers match. If they don't, redeploy the lagging platform.
 6. Sync pubspec.yaml to match the actual deployed build number (so it stays in sync for next deploy).
-7. **Ask before enforcing minimum version**: After both deploys succeed, ASK the user before updating the minimum app version. Remind them that Google Play review can delay availability (builds may take hours to become downloadable even after a successful upload). Present the options:
-   - Set minimum to the NEW build number (if they're confident it's available on both stores)
-   - Set minimum to the PREVIOUS build number (safer — avoids locking out users while Google Play reviews)
+7. **Check Google Play build availability**: After both deploys succeed, check if the new build is live on Google Play alpha:
+   - Run: `cd gps_tracker/android && bundle exec fastlane check_status` (requires Homebrew Ruby path)
+   - Parse the output for "ALPHA_VERSION_CODES:" and check if the deployed build number appears in the list
+   - If the build IS live: inform the user and proceed to the minimum version step
+   - If the build is NOT yet live: inform the user it's still in Google Play review, then offer to poll every 60 seconds (up to 15 minutes). If the user accepts, re-run `check_status` in a loop until the build appears or timeout is reached.
+8. **Ask before enforcing minimum version**: ASK the user before updating the minimum app version. Present the options:
+   - Set minimum to the NEW build number (recommended if confirmed live on both stores)
+   - Set minimum to the PREVIOUS build number (safer — if Google Play review is still pending)
    - Skip the minimum version update entirely
    - Once the user confirms, use Supabase MCP tool `execute_sql`: `UPDATE app_config SET value = '<chosen_version>', updated_at = NOW() WHERE key = 'minimum_app_version';`
    - Project ID: `xdyzdclwvhkfwbkrdsiz`
-8. **Push (run the full /push workflow)** — only if both deploys succeeded:
+9. **Push (run the full /push workflow)** — only if both deploys succeeded:
    - **Apply pending migrations**: Check `git status --short supabase/migrations/` and `git diff --name-only HEAD supabase/migrations/` for new/modified migration files. If any are found, list them and run `supabase db push --linked` from the project root. If it fails, stop and report the error.
    - **Commit**: Stage all modified files (pubspec.yaml, build configs, code changes, migrations, etc.). Create a commit with message: `chore: Deploy v<version>+<build> to TestFlight & Google Play` (using HEREDOC, with `Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>`).
    - **Push**: `git push` (or `git push -u origin HEAD` if no upstream).
    - **Vercel deployment**: Run `npx vercel --prod --yes` to trigger and watch the production deployment. Report the deployment URL and status.
-9. Report the summary: both deploy statuses, the SINGLE build number deployed to both platforms, what minimum version is now enforced, and the git push status.
+10. Report the summary: both deploy statuses, the SINGLE build number deployed to both platforms, Google Play alpha availability status, what minimum version is now enforced, and the git push status.
 
 Important notes:
 - **Both platforms are ALWAYS deployed together** — there is no option to skip one. If the user asks to deploy only one platform, warn them that both must be deployed to keep build numbers in sync, and deploy both.

@@ -30,7 +30,10 @@ class PermissionGuardNotifier extends StateNotifier<PermissionGuardState> {
   }
 
   /// Performs a full permission and device status check.
-  Future<void> checkStatus() async {
+  ///
+  /// When [immediate] is true, updates state synchronously (no debounce).
+  /// Use immediate=true before clock-in to avoid race conditions.
+  Future<void> checkStatus({bool immediate = false}) async {
     try {
       // Check device services
       DeviceLocationStatus deviceStatus;
@@ -66,9 +69,7 @@ class PermissionGuardNotifier extends StateNotifier<PermissionGuardState> {
         }
       }
 
-      // Debounced update to prevent UI flicker
-      _debounceTimer?.cancel();
-      _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      void applyState() {
         if (mounted) {
           state = state.copyWith(
             permission: permission,
@@ -79,7 +80,17 @@ class PermissionGuardNotifier extends StateNotifier<PermissionGuardState> {
             lastChecked: DateTime.now(),
           );
         }
-      });
+      }
+
+      if (immediate) {
+        // Apply immediately — used before clock-in to guarantee fresh state
+        _debounceTimer?.cancel();
+        applyState();
+      } else {
+        // Debounced update to prevent UI flicker
+        _debounceTimer?.cancel();
+        _debounceTimer = Timer(const Duration(milliseconds: 500), applyState);
+      }
 
       if (standbyBucket.isRestricted) {
         _logger?.permission(

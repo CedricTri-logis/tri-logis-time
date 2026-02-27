@@ -270,6 +270,11 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
 
       final locationService = ref.read(locationServiceProvider);
       final shiftNotifier = ref.read(shiftProvider.notifier);
+
+      // Fresh permission check before clock-in to avoid race condition
+      // (initial state defaults to optimistic values before async check completes)
+      await ref.read(permissionGuardProvider.notifier).checkStatus(immediate: true);
+      if (!mounted) return;
       final guardState = ref.read(permissionGuardProvider);
 
       // Pre-shift permission check: Block if critical permission issue

@@ -27,6 +27,14 @@ platform :android do
     )
   end
 
+  desc "Check current version code on alpha track"
+  lane :check_status do
+    version_codes = google_play_track_version_codes(
+      track: "alpha"
+    )
+    UI.important("ALPHA_VERSION_CODES:#{version_codes.join(',')}")
+  end
+
   desc "Build and upload to Google Play production (draft for manual review)"
   lane :production do
     sh("cd ../.. && flutter build appbundle --release")
