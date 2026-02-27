@@ -326,7 +326,7 @@ BEGIN
                                         GREATEST(1, EXTRACT(EPOCH FROM (v_split_trip_end.captured_at - v_split_trip_start.captured_at)) / 60)::INTEGER,
                                         'business', 0.50,
                                         v_split_point_count, v_split_low_accuracy,
-                                        'auto', 'unknown',
+                                        'auto', 'walking',
                                         v_prev_cluster_id, NULL
                                     );
 
@@ -336,17 +336,16 @@ BEGIN
                                         ON CONFLICT DO NOTHING;
                                     END LOOP;
 
-                                    v_transport_mode := classify_trip_transport_mode(v_split_trip_id);
+                                    -- Split trips are walking by definition: movement was <8 km/h
+                                    -- (otherwise a normal trip would have triggered instead of cluster accumulation).
+                                    -- Only validate with walking displacement check (100m).
+                                    v_transport_mode := 'walking';
                                     v_displacement := haversine_km(
                                         v_eff_start_lat, v_eff_start_lng,
                                         v_eff_end_lat, v_eff_end_lng
                                     );
 
-                                    IF v_transport_mode = 'walking' AND v_displacement < v_min_displacement_walking THEN
-                                        DELETE FROM trip_gps_points WHERE trip_id = v_split_trip_id;
-                                        DELETE FROM trips WHERE id = v_split_trip_id;
-                                        v_split_trip_id := NULL;
-                                    ELSIF v_transport_mode = 'driving' AND v_split_trip_distance < v_min_distance_driving THEN
+                                    IF v_displacement < v_min_displacement_walking THEN
                                         DELETE FROM trip_gps_points WHERE trip_id = v_split_trip_id;
                                         DELETE FROM trips WHERE id = v_split_trip_id;
                                         v_split_trip_id := NULL;
