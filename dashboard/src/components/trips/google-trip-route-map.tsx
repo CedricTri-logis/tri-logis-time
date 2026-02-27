@@ -10,13 +10,14 @@ import {
 } from '@vis.gl/react-google-maps';
 import { decodePolyline6 } from '@/lib/polyline';
 import type { Trip, TripGpsPoint } from '@/types/mileage';
-import type { TripStop } from '@/lib/utils/detect-trip-stops';
+import type { TripStop, GpsCluster } from '@/lib/utils/detect-trip-stops';
 import { Card } from '@/components/ui/card';
 
 interface TripRouteMapProps {
   trips: Trip[];
   gpsPoints?: TripGpsPoint[];
   stops?: TripStop[];
+  clusters?: GpsCluster[];
   height?: number;
   showGpsPoints?: boolean;
   apiKey?: string;
@@ -50,16 +51,24 @@ function formatDuration(seconds: number): string {
   return sec > 0 ? `${min}min ${sec}s` : `${min}min`;
 }
 
+function getClusterColor(durationSeconds: number): string {
+  if (durationSeconds < 30) return '#eab308';   // yellow — brief
+  if (durationSeconds < 180) return '#f97316';   // orange — moderate
+  return '#ef4444';                               // red — extended
+}
+
 export function GoogleTripRouteMap({
   trips,
   gpsPoints = [],
   stops = [],
+  clusters = [],
   height = 400,
   showGpsPoints = true,
   apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
 }: TripRouteMapProps) {
   const [selectedPoint, setSelectedPoint] = useState<TripGpsPoint | null>(null);
   const [selectedStop, setSelectedStop] = useState<TripStop | null>(null);
+  const [selectedCluster, setSelectedCluster] = useState<GpsCluster | null>(null);
 
   const routes = useMemo(() => {
     return trips.map((trip, index) => {
@@ -177,11 +186,39 @@ export function GoogleTripRouteMap({
             </InfoWindow>
           )}
 
+          {/* GPS clusters (brief stops < 60s) */}
+          {clusters.length > 0 && (
+            <GpsClustersLayer
+              clusters={clusters}
+              onClusterClick={(c) => { setSelectedPoint(null); setSelectedStop(null); setSelectedCluster(c); }}
+            />
+          )}
+
+          {/* Cluster info window */}
+          {selectedCluster && (
+            <InfoWindow
+              position={{ lat: selectedCluster.latitude, lng: selectedCluster.longitude }}
+              onCloseClick={() => setSelectedCluster(null)}
+            >
+              <div className="text-xs space-y-1 min-w-[140px]">
+                <p className="font-semibold text-slate-900">
+                  Pause ({formatDuration(selectedCluster.durationSeconds)})
+                </p>
+                <p className="text-slate-600">
+                  {formatTime(selectedCluster.startTime)} – {formatTime(selectedCluster.endTime)}
+                </p>
+                <p className="text-slate-600">
+                  {selectedCluster.pointCount} points GPS
+                </p>
+              </div>
+            </InfoWindow>
+          )}
+
           {/* Stop markers */}
           {stops.length > 0 && (
             <StopsLayer
               stops={stops}
-              onStopClick={(s) => { setSelectedPoint(null); setSelectedStop(s); }}
+              onStopClick={(s) => { setSelectedPoint(null); setSelectedCluster(null); setSelectedStop(s); }}
             />
           )}
 
@@ -374,6 +411,70 @@ function StopsLayer({
       overlays.forEach((o) => o.setMap(null));
     };
   }, [map, stops, onStopClick]);
+
+  return null;
+}
+
+function GpsClustersLayer({
+  clusters,
+  onClusterClick,
+}: {
+  clusters: GpsCluster[];
+  onClusterClick: (c: GpsCluster) => void;
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!map || clusters.length === 0) return;
+
+    const overlays: google.maps.MVCObject[] = [];
+
+    clusters.forEach((cluster) => {
+      const position = { lat: cluster.latitude, lng: cluster.longitude };
+      const color = getClusterColor(cluster.durationSeconds);
+
+      // Cluster circle (larger than individual GPS dots)
+      const circle = new google.maps.Circle({
+        map,
+        center: position,
+        radius: 18,
+        fillColor: color,
+        fillOpacity: 0.7,
+        strokeColor: '#fff',
+        strokeOpacity: 1,
+        strokeWeight: 2,
+        clickable: true,
+        zIndex: 15,
+      });
+      circle.addListener('click', () => onClusterClick(cluster));
+      overlays.push(circle);
+
+      // Label with point count (using AdvancedMarker is not possible here,
+      // so we use a Marker with a custom label)
+      const marker = new google.maps.Marker({
+        map,
+        position,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 0,
+        },
+        label: {
+          text: String(cluster.pointCount),
+          color: '#fff',
+          fontSize: '10px',
+          fontWeight: 'bold',
+        },
+        clickable: true,
+        zIndex: 16,
+      });
+      marker.addListener('click', () => onClusterClick(cluster));
+      overlays.push(marker);
+    });
+
+    return () => {
+      overlays.forEach((o) => (o as any).setMap(null));
+    };
+  }, [map, clusters, onClusterClick]);
 
   return null;
 }

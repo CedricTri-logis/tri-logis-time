@@ -33,6 +33,94 @@ function categorize(durationSeconds: number): TripStop['category'] {
   return 'extended';
 }
 
+export interface GpsCluster {
+  latitude: number;
+  longitude: number;
+  startTime: string;
+  endTime: string;
+  durationSeconds: number;
+  pointCount: number;
+}
+
+const MIN_CLUSTER_DURATION = 10; // seconds — captures red lights
+
+/**
+ * Detect GPS point clusters (co-located stationary points).
+ * Uses same spatial logic as detectTripStops but with a lower 10s threshold.
+ * Clusters >= 60s are excluded (stop markers handle those).
+ */
+export function detectGpsClusters(points: TripGpsPoint[]): GpsCluster[] {
+  if (points.length < 2) return [];
+
+  const sorted = [...points].sort(
+    (a, b) => new Date(a.captured_at).getTime() - new Date(b.captured_at).getTime(),
+  );
+
+  const clusters: GpsCluster[] = [];
+  let cluster: TripGpsPoint[] = [];
+  let centerLat = 0;
+  let centerLng = 0;
+
+  function flushCluster() {
+    if (cluster.length < 2) {
+      cluster = [];
+      return;
+    }
+
+    const first = cluster[0];
+    const last = cluster[cluster.length - 1];
+    const duration =
+      (new Date(last.captured_at).getTime() - new Date(first.captured_at).getTime()) / 1000;
+
+    if (duration < MIN_CLUSTER_DURATION) {
+      cluster = [];
+      return;
+    }
+
+    // Skip clusters >= 60s — stop markers handle those
+    if (duration >= MIN_STOP_DURATION) {
+      cluster = [];
+      return;
+    }
+
+    const latSum = cluster.reduce((s, p) => s + p.latitude, 0);
+    const lngSum = cluster.reduce((s, p) => s + p.longitude, 0);
+
+    clusters.push({
+      latitude: latSum / cluster.length,
+      longitude: lngSum / cluster.length,
+      startTime: first.captured_at,
+      endTime: last.captured_at,
+      durationSeconds: duration,
+      pointCount: cluster.length,
+    });
+
+    cluster = [];
+  }
+
+  for (const pt of sorted) {
+    const sensorStopped = pt.speed === null || pt.speed < SENSOR_STOP_SPEED;
+    const withinRadius =
+      cluster.length > 0 &&
+      haversineM(centerLat, centerLng, pt.latitude, pt.longitude) < SPATIAL_RADIUS_M;
+    const noiseSuppressed =
+      withinRadius && pt.speed !== null && pt.speed < NOISE_SPEED_LIMIT;
+
+    if (sensorStopped || noiseSuppressed) {
+      if (cluster.length === 0) {
+        centerLat = pt.latitude;
+        centerLng = pt.longitude;
+      }
+      cluster.push(pt);
+    } else {
+      flushCluster();
+    }
+  }
+
+  flushCluster();
+  return clusters;
+}
+
 export function detectTripStops(points: TripGpsPoint[]): TripStop[] {
   if (points.length < 2) return [];
 

@@ -30,7 +30,7 @@ import { toast } from 'sonner';
 import { supabaseClient } from '@/lib/supabase/client';
 import { MatchStatusBadge } from '@/components/trips/match-status-badge';
 import { GoogleTripRouteMap } from '@/components/trips/google-trip-route-map';
-import { detectTripStops } from '@/lib/utils/detect-trip-stops';
+import { detectTripStops, detectGpsClusters } from '@/lib/utils/detect-trip-stops';
 import { LocationPickerDropdown } from '@/components/trips/location-picker-dropdown';
 import type { Trip, TripGpsPoint } from '@/types/mileage';
 
@@ -756,6 +756,7 @@ function TripRow({
   const [isLoadingPoints, setIsLoadingPoints] = useState(false);
 
   const stops = useMemo(() => detectTripStops(gpsPoints), [gpsPoints]);
+  const gpsClusters = useMemo(() => detectGpsClusters(gpsPoints), [gpsPoints]);
 
   const startLocationName = trip.start_location?.name;
   const endLocationName = trip.end_location?.name;
@@ -876,6 +877,7 @@ function TripRow({
                   trips={[trip]}
                   gpsPoints={gpsPoints}
                   stops={stops}
+                  clusters={gpsClusters}
                   height={350}
                   showGpsPoints={gpsPoints.length > 0}
                 />
