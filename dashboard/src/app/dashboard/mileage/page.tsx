@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   RefreshCw,
   CheckCircle,
@@ -32,6 +33,7 @@ import { MatchStatusBadge } from '@/components/trips/match-status-badge';
 import { GoogleTripRouteMap } from '@/components/trips/google-trip-route-map';
 import { detectTripStops, detectGpsClusters } from '@/lib/utils/detect-trip-stops';
 import { LocationPickerDropdown } from '@/components/trips/location-picker-dropdown';
+import { StationaryClustersTab } from '@/components/mileage/stationary-clusters-tab';
 import type { Trip, TripGpsPoint } from '@/types/mileage';
 
 interface BatchResult {
@@ -91,6 +93,7 @@ function formatLocation(address: string | null, lat: number, lng: number): strin
 }
 
 export default function MileagePage() {
+  const [activeTab, setActiveTab] = useState('trips');
   const [isProcessing, setIsProcessing] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
   const [dialogMode, setDialogMode] = useState<'failed' | 'all'>('failed');
@@ -383,6 +386,14 @@ export default function MileagePage() {
           Gérer l'appariement des itinéraires et le suivi du kilométrage
         </p>
       </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="trips">Trajets</TabsTrigger>
+          <TabsTrigger value="clusters">Arrêts</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="trips" className="space-y-6 mt-4">
 
       {/* Route Matching Card */}
       <Card>
@@ -737,6 +748,13 @@ export default function MileagePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+        </TabsContent>
+
+        <TabsContent value="clusters" className="mt-4">
+          <StationaryClustersTab />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

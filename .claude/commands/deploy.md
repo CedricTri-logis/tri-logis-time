@@ -21,21 +21,26 @@ Steps:
    - **NEVER leave iOS and Android on different build numbers.** This is the #1 rule of this workflow.
 5. **Verify build number parity**: After both deploys succeed, confirm the deployed build numbers match. If they don't, redeploy the lagging platform.
 6. Sync pubspec.yaml to match the actual deployed build number (so it stays in sync for next deploy).
-7. **Wait for Google Play review approval, then enforce minimum version**:
-   a. Run `node scripts/check-play-status.js` to get the review status.
+7. **⛔ BLOCKING GATE — Wait for Google Play review approval, then enforce minimum version**:
+
+   **CRITICAL: You MUST NOT update `minimum_app_version` unless `PLAY_NORMALIZED_STATUS` is EXACTLY `update_available`. Any other status (in_review, not_sent_for_review, draft, rejected, unknown, etc.) means the build is NOT available to employees yet. Enforcing a version that isn't available LOCKS ALL EMPLOYEES OUT OF THE APP. This is a production-breaking mistake.**
+
+   a. Run `node scripts/check-play-status.js` to get the review status. Read the output carefully.
    b. Run `cd gps_tracker/android && bundle exec fastlane check_status` to confirm the build number on the alpha track.
-   c. If `PLAY_NORMALIZED_STATUS` is `update_available`:
+   c. **ONLY if `PLAY_NORMALIZED_STATUS` is exactly `update_available`**:
       → Build is live. Enforce minimum version = deployed build number via Supabase MCP tool `execute_sql`:
         `UPDATE app_config SET value = '<build>', updated_at = NOW() WHERE key = 'minimum_app_version';`
         (Project ID: `xdyzdclwvhkfwbkrdsiz`)
       → Report success and move to step 8.
-   d. If `PLAY_NORMALIZED_STATUS` is `in_review`:
-      → Inform the user: "Build XX is still In Review on Google Play. Polling every 5 minutes..."
+   d. If `PLAY_NORMALIZED_STATUS` is `in_review` or `not_sent_for_review`:
+      → **DO NOT enforce minimum version.**
+      → Inform the user: "Build XX is still [status] on Google Play. Polling every 5 minutes..."
       → Poll: re-run `node scripts/check-play-status.js` every 5 minutes.
       → Max wait: 60 minutes (12 checks). After that, ask the user what to do.
       → When status changes to `update_available`: enforce minimum version automatically (same SQL as above).
-   e. If cookies expired (exit code 1): warn user, suggest `node scripts/save-play-cookies.js`, skip enforcement.
-   f. If status is `rejected` or other unexpected status: warn user, skip enforcement.
+      → **Repeat: DO NOT enforce until you see `update_available`. No exceptions.**
+   e. If cookies expired (exit code 1): warn user, suggest `node scripts/save-play-cookies.js`, **DO NOT enforce — skip enforcement entirely.**
+   f. If status is `rejected`, `unknown`, or any other unexpected status: warn user, **DO NOT enforce — skip enforcement entirely.**
    g. If the user passed "no enforce" / "sans bloquer": skip this entire step.
 8. **Push (run the full /push workflow)** — only if both deploys succeeded:
    - **Apply pending migrations**: Check `git status --short supabase/migrations/` and `git diff --name-only HEAD supabase/migrations/` for new/modified migration files. If any are found, list them and run `supabase db push --linked` from the project root. If it fails, stop and report the error.
