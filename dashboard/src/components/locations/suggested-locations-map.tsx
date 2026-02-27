@@ -45,6 +45,13 @@ export interface ClusterOccurrence {
   shift_id: string;
 }
 
+interface GpsPoint {
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+  received_at: string;
+}
+
 interface SuggestedLocationsMapProps {
   clusters: MapCluster[];
   selectedClusterId: number | null;
@@ -75,6 +82,7 @@ export function SuggestedLocationsMap({
   const [occurrences, setOccurrences] = useState<ClusterOccurrence[]>([]);
   const [occurrenceIndex, setOccurrenceIndex] = useState(0);
   const [loadingOccurrences, setLoadingOccurrences] = useState(false);
+  const [gpsPoints, setGpsPoints] = useState<GpsPoint[]>([]);
 
   // Fetch occurrences when a cluster is selected
   useEffect(() => {
@@ -114,6 +122,32 @@ export function SuggestedLocationsMap({
   }, [selectedCluster?.cluster_id]);
 
   const currentOccurrence = occurrences[occurrenceIndex] || null;
+
+  // Fetch GPS points when the current occurrence changes
+  useEffect(() => {
+    if (!currentOccurrence) {
+      setGpsPoints([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabaseClient.rpc('get_cluster_gps_points', {
+          p_cluster_id: currentOccurrence.cluster_id,
+        });
+        if (cancelled) return;
+        if (error) {
+          console.error('[cluster-gps-points] RPC error:', error);
+          setGpsPoints([]);
+        } else {
+          setGpsPoints((data as GpsPoint[]) || []);
+        }
+      } catch (err) {
+        if (!cancelled) setGpsPoints([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [currentOccurrence?.cluster_id]);
 
   return (
     <div className="h-[500px] w-full rounded-xl overflow-hidden border border-slate-200 shadow-sm">
@@ -199,7 +233,27 @@ export function SuggestedLocationsMap({
             );
           })}
 
-          {/* Individual occurrence: accuracy circle + center dot */}
+          {/* Individual GPS points for current occurrence */}
+          {selectedCluster && currentOccurrence && gpsPoints.map((pt, i) => (
+            <AdvancedMarker
+              key={`gps-${i}`}
+              position={{ lat: pt.latitude, lng: pt.longitude }}
+              zIndex={500}
+            >
+              <div
+                className="rounded-full"
+                style={{
+                  width: 6,
+                  height: 6,
+                  backgroundColor: '#3b82f6',
+                  opacity: 0.6,
+                  border: '1px solid white',
+                }}
+              />
+            </AdvancedMarker>
+          ))}
+
+          {/* Occurrence centroid: accuracy circle + center dot */}
           {selectedCluster && currentOccurrence && (
             <>
               <OccurrenceAccuracyCircle

@@ -183,3 +183,29 @@ BEGIN
     ORDER BY c.s_at DESC;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 3. GPS points for a single stationary cluster (drill-down visualization)
+CREATE OR REPLACE FUNCTION get_cluster_gps_points(
+    p_cluster_id UUID
+)
+RETURNS TABLE (
+    latitude DOUBLE PRECISION,
+    longitude DOUBLE PRECISION,
+    accuracy DOUBLE PRECISION,
+    received_at TIMESTAMPTZ
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        gp.latitude::DOUBLE PRECISION,
+        gp.longitude::DOUBLE PRECISION,
+        gp.accuracy::DOUBLE PRECISION,
+        gp.received_at
+    FROM gps_points gp
+    WHERE gp.employee_id = (SELECT sc.employee_id FROM stationary_clusters sc WHERE sc.id = p_cluster_id)
+      AND gp.received_at BETWEEN
+          (SELECT sc.started_at FROM stationary_clusters sc WHERE sc.id = p_cluster_id)
+          AND (SELECT sc.ended_at FROM stationary_clusters sc WHERE sc.id = p_cluster_id)
+    ORDER BY gp.received_at;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
