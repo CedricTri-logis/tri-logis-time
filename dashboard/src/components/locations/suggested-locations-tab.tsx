@@ -1,26 +1,29 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, MapPin, Plus, Eye } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Loader2, MapPin, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabaseClient } from '@/lib/supabase/client';
+import type { MapCluster } from './suggested-locations-map';
 
-interface UnmatchedCluster {
-  cluster_id: number;
-  centroid_latitude: number;
-  centroid_longitude: number;
-  occurrence_count: number;
-  has_start_endpoints: boolean;
-  has_end_endpoints: boolean;
-  employee_names: string[];
-  first_seen: string;
-  last_seen: string;
+const SuggestedLocationsMap = dynamic(
+  () =>
+    import('./suggested-locations-map').then((m) => ({
+      default: m.SuggestedLocationsMap,
+    })),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-[350px] w-full rounded-xl" />,
+  }
+);
+
+interface UnmatchedCluster extends MapCluster {
   sample_addresses: string[];
-  google_address?: string;
-  google_loading?: boolean;
 }
 
 interface SuggestedLocationsTabProps {
@@ -32,9 +35,75 @@ interface SuggestedLocationsTabProps {
   }) => void;
 }
 
+async function enrichClusters(rawClusters: UnmatchedCluster[]): Promise<UnmatchedCluster[]> {
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  if (!apiKey || rawClusters.length === 0) return rawClusters;
+
+  const enriched = await Promise.all(
+    rawClusters.map(async (cluster) => {
+      let address: string | null = cluster.sample_addresses?.[0] || null;
+      let placeName: string | null = null;
+
+      // 1. Reverse geocode for address
+      try {
+        const geoRes = await fetch(
+          `https://maps.googleapis.com/maps/api/geocode/json?latlng=${cluster.centroid_latitude},${cluster.centroid_longitude}&key=${apiKey}&language=fr`
+        );
+        const geoData = await geoRes.json();
+        address = geoData.results?.[0]?.formatted_address || address;
+      } catch {
+        /* keep fallback */
+      }
+
+      // 2. Places Nearby Search (New API) for business name
+      try {
+        const placesRes = await fetch(
+          'https://places.googleapis.com/v1/places:searchNearby',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Goog-Api-Key': apiKey,
+              'X-Goog-FieldMask':
+                'places.displayName,places.formattedAddress,places.types',
+            },
+            body: JSON.stringify({
+              locationRestriction: {
+                circle: {
+                  center: {
+                    latitude: cluster.centroid_latitude,
+                    longitude: cluster.centroid_longitude,
+                  },
+                  radius: 50.0,
+                },
+              },
+              maxResultCount: 1,
+              languageCode: 'fr',
+            }),
+          }
+        );
+        const placesData = await placesRes.json();
+        placeName = placesData.places?.[0]?.displayName?.text || null;
+        if (!address && placesData.places?.[0]?.formattedAddress) {
+          address = placesData.places[0].formattedAddress;
+        }
+      } catch {
+        /* no business name found */
+      }
+
+      return { ...cluster, google_address: address, place_name: placeName };
+    })
+  );
+
+  return enriched;
+}
+
 export function SuggestedLocationsTab({ onCreateLocation }: SuggestedLocationsTabProps) {
   const [clusters, setClusters] = useState<UnmatchedCluster[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isEnriching, setIsEnriching] = useState(false);
+  const [selectedClusterId, setSelectedClusterId] = useState<number | null>(null);
+  const cardRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
   const fetchClusters = useCallback(async () => {
     setIsLoading(true);
@@ -43,55 +112,32 @@ export function SuggestedLocationsTab({ onCreateLocation }: SuggestedLocationsTa
     });
     if (error) {
       toast.error('Erreur lors du chargement des suggestions');
-    } else {
-      setClusters(data || []);
+      setIsLoading(false);
+      return;
     }
+
+    const raw = (data || []) as UnmatchedCluster[];
+    setClusters(raw);
     setIsLoading(false);
+
+    // Auto-enrich in background
+    if (raw.length > 0) {
+      setIsEnriching(true);
+      const enriched = await enrichClusters(raw);
+      setClusters(enriched);
+      setIsEnriching(false);
+    }
   }, []);
 
   useEffect(() => {
     fetchClusters();
   }, [fetchClusters]);
 
-  const reverseGeocode = async (cluster: UnmatchedCluster) => {
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-    if (!apiKey) {
-      toast.error('Clé Google Maps non configurée');
-      return;
-    }
-
-    setClusters((prev) =>
-      prev.map((c) =>
-        c.cluster_id === cluster.cluster_id ? { ...c, google_loading: true } : c
-      )
-    );
-
-    try {
-      const response = await fetch(
-        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${cluster.centroid_latitude},${cluster.centroid_longitude}&key=${apiKey}&language=fr`
-      );
-      const data = await response.json();
-      const address = data.results?.[0]?.formatted_address || 'Adresse non trouvée';
-
-      setClusters((prev) =>
-        prev.map((c) =>
-          c.cluster_id === cluster.cluster_id
-            ? { ...c, google_address: address, google_loading: false }
-            : c
-        )
-      );
-    } catch {
-      setClusters((prev) =>
-        prev.map((c) =>
-          c.cluster_id === cluster.cluster_id ? { ...c, google_loading: false } : c
-        )
-      );
-      toast.error('Erreur de géocodage');
-    }
-  };
-
   const handleCreate = (cluster: UnmatchedCluster) => {
-    const name = cluster.google_address?.split(',')[0] || `Emplacement ${cluster.cluster_id}`;
+    const name =
+      cluster.place_name ||
+      cluster.google_address?.split(',')[0] ||
+      `Emplacement ${cluster.cluster_id}`;
     const address = cluster.google_address || cluster.sample_addresses?.[0] || '';
     onCreateLocation({
       latitude: cluster.centroid_latitude,
@@ -100,6 +146,28 @@ export function SuggestedLocationsTab({ onCreateLocation }: SuggestedLocationsTa
       address,
     });
   };
+
+  const handleClusterSelect = useCallback((clusterId: number) => {
+    if (clusterId < 0) {
+      setSelectedClusterId(null);
+      return;
+    }
+    setSelectedClusterId(clusterId);
+  }, []);
+
+  const handleCardClick = useCallback((clusterId: number) => {
+    setSelectedClusterId((prev) => (prev === clusterId ? null : clusterId));
+  }, []);
+
+  // Scroll card into view when selected from map
+  useEffect(() => {
+    if (selectedClusterId && cardRefs.current[selectedClusterId]) {
+      cardRefs.current[selectedClusterId]?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
+    }
+  }, [selectedClusterId]);
 
   if (isLoading) {
     return (
@@ -123,77 +191,113 @@ export function SuggestedLocationsTab({ onCreateLocation }: SuggestedLocationsTa
 
   return (
     <div className="space-y-3">
+      <SuggestedLocationsMap
+        clusters={clusters}
+        selectedClusterId={selectedClusterId}
+        onClusterSelect={handleClusterSelect}
+        onCreateFromCluster={(mapCluster) => {
+          const cluster = clusters.find((c) => c.cluster_id === mapCluster.cluster_id);
+          if (cluster) handleCreate(cluster);
+        }}
+      />
+
       <p className="text-sm text-muted-foreground">
-        {clusters.length} groupe{clusters.length > 1 ? 's' : ''} d&apos;emplacements non vérifiés.
-        Cliquez sur &quot;Voir adresse&quot; pour obtenir une suggestion Google Maps.
+        {clusters.length} groupe{clusters.length > 1 ? 's' : ''} d&apos;emplacements non
+        vérifiés.
+        {isEnriching && (
+          <span className="inline-flex items-center gap-1 ml-1">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Chargement des adresses...
+          </span>
+        )}
       </p>
-      {clusters.map((cluster) => (
-        <Card key={cluster.cluster_id}>
-          <CardContent className="p-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <Badge variant="secondary" className="text-xs">
-                    {cluster.occurrence_count} occurrence{cluster.occurrence_count > 1 ? 's' : ''}
-                  </Badge>
-                  {cluster.has_start_endpoints && (
-                    <Badge variant="outline" className="text-xs">Départ</Badge>
-                  )}
-                  {cluster.has_end_endpoints && (
-                    <Badge variant="outline" className="text-xs">Arrivée</Badge>
-                  )}
-                </div>
 
-                {cluster.google_address ? (
-                  <p className="text-sm font-medium">{cluster.google_address}</p>
-                ) : cluster.sample_addresses?.length > 0 ? (
-                  <p className="text-sm text-muted-foreground">{cluster.sample_addresses[0]}</p>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    {cluster.centroid_latitude.toFixed(5)}, {cluster.centroid_longitude.toFixed(5)}
-                  </p>
-                )}
-
-                <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
-                  {cluster.employee_names?.length > 0 && (
-                    <p>Employés: {cluster.employee_names.join(', ')}</p>
-                  )}
-                  <p>
-                    Période: {new Date(cluster.first_seen).toLocaleDateString('fr-CA')} —{' '}
-                    {new Date(cluster.last_seen).toLocaleDateString('fr-CA')}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1">
-                {!cluster.google_address && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => reverseGeocode(cluster)}
-                    disabled={cluster.google_loading}
-                  >
-                    {cluster.google_loading ? (
-                      <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                    ) : (
-                      <Eye className="h-3 w-3 mr-1" />
+      {clusters.map((cluster) => {
+        const isSelected = cluster.cluster_id === selectedClusterId;
+        return (
+          <Card
+            key={cluster.cluster_id}
+            ref={(el) => {
+              cardRefs.current[cluster.cluster_id] = el;
+            }}
+            className={`cursor-pointer transition-all ${
+              isSelected
+                ? 'ring-2 ring-amber-500 shadow-md'
+                : 'hover:shadow-sm'
+            }`}
+            onClick={() => handleCardClick(cluster.cluster_id)}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Badge variant="secondary" className="text-xs">
+                      {cluster.occurrence_count} occurrence
+                      {cluster.occurrence_count > 1 ? 's' : ''}
+                    </Badge>
+                    {cluster.has_start_endpoints && (
+                      <Badge variant="outline" className="text-xs">
+                        Départ
+                      </Badge>
                     )}
-                    Voir adresse
+                    {cluster.has_end_endpoints && (
+                      <Badge variant="outline" className="text-xs">
+                        Arrivée
+                      </Badge>
+                    )}
+                  </div>
+
+                  {cluster.place_name && (
+                    <p className="text-sm font-semibold text-slate-900">
+                      {cluster.place_name}
+                    </p>
+                  )}
+
+                  {cluster.google_address ? (
+                    <p className={`text-sm ${cluster.place_name ? 'text-muted-foreground' : 'font-medium'}`}>
+                      {cluster.google_address}
+                    </p>
+                  ) : cluster.sample_addresses?.length > 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      {cluster.sample_addresses[0]}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      {cluster.centroid_latitude.toFixed(5)},{' '}
+                      {cluster.centroid_longitude.toFixed(5)}
+                    </p>
+                  )}
+
+                  <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                    {cluster.employee_names?.length > 0 && (
+                      <p>Employés: {cluster.employee_names.join(', ')}</p>
+                    )}
+                    <p>
+                      Période:{' '}
+                      {new Date(cluster.first_seen).toLocaleDateString('fr-CA')} —{' '}
+                      {new Date(cluster.last_seen).toLocaleDateString('fr-CA')}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCreate(cluster);
+                    }}
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    Créer
                   </Button>
-                )}
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={() => handleCreate(cluster)}
-                >
-                  <Plus className="h-3 w-3 mr-1" />
-                  Créer
-                </Button>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 }
