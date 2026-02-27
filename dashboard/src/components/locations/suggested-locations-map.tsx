@@ -23,25 +23,26 @@ export interface MapCluster {
   centroid_latitude: number;
   centroid_longitude: number;
   occurrence_count: number;
-  has_start_endpoints: boolean;
-  has_end_endpoints: boolean;
   employee_names: string[];
   first_seen: string;
   last_seen: string;
+  total_duration_seconds: number;
+  avg_accuracy: number;
   google_address?: string | null;
   place_name?: string | null;
 }
 
 export interface ClusterOccurrence {
-  trip_id: string;
+  cluster_id: string;
   employee_name: string;
-  endpoint_type: 'start' | 'end';
-  latitude: number;
-  longitude: number;
-  seen_at: string;
-  address: string | null;
-  gps_accuracy: number | null;
-  stop_duration_minutes: number | null;
+  centroid_latitude: number;
+  centroid_longitude: number;
+  centroid_accuracy: number | null;
+  started_at: string;
+  ended_at: string;
+  duration_seconds: number;
+  gps_point_count: number;
+  shift_id: string;
 }
 
 interface SuggestedLocationsMapProps {

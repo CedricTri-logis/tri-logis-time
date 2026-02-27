@@ -23,9 +23,7 @@ const SuggestedLocationsMap = dynamic(
   }
 );
 
-interface UnmatchedCluster extends MapCluster {
-  sample_addresses: string[];
-}
+type UnmatchedCluster = MapCluster;
 
 interface SuggestedLocationsTabProps {
   onCreateLocation: (prefill: {
