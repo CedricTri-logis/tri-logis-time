@@ -27,7 +27,6 @@ import {
   ChevronUp,
   Play,
   Users,
-  CarFront,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabaseClient } from '@/lib/supabase/client';
@@ -37,7 +36,7 @@ import { detectTripStops, detectGpsClusters } from '@/lib/utils/detect-trip-stop
 import { LocationPickerDropdown } from '@/components/trips/location-picker-dropdown';
 import { StationaryClustersTab } from '@/components/mileage/stationary-clusters-tab';
 import { VehiclePeriodsTab } from '@/components/mileage/vehicle-periods-tab';
-import type { Trip, TripGpsPoint, CarpoolMember, EmployeeVehiclePeriod } from '@/types/mileage';
+import type { Trip, TripGpsPoint, EmployeeVehiclePeriod } from '@/types/mileage';
 
 interface BatchResult {
   trip_id: string;
