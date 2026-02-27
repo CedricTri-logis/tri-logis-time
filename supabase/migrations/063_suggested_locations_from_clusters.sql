@@ -42,7 +42,7 @@ BEGIN
             u.*,
             ST_ClusterDBSCAN(
                 ST_SetSRID(ST_MakePoint(u.lng, u.lat), 4326)::geometry,
-                eps := 0.001,
+                eps := 0.0005,
                 minpoints := 1
             ) OVER () AS cid
         FROM unmatched u
