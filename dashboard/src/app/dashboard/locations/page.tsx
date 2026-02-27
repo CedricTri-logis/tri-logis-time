@@ -12,6 +12,7 @@ import {
   Search,
   Filter,
   X,
+  Lightbulb,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -40,8 +41,10 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { LocationForm } from '@/components/locations/location-form';
 import { CsvImportDialog } from '@/components/locations/csv-import-dialog';
+import { SuggestedLocationsTab } from '@/components/locations/suggested-locations-tab';
 import { useLocations, useLocationMutations, type LocationFilters } from '@/lib/hooks/use-locations';
 import {
   LOCATION_TYPE_VALUES,
@@ -94,6 +97,13 @@ export default function LocationsPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>('locations');
+  const [createPrefill, setCreatePrefill] = useState<{
+    latitude: number;
+    longitude: number;
+    name: string;
+    address: string;
+  } | null>(null);
 
   // Debounce search
   useEffect(() => {
@@ -273,120 +283,148 @@ export default function LocationsPage() {
         </div>
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <Input
-                placeholder="Rechercher par nom ou adresse..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10"
-              />
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="locations">Emplacements</TabsTrigger>
+          <TabsTrigger value="suggested">
+            <Lightbulb className="h-3.5 w-3.5 mr-1" />
+            Suggérés
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="locations" className="space-y-6 mt-4">
+          {/* Filters */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="relative flex-1 min-w-[200px]">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    placeholder="Rechercher par nom ou adresse..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <Select value={locationType || 'all'} onValueChange={handleTypeChange}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Tous les types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous les types</SelectItem>
+                    {LOCATION_TYPE_VALUES.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {LOCATION_TYPE_LABELS[type]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={activeFilter} onValueChange={handleActiveChange}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue placeholder="Statut" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous les statuts</SelectItem>
+                    <SelectItem value="active">Actifs seulement</SelectItem>
+                    <SelectItem value="inactive">Inactifs seulement</SelectItem>
+                  </SelectContent>
+                </Select>
+                {hasFilters && (
+                  <Button variant="ghost" onClick={handleClearFilters}>
+                    <X className="h-4 w-4 mr-2" />
+                    Effacer
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Content */}
+          {viewMode === 'list' ? (
+            <LocationsTable
+              locations={locations}
+              isLoading={isLoading}
+              onView={handleViewLocation}
+            />
+          ) : (
+            <LocationsOverviewMap
+              locations={locations}
+              isLoading={isLoading}
+              onLocationClick={handleViewLocation}
+              showInactive={activeFilter !== 'active'}
+            />
+          )}
+
+          {/* Pagination - only show in list view */}
+          {viewMode === 'list' && totalPages > 1 && !isLoading && (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-slate-500">
+                Affichage {(currentPage - 1) * PAGE_SIZE + 1} à{' '}
+                {Math.min(currentPage * PAGE_SIZE, totalCount)} sur {totalCount} emplacements
+              </p>
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (currentPage > 1) setCurrentPage(currentPage - 1);
+                      }}
+                      className={currentPage <= 1 ? 'pointer-events-none opacity-50' : ''}
+                    />
+                  </PaginationItem>
+                  {pageNumbers.map((page) => (
+                    <PaginationItem key={page}>
+                      <PaginationLink
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setCurrentPage(page);
+                        }}
+                        isActive={page === currentPage}
+                      >
+                        {page}
+                      </PaginationLink>
+                    </PaginationItem>
+                  ))}
+                  <PaginationItem>
+                    <PaginationNext
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (currentPage < totalPages) setCurrentPage(currentPage + 1);
+                      }}
+                      className={
+                        currentPage >= totalPages ? 'pointer-events-none opacity-50' : ''
+                      }
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
             </div>
-            <Select value={locationType || 'all'} onValueChange={handleTypeChange}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Tous les types" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous les types</SelectItem>
-                {LOCATION_TYPE_VALUES.map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {LOCATION_TYPE_LABELS[type]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={activeFilter} onValueChange={handleActiveChange}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="Statut" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous les statuts</SelectItem>
-                <SelectItem value="active">Actifs seulement</SelectItem>
-                <SelectItem value="inactive">Inactifs seulement</SelectItem>
-              </SelectContent>
-            </Select>
-            {hasFilters && (
-              <Button variant="ghost" onClick={handleClearFilters}>
-                <X className="h-4 w-4 mr-2" />
-                Effacer
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+          )}
+        </TabsContent>
 
-      {/* Content */}
-      {viewMode === 'list' ? (
-        <LocationsTable
-          locations={locations}
-          isLoading={isLoading}
-          onView={handleViewLocation}
-        />
-      ) : (
-        <LocationsOverviewMap
-          locations={locations}
-          isLoading={isLoading}
-          onLocationClick={handleViewLocation}
-          showInactive={activeFilter !== 'active'}
-        />
-      )}
-
-      {/* Pagination - only show in list view */}
-      {viewMode === 'list' && totalPages > 1 && !isLoading && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-slate-500">
-            Affichage {(currentPage - 1) * PAGE_SIZE + 1} à{' '}
-            {Math.min(currentPage * PAGE_SIZE, totalCount)} sur {totalCount} emplacements
-          </p>
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    if (currentPage > 1) setCurrentPage(currentPage - 1);
-                  }}
-                  className={currentPage <= 1 ? 'pointer-events-none opacity-50' : ''}
-                />
-              </PaginationItem>
-              {pageNumbers.map((page) => (
-                <PaginationItem key={page}>
-                  <PaginationLink
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setCurrentPage(page);
-                    }}
-                    isActive={page === currentPage}
-                  >
-                    {page}
-                  </PaginationLink>
-                </PaginationItem>
-              ))}
-              <PaginationItem>
-                <PaginationNext
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    if (currentPage < totalPages) setCurrentPage(currentPage + 1);
-                  }}
-                  className={
-                    currentPage >= totalPages ? 'pointer-events-none opacity-50' : ''
-                  }
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
-        </div>
-      )}
+        <TabsContent value="suggested" className="mt-4">
+          <SuggestedLocationsTab
+            onCreateLocation={(prefill) => {
+              setCreatePrefill(prefill);
+              setIsCreateDialogOpen(true);
+            }}
+          />
+        </TabsContent>
+      </Tabs>
 
       {/* Create Location Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+      <Dialog
+        open={isCreateDialogOpen}
+        onOpenChange={(open) => {
+          setIsCreateDialogOpen(open);
+          if (!open) setCreatePrefill(null);
+        }}
+      >
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Ajouter un nouvel emplacement</DialogTitle>
@@ -395,6 +433,8 @@ export default function LocationsPage() {
             </DialogDescription>
           </DialogHeader>
           <LocationForm
+            key={createPrefill ? `prefill-${createPrefill.latitude}-${createPrefill.longitude}` : 'new'}
+            prefill={createPrefill}
             onSubmit={handleCreateLocation}
             onCancel={() => setIsCreateDialogOpen(false)}
             isSubmitting={isCreating}

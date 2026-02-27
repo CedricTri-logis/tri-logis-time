@@ -47,6 +47,13 @@ import { Building2, HardHat, Truck, Home, MapPin, Search, Loader2 } from 'lucide
 
 interface LocationFormProps {
   location?: Location | null;
+  /** Pre-fill values for creating a new location (does not trigger "edit" mode) */
+  prefill?: {
+    name?: string;
+    address?: string;
+    latitude?: number;
+    longitude?: number;
+  } | null;
   onSubmit: (data: LocationFormInput) => Promise<void>;
   onCancel?: () => void;
   isSubmitting?: boolean;
@@ -66,6 +73,7 @@ const LOCATION_TYPE_ICONS: Record<LocationType, React.ElementType> = {
  */
 export function LocationForm({
   location,
+  prefill,
   onSubmit,
   onCancel,
   isSubmitting = false,
@@ -76,12 +84,12 @@ export function LocationForm({
   const form = useForm<LocationFormInput>({
     resolver: zodResolver(locationFormSchema),
     defaultValues: {
-      name: location?.name ?? '',
+      name: location?.name ?? prefill?.name ?? '',
       location_type: location?.locationType ?? 'office',
-      latitude: location?.latitude ?? 0,
-      longitude: location?.longitude ?? 0,
+      latitude: location?.latitude ?? prefill?.latitude ?? 0,
+      longitude: location?.longitude ?? prefill?.longitude ?? 0,
       radius_meters: location?.radiusMeters ?? 100,
-      address: location?.address ?? '',
+      address: location?.address ?? prefill?.address ?? '',
       notes: location?.notes ?? '',
       is_active: location?.isActive ?? true,
     },
