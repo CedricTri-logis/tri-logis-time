@@ -89,7 +89,7 @@ export function LocationForm({
       location_type: location?.locationType ?? 'office',
       latitude: location?.latitude ?? prefill?.latitude ?? 0,
       longitude: location?.longitude ?? prefill?.longitude ?? 0,
-      radius_meters: location?.radiusMeters ?? 100,
+      radius_meters: location?.radiusMeters ?? 40,
       address: location?.address ?? prefill?.address ?? '',
       notes: location?.notes ?? '',
       is_active: location?.isActive ?? true,
@@ -389,8 +389,8 @@ export function LocationForm({
                       value={[field.value]}
                       onValueChange={handleRadiusChange}
                       min={10}
-                      max={1000}
-                      step={10}
+                      max={200}
+                      step={5}
                       className="mt-2"
                     />
                   </FormControl>

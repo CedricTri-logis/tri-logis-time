@@ -44,7 +44,7 @@ export const locationFormSchema = z.object({
   radius_meters: z
     .number({ message: 'Radius must be a number' })
     .min(10, 'Radius must be at least 10 meters')
-    .max(1000, 'Radius cannot exceed 1000 meters'),
+    .max(200, 'Radius cannot exceed 200 meters'),
   address: z.string().max(500, 'Address must be 500 characters or less').nullable().optional(),
   notes: z.string().max(1000, 'Notes must be 1000 characters or less').nullable().optional(),
   is_active: z.boolean(),
@@ -77,9 +77,9 @@ export const locationCsvRowSchema = z.object({
   radius_meters: z.coerce
     .number({ message: 'Radius must be a number' })
     .min(10, 'Radius must be at least 10 meters')
-    .max(1000, 'Radius cannot exceed 1000 meters')
+    .max(200, 'Radius cannot exceed 200 meters')
     .optional()
-    .default(100),
+    .default(40),
   address: z.string().max(500).optional().nullable().default(null),
   notes: z.string().max(1000).optional().nullable().default(null),
   is_active: z
@@ -124,7 +124,7 @@ export const bulkInsertSchema = z.array(
     location_type: z.enum(LOCATION_TYPE_VALUES),
     latitude: z.number().min(-90).max(90),
     longitude: z.number().min(-180).max(180),
-    radius_meters: z.number().min(10).max(1000).optional().default(100),
+    radius_meters: z.number().min(10).max(200).optional().default(40),
     address: z.string().nullable().optional(),
     notes: z.string().nullable().optional(),
     is_active: z.boolean().optional().default(true),
