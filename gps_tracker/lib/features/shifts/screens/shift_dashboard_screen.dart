@@ -16,6 +16,7 @@ import '../../tracking/models/location_permission_state.dart';
 import '../../tracking/models/permission_change_event.dart';
 import '../../tracking/models/permission_guard_state.dart';
 import '../../tracking/providers/permission_guard_provider.dart';
+import '../../tracking/models/tracking_state.dart';
 import '../../tracking/providers/tracking_provider.dart';
 import '../../tracking/screens/battery_health_screen.dart';
 import '../../tracking/services/background_execution_service.dart';
@@ -246,6 +247,36 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
           'Allez dans :\nParamètres > Applications > Tri-Logis Time > Autorisations > Position > Toujours autoriser',
       };
     }
+  }
+
+  void _showTrackingFailureDialog() {
+    // Reset the flag so it doesn't re-trigger
+    ref.read(trackingProvider.notifier).clearAutoClockOutFlag();
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Impossible de démarrer le suivi'),
+        content: const Text(
+          'Le suivi n\'a pas pu démarrer correctement. '
+          'Veuillez réessayer.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Fermer'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _handleClockIn();
+            },
+            child: const Text('Réessayer'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _handleClockIn() async {
@@ -1182,6 +1213,14 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
     final hasActiveCleaning = ref.watch(hasActiveCleaningSessionProvider);
     final hasActiveMaintenance = ref.watch(hasActiveMaintenanceSessionProvider);
 
+    // Listen for auto clock-out due to tracking verification failure
+    ref.listen<TrackingState>(trackingProvider, (previous, next) {
+      if (next.trackingAutoClockOutOccurred &&
+          !(previous?.trackingAutoClockOutOccurred ?? false)) {
+        _showTrackingFailureDialog();
+      }
+    });
+
     return Scaffold(
       body: RefreshIndicator(
         onRefresh: () async {
@@ -1198,10 +1237,6 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
             const PermissionStatusBanner(),
             // Battery health quick status
             const _BatteryHealthQuickIndicator(),
-            // Tracking verification failure banner
-            _TrackingFailureBanner(
-              hasActiveShift: hasActiveShift,
-            ),
             Expanded(
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -1525,40 +1560,3 @@ class _ClockOutConfirmationSheet extends StatelessWidget {
   }
 }
 
-/// Banner shown when background GPS tracking fails to start within 15 seconds.
-class _TrackingFailureBanner extends ConsumerWidget {
-  final bool hasActiveShift;
-
-  const _TrackingFailureBanner({required this.hasActiveShift});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final trackingState = ref.watch(trackingProvider);
-    if (!hasActiveShift || !trackingState.trackingStartFailed) {
-      return const SizedBox.shrink();
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.orange.shade100,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.orange),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.warning_amber_rounded, color: Colors.orange),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Le suivi GPS ne fonctionne pas. Vos déplacements ne sont pas enregistrés. '
-              'Essayez de fermer et rouvrir l\'application.',
-              style: TextStyle(color: Colors.orange.shade900, fontSize: 13),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
