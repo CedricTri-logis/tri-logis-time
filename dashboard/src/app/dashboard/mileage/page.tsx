@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useMemo } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -12,6 +11,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   RefreshCw,
@@ -19,25 +24,14 @@ import {
   AlertTriangle,
   XCircle,
   Loader2,
-  Car,
-  Footprints,
   MapPin,
-  ArrowRight,
-  ChevronDown,
-  ChevronUp,
-  Play,
-  Users,
+  Settings,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabaseClient } from '@/lib/supabase/client';
-import { MatchStatusBadge } from '@/components/trips/match-status-badge';
-import { GoogleTripRouteMap } from '@/components/trips/google-trip-route-map';
-import { detectTripStops, detectGpsClusters } from '@/lib/utils/detect-trip-stops';
-import { LocationPickerDropdown } from '@/components/trips/location-picker-dropdown';
-import { StationaryClustersTab } from '@/components/mileage/stationary-clusters-tab';
+import { ActivityTab } from '@/components/mileage/activity-tab';
 import { VehiclePeriodsTab } from '@/components/mileage/vehicle-periods-tab';
 import { CarpoolingTab } from '@/components/mileage/carpooling-tab';
-import type { Trip, TripGpsPoint, EmployeeVehiclePeriod } from '@/types/mileage';
 
 interface BatchResult {
   trip_id: string;
@@ -65,262 +59,14 @@ interface BatchResponse {
   code?: string;
 }
 
-type SortField = 'started_at' | 'distance_km' | 'road_distance_km' | 'match_status';
-type SortOrder = 'asc' | 'desc';
-type StatusFilter = 'all' | 'matched' | 'pending' | 'failed' | 'anomalous';
-type ModeFilter = 'all' | 'driving' | 'walking';
-type CarpoolFilter = 'all' | 'carpool' | 'solo';
-
-interface CarpoolInfo {
-  role: 'driver' | 'passenger' | 'unassigned';
-  groupId: string;
-  driverName: string | null;
-}
-
-interface VehicleInfo {
-  vehicleType: 'personal' | 'company';
-}
-
-function formatDate(dateStr: string): string {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString('fr-CA', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function formatTime(dateStr: string): string {
-  const d = new Date(dateStr);
-  return d.toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' });
-}
-
-function formatDistance(km: number | null): string {
-  if (km == null) return '—';
-  return `${km.toFixed(1)} km`;
-}
-
-function formatConfidence(conf: number | null): string {
-  if (conf == null) return '—';
-  return `${(conf * 100).toFixed(0)}%`;
-}
-
-function formatAvgSpeed(distanceKm: number, durationMinutes: number): string {
-  if (durationMinutes <= 0) return '—';
-  const kmh = distanceKm / (durationMinutes / 60);
-  return `${kmh.toFixed(0)} km/h`;
-}
-
-function formatLocation(address: string | null, lat: number, lng: number): string {
-  if (address) return address;
-  return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-}
-
 export default function MileagePage() {
-  const [activeTab, setActiveTab] = useState('trips');
+  const [activeTab, setActiveTab] = useState('activity');
   const [isProcessing, setIsProcessing] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
   const [dialogMode, setDialogMode] = useState<'failed' | 'all'>('failed');
   const [batchResult, setBatchResult] = useState<BatchResponse | null>(null);
   const [batchError, setBatchError] = useState<string | null>(null);
-
-  // Trips list state
-  const [trips, setTrips] = useState<Trip[]>([]);
-  const [isLoadingTrips, setIsLoadingTrips] = useState(true);
-  const [tripsError, setTripsError] = useState<string | null>(null);
-  const [sortField, setSortField] = useState<SortField>('started_at');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [expandedTrip, setExpandedTrip] = useState<string | null>(null);
   const [isRematching, setIsRematching] = useState(false);
-  const [modeFilter, setModeFilter] = useState<ModeFilter>('all');
-  const [carpoolFilter, setCarpoolFilter] = useState<CarpoolFilter>('all');
-
-  // Carpool and vehicle data
-  const [carpoolByTripId, setCarpoolByTripId] = useState<Record<string, CarpoolInfo>>({});
-  const [vehiclePeriods, setVehiclePeriods] = useState<EmployeeVehiclePeriod[]>([]);
-
-  // Fetch trips — uses two separate queries to avoid PostgREST recursive RLS
-  // on employee_profiles (self-referencing subquery in SELECT policy)
-  const fetchTrips = useCallback(async () => {
-    setIsLoadingTrips(true);
-    setTripsError(null);
-    try {
-      // 1. Fetch trips
-      const { data: tripsData, error: tripsError } = await supabaseClient
-        .from('trips')
-        .select('*')
-        .order('started_at', { ascending: false })
-        .limit(500);
-
-      if (tripsError) {
-        setTripsError(tripsError.message);
-        return;
-      }
-
-      if (!tripsData || tripsData.length === 0) {
-        setTrips([]);
-        return;
-      }
-
-      // 2. Fetch employee profiles for all unique employee_ids
-      const employeeIds = [...new Set(tripsData.map((t) => t.employee_id).filter(Boolean))];
-      const employeeMap: Record<string, { id: string; full_name: string | null; email: string | null }> = {};
-
-      if (employeeIds.length > 0) {
-        const { data: employees } = await supabaseClient
-          .from('employee_profiles')
-          .select('id, full_name, email')
-          .in('id', employeeIds);
-
-        if (employees) {
-          for (const emp of employees) {
-            employeeMap[emp.id] = emp;
-          }
-        }
-      }
-
-      // 3. Fetch location names for all referenced location IDs
-      const locationIds = [
-        ...new Set([
-          ...tripsData.map((t: any) => t.start_location_id).filter(Boolean),
-          ...tripsData.map((t: any) => t.end_location_id).filter(Boolean),
-        ]),
-      ];
-      const locationMap: Record<string, { id: string; name: string }> = {};
-
-      if (locationIds.length > 0) {
-        const { data: locations } = await supabaseClient
-          .from('locations')
-          .select('id, name')
-          .in('id', locationIds);
-
-        if (locations) {
-          for (const loc of locations) {
-            locationMap[loc.id] = loc;
-          }
-        }
-      }
-
-      // 4. Merge employee + location data into trips
-      const mergedTrips = tripsData.map((trip: any) => ({
-        ...trip,
-        employee: employeeMap[trip.employee_id] ?? null,
-        start_location: trip.start_location_id ? locationMap[trip.start_location_id] ?? null : null,
-        end_location: trip.end_location_id ? locationMap[trip.end_location_id] ?? null : null,
-      }));
-
-      setTrips(mergedTrips as Trip[]);
-    } catch (err) {
-      setTripsError(err instanceof Error ? err.message : 'Échec du chargement des trajets');
-    } finally {
-      setIsLoadingTrips(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchTrips();
-  }, [fetchTrips]);
-
-  // Fetch carpool members after trips load
-  useEffect(() => {
-    if (trips.length === 0) {
-      setCarpoolByTripId({});
-      return;
-    }
-    const tripIds = trips.map((t) => t.id);
-    (async () => {
-      try {
-        // Fetch carpool members for all loaded trip IDs
-        const { data: members } = await supabaseClient
-          .from('carpool_members')
-          .select('id, carpool_group_id, trip_id, employee_id, role')
-          .in('trip_id', tripIds);
-
-        if (!members || members.length === 0) {
-          setCarpoolByTripId({});
-          return;
-        }
-
-        // Gather unique group IDs to find driver names
-        const groupIds = [...new Set(members.map((m) => m.carpool_group_id))];
-        // For each group, find the driver member
-        const driverByGroup: Record<string, string | null> = {};
-        for (const m of members) {
-          if (m.role === 'driver') {
-            // Look up employee name from trips data (already loaded)
-            const driverTrip = trips.find((t) => t.employee_id === m.employee_id);
-            driverByGroup[m.carpool_group_id] =
-              (driverTrip?.employee as any)?.full_name ||
-              (driverTrip?.employee as any)?.email ||
-              null;
-          }
-        }
-
-        // If we didn't find driver names from trips, fetch from employee_profiles
-        const missingGroups = groupIds.filter((g) => !(g in driverByGroup));
-        if (missingGroups.length > 0) {
-          const driverMembers = members.filter(
-            (m) => m.role === 'driver' && missingGroups.includes(m.carpool_group_id)
-          );
-          if (driverMembers.length > 0) {
-            const driverEmpIds = driverMembers.map((m) => m.employee_id);
-            const { data: driverProfiles } = await supabaseClient
-              .from('employee_profiles')
-              .select('id, full_name')
-              .in('id', driverEmpIds);
-            if (driverProfiles) {
-              for (const dm of driverMembers) {
-                const prof = driverProfiles.find((p) => p.id === dm.employee_id);
-                driverByGroup[dm.carpool_group_id] = prof?.full_name || null;
-              }
-            }
-          }
-        }
-
-        const map: Record<string, CarpoolInfo> = {};
-        for (const m of members) {
-          map[m.trip_id] = {
-            role: m.role as CarpoolInfo['role'],
-            groupId: m.carpool_group_id,
-            driverName: driverByGroup[m.carpool_group_id] || null,
-          };
-        }
-        setCarpoolByTripId(map);
-      } catch {
-        setCarpoolByTripId({});
-      }
-    })();
-  }, [trips]);
-
-  // Fetch vehicle periods once
-  useEffect(() => {
-    (async () => {
-      try {
-        const { data } = await supabaseClient
-          .from('employee_vehicle_periods')
-          .select('*')
-          .order('started_at', { ascending: false });
-        setVehiclePeriods(data ?? []);
-      } catch {
-        setVehiclePeriods([]);
-      }
-    })();
-  }, []);
-
-  // Lookup: get vehicle type for employee on a given date
-  const getVehicleForTrip = useCallback(
-    (employeeId: string, tripDate: string): VehicleInfo | null => {
-      const date = tripDate.slice(0, 10); // YYYY-MM-DD
-      for (const period of vehiclePeriods) {
-        if (
-          period.employee_id === employeeId &&
-          period.started_at <= date &&
-          (period.ended_at === null || period.ended_at >= date)
-        ) {
-          return { vehicleType: period.vehicle_type };
-        }
-      }
-      return null;
-    },
-    [vehiclePeriods]
-  );
 
   const handleRematchLocations = async () => {
     setIsRematching(true);
@@ -329,85 +75,13 @@ export default function MileagePage() {
       if (error) throw error;
       const result = Array.isArray(data) ? data[0] : data;
       toast.success(
-        `Re-match terminé: ${result.matched_count} associés, ${result.skipped_manual} manuels ignorés`
+        `Re-match termin\u00e9: ${result.matched_count} associ\u00e9s, ${result.skipped_manual} manuels ignor\u00e9s`
       );
-      fetchTrips();
     } catch (err) {
       toast.error('Erreur lors du re-match des emplacements');
     } finally {
       setIsRematching(false);
     }
-  };
-
-  // Summary stats
-  const stats = useMemo(() => {
-    const total = trips.length;
-    const matched = trips.filter((t) => t.match_status === 'matched').length;
-    const pending = trips.filter((t) => t.match_status === 'pending' || t.match_status === 'processing').length;
-    const failed = trips.filter((t) => t.match_status === 'failed').length;
-    const anomalous = trips.filter((t) => t.match_status === 'anomalous').length;
-    const driving = trips.filter((t) => t.transport_mode === 'driving').length;
-    const walking = trips.filter((t) => t.transport_mode === 'walking').length;
-    const carpool = trips.filter((t) => t.id in carpoolByTripId).length;
-    const solo = total - carpool;
-    return { total, matched, pending, failed, anomalous, driving, walking, carpool, solo };
-  }, [trips, carpoolByTripId]);
-
-  // Filter and sort
-  const filteredTrips = useMemo(() => {
-    let filtered = trips;
-    if (statusFilter !== 'all') {
-      if (statusFilter === 'pending') {
-        filtered = filtered.filter((t) => t.match_status === 'pending' || t.match_status === 'processing');
-      } else {
-        filtered = filtered.filter((t) => t.match_status === statusFilter);
-      }
-    }
-    if (modeFilter !== 'all') {
-      filtered = filtered.filter((t) => t.transport_mode === modeFilter);
-    }
-    if (carpoolFilter !== 'all') {
-      if (carpoolFilter === 'carpool') {
-        filtered = filtered.filter((t) => t.id in carpoolByTripId);
-      } else {
-        filtered = filtered.filter((t) => !(t.id in carpoolByTripId));
-      }
-    }
-
-    return [...filtered].sort((a, b) => {
-      let cmp = 0;
-      switch (sortField) {
-        case 'started_at':
-          cmp = new Date(a.started_at).getTime() - new Date(b.started_at).getTime();
-          break;
-        case 'distance_km':
-          cmp = a.distance_km - b.distance_km;
-          break;
-        case 'road_distance_km':
-          cmp = (a.road_distance_km ?? 0) - (b.road_distance_km ?? 0);
-          break;
-        case 'match_status': {
-          const order = { matched: 0, anomalous: 1, pending: 2, processing: 2, failed: 3 };
-          cmp = (order[a.match_status] ?? 4) - (order[b.match_status] ?? 4);
-          break;
-        }
-      }
-      return sortOrder === 'asc' ? cmp : -cmp;
-    });
-  }, [trips, statusFilter, modeFilter, carpoolFilter, carpoolByTripId, sortField, sortOrder]);
-
-  const toggleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortOrder((o) => (o === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortField(field);
-      setSortOrder('desc');
-    }
-  };
-
-  const sortIndicator = (field: SortField) => {
-    if (sortField !== field) return null;
-    return sortOrder === 'asc' ? <ChevronUp className="inline h-3 w-3" /> : <ChevronDown className="inline h-3 w-3" />;
   };
 
   const handleReprocess = useCallback(
@@ -448,20 +122,18 @@ export default function MileagePage() {
         }
 
         setBatchResult(response);
-        // Refresh trip list after batch processing
-        fetchTrips();
       } catch (err) {
         setBatchError(err instanceof Error ? err.message : 'Une erreur inattendue est survenue');
       } finally {
         setIsProcessing(false);
       }
     },
-    [fetchTrips]
+    []
   );
 
   const handleProcessPending = useCallback(async () => {
     setIsProcessing(true);
-    const toastId = toast.loading(`Traitement de ${stats.pending} trajet(s) en attente...`);
+    const toastId = toast.loading('Traitement des trajets en attente...');
     try {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!.trim();
       const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!.trim();
@@ -490,20 +162,19 @@ export default function MileagePage() {
 
       const s = response.summary;
       if (s.total_requested === 0) {
-        toast.info('Aucun trajet en attente à traiter.', { id: toastId });
+        toast.info('Aucun trajet en attente \u00e0 traiter.', { id: toastId });
       } else {
         toast.success(
-          `${s.matched} apparié(s), ${s.failed} échoué(s), ${s.skipped} ignoré(s) — ${s.duration_seconds}s`,
+          `${s.matched} appari\u00e9(s), ${s.failed} \u00e9chou\u00e9(s), ${s.skipped} ignor\u00e9(s) \u2014 ${s.duration_seconds}s`,
           { id: toastId }
         );
       }
-      fetchTrips();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur inattendue', { id: toastId });
     } finally {
       setIsProcessing(false);
     }
-  }, [fetchTrips, stats.pending]);
+  }, []);
 
   const openDialog = useCallback((mode: 'failed' | 'all') => {
     setDialogMode(mode);
@@ -518,337 +189,61 @@ export default function MileagePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Kilométrage</h1>
-        <p className="text-muted-foreground">
-          Gérer l'appariement des itinéraires et le suivi du kilométrage
-        </p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Kilom&eacute;trage</h1>
+          <p className="text-muted-foreground">
+            G&eacute;rer l&apos;appariement des itin&eacute;raires et le suivi du kilom&eacute;trage
+          </p>
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" disabled={isProcessing || isRematching}>
+              {(isProcessing || isRematching) ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Settings className="h-4 w-4 mr-2" />
+              )}
+              Actions
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={handleProcessPending} disabled={isProcessing}>
+              Traiter les en attente
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openDialog('failed')} disabled={isProcessing}>
+              Retraiter les trajets &eacute;chou&eacute;s
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openDialog('all')} disabled={isProcessing}>
+              Retraiter tous les trajets
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleRematchLocations} disabled={isRematching}>
+              <MapPin className="h-4 w-4 mr-2" />
+              Re-match emplacements
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
-          <TabsTrigger value="trips">Trajets</TabsTrigger>
-          <TabsTrigger value="clusters">Arrêts</TabsTrigger>
-          <TabsTrigger value="vehicles">Véhicules</TabsTrigger>
+          <TabsTrigger value="activity">Activit&eacute;</TabsTrigger>
+          <TabsTrigger value="vehicles">V&eacute;hicules</TabsTrigger>
           <TabsTrigger value="carpools">Covoiturages</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="trips" className="space-y-6 mt-4">
+        <TabsContent value="activity" className="mt-4">
+          <ActivityTab />
+        </TabsContent>
 
-      {/* Route Matching Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Car className="h-5 w-5" />
-            Appariement des itinéraires
-          </CardTitle>
-          <CardDescription>
-            Apparier les traces GPS des trajets aux routes réelles via OSRM pour un calcul précis du kilométrage.
-            Les trajets sont automatiquement appariés après la fin du quart, mais vous pouvez retraiter
-            les trajets échoués ou tous les trajets ici.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap gap-3">
-            <Button
-              onClick={handleProcessPending}
-              disabled={isProcessing || stats.pending === 0}
-            >
-              {isProcessing ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Play className="h-4 w-4 mr-2" />
-              )}
-              Traiter les en attente ({stats.pending})
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => openDialog('failed')}
-              disabled={isProcessing}
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Retraiter les trajets échoués
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => openDialog('all')}
-              disabled={isProcessing}
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Retraiter tous les trajets
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleRematchLocations}
-              disabled={isRematching}
-            >
-              {isRematching ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <MapPin className="h-4 w-4 mr-2" />
-              )}
-              Re-match emplacements
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+        <TabsContent value="vehicles" className="mt-4">
+          <VehiclePeriodsTab />
+        </TabsContent>
 
-      {/* Transport Mode Filter */}
-      <div className="grid grid-cols-3 gap-4">
-        <Card
-          className={`cursor-pointer hover:ring-2 hover:ring-primary/20 ${modeFilter === 'all' ? 'ring-2 ring-primary' : ''}`}
-          onClick={() => setModeFilter('all')}
-        >
-          <CardContent className="pt-4 pb-3 text-center">
-            <p className="text-2xl font-bold">{stats.total}</p>
-            <p className="text-xs text-muted-foreground">Tous les trajets</p>
-          </CardContent>
-        </Card>
-        <Card
-          className={`cursor-pointer hover:ring-2 hover:ring-blue-500/20 ${modeFilter === 'driving' ? 'ring-2 ring-blue-500' : ''}`}
-          onClick={() => setModeFilter('driving')}
-        >
-          <CardContent className="pt-4 pb-3 text-center">
-            <div className="flex items-center justify-center gap-1.5 mb-0.5">
-              <Car className="h-4 w-4 text-blue-600" />
-              <p className="text-2xl font-bold text-blue-600">{stats.driving}</p>
-            </div>
-            <p className="text-xs text-muted-foreground">Auto</p>
-          </CardContent>
-        </Card>
-        <Card
-          className={`cursor-pointer hover:ring-2 hover:ring-orange-500/20 ${modeFilter === 'walking' ? 'ring-2 ring-orange-500' : ''}`}
-          onClick={() => setModeFilter('walking')}
-        >
-          <CardContent className="pt-4 pb-3 text-center">
-            <div className="flex items-center justify-center gap-1.5 mb-0.5">
-              <Footprints className="h-4 w-4 text-orange-600" />
-              <p className="text-2xl font-bold text-orange-600">{stats.walking}</p>
-            </div>
-            <p className="text-xs text-muted-foreground">À pied</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Carpool Filter */}
-      <div className="grid grid-cols-3 gap-4">
-        <Card
-          className={`cursor-pointer hover:ring-2 hover:ring-primary/20 ${carpoolFilter === 'all' ? 'ring-2 ring-primary' : ''}`}
-          onClick={() => setCarpoolFilter('all')}
-        >
-          <CardContent className="pt-4 pb-3 text-center">
-            <p className="text-2xl font-bold">{stats.total}</p>
-            <p className="text-xs text-muted-foreground">Tous</p>
-          </CardContent>
-        </Card>
-        <Card
-          className={`cursor-pointer hover:ring-2 hover:ring-green-500/20 ${carpoolFilter === 'carpool' ? 'ring-2 ring-green-500' : ''}`}
-          onClick={() => setCarpoolFilter('carpool')}
-        >
-          <CardContent className="pt-4 pb-3 text-center">
-            <div className="flex items-center justify-center gap-1.5 mb-0.5">
-              <Users className="h-4 w-4 text-green-600" />
-              <p className="text-2xl font-bold text-green-600">{stats.carpool}</p>
-            </div>
-            <p className="text-xs text-muted-foreground">Covoiturage</p>
-          </CardContent>
-        </Card>
-        <Card
-          className={`cursor-pointer hover:ring-2 hover:ring-slate-500/20 ${carpoolFilter === 'solo' ? 'ring-2 ring-slate-500' : ''}`}
-          onClick={() => setCarpoolFilter('solo')}
-        >
-          <CardContent className="pt-4 pb-3 text-center">
-            <div className="flex items-center justify-center gap-1.5 mb-0.5">
-              <Car className="h-4 w-4 text-slate-600" />
-              <p className="text-2xl font-bold text-slate-600">{stats.solo}</p>
-            </div>
-            <p className="text-xs text-muted-foreground">Solo</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Match Status Stats */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
-        <Card className="cursor-pointer hover:ring-2 hover:ring-primary/20" onClick={() => setStatusFilter('all')}>
-          <CardContent className="pt-4 pb-3 text-center">
-            <p className="text-2xl font-bold">{stats.total}</p>
-            <p className="text-xs text-muted-foreground">Total trajets</p>
-          </CardContent>
-        </Card>
-        <Card className="cursor-pointer hover:ring-2 hover:ring-green-500/20" onClick={() => setStatusFilter('matched')}>
-          <CardContent className="pt-4 pb-3 text-center">
-            <p className="text-2xl font-bold text-green-600">{stats.matched}</p>
-            <p className="text-xs text-muted-foreground">Appariés</p>
-          </CardContent>
-        </Card>
-        <Card className="cursor-pointer hover:ring-2 hover:ring-yellow-500/20" onClick={() => setStatusFilter('pending')}>
-          <CardContent className="pt-4 pb-3 text-center">
-            <p className="text-2xl font-bold text-yellow-600">{stats.pending}</p>
-            <p className="text-xs text-muted-foreground">En attente</p>
-          </CardContent>
-        </Card>
-        <Card className="cursor-pointer hover:ring-2 hover:ring-gray-500/20" onClick={() => setStatusFilter('failed')}>
-          <CardContent className="pt-4 pb-3 text-center">
-            <p className="text-2xl font-bold text-gray-500">{stats.failed}</p>
-            <p className="text-xs text-muted-foreground">Échoués</p>
-          </CardContent>
-        </Card>
-        <Card className="cursor-pointer hover:ring-2 hover:ring-red-500/20" onClick={() => setStatusFilter('anomalous')}>
-          <CardContent className="pt-4 pb-3 text-center">
-            <p className="text-2xl font-bold text-red-600">{stats.anomalous}</p>
-            <p className="text-xs text-muted-foreground">Anomalies</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Trips Table */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <MapPin className="h-5 w-5" />
-              Tous les trajets
-              {statusFilter !== 'all' && (
-                <Badge variant="secondary" className="ml-2 text-xs">
-                  {statusFilter} ({filteredTrips.length})
-                  <button
-                    onClick={() => setStatusFilter('all')}
-                    className="ml-1 hover:text-destructive"
-                  >
-                    &times;
-                  </button>
-                </Badge>
-              )}
-              {modeFilter !== 'all' && (
-                <Badge variant="secondary" className="ml-2 text-xs">
-                  {modeFilter === 'driving' ? 'Auto' : 'À pied'} ({filteredTrips.length})
-                  <button
-                    onClick={() => setModeFilter('all')}
-                    className="ml-1 hover:text-destructive"
-                  >
-                    &times;
-                  </button>
-                </Badge>
-              )}
-              {carpoolFilter !== 'all' && (
-                <Badge variant="secondary" className="ml-2 text-xs">
-                  {carpoolFilter === 'carpool' ? 'Covoiturage' : 'Solo'} ({filteredTrips.length})
-                  <button
-                    onClick={() => setCarpoolFilter('all')}
-                    className="ml-1 hover:text-destructive"
-                  >
-                    &times;
-                  </button>
-                </Badge>
-              )}
-            </CardTitle>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={fetchTrips}
-              disabled={isLoadingTrips}
-            >
-              <RefreshCw className={`h-4 w-4 ${isLoadingTrips ? 'animate-spin' : ''}`} />
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {tripsError && (
-            <div className="rounded-md bg-red-50 p-3 text-sm text-red-700 mb-4">
-              {tripsError}
-            </div>
-          )}
-
-          {isLoadingTrips ? (
-            <div className="animate-pulse space-y-3">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="flex gap-4 py-3">
-                  <div className="h-4 w-20 rounded bg-slate-200" />
-                  <div className="h-4 w-32 rounded bg-slate-200" />
-                  <div className="h-4 w-24 rounded bg-slate-200" />
-                  <div className="h-4 w-16 rounded bg-slate-200" />
-                  <div className="h-4 w-16 rounded bg-slate-200" />
-                </div>
-              ))}
-            </div>
-          ) : filteredTrips.length === 0 ? (
-            <div className="py-8 text-center text-sm text-muted-foreground">
-              {trips.length === 0
-                ? 'Aucun trajet trouvé.'
-                : `Aucun trajet avec le statut "${statusFilter}".`}
-            </div>
-          ) : (
-            <div className="overflow-x-auto -mx-6">
-              <table className="w-full text-sm">
-                <thead className="border-b bg-muted/50">
-                  <tr>
-                    <th className="px-4 py-3 text-center font-medium text-muted-foreground w-12">
-                      Mode
-                    </th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                      Employé
-                    </th>
-                    <th
-                      className="cursor-pointer px-4 py-3 text-left font-medium text-muted-foreground hover:text-foreground"
-                      onClick={() => toggleSort('started_at')}
-                    >
-                      Date {sortIndicator('started_at')}
-                    </th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                      Itinéraire
-                    </th>
-                    <th
-                      className="cursor-pointer px-4 py-3 text-right font-medium text-muted-foreground hover:text-foreground"
-                      onClick={() => toggleSort('distance_km')}
-                    >
-                      Dist. GPS {sortIndicator('distance_km')}
-                    </th>
-                    <th
-                      className="cursor-pointer px-4 py-3 text-right font-medium text-muted-foreground hover:text-foreground"
-                      onClick={() => toggleSort('road_distance_km')}
-                    >
-                      Dist. route {sortIndicator('road_distance_km')}
-                    </th>
-                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">
-                      Vit. moy.
-                    </th>
-                    <th
-                      className="cursor-pointer px-4 py-3 text-center font-medium text-muted-foreground hover:text-foreground"
-                      onClick={() => toggleSort('match_status')}
-                    >
-                      Statut {sortIndicator('match_status')}
-                    </th>
-                    <th className="px-4 py-3 text-center font-medium text-muted-foreground">
-                      Covoiturage
-                    </th>
-                    <th className="px-4 py-3 text-center font-medium text-muted-foreground">
-                      Véhicule
-                    </th>
-                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">
-                      Confiance
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {filteredTrips.map((trip) => (
-                    <TripRow
-                      key={trip.id}
-                      trip={trip}
-                      isExpanded={expandedTrip === trip.id}
-                      onToggle={() =>
-                        setExpandedTrip(expandedTrip === trip.id ? null : trip.id)
-                      }
-                      onLocationChanged={fetchTrips}
-                      carpoolInfo={carpoolByTripId[trip.id] ?? null}
-                      vehicleInfo={getVehicleForTrip(trip.employee_id, trip.started_at)}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        <TabsContent value="carpools" className="mt-4">
+          <CarpoolingTab />
+        </TabsContent>
+      </Tabs>
 
       {/* Batch Processing Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
@@ -856,13 +251,13 @@ export default function MileagePage() {
           <DialogHeader>
             <DialogTitle>
               {dialogMode === 'failed'
-                ? 'Retraiter les trajets échoués'
+                ? 'Retraiter les trajets \u00e9chou\u00e9s'
                 : 'Retraiter tous les trajets'}
             </DialogTitle>
             <DialogDescription>
               {dialogMode === 'failed'
-                ? 'Cela va retenter l\'appariement des itinéraires pour tous les trajets en attente et échoués (jusqu\'à 500).'
-                : 'Cela va retraiter TOUS les trajets, y compris ceux déjà appariés (jusqu\'à 500). Les appariements existants seront écrasés.'}
+                ? 'Cela va retenter l\'appariement des itin\u00e9raires pour tous les trajets en attente et \u00e9chou\u00e9s (jusqu\'\u00e0 500).'
+                : 'Cela va retraiter TOUS les trajets, y compris ceux d\u00e9j\u00e0 appari\u00e9s (jusqu\'\u00e0 500). Les appariements existants seront \u00e9cras\u00e9s.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -892,21 +287,21 @@ export default function MileagePage() {
                 </div>
                 <div className="rounded-lg border p-3 text-center">
                   <p className="text-2xl font-bold">{batchResult.summary.duration_seconds}s</p>
-                  <p className="text-xs text-muted-foreground">Durée</p>
+                  <p className="text-xs text-muted-foreground">Dur&eacute;e</p>
                 </div>
               </div>
 
               <div className="flex flex-wrap gap-2">
                 <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
                   <CheckCircle className="h-3 w-3 mr-1" />
-                  {batchResult.summary.matched} appariés
+                  {batchResult.summary.matched} appari&eacute;s
                 </Badge>
                 <Badge className="bg-gray-100 text-gray-600 hover:bg-gray-100">
-                  {batchResult.summary.skipped} ignorés
+                  {batchResult.summary.skipped} ignor&eacute;s
                 </Badge>
                 <Badge className="bg-red-100 text-red-700 hover:bg-red-100">
                   <XCircle className="h-3 w-3 mr-1" />
-                  {batchResult.summary.failed} échoués
+                  {batchResult.summary.failed} &eacute;chou&eacute;s
                 </Badge>
                 {batchResult.summary.anomalous > 0 && (
                   <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100">
@@ -918,7 +313,7 @@ export default function MileagePage() {
 
               {batchResult.summary.total_requested === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-2">
-                  Aucun trajet à traiter.
+                  Aucun trajet &agrave; traiter.
                 </p>
               )}
             </div>
@@ -947,303 +342,6 @@ export default function MileagePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-        </TabsContent>
-
-        <TabsContent value="clusters" className="mt-4">
-          <StationaryClustersTab />
-        </TabsContent>
-
-        <TabsContent value="vehicles" className="mt-4">
-          <VehiclePeriodsTab />
-        </TabsContent>
-
-        <TabsContent value="carpools" className="mt-4">
-          <CarpoolingTab />
-        </TabsContent>
-      </Tabs>
     </div>
-  );
-}
-
-function TripRow({
-  trip,
-  isExpanded,
-  onToggle,
-  onLocationChanged,
-  carpoolInfo,
-  vehicleInfo,
-}: {
-  trip: Trip;
-  isExpanded: boolean;
-  onToggle: () => void;
-  onLocationChanged: () => void;
-  carpoolInfo: CarpoolInfo | null;
-  vehicleInfo: VehicleInfo | null;
-}) {
-  const [gpsPoints, setGpsPoints] = useState<TripGpsPoint[]>([]);
-  const [isLoadingPoints, setIsLoadingPoints] = useState(false);
-
-  const stops = useMemo(() => detectTripStops(gpsPoints), [gpsPoints]);
-  const gpsClusters = useMemo(() => detectGpsClusters(gpsPoints), [gpsPoints]);
-
-  const startLocationName = trip.start_location?.name;
-  const endLocationName = trip.end_location?.name;
-  const startLoc = startLocationName || formatLocation(trip.start_address, trip.start_latitude, trip.start_longitude);
-  const endLoc = endLocationName || formatLocation(trip.end_address, trip.end_latitude, trip.end_longitude);
-
-  // Fetch GPS points when row is expanded
-  useEffect(() => {
-    if (!isExpanded || gpsPoints.length > 0) return;
-
-    let cancelled = false;
-    setIsLoadingPoints(true);
-
-    (async () => {
-      const { data } = await supabaseClient
-        .from('trip_gps_points')
-        .select(`
-          sequence_order,
-          gps_point:gps_points(latitude, longitude, accuracy, speed, heading, altitude, captured_at)
-        `)
-        .eq('trip_id', trip.id)
-        .order('sequence_order', { ascending: true });
-
-      if (cancelled) return;
-
-      if (data) {
-        const points: TripGpsPoint[] = data
-          .filter((d: any) => d.gps_point)
-          .map((d: any) => ({
-            sequence_order: d.sequence_order,
-            latitude: d.gps_point.latitude,
-            longitude: d.gps_point.longitude,
-            accuracy: d.gps_point.accuracy,
-            speed: d.gps_point.speed,
-            heading: d.gps_point.heading,
-            altitude: d.gps_point.altitude,
-            captured_at: d.gps_point.captured_at,
-          }));
-        setGpsPoints(points);
-      }
-      setIsLoadingPoints(false);
-    })();
-
-    return () => { cancelled = true; };
-  }, [isExpanded, trip.id, gpsPoints.length]);
-
-  return (
-    <>
-      <tr
-        className="cursor-pointer hover:bg-muted/50 transition-colors"
-        onClick={onToggle}
-      >
-        <td className="px-4 py-3 text-center">
-          {trip.transport_mode === 'walking' ? (
-            <Footprints className="h-4 w-4 text-orange-500 mx-auto" />
-          ) : trip.transport_mode === 'driving' ? (
-            <Car className="h-4 w-4 text-blue-500 mx-auto" />
-          ) : (
-            <Car className="h-4 w-4 text-gray-300 mx-auto" />
-          )}
-        </td>
-        <td className="px-4 py-3 font-medium">
-          {(trip.employee as any)?.full_name || (trip.employee as any)?.email || 'Inconnu'}
-        </td>
-        <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-          {formatDate(trip.started_at)}
-          <br />
-          <span className="text-xs">
-            {formatTime(trip.started_at)} - {formatTime(trip.ended_at)}
-          </span>
-        </td>
-        <td className="px-4 py-3 max-w-[250px]">
-          <div className="flex items-center gap-1 text-xs text-muted-foreground truncate">
-            <LocationPickerDropdown
-              tripId={trip.id}
-              endpoint="start"
-              latitude={trip.start_latitude}
-              longitude={trip.start_longitude}
-              currentLocationId={trip.start_location_id}
-              currentLocationName={trip.start_location?.name ?? null}
-              displayText={startLoc}
-              onLocationChanged={onLocationChanged}
-            />
-            <ArrowRight className="h-3 w-3 flex-shrink-0" />
-            <LocationPickerDropdown
-              tripId={trip.id}
-              endpoint="end"
-              latitude={trip.end_latitude}
-              longitude={trip.end_longitude}
-              currentLocationId={trip.end_location_id}
-              currentLocationName={trip.end_location?.name ?? null}
-              displayText={endLoc}
-              onLocationChanged={onLocationChanged}
-            />
-          </div>
-        </td>
-        <td className="px-4 py-3 text-right tabular-nums">
-          {formatDistance(trip.distance_km)}
-        </td>
-        <td className="px-4 py-3 text-right tabular-nums font-medium">
-          {formatDistance(trip.road_distance_km)}
-        </td>
-        <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
-          {formatAvgSpeed(trip.road_distance_km ?? trip.distance_km, trip.duration_minutes)}
-        </td>
-        <td className="px-4 py-3 text-center">
-          <MatchStatusBadge match_status={trip.match_status} />
-        </td>
-        <td className="px-4 py-3 text-center">
-          {carpoolInfo ? (
-            carpoolInfo.role === 'driver' ? (
-              <Badge className="bg-green-100 text-green-700 hover:bg-green-100 text-xs">
-                Conducteur
-              </Badge>
-            ) : carpoolInfo.role === 'passenger' ? (
-              <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 text-xs">
-                Passager
-              </Badge>
-            ) : (
-              <Badge className="bg-gray-100 text-gray-600 hover:bg-gray-100 text-xs">
-                Non assigné
-              </Badge>
-            )
-          ) : (
-            <span className="text-muted-foreground">—</span>
-          )}
-        </td>
-        <td className="px-4 py-3 text-center">
-          {vehicleInfo ? (
-            vehicleInfo.vehicleType === 'company' ? (
-              <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 text-xs">
-                Entreprise
-              </Badge>
-            ) : (
-              <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-xs">
-                Personnel
-              </Badge>
-            )
-          ) : (
-            <span className="text-muted-foreground">—</span>
-          )}
-        </td>
-        <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
-          {formatConfidence(trip.match_confidence)}
-        </td>
-      </tr>
-
-      {/* Expanded detail row */}
-      {isExpanded && (
-        <tr className="bg-muted/30">
-          <td colSpan={11} className="px-6 py-4">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2">
-                <GoogleTripRouteMap
-                  trips={[trip]}
-                  gpsPoints={gpsPoints}
-                  stops={stops}
-                  clusters={gpsClusters}
-                  height={350}
-                  showGpsPoints={gpsPoints.length > 0}
-                />
-                {isLoadingPoints && (
-                  <p className="text-xs text-muted-foreground mt-1">Chargement des points GPS...</p>
-                )}
-              </div>
-              <div className="grid grid-cols-2 gap-y-4 text-sm content-start">
-                <div>
-                  <span className="text-xs text-muted-foreground block">Points GPS</span>
-                  <span className="font-medium">{trip.gps_point_count}</span>
-                </div>
-                <div>
-                  <span className="text-xs text-muted-foreground block">Durée</span>
-                  <span className="font-medium">{trip.duration_minutes.toFixed(0)} min</span>
-                </div>
-                <div>
-                  <span className="text-xs text-muted-foreground block">Classification</span>
-
-                  <Badge variant="outline" className="text-xs mt-0.5">
-                    {trip.classification}
-                  </Badge>
-                </div>
-                <div>
-                  <span className="text-xs text-muted-foreground block">Détection</span>
-                  <span className="font-medium">{trip.detection_method}</span>
-                </div>
-                <div>
-                  <span className="text-xs text-muted-foreground block">Tentatives d'appariement</span>
-                  <span className="font-medium">{trip.match_attempts}</span>
-                </div>
-                <div>
-                  <span className="text-xs text-muted-foreground block">Apparié le</span>
-                  <span className="font-medium">
-                    {trip.matched_at ? `${formatDate(trip.matched_at)} ${formatTime(trip.matched_at)}` : '—'}
-                  </span>
-                </div>
-                {trip.match_error && (
-                  <div className="col-span-2">
-                    <span className="text-xs text-muted-foreground block">Erreur</span>
-                    <span className="text-sm text-red-600">{trip.match_error}</span>
-                  </div>
-                )}
-
-                {/* GPS Points Legend */}
-                {gpsPoints.length > 0 && (
-                  <div className="col-span-2 pt-2 border-t">
-                    <span className="text-xs text-muted-foreground block mb-2">Vitesse GPS</span>
-                    <div className="flex flex-wrap gap-x-3 gap-y-1">
-                      <div className="flex items-center gap-1">
-                        <div className="w-2 h-2 rounded-full bg-yellow-500" />
-                        <span className="text-[10px] text-muted-foreground">Arrêt</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-2 h-2 rounded-full bg-orange-500" />
-                        <span className="text-[10px] text-muted-foreground">Marche</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-2 h-2 rounded-full bg-blue-500" />
-                        <span className="text-[10px] text-muted-foreground">Ville</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-2 h-2 rounded-full bg-indigo-500" />
-                        <span className="text-[10px] text-muted-foreground">Route</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Stop markers legend */}
-                {stops.length > 0 && (
-                  <div className="col-span-2 pt-2 border-t">
-                    <span className="text-xs text-muted-foreground block mb-2">
-                      {stops.length} arrêt{stops.length > 1 ? 's' : ''} détecté{stops.length > 1 ? 's' : ''}
-                    </span>
-                    <div className="flex flex-wrap gap-x-3 gap-y-1">
-                      {stops.filter((s) => s.category === 'moderate').length > 0 && (
-                        <div className="flex items-center gap-1">
-                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#f97316' }} />
-                          <span className="text-[10px] text-muted-foreground">
-                            Moyen 1-3min ({stops.filter((s) => s.category === 'moderate').length})
-                          </span>
-                        </div>
-                      )}
-                      {stops.filter((s) => s.category === 'extended').length > 0 && (
-                        <div className="flex items-center gap-1">
-                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#ef4444' }} />
-                          <span className="text-[10px] text-muted-foreground">
-                            Long &gt;3min ({stops.filter((s) => s.category === 'extended').length})
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </td>
-        </tr>
-      )}
-    </>
   );
 }
