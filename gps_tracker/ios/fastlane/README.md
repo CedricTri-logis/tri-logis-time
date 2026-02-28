@@ -31,14 +31,6 @@ Get latest TestFlight build number
 
 Build and upload to TestFlight
 
-### ios upload_only
-
-```sh
-[bundle exec] fastlane ios upload_only
-```
-
-Upload existing IPA to TestFlight (skip build)
-
 ### ios production
 
 ```sh
