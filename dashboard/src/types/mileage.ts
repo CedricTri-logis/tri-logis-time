@@ -217,3 +217,74 @@ export interface ActivityClockEvent extends ActivityItemBase {
 }
 
 export type ActivityItem = ActivityTrip | ActivityStop | ActivityClockEvent;
+
+// ============================================================
+// Hours Approval types
+// ============================================================
+
+export type ApprovalAutoStatus = 'approved' | 'rejected' | 'needs_review';
+export type DayApprovalStatus = 'no_shift' | 'active' | 'pending' | 'needs_review' | 'approved';
+
+export interface ApprovalActivity {
+  activity_type: 'trip' | 'stop' | 'clock_in' | 'clock_out';
+  activity_id: string;
+  shift_id: string;
+  started_at: string;
+  ended_at: string;
+  duration_minutes: number;
+  auto_status: ApprovalAutoStatus;
+  auto_reason: string;
+  override_status: 'approved' | 'rejected' | null;
+  override_reason: string | null;
+  final_status: ApprovalAutoStatus;
+  matched_location_id: string | null;
+  location_name: string | null;
+  location_type: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  distance_km: number | null;
+  transport_mode: string | null;
+  has_gps_gap: boolean | null;
+  start_location_id: string | null;
+  start_location_name: string | null;
+  start_location_type: string | null;
+  end_location_id: string | null;
+  end_location_name: string | null;
+  end_location_type: string | null;
+  gps_gap_seconds: number | null;
+  gps_gap_count: number | null;
+}
+
+export interface DayApprovalDetail {
+  employee_id: string;
+  date: string;
+  has_active_shift: boolean;
+  approval_status: 'pending' | 'approved';
+  approved_by: string | null;
+  approved_at: string | null;
+  notes: string | null;
+  activities: ApprovalActivity[];
+  summary: {
+    total_shift_minutes: number;
+    approved_minutes: number;
+    rejected_minutes: number;
+    needs_review_count: number;
+  };
+}
+
+export interface WeeklyDayEntry {
+  date: string;
+  has_shifts: boolean;
+  has_active_shift: boolean;
+  status: DayApprovalStatus;
+  total_shift_minutes: number;
+  approved_minutes: number | null;
+  rejected_minutes: number | null;
+  needs_review_count: number;
+}
+
+export interface WeeklyEmployeeRow {
+  employee_id: string;
+  employee_name: string;
+  days: WeeklyDayEntry[];
+}
