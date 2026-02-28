@@ -651,9 +651,226 @@ interface ActivityViewProps {
 }
 
 function ActivityTable({ activities, groupedByDay, isRangeMode, expandedId, onToggleExpand, onDataChanged }: ActivityViewProps) {
-  return <div>Table view placeholder</div>;
+  const renderRows = (items: ActivityItem[]) =>
+    items.map((item) => (
+      <ActivityTableRow
+        key={item.id}
+        item={item}
+        isExpanded={expandedId === item.id}
+        onToggle={() => onToggleExpand(item.id)}
+        onDataChanged={onDataChanged}
+      />
+    ));
+
+  return (
+    <Card>
+      <CardContent className="p-0">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="border-b bg-muted/50">
+              <tr>
+                <th className="px-4 py-3 text-center font-medium text-muted-foreground w-10">Type</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">D&eacute;but</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Fin</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Dur&eacute;e</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">D&eacute;tails</th>
+                <th className="px-4 py-3 text-right font-medium text-muted-foreground">Distance</th>
+                <th className="px-4 py-3 text-center font-medium text-muted-foreground">Statut</th>
+                <th className="px-4 py-3 w-8"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {isRangeMode
+                ? groupedByDay.map(([day, items]) => (
+                    <DayGroup key={day} day={day} colSpan={8}>
+                      {renderRows(items)}
+                    </DayGroup>
+                  ))
+                : renderRows(activities)}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function DayGroup({ day, colSpan, children }: { day: string; colSpan: number; children: React.ReactNode }) {
+  return (
+    <>
+      <tr>
+        <td colSpan={colSpan} className="px-4 py-2 bg-muted/30">
+          <span className="text-xs font-semibold text-muted-foreground capitalize">
+            {formatDateHeader(day)}
+          </span>
+        </td>
+      </tr>
+      {children}
+    </>
+  );
+}
+
+function ActivityTableRow({
+  item,
+  isExpanded,
+  onToggle,
+  onDataChanged,
+}: {
+  item: ActivityItem;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onDataChanged: () => void;
+}) {
+  const isTrip = item.activity_type === 'trip';
+  const trip = isTrip ? (item as ActivityTrip) : null;
+  const stop = !isTrip ? (item as ActivityStop) : null;
+
+  return (
+    <>
+      <tr
+        className="cursor-pointer hover:bg-muted/50 transition-colors"
+        onClick={onToggle}
+      >
+        <td className="px-4 py-3 text-center">
+          <ActivityIcon item={item} />
+        </td>
+        <td className="px-4 py-3 whitespace-nowrap font-medium">
+          {formatTime(item.started_at)}
+        </td>
+        <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">
+          {formatTime(item.ended_at)}
+        </td>
+        <td className="px-4 py-3 whitespace-nowrap tabular-nums">
+          {getActivityDuration(item)}
+        </td>
+        <td className="px-4 py-3 max-w-[350px]">
+          {isTrip && trip ? (
+            <div className="flex items-center gap-1 text-xs truncate">
+              <span className="truncate">{trip.start_location_name || trip.start_address || `${trip.start_latitude.toFixed(4)}, ${trip.start_longitude.toFixed(4)}`}</span>
+              <ArrowRight className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+              <span className="truncate">{trip.end_location_name || trip.end_address || `${trip.end_latitude.toFixed(4)}, ${trip.end_longitude.toFixed(4)}`}</span>
+            </div>
+          ) : stop ? (
+            <span className={`text-xs ${stop.matched_location_name ? 'text-green-600 font-medium' : 'text-amber-600'}`}>
+              {stop.matched_location_name || 'Non associ\u00e9'}
+            </span>
+          ) : null}
+        </td>
+        <td className="px-4 py-3 text-right tabular-nums">
+          {isTrip && trip ? formatDistance(trip.road_distance_km ?? trip.distance_km) : '\u2014'}
+        </td>
+        <td className="px-4 py-3 text-center">
+          {isTrip && trip ? (
+            <MatchStatusBadge match_status={trip.match_status} />
+          ) : (
+            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+              stop?.matched_location_name
+                ? 'bg-green-100 text-green-700'
+                : 'bg-amber-100 text-amber-700'
+            }`}>
+              {stop?.matched_location_name ? 'Associ\u00e9' : 'Non associ\u00e9'}
+            </span>
+          )}
+        </td>
+        <td className="px-4 py-3 text-center">
+          {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+        </td>
+      </tr>
+
+      {isExpanded && (
+        <tr>
+          <td colSpan={8} className="p-0">
+            {isTrip && trip ? (
+              <TripExpandDetail trip={trip} onDataChanged={onDataChanged} />
+            ) : stop ? (
+              <StopExpandDetail stop={stop} />
+            ) : null}
+          </td>
+        </tr>
+      )}
+    </>
+  );
 }
 
 function ActivityTimeline({ activities, groupedByDay, isRangeMode, expandedId, onToggleExpand, onDataChanged }: ActivityViewProps) {
-  return <div>Timeline view placeholder</div>;
+  const getColors = (item: ActivityItem) => {
+    if (item.activity_type === 'trip') {
+      const trip = item as ActivityTrip;
+      if (trip.transport_mode === 'walking') return { border: 'border-l-orange-500', dot: 'bg-orange-500' };
+      return { border: 'border-l-blue-500', dot: 'bg-blue-500' };
+    }
+    const stop = item as ActivityStop;
+    if (stop.matched_location_name) return { border: 'border-l-green-500', dot: 'bg-green-500' };
+    return { border: 'border-l-amber-500', dot: 'bg-amber-500' };
+  };
+
+  const renderItem = (item: ActivityItem) => {
+    const colors = getColors(item);
+    const isExpanded = expandedId === item.id;
+
+    return (
+      <div key={item.id} className="relative mb-4">
+        {/* Dot on the line */}
+        <div className={`absolute left-[-20px] top-4 w-3 h-3 rounded-full border-2 border-background ${colors.dot} z-10`} />
+
+        {/* Card */}
+        <Card
+          className={`cursor-pointer border-l-4 ${colors.border} hover:shadow-md transition-shadow`}
+          onClick={() => onToggleExpand(item.id)}
+        >
+          <CardContent className="py-3 px-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2 min-w-0">
+                <ActivityIcon item={item} />
+                <span className="font-medium whitespace-nowrap">{formatTime(item.started_at)}</span>
+                <span className="text-muted-foreground whitespace-nowrap">&rarr; {formatTime(item.ended_at)}</span>
+                <span className="text-muted-foreground text-xs whitespace-nowrap">({getActivityDuration(item)})</span>
+              </div>
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="text-sm truncate max-w-[300px]">{getActivityDetail(item)}</span>
+                {item.activity_type === 'trip' && (
+                  <span className="text-sm tabular-nums whitespace-nowrap text-muted-foreground">
+                    {formatDistance((item as ActivityTrip).road_distance_km ?? (item as ActivityTrip).distance_km)}
+                  </span>
+                )}
+                {isExpanded ? <ChevronUp className="h-4 w-4 flex-shrink-0 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Expanded detail */}
+        {isExpanded && (
+          <div className="mt-2">
+            {item.activity_type === 'trip' ? (
+              <TripExpandDetail trip={item as ActivityTrip} onDataChanged={onDataChanged} />
+            ) : (
+              <StopExpandDetail stop={item as ActivityStop} />
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="relative pl-8">
+      {/* Vertical line */}
+      <div className="absolute left-3 top-0 bottom-0 w-0.5 bg-border" />
+
+      {isRangeMode
+        ? groupedByDay.map(([day, items], idx) => (
+            <div key={day}>
+              {/* Day separator */}
+              <div className={`flex items-center gap-2 mb-3 ${idx > 0 ? 'mt-6' : ''}`}>
+                <div className="h-0.5 flex-1 bg-border" />
+                <span className="text-sm font-semibold text-muted-foreground capitalize">{formatDateHeader(day)}</span>
+                <div className="h-0.5 flex-1 bg-border" />
+              </div>
+              {items.map(renderItem)}
+            </div>
+          ))
+        : activities.map(renderItem)}
+    </div>
+  );
 }
