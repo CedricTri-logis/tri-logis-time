@@ -158,3 +158,50 @@ export interface CarpoolMember {
   employee?: { id: string; name: string };
   trip?: Trip;
 }
+
+// Activity timeline types (unified trips + stops)
+export interface ActivityItemBase {
+  activity_type: 'trip' | 'stop';
+  id: string;
+  shift_id: string;
+  started_at: string;
+  ended_at: string;
+}
+
+export interface ActivityTrip extends ActivityItemBase {
+  activity_type: 'trip';
+  start_latitude: number;
+  start_longitude: number;
+  start_address: string | null;
+  start_location_id: string | null;
+  start_location_name: string | null;
+  end_latitude: number;
+  end_longitude: number;
+  end_address: string | null;
+  end_location_id: string | null;
+  end_location_name: string | null;
+  distance_km: number;
+  road_distance_km: number | null;
+  duration_minutes: number;
+  transport_mode: 'driving' | 'walking' | 'unknown';
+  match_status: 'pending' | 'processing' | 'matched' | 'failed' | 'anomalous';
+  match_confidence: number | null;
+  route_geometry: string | null;
+  start_cluster_id: string | null;
+  end_cluster_id: string | null;
+  classification: 'business' | 'personal';
+  gps_point_count: number;
+}
+
+export interface ActivityStop extends ActivityItemBase {
+  activity_type: 'stop';
+  centroid_latitude: number;
+  centroid_longitude: number;
+  centroid_accuracy: number | null;
+  duration_seconds: number;
+  cluster_gps_point_count: number;
+  matched_location_id: string | null;
+  matched_location_name: string | null;
+}
+
+export type ActivityItem = ActivityTrip | ActivityStop;
