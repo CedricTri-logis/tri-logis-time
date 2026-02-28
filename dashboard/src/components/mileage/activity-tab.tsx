@@ -17,6 +17,7 @@ import {
   ArrowRight,
   LogIn,
   LogOut,
+  AlertTriangle,
 } from 'lucide-react';
 import { supabaseClient } from '@/lib/supabase/client';
 import { MatchStatusBadge } from '@/components/trips/match-status-badge';
@@ -631,6 +632,12 @@ function TripExpandDetail({ trip, onDataChanged, geocodedAddresses }: { trip: Ac
         )}
       </div>
       <div className="grid grid-cols-2 gap-y-4 text-sm content-start">
+        {trip.has_gps_gap && (
+          <div className="col-span-2 flex items-center gap-2 p-2 mb-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700">
+            <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+            <span>Trajet sans trace GPS &mdash; aucune donn&eacute;e de parcours disponible</span>
+          </div>
+        )}
         <div>
           <span className="text-xs text-muted-foreground block">D&eacute;part</span>
           <LocationPickerDropdown
@@ -714,6 +721,15 @@ function StopExpandDetail({ stop }: { stop: ActivityStop }) {
         />
       </div>
       <div className="grid grid-cols-2 gap-y-4 text-sm content-start">
+        {stop.gps_gap_seconds > 0 && (
+          <div className="col-span-2 flex items-center gap-2 p-2 mb-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700">
+            <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+            <span>
+              Signal GPS perdu pendant {Math.round(stop.gps_gap_seconds / 60)} min
+              ({stop.gps_gap_count} interruption{stop.gps_gap_count > 1 ? 's' : ''})
+            </span>
+          </div>
+        )}
         <div className="col-span-2">
           <span className="text-xs text-muted-foreground block">Emplacement</span>
           <span className={`font-medium ${stop.matched_location_name ? 'text-green-600' : 'text-amber-600'}`}>
@@ -919,7 +935,19 @@ function ActivityTableRow({
           {isClock ? '\u2014' : formatTime(item.ended_at)}
         </td>
         <td className="px-4 py-3 whitespace-nowrap tabular-nums">
-          {getActivityDuration(item)}
+          <div className="flex items-center gap-1">
+            {getActivityDuration(item)}
+            {isStop && stop && stop.gps_gap_seconds > 0 && (
+              <span title={`${Math.round(stop.gps_gap_seconds / 60)} min sans signal GPS (${stop.gps_gap_count} interruption${stop.gps_gap_count > 1 ? 's' : ''})`}>
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+              </span>
+            )}
+            {isTrip && trip && trip.has_gps_gap && (
+              <span title="Trajet sans trace GPS">
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+              </span>
+            )}
+          </div>
         </td>
         <td className="px-4 py-3 max-w-[350px]">
           {isClock ? (
@@ -1023,6 +1051,12 @@ function ActivityTimeline({ activities, groupedByDay, isRangeMode, expandedId, o
                   <>
                     <span className="text-muted-foreground whitespace-nowrap">&rarr; {formatTime(item.ended_at)}</span>
                     <span className="text-muted-foreground text-xs whitespace-nowrap">({getActivityDuration(item)})</span>
+                    {item.activity_type === 'stop' && (item as ActivityStop).gps_gap_seconds > 0 && (
+                      <AlertTriangle className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />
+                    )}
+                    {item.activity_type === 'trip' && (item as ActivityTrip).has_gps_gap && (
+                      <AlertTriangle className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />
+                    )}
                   </>
                 )}
               </div>

@@ -191,6 +191,7 @@ export interface ActivityTrip extends ActivityItemBase {
   end_cluster_id: string | null;
   classification: 'business' | 'personal';
   gps_point_count: number;
+  has_gps_gap: boolean;
 }
 
 export interface ActivityStop extends ActivityItemBase {
@@ -202,6 +203,8 @@ export interface ActivityStop extends ActivityItemBase {
   cluster_gps_point_count: number;
   matched_location_id: string | null;
   matched_location_name: string | null;
+  gps_gap_seconds: number;
+  gps_gap_count: number;
 }
 
 export interface ActivityClockEvent extends ActivityItemBase {
