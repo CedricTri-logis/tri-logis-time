@@ -18,7 +18,14 @@ import {
   LogIn,
   LogOut,
   AlertTriangle,
+  Building2,
+  HardHat,
+  Truck,
+  Home,
+  Coffee,
+  Fuel,
 } from 'lucide-react';
+import type { LocationType } from '@/types/location';
 import { supabaseClient } from '@/lib/supabase/client';
 import { MatchStatusBadge } from '@/components/trips/match-status-badge';
 import { GoogleTripRouteMap } from '@/components/trips/google-trip-route-map';
@@ -39,10 +46,9 @@ interface ProcessedActivity {
 }
 
 /**
- * Merge clock events into their matching stops (same matched_location_id AND same shift_id).
- * - clock_in → merges into the FIRST stop at that location within the same shift
- * - clock_out → merges into the LAST stop at that location within the same shift
- * - Unmatched clock events stay as standalone rows
+ * Merge clock events into stops only when the clock event time falls
+ * within the stop's time range (i.e., the clock happened inside that cluster).
+ * Unmatched clock events (outside any stop) stay as standalone rows.
  */
 function mergeClockEvents(items: ActivityItem[]): ProcessedActivity[] {
   const mergedIndices = new Set<number>();
@@ -50,40 +56,22 @@ function mergeClockEvents(items: ActivityItem[]): ProcessedActivity[] {
 
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
+    if (item.activity_type !== 'clock_in' && item.activity_type !== 'clock_out') continue;
 
-    if (item.activity_type === 'clock_in') {
-      const clock = item as ActivityClockEvent;
-      if (clock.matched_location_id) {
-        // Find first stop at same location within the same shift (forward scan)
-        for (let j = 0; j < items.length; j++) {
-          if (items[j].activity_type === 'stop' &&
-              items[j].shift_id === clock.shift_id &&
-              (items[j] as ActivityStop).matched_location_id === clock.matched_location_id) {
-            mergedIndices.add(i);
-            const existing = clockFlags.get(j) || {};
-            existing.clockIn = true;
-            clockFlags.set(j, existing);
-            break;
-          }
-        }
-      }
-    }
+    const clockTime = new Date(item.started_at).getTime();
 
-    if (item.activity_type === 'clock_out') {
-      const clock = item as ActivityClockEvent;
-      if (clock.matched_location_id) {
-        // Find last stop at same location within the same shift (reverse scan)
-        for (let j = items.length - 1; j >= 0; j--) {
-          if (items[j].activity_type === 'stop' &&
-              items[j].shift_id === clock.shift_id &&
-              (items[j] as ActivityStop).matched_location_id === clock.matched_location_id) {
-            mergedIndices.add(i);
-            const existing = clockFlags.get(j) || {};
-            existing.clockOut = true;
-            clockFlags.set(j, existing);
-            break;
-          }
-        }
+    // Find a stop that temporally contains this clock event
+    for (let j = 0; j < items.length; j++) {
+      if (items[j].activity_type !== 'stop') continue;
+      const stopStart = new Date(items[j].started_at).getTime();
+      const stopEnd = new Date(items[j].ended_at).getTime();
+      if (clockTime >= stopStart && clockTime <= stopEnd) {
+        mergedIndices.add(i);
+        const existing = clockFlags.get(j) || {};
+        if (item.activity_type === 'clock_in') existing.clockIn = true;
+        if (item.activity_type === 'clock_out') existing.clockOut = true;
+        clockFlags.set(j, existing);
+        break;
       }
     }
   }
@@ -174,6 +162,9 @@ export function ActivityTab() {
   // Reverse-geocoded addresses for clock events without a matched location
   const [geocodedAddresses, setGeocodedAddresses] = useState<Record<string, string>>({});
 
+  // Location type lookup (location_id → location_type) for stop icons
+  const [locationTypes, setLocationTypes] = useState<Record<string, LocationType>>({});
+
   // Fetch employees on mount
   useEffect(() => {
     (async () => {
@@ -254,8 +245,31 @@ export function ActivityTab() {
     };
   }, [activities]);
 
-  // Merge clock events into matching stops
+  // Merge clock events into temporally overlapping stops
   const processedActivities = useMemo(() => mergeClockEvents(activities), [activities]);
+
+  // Fetch location types for matched stops
+  useEffect(() => {
+    const ids = new Set<string>();
+    for (const a of activities) {
+      if (a.activity_type === 'stop') {
+        const stop = a as ActivityStop;
+        if (stop.matched_location_id) ids.add(stop.matched_location_id);
+      }
+    }
+    if (ids.size === 0) return;
+    (async () => {
+      const { data } = await supabaseClient
+        .from('locations')
+        .select('id, location_type')
+        .in('id', Array.from(ids));
+      if (data) {
+        const map: Record<string, LocationType> = {};
+        for (const loc of data) map[loc.id] = loc.location_type as LocationType;
+        setLocationTypes(map);
+      }
+    })();
+  }, [activities]);
 
   // Reverse-geocode all coordinates that have no address (trips, clock events)
   useEffect(() => {
@@ -535,6 +549,7 @@ export function ActivityTab() {
           onToggleExpand={(id) => setExpandedId(expandedId === id ? null : id)}
           onDataChanged={fetchActivity}
           geocodedAddresses={geocodedAddresses}
+          locationTypes={locationTypes}
         />
       )}
 
@@ -548,6 +563,7 @@ export function ActivityTab() {
           onToggleExpand={(id) => setExpandedId(expandedId === id ? null : id)}
           onDataChanged={fetchActivity}
           geocodedAddresses={geocodedAddresses}
+          locationTypes={locationTypes}
         />
       )}
     </div>
@@ -763,7 +779,17 @@ function StopExpandDetail({ stop }: { stop: ActivityStop }) {
 
 // --- Activity row icon helper ---
 
-function ActivityIcon({ item }: { item: ActivityItem }) {
+const LOCATION_TYPE_ICON_MAP: Record<LocationType, { icon: React.ElementType; className: string }> = {
+  office: { icon: Building2, className: 'h-4 w-4 text-blue-500' },
+  building: { icon: HardHat, className: 'h-4 w-4 text-amber-500' },
+  vendor: { icon: Truck, className: 'h-4 w-4 text-violet-500' },
+  home: { icon: Home, className: 'h-4 w-4 text-green-500' },
+  cafe_restaurant: { icon: Coffee, className: 'h-4 w-4 text-pink-500' },
+  gaz: { icon: Fuel, className: 'h-4 w-4 text-red-500' },
+  other: { icon: MapPin, className: 'h-4 w-4 text-gray-500' },
+};
+
+function ActivityIcon({ item, locationType }: { item: ActivityItem; locationType?: LocationType }) {
   if (item.activity_type === 'clock_in') return <LogIn className="h-4 w-4 text-emerald-600" />;
   if (item.activity_type === 'clock_out') return <LogOut className="h-4 w-4 text-red-500" />;
   if (item.activity_type === 'trip') {
@@ -773,6 +799,13 @@ function ActivityIcon({ item }: { item: ActivityItem }) {
     return <Car className="h-4 w-4 text-gray-300" />;
   }
   const stop = item as ActivityStop;
+  if (stop.matched_location_name && locationType) {
+    const entry = LOCATION_TYPE_ICON_MAP[locationType];
+    if (entry) {
+      const Icon = entry.icon;
+      return <Icon className={entry.className} />;
+    }
+  }
   if (stop.matched_location_name) return <MapPin className="h-4 w-4 text-green-500" />;
   return <MapPin className="h-4 w-4 text-amber-500" />;
 }
@@ -831,9 +864,10 @@ interface ActivityViewProps {
   onToggleExpand: (id: string) => void;
   onDataChanged: () => void;
   geocodedAddresses: Record<string, string>;
+  locationTypes: Record<string, LocationType>;
 }
 
-function ActivityTable({ activities, groupedByDay, isRangeMode, expandedId, onToggleExpand, onDataChanged, geocodedAddresses }: ActivityViewProps) {
+function ActivityTable({ activities, groupedByDay, isRangeMode, expandedId, onToggleExpand, onDataChanged, geocodedAddresses, locationTypes }: ActivityViewProps) {
   const renderRows = (items: ProcessedActivity[]) =>
     items.map((pa) => (
       <ActivityTableRow
@@ -843,6 +877,7 @@ function ActivityTable({ activities, groupedByDay, isRangeMode, expandedId, onTo
         onToggle={() => onToggleExpand(pa.item.id)}
         onDataChanged={onDataChanged}
         geocodedAddresses={geocodedAddresses}
+        locationTypes={locationTypes}
       />
     ));
 
@@ -900,12 +935,14 @@ function ActivityTableRow({
   onToggle,
   onDataChanged,
   geocodedAddresses,
+  locationTypes,
 }: {
   pa: ProcessedActivity;
   isExpanded: boolean;
   onToggle: () => void;
   onDataChanged: () => void;
   geocodedAddresses: Record<string, string>;
+  locationTypes: Record<string, LocationType>;
 }) {
   const { item, hasClockIn, hasClockOut } = pa;
   const isTrip = item.activity_type === 'trip';
@@ -914,6 +951,7 @@ function ActivityTableRow({
   const trip = isTrip ? (item as ActivityTrip) : null;
   const stop = isStop ? (item as ActivityStop) : null;
   const canExpand = !isClock;
+  const stopLocationType = stop?.matched_location_id ? locationTypes[stop.matched_location_id] : undefined;
 
   return (
     <>
@@ -924,7 +962,7 @@ function ActivityTableRow({
         <td className="px-4 py-3 text-center">
           <div className="flex items-center justify-center gap-1">
             {hasClockIn && <LogIn className="h-3.5 w-3.5 text-emerald-600" />}
-            <ActivityIcon item={item} />
+            <ActivityIcon item={item} locationType={stopLocationType} />
             {hasClockOut && <LogOut className="h-3.5 w-3.5 text-red-500" />}
           </div>
         </td>
@@ -1006,7 +1044,7 @@ function ActivityTableRow({
   );
 }
 
-function ActivityTimeline({ activities, groupedByDay, isRangeMode, expandedId, onToggleExpand, onDataChanged, geocodedAddresses }: ActivityViewProps) {
+function ActivityTimeline({ activities, groupedByDay, isRangeMode, expandedId, onToggleExpand, onDataChanged, geocodedAddresses, locationTypes }: ActivityViewProps) {
   const getColors = (pa: ProcessedActivity) => {
     const { item } = pa;
     if (item.activity_type === 'clock_in') return { border: 'border-l-emerald-600', dot: 'bg-emerald-600' };
@@ -1022,11 +1060,14 @@ function ActivityTimeline({ activities, groupedByDay, isRangeMode, expandedId, o
   };
 
   const renderItem = (pa: ProcessedActivity) => {
-    const { item, hasClockIn, hasClockOut } = pa;
+    const { item } = pa;
     const colors = getColors(pa);
     const isClock = item.activity_type === 'clock_in' || item.activity_type === 'clock_out';
+    const isStop = item.activity_type === 'stop';
+    const stop = isStop ? (item as ActivityStop) : null;
     const canExpand = !isClock;
     const isExpanded = canExpand && expandedId === item.id;
+    const stopLocationType = stop?.matched_location_id ? locationTypes[stop.matched_location_id] : undefined;
 
     return (
       <div key={item.id} className="relative mb-4">
@@ -1041,11 +1082,7 @@ function ActivityTimeline({ activities, groupedByDay, isRangeMode, expandedId, o
           <CardContent className="py-3 px-4">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-2 min-w-0">
-                <div className="flex items-center gap-1">
-                  {hasClockIn && <LogIn className="h-3.5 w-3.5 text-emerald-600" />}
-                  <ActivityIcon item={item} />
-                  {hasClockOut && <LogOut className="h-3.5 w-3.5 text-red-500" />}
-                </div>
+                <ActivityIcon item={item} locationType={stopLocationType} />
                 <span className="font-medium whitespace-nowrap">{formatTime(item.started_at)}</span>
                 {!isClock && (
                   <>
