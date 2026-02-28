@@ -34,7 +34,10 @@ interface Employee {
 }
 
 function formatDateISO(date: Date): string {
-  return date.toISOString().split('T')[0];
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 function formatTime(dateStr: string): string {
@@ -51,9 +54,10 @@ function formatDuration(seconds: number): string {
   return `${minutes} min`;
 }
 
-function formatDurationMinutes(minutes: number): string {
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
+function formatDurationMinutes(minutes: number | string): string {
+  const m = Number(minutes) || 0;
+  const hours = Math.floor(m / 60);
+  const mins = Math.round(m % 60);
   if (hours > 0) return `${hours}h ${mins.toString().padStart(2, '0')}min`;
   return `${mins} min`;
 }
@@ -68,9 +72,11 @@ function formatDateHeader(dateStr: string): string {
   });
 }
 
-function formatDistance(km: number | null): string {
-  if (km == null) return '—';
-  return `${km.toFixed(1)} km`;
+function formatDistance(km: number | string | null): string {
+  if (km == null) return '\u2014';
+  const n = Number(km);
+  if (isNaN(n)) return '\u2014';
+  return `${n.toFixed(1)} km`;
 }
 
 function formatLocation(address: string | null, lat: number, lng: number): string {
@@ -162,10 +168,10 @@ export function ActivityTab() {
   const stats = useMemo(() => {
     const trips = activities.filter((a): a is ActivityTrip => a.activity_type === 'trip');
     const stops = activities.filter((a): a is ActivityStop => a.activity_type === 'stop');
-    const totalDistanceGps = trips.reduce((sum, t) => sum + (t.distance_km || 0), 0);
-    const totalDistanceRoute = trips.reduce((sum, t) => sum + (t.road_distance_km || 0), 0);
-    const totalTravelSeconds = trips.reduce((sum, t) => sum + (t.duration_minutes || 0) * 60, 0);
-    const totalStopSeconds = stops.reduce((sum, t) => sum + (t.duration_seconds || 0), 0);
+    const totalDistanceGps = trips.reduce((sum, t) => sum + (Number(t.distance_km) || 0), 0);
+    const totalDistanceRoute = trips.reduce((sum, t) => sum + (Number(t.road_distance_km) || 0), 0);
+    const totalTravelSeconds = trips.reduce((sum, t) => sum + (Number(t.duration_minutes) || 0) * 60, 0);
+    const totalStopSeconds = stops.reduce((sum, t) => sum + (Number(t.duration_seconds) || 0), 0);
     return {
       total: activities.length,
       tripCount: trips.length,
