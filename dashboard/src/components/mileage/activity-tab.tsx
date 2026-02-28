@@ -30,6 +30,74 @@ import type { StationaryCluster } from '@/components/mileage/stationary-clusters
 type TypeFilter = 'all' | 'trips' | 'stops';
 type ViewMode = 'table' | 'timeline';
 
+// Processed activity item: original item + optional merged clock flags
+interface ProcessedActivity {
+  item: ActivityItem;
+  hasClockIn?: boolean;
+  hasClockOut?: boolean;
+}
+
+/**
+ * Merge clock events into their matching stops (same matched_location_id).
+ * - clock_in → merges into the FIRST stop at that location
+ * - clock_out → merges into the LAST stop at that location
+ * - Unmatched clock events stay as standalone rows
+ */
+function mergeClockEvents(items: ActivityItem[]): ProcessedActivity[] {
+  const mergedIndices = new Set<number>();
+  const clockFlags = new Map<number, { clockIn?: boolean; clockOut?: boolean }>();
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+
+    if (item.activity_type === 'clock_in') {
+      const clock = item as ActivityClockEvent;
+      if (clock.matched_location_id) {
+        // Find first stop at same location (forward scan)
+        for (let j = 0; j < items.length; j++) {
+          if (items[j].activity_type === 'stop' &&
+              (items[j] as ActivityStop).matched_location_id === clock.matched_location_id) {
+            mergedIndices.add(i);
+            const existing = clockFlags.get(j) || {};
+            existing.clockIn = true;
+            clockFlags.set(j, existing);
+            break;
+          }
+        }
+      }
+    }
+
+    if (item.activity_type === 'clock_out') {
+      const clock = item as ActivityClockEvent;
+      if (clock.matched_location_id) {
+        // Find last stop at same location (reverse scan)
+        for (let j = items.length - 1; j >= 0; j--) {
+          if (items[j].activity_type === 'stop' &&
+              (items[j] as ActivityStop).matched_location_id === clock.matched_location_id) {
+            mergedIndices.add(i);
+            const existing = clockFlags.get(j) || {};
+            existing.clockOut = true;
+            clockFlags.set(j, existing);
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  const result: ProcessedActivity[] = [];
+  for (let i = 0; i < items.length; i++) {
+    if (mergedIndices.has(i)) continue;
+    const flags = clockFlags.get(i);
+    result.push({
+      item: items[i],
+      hasClockIn: flags?.clockIn,
+      hasClockOut: flags?.clockOut,
+    });
+  }
+  return result;
+}
+
 interface Employee {
   id: string;
   full_name: string;
@@ -185,16 +253,19 @@ export function ActivityTab() {
     };
   }, [activities]);
 
+  // Merge clock events into matching stops
+  const processedActivities = useMemo(() => mergeClockEvents(activities), [activities]);
+
   // Group by day (for range mode + timeline)
-  const groupedByDay = useMemo(() => {
-    const groups: Record<string, ActivityItem[]> = {};
-    for (const item of activities) {
-      const day = item.started_at.split('T')[0];
+  const processedGroupedByDay = useMemo(() => {
+    const groups: Record<string, ProcessedActivity[]> = {};
+    for (const pa of processedActivities) {
+      const day = pa.item.started_at.split('T')[0];
       if (!groups[day]) groups[day] = [];
-      groups[day].push(item);
+      groups[day].push(pa);
     }
     return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
-  }, [activities]);
+  }, [processedActivities]);
 
   return (
     <div className="space-y-4">
@@ -388,7 +459,7 @@ export function ActivityTab() {
       )}
 
       {/* No results */}
-      {selectedEmployee && !isLoading && !error && activities.length === 0 && (
+      {selectedEmployee && !isLoading && !error && processedActivities.length === 0 && (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
             Aucune activit&eacute; trouv&eacute;e pour le {dateFrom === effectiveDateTo ? dateFrom : `${dateFrom} au ${effectiveDateTo}`}
@@ -397,10 +468,10 @@ export function ActivityTab() {
       )}
 
       {/* Table view */}
-      {selectedEmployee && !isLoading && activities.length > 0 && viewMode === 'table' && (
+      {selectedEmployee && !isLoading && processedActivities.length > 0 && viewMode === 'table' && (
         <ActivityTable
-          activities={activities}
-          groupedByDay={groupedByDay}
+          activities={processedActivities}
+          groupedByDay={processedGroupedByDay}
           isRangeMode={isRangeMode}
           expandedId={expandedId}
           onToggleExpand={(id) => setExpandedId(expandedId === id ? null : id)}
@@ -409,10 +480,10 @@ export function ActivityTab() {
       )}
 
       {/* Timeline view */}
-      {selectedEmployee && !isLoading && activities.length > 0 && viewMode === 'timeline' && (
+      {selectedEmployee && !isLoading && processedActivities.length > 0 && viewMode === 'timeline' && (
         <ActivityTimeline
-          activities={activities}
-          groupedByDay={groupedByDay}
+          activities={processedActivities}
+          groupedByDay={processedGroupedByDay}
           isRangeMode={isRangeMode}
           expandedId={expandedId}
           onToggleExpand={(id) => setExpandedId(expandedId === id ? null : id)}
@@ -666,8 +737,8 @@ function getActivityDuration(item: ActivityItem): string {
 // --- Stubs to be replaced in Tasks 4 and 5 ---
 
 interface ActivityViewProps {
-  activities: ActivityItem[];
-  groupedByDay: [string, ActivityItem[]][];
+  activities: ProcessedActivity[];
+  groupedByDay: [string, ProcessedActivity[]][];
   isRangeMode: boolean;
   expandedId: string | null;
   onToggleExpand: (id: string) => void;
@@ -675,13 +746,13 @@ interface ActivityViewProps {
 }
 
 function ActivityTable({ activities, groupedByDay, isRangeMode, expandedId, onToggleExpand, onDataChanged }: ActivityViewProps) {
-  const renderRows = (items: ActivityItem[]) =>
-    items.map((item) => (
+  const renderRows = (items: ProcessedActivity[]) =>
+    items.map((pa) => (
       <ActivityTableRow
-        key={item.id}
-        item={item}
-        isExpanded={expandedId === item.id}
-        onToggle={() => onToggleExpand(item.id)}
+        key={pa.item.id}
+        pa={pa}
+        isExpanded={expandedId === pa.item.id}
+        onToggle={() => onToggleExpand(pa.item.id)}
         onDataChanged={onDataChanged}
       />
     ));
@@ -735,16 +806,17 @@ function DayGroup({ day, colSpan, children }: { day: string; colSpan: number; ch
 }
 
 function ActivityTableRow({
-  item,
+  pa,
   isExpanded,
   onToggle,
   onDataChanged,
 }: {
-  item: ActivityItem;
+  pa: ProcessedActivity;
   isExpanded: boolean;
   onToggle: () => void;
   onDataChanged: () => void;
 }) {
+  const { item, hasClockIn, hasClockOut } = pa;
   const isTrip = item.activity_type === 'trip';
   const isStop = item.activity_type === 'stop';
   const isClock = item.activity_type === 'clock_in' || item.activity_type === 'clock_out';
@@ -759,7 +831,11 @@ function ActivityTableRow({
         onClick={canExpand ? onToggle : undefined}
       >
         <td className="px-4 py-3 text-center">
-          <ActivityIcon item={item} />
+          <div className="flex items-center justify-center gap-1">
+            {hasClockIn && <LogIn className="h-3.5 w-3.5 text-emerald-600" />}
+            <ActivityIcon item={item} />
+            {hasClockOut && <LogOut className="h-3.5 w-3.5 text-red-500" />}
+          </div>
         </td>
         <td className="px-4 py-3 whitespace-nowrap font-medium">
           {formatTime(item.started_at)}
@@ -772,21 +848,9 @@ function ActivityTableRow({
         </td>
         <td className="px-4 py-3 max-w-[350px]">
           {isClock ? (
-            <div className="flex items-center gap-1.5 text-xs">
-              <span className={`font-medium ${item.activity_type === 'clock_in' ? 'text-emerald-600' : 'text-red-500'}`}>
-                {item.activity_type === 'clock_in' ? 'Début de quart' : 'Fin de quart'}
-              </span>
-              {(() => {
-                const loc = getClockLocationLabel(item as ActivityClockEvent);
-                if (!loc) return null;
-                const clock = item as ActivityClockEvent;
-                return (
-                  <span className={`truncate ${clock.matched_location_name ? 'text-foreground' : 'text-muted-foreground'}`}>
-                    — {loc}
-                  </span>
-                );
-              })()}
-            </div>
+            <span className="text-xs text-muted-foreground truncate">
+              {getClockLocationLabel(item as ActivityClockEvent) || ''}
+            </span>
           ) : isTrip && trip ? (
             <div className="flex items-center gap-1 text-xs truncate">
               <span className="truncate">{trip.start_location_name || trip.start_address || `${trip.start_latitude.toFixed(4)}, ${trip.start_longitude.toFixed(4)}`}</span>
@@ -840,7 +904,8 @@ function ActivityTableRow({
 }
 
 function ActivityTimeline({ activities, groupedByDay, isRangeMode, expandedId, onToggleExpand, onDataChanged }: ActivityViewProps) {
-  const getColors = (item: ActivityItem) => {
+  const getColors = (pa: ProcessedActivity) => {
+    const { item } = pa;
     if (item.activity_type === 'clock_in') return { border: 'border-l-emerald-600', dot: 'bg-emerald-600' };
     if (item.activity_type === 'clock_out') return { border: 'border-l-red-500', dot: 'bg-red-500' };
     if (item.activity_type === 'trip') {
@@ -853,8 +918,9 @@ function ActivityTimeline({ activities, groupedByDay, isRangeMode, expandedId, o
     return { border: 'border-l-amber-500', dot: 'bg-amber-500' };
   };
 
-  const renderItem = (item: ActivityItem) => {
-    const colors = getColors(item);
+  const renderItem = (pa: ProcessedActivity) => {
+    const { item, hasClockIn, hasClockOut } = pa;
+    const colors = getColors(pa);
     const isClock = item.activity_type === 'clock_in' || item.activity_type === 'clock_out';
     const canExpand = !isClock;
     const isExpanded = canExpand && expandedId === item.id;
@@ -872,7 +938,11 @@ function ActivityTimeline({ activities, groupedByDay, isRangeMode, expandedId, o
           <CardContent className="py-3 px-4">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-2 min-w-0">
-                <ActivityIcon item={item} />
+                <div className="flex items-center gap-1">
+                  {hasClockIn && <LogIn className="h-3.5 w-3.5 text-emerald-600" />}
+                  <ActivityIcon item={item} />
+                  {hasClockOut && <LogOut className="h-3.5 w-3.5 text-red-500" />}
+                </div>
                 <span className="font-medium whitespace-nowrap">{formatTime(item.started_at)}</span>
                 {!isClock && (
                   <>
@@ -882,7 +952,13 @@ function ActivityTimeline({ activities, groupedByDay, isRangeMode, expandedId, o
                 )}
               </div>
               <div className="flex items-center gap-3 min-w-0">
-                <span className={`text-sm truncate max-w-[300px] ${isClock ? 'font-medium' : ''}`}>{getActivityDetail(item)}</span>
+                {isClock ? (
+                  <span className="text-sm truncate max-w-[300px] text-muted-foreground">
+                    {getClockLocationLabel(item as ActivityClockEvent) || ''}
+                  </span>
+                ) : (
+                  <span className="text-sm truncate max-w-[300px]">{getActivityDetail(item)}</span>
+                )}
                 {item.activity_type === 'trip' && (
                   <span className="text-sm tabular-nums whitespace-nowrap text-muted-foreground">
                     {formatDistance((item as ActivityTrip).road_distance_km ?? (item as ActivityTrip).distance_km)}
