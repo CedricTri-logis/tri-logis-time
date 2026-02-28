@@ -55,6 +55,13 @@ export const LOCATION_TYPE_COLORS: Record<LocationType, LocationTypeColor> = {
     label: 'Café / Restaurant',
     icon: 'Coffee',
   },
+  gaz: {
+    color: '#ef4444', // red-500
+    bgColor: 'bg-red-100 dark:bg-red-900/30',
+    textColor: 'text-red-700 dark:text-red-300',
+    label: 'Gas Station',
+    icon: 'Fuel',
+  },
   other: {
     color: '#6b7280', // gray-500
     bgColor: 'bg-gray-100 dark:bg-gray-800',
