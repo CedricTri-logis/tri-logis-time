@@ -250,14 +250,8 @@ export function SuggestedLocationsTab({ onCreateLocation, locations = [], refres
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <Badge variant="secondary" className="text-xs">
-                      {cluster.occurrence_count} arrêt
+                      {cluster.occurrence_count} occurrence
                       {cluster.occurrence_count > 1 ? 's' : ''}
-                    </Badge>
-                    <Badge variant="outline" className="text-xs">
-                      {formatDuration(cluster.total_duration_seconds)}
-                    </Badge>
-                    <Badge variant="outline" className="text-xs text-slate-400">
-                      ~{Math.round(cluster.avg_accuracy)}m
                     </Badge>
                   </div>
 

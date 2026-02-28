@@ -38,26 +38,26 @@ export interface MapCluster {
   centroid_latitude: number;
   centroid_longitude: number;
   occurrence_count: number;
+  has_start_endpoints: boolean;
+  has_end_endpoints: boolean;
   employee_names: string[];
   first_seen: string;
   last_seen: string;
-  total_duration_seconds: number;
-  avg_accuracy: number;
+  sample_addresses: string[];
   google_address?: string | null;
   place_name?: string | null;
 }
 
 export interface ClusterOccurrence {
-  cluster_id: string;
+  trip_id: string | null;
   employee_name: string;
-  centroid_latitude: number;
-  centroid_longitude: number;
-  centroid_accuracy: number | null;
-  started_at: string;
-  ended_at: string;
-  duration_seconds: number;
-  gps_point_count: number;
-  shift_id: string;
+  endpoint_type: 'start' | 'end' | 'clock_in' | 'clock_out';
+  latitude: number;
+  longitude: number;
+  seen_at: string;
+  address: string | null;
+  gps_accuracy: number | null;
+  stop_duration_minutes: number | null;
 }
 
 interface GpsPoint {
@@ -81,13 +81,6 @@ interface SuggestedLocationsMapProps {
   onCreateFromCluster: (cluster: MapCluster) => void;
   onIgnoreCluster: (cluster: MapCluster) => void;
   locations?: Location[];
-}
-
-function formatDuration(seconds: number): string {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  if (hours > 0) return `${hours}h ${minutes}min`;
-  return `${minutes}min`;
 }
 
 export function SuggestedLocationsMap({
@@ -149,32 +142,11 @@ export function SuggestedLocationsMap({
 
   const currentOccurrence = occurrences[occurrenceIndex] || null;
 
-  // Fetch GPS points when the current occurrence changes
+  // Reset GPS points when occurrence changes (GPS trail not available for trip endpoints)
   useEffect(() => {
     setSelectedGpsIndex(null);
-    if (!currentOccurrence) {
-      setGpsPoints([]);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      try {
-        const { data, error } = await supabaseClient.rpc('get_cluster_gps_points', {
-          p_cluster_id: currentOccurrence.cluster_id,
-        });
-        if (cancelled) return;
-        if (error) {
-          console.error('[cluster-gps-points] RPC error:', error);
-          setGpsPoints([]);
-        } else {
-          setGpsPoints((data as GpsPoint[]) || []);
-        }
-      } catch (err) {
-        if (!cancelled) setGpsPoints([]);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [currentOccurrence?.cluster_id]);
+    setGpsPoints([]);
+  }, [occurrenceIndex]);
 
   const handleCloseCluster = () => {
     onClusterSelect(-1);
@@ -305,17 +277,17 @@ export function SuggestedLocationsMap({
             );
           })}
 
-          {/* Occurrence centroid: accuracy circle + center dot */}
+          {/* Occurrence point: accuracy circle + center dot */}
           {selectedCluster && currentOccurrence && (
             <>
               <AccuracyCircle
-                center={{ lat: currentOccurrence.centroid_latitude, lng: currentOccurrence.centroid_longitude }}
-                radius={currentOccurrence.centroid_accuracy ?? 0}
+                center={{ lat: currentOccurrence.latitude, lng: currentOccurrence.longitude }}
+                radius={currentOccurrence.gps_accuracy ?? 0}
               />
               <AdvancedMarker
                 position={{
-                  lat: currentOccurrence.centroid_latitude,
-                  lng: currentOccurrence.centroid_longitude,
+                  lat: currentOccurrence.latitude,
+                  lng: currentOccurrence.longitude,
                 }}
                 zIndex={1000}
               >
@@ -330,7 +302,7 @@ export function SuggestedLocationsMap({
                 />
               </AdvancedMarker>
               <PanToOccurrence
-                position={{ lat: currentOccurrence.centroid_latitude, lng: currentOccurrence.centroid_longitude }}
+                position={{ lat: currentOccurrence.latitude, lng: currentOccurrence.longitude }}
                 occurrenceIndex={occurrenceIndex}
               />
             </>
@@ -369,11 +341,8 @@ export function SuggestedLocationsMap({
           </p>
           <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
             <Badge variant="secondary" className="text-[10px]">
-              {selectedCluster.occurrence_count} arrêt
+              {selectedCluster.occurrence_count} occurrence
               {selectedCluster.occurrence_count > 1 ? 's' : ''}
-            </Badge>
-            <Badge variant="outline" className="text-[10px]">
-              {formatDuration(selectedCluster.total_duration_seconds)}
             </Badge>
           </div>
 
@@ -387,32 +356,39 @@ export function SuggestedLocationsMap({
                   {currentOccurrence.employee_name}
                 </span>
                 <span className="text-[10px] text-slate-400">
-                  {currentOccurrence.gps_point_count} pts GPS
+                  {currentOccurrence.endpoint_type === 'clock_in' ? 'Pointage entrée' :
+                   currentOccurrence.endpoint_type === 'clock_out' ? 'Pointage sortie' :
+                   currentOccurrence.endpoint_type === 'start' ? 'Départ trajet' : 'Arrivée trajet'}
                 </span>
               </div>
               <p className="text-[10px] text-slate-500">
-                {new Date(currentOccurrence.started_at).toLocaleDateString('fr-CA', {
+                {new Date(currentOccurrence.seen_at).toLocaleDateString('fr-CA', {
                   day: 'numeric',
                   month: 'short',
                 })},{' '}
-                {new Date(currentOccurrence.started_at).toLocaleTimeString('fr-CA', {
+                {new Date(currentOccurrence.seen_at).toLocaleTimeString('fr-CA', {
                   hour: '2-digit',
                   minute: '2-digit',
                 })}
-                {' — '}
-                {new Date(currentOccurrence.ended_at).toLocaleTimeString('fr-CA', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-                <span className="text-slate-400">
-                  {' · '}{formatDuration(currentOccurrence.duration_seconds)}
-                </span>
+                {currentOccurrence.stop_duration_minutes != null && (
+                  <span className="text-slate-400">
+                    {' · '}{currentOccurrence.stop_duration_minutes >= 60
+                      ? `${Math.floor(currentOccurrence.stop_duration_minutes / 60)}h ${Math.round(currentOccurrence.stop_duration_minutes % 60)}min`
+                      : `${Math.round(currentOccurrence.stop_duration_minutes)}min`
+                    } arrêt
+                  </span>
+                )}
               </p>
+              {currentOccurrence.address && (
+                <p className="text-[10px] text-slate-500 truncate">
+                  {currentOccurrence.address}
+                </p>
+              )}
               <p className="text-[9px] text-slate-400 font-mono">
-                ({currentOccurrence.centroid_latitude.toFixed(5)}, {currentOccurrence.centroid_longitude.toFixed(5)})
-                {currentOccurrence.centroid_accuracy != null && (
+                ({currentOccurrence.latitude.toFixed(5)}, {currentOccurrence.longitude.toFixed(5)})
+                {currentOccurrence.gps_accuracy != null && (
                   <span className="text-slate-300">
-                    {' '}± {Math.round(currentOccurrence.centroid_accuracy)}m
+                    {' '}± {Math.round(currentOccurrence.gps_accuracy)}m
                   </span>
                 )}
               </p>
