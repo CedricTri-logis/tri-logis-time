@@ -215,8 +215,12 @@ export default function LocationsPage() {
             });
             const row = rematchResult?.[0];
             const totalMatched = (row?.matched_start ?? 0) + (row?.matched_end ?? 0);
-            if (totalMatched > 0) {
-              toast.success(`${totalMatched} trajet(s) associé(s) automatiquement`);
+            const matchedClusters = row?.matched_clusters ?? 0;
+            const parts: string[] = [];
+            if (totalMatched > 0) parts.push(`${totalMatched} trajet(s)`);
+            if (matchedClusters > 0) parts.push(`${matchedClusters} arrêt(s)`);
+            if (parts.length > 0) {
+              toast.success(`${parts.join(' + ')} associé(s) automatiquement`);
             }
           } catch {
             // Non-blocking — rematch failure shouldn't affect location creation
