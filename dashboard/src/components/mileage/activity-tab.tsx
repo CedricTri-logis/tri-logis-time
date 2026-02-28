@@ -173,6 +173,9 @@ export function ActivityTab() {
   // Expand state
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  // Reverse-geocoded addresses for clock events without a matched location
+  const [geocodedAddresses, setGeocodedAddresses] = useState<Record<string, string>>({});
+
   // Fetch employees on mount
   useEffect(() => {
     (async () => {
@@ -255,6 +258,53 @@ export function ActivityTab() {
 
   // Merge clock events into matching stops
   const processedActivities = useMemo(() => mergeClockEvents(activities), [activities]);
+
+  // Reverse-geocode standalone clock events that have no matched location
+  useEffect(() => {
+    const clockEvents = processedActivities
+      .filter(pa => (pa.item.activity_type === 'clock_in' || pa.item.activity_type === 'clock_out'))
+      .map(pa => pa.item as ActivityClockEvent)
+      .filter(ce => !ce.matched_location_name && ce.clock_latitude != null && ce.clock_longitude != null);
+
+    if (clockEvents.length === 0) return;
+
+    // Deduplicate by rounded coordinates
+    const toGeocode = new Map<string, { lat: number; lng: number }>();
+    for (const ce of clockEvents) {
+      const key = `${Number(ce.clock_latitude).toFixed(5)},${Number(ce.clock_longitude).toFixed(5)}`;
+      if (!toGeocode.has(key) && !geocodedAddresses[key]) {
+        toGeocode.set(key, { lat: Number(ce.clock_latitude), lng: Number(ce.clock_longitude) });
+      }
+    }
+
+    if (toGeocode.size === 0) return;
+
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    if (!apiKey) return;
+
+    Promise.all(
+      Array.from(toGeocode.entries()).map(async ([key, { lat, lng }]) => {
+        try {
+          const res = await fetch(
+            `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}&language=fr`
+          );
+          const data = await res.json();
+          if (data.results?.[0]) {
+            return [key, data.results[0].formatted_address as string] as const;
+          }
+        } catch { /* ignore geocoding errors */ }
+        return null;
+      })
+    ).then(results => {
+      const newAddresses: Record<string, string> = {};
+      for (const r of results) {
+        if (r) newAddresses[r[0]] = r[1];
+      }
+      if (Object.keys(newAddresses).length > 0) {
+        setGeocodedAddresses(prev => ({ ...prev, ...newAddresses }));
+      }
+    });
+  }, [processedActivities]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Group by day (for range mode + timeline)
   const processedGroupedByDay = useMemo(() => {
@@ -476,6 +526,7 @@ export function ActivityTab() {
           expandedId={expandedId}
           onToggleExpand={(id) => setExpandedId(expandedId === id ? null : id)}
           onDataChanged={fetchActivity}
+          geocodedAddresses={geocodedAddresses}
         />
       )}
 
@@ -488,6 +539,7 @@ export function ActivityTab() {
           expandedId={expandedId}
           onToggleExpand={(id) => setExpandedId(expandedId === id ? null : id)}
           onDataChanged={fetchActivity}
+          geocodedAddresses={geocodedAddresses}
         />
       )}
     </div>
@@ -702,9 +754,11 @@ function ActivityIcon({ item }: { item: ActivityItem }) {
   return <MapPin className="h-4 w-4 text-amber-500" />;
 }
 
-function getClockLocationLabel(item: ActivityClockEvent): string | null {
+function getClockLocationLabel(item: ActivityClockEvent, geocodedAddresses?: Record<string, string>): string | null {
   if (item.matched_location_name) return item.matched_location_name;
   if (item.clock_latitude != null && item.clock_longitude != null) {
+    const key = `${Number(item.clock_latitude).toFixed(5)},${Number(item.clock_longitude).toFixed(5)}`;
+    if (geocodedAddresses?.[key]) return geocodedAddresses[key];
     return `${Number(item.clock_latitude).toFixed(4)}, ${Number(item.clock_longitude).toFixed(4)}`;
   }
   return null;
@@ -743,9 +797,10 @@ interface ActivityViewProps {
   expandedId: string | null;
   onToggleExpand: (id: string) => void;
   onDataChanged: () => void;
+  geocodedAddresses: Record<string, string>;
 }
 
-function ActivityTable({ activities, groupedByDay, isRangeMode, expandedId, onToggleExpand, onDataChanged }: ActivityViewProps) {
+function ActivityTable({ activities, groupedByDay, isRangeMode, expandedId, onToggleExpand, onDataChanged, geocodedAddresses }: ActivityViewProps) {
   const renderRows = (items: ProcessedActivity[]) =>
     items.map((pa) => (
       <ActivityTableRow
@@ -754,6 +809,7 @@ function ActivityTable({ activities, groupedByDay, isRangeMode, expandedId, onTo
         isExpanded={expandedId === pa.item.id}
         onToggle={() => onToggleExpand(pa.item.id)}
         onDataChanged={onDataChanged}
+        geocodedAddresses={geocodedAddresses}
       />
     ));
 
@@ -810,11 +866,13 @@ function ActivityTableRow({
   isExpanded,
   onToggle,
   onDataChanged,
+  geocodedAddresses,
 }: {
   pa: ProcessedActivity;
   isExpanded: boolean;
   onToggle: () => void;
   onDataChanged: () => void;
+  geocodedAddresses: Record<string, string>;
 }) {
   const { item, hasClockIn, hasClockOut } = pa;
   const isTrip = item.activity_type === 'trip';
@@ -849,7 +907,7 @@ function ActivityTableRow({
         <td className="px-4 py-3 max-w-[350px]">
           {isClock ? (
             <span className="text-xs text-muted-foreground truncate">
-              {getClockLocationLabel(item as ActivityClockEvent) || ''}
+              {getClockLocationLabel(item as ActivityClockEvent, geocodedAddresses) || ''}
             </span>
           ) : isTrip && trip ? (
             <div className="flex items-center gap-1 text-xs truncate">
@@ -903,7 +961,7 @@ function ActivityTableRow({
   );
 }
 
-function ActivityTimeline({ activities, groupedByDay, isRangeMode, expandedId, onToggleExpand, onDataChanged }: ActivityViewProps) {
+function ActivityTimeline({ activities, groupedByDay, isRangeMode, expandedId, onToggleExpand, onDataChanged, geocodedAddresses }: ActivityViewProps) {
   const getColors = (pa: ProcessedActivity) => {
     const { item } = pa;
     if (item.activity_type === 'clock_in') return { border: 'border-l-emerald-600', dot: 'bg-emerald-600' };
@@ -954,7 +1012,7 @@ function ActivityTimeline({ activities, groupedByDay, isRangeMode, expandedId, o
               <div className="flex items-center gap-3 min-w-0">
                 {isClock ? (
                   <span className="text-sm truncate max-w-[300px] text-muted-foreground">
-                    {getClockLocationLabel(item as ActivityClockEvent) || ''}
+                    {getClockLocationLabel(item as ActivityClockEvent, geocodedAddresses) || ''}
                   </span>
                 ) : (
                   <span className="text-sm truncate max-w-[300px]">{getActivityDetail(item)}</span>
