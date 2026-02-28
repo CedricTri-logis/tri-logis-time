@@ -149,11 +149,6 @@ function formatDistance(km: number | string | null): string {
   return `${n.toFixed(1)} km`;
 }
 
-function formatLocation(address: string | null, lat: number, lng: number): string {
-  if (address) return address;
-  return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-}
-
 export function ActivityTab() {
   // Filter state
   const [selectedEmployee, setSelectedEmployee] = useState<string>('');
@@ -259,26 +254,31 @@ export function ActivityTab() {
   // Merge clock events into matching stops
   const processedActivities = useMemo(() => mergeClockEvents(activities), [activities]);
 
-  // Reverse-geocode standalone clock events that have no matched location
+  // Reverse-geocode all coordinates that have no address (trips, clock events)
   useEffect(() => {
-    const clockEvents = processedActivities
-      .filter(pa => (pa.item.activity_type === 'clock_in' || pa.item.activity_type === 'clock_out'))
-      .map(pa => pa.item as ActivityClockEvent)
-      .filter(ce => !ce.matched_location_name && ce.clock_latitude != null && ce.clock_longitude != null);
-
-    if (clockEvents.length === 0) return;
-
-    // Deduplicate by rounded coordinates
     const toGeocode = new Map<string, { lat: number; lng: number }>();
-    for (const ce of clockEvents) {
-      const key = `${Number(ce.clock_latitude).toFixed(5)},${Number(ce.clock_longitude).toFixed(5)}`;
+    const addCoord = (lat: number | null, lng: number | null) => {
+      if (lat == null || lng == null) return;
+      const key = `${Number(lat).toFixed(5)},${Number(lng).toFixed(5)}`;
       if (!toGeocode.has(key) && !geocodedAddresses[key]) {
-        toGeocode.set(key, { lat: Number(ce.clock_latitude), lng: Number(ce.clock_longitude) });
+        toGeocode.set(key, { lat: Number(lat), lng: Number(lng) });
+      }
+    };
+
+    for (const pa of processedActivities) {
+      const { item } = pa;
+      if (item.activity_type === 'trip') {
+        const trip = item as ActivityTrip;
+        if (!trip.start_location_name && !trip.start_address) addCoord(trip.start_latitude, trip.start_longitude);
+        if (!trip.end_location_name && !trip.end_address) addCoord(trip.end_latitude, trip.end_longitude);
+      }
+      if (item.activity_type === 'clock_in' || item.activity_type === 'clock_out') {
+        const ce = item as ActivityClockEvent;
+        if (!ce.matched_location_name) addCoord(ce.clock_latitude, ce.clock_longitude);
       }
     }
 
     if (toGeocode.size === 0) return;
-
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     if (!apiKey) return;
 
@@ -290,7 +290,12 @@ export function ActivityTab() {
           );
           const data = await res.json();
           if (data.results?.[0]) {
-            return [key, data.results[0].formatted_address as string] as const;
+            // Shorten: remove postal code + country suffix
+            const full = data.results[0].formatted_address as string;
+            const short = full
+              .replace(/, [A-Z]\d[A-Z] \d[A-Z]\d, Canada$/, '')
+              .replace(/, Canada$/, '');
+            return [key, short] as const;
           }
         } catch { /* ignore geocoding errors */ }
         return null;
@@ -548,7 +553,7 @@ export function ActivityTab() {
 
 // --- Shared expand detail ---
 
-function TripExpandDetail({ trip, onDataChanged }: { trip: ActivityTrip; onDataChanged: () => void }) {
+function TripExpandDetail({ trip, onDataChanged, geocodedAddresses }: { trip: ActivityTrip; onDataChanged: () => void; geocodedAddresses: Record<string, string> }) {
   const [gpsPoints, setGpsPoints] = useState<TripGpsPoint[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -605,8 +610,8 @@ function TripExpandDetail({ trip, onDataChanged }: { trip: ActivityTrip; onDataC
     transport_mode: trip.transport_mode,
   } as any;
 
-  const startLoc = trip.start_location_name || formatLocation(trip.start_address, trip.start_latitude, trip.start_longitude);
-  const endLoc = trip.end_location_name || formatLocation(trip.end_address, trip.end_latitude, trip.end_longitude);
+  const startLoc = resolveLocation(trip.start_location_name, trip.start_address, trip.start_latitude, trip.start_longitude, geocodedAddresses);
+  const endLoc = resolveLocation(trip.end_location_name, trip.end_address, trip.end_latitude, trip.end_longitude, geocodedAddresses);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-4 bg-muted/30 rounded-lg">
@@ -754,26 +759,36 @@ function ActivityIcon({ item }: { item: ActivityItem }) {
   return <MapPin className="h-4 w-4 text-amber-500" />;
 }
 
+/** Resolve a location label: known name > address > geocoded address > never raw coords */
+function resolveLocation(
+  name: string | null | undefined,
+  address: string | null | undefined,
+  lat: number,
+  lng: number,
+  geocodedAddresses: Record<string, string>,
+): string {
+  if (name) return name;
+  if (address) return address;
+  const key = `${Number(lat).toFixed(5)},${Number(lng).toFixed(5)}`;
+  return geocodedAddresses[key] || `${Number(lat).toFixed(4)}, ${Number(lng).toFixed(4)}`;
+}
+
 function getClockLocationLabel(item: ActivityClockEvent, geocodedAddresses?: Record<string, string>): string | null {
   if (item.matched_location_name) return item.matched_location_name;
   if (item.clock_latitude != null && item.clock_longitude != null) {
-    const key = `${Number(item.clock_latitude).toFixed(5)},${Number(item.clock_longitude).toFixed(5)}`;
-    if (geocodedAddresses?.[key]) return geocodedAddresses[key];
-    return `${Number(item.clock_latitude).toFixed(4)}, ${Number(item.clock_longitude).toFixed(4)}`;
+    return resolveLocation(null, null, item.clock_latitude, item.clock_longitude, geocodedAddresses || {});
   }
   return null;
 }
 
-function getActivityDetail(item: ActivityItem): string {
+function getActivityDetail(item: ActivityItem, geocodedAddresses: Record<string, string>): string {
   if (item.activity_type === 'clock_in' || item.activity_type === 'clock_out') {
-    const label = item.activity_type === 'clock_in' ? 'Début de quart' : 'Fin de quart';
-    const loc = getClockLocationLabel(item as ActivityClockEvent);
-    return loc ? `${label} — ${loc}` : label;
+    return getClockLocationLabel(item as ActivityClockEvent, geocodedAddresses) || '';
   }
   if (item.activity_type === 'trip') {
     const trip = item as ActivityTrip;
-    const from = trip.start_location_name || trip.start_address || `${trip.start_latitude.toFixed(4)}, ${trip.start_longitude.toFixed(4)}`;
-    const to = trip.end_location_name || trip.end_address || `${trip.end_latitude.toFixed(4)}, ${trip.end_longitude.toFixed(4)}`;
+    const from = resolveLocation(trip.start_location_name, trip.start_address, trip.start_latitude, trip.start_longitude, geocodedAddresses);
+    const to = resolveLocation(trip.end_location_name, trip.end_address, trip.end_latitude, trip.end_longitude, geocodedAddresses);
     return `${from} \u2192 ${to}`;
   }
   const stop = item as ActivityStop;
@@ -911,9 +926,9 @@ function ActivityTableRow({
             </span>
           ) : isTrip && trip ? (
             <div className="flex items-center gap-1 text-xs truncate">
-              <span className="truncate">{trip.start_location_name || trip.start_address || `${trip.start_latitude.toFixed(4)}, ${trip.start_longitude.toFixed(4)}`}</span>
+              <span className="truncate">{resolveLocation(trip.start_location_name, trip.start_address, trip.start_latitude, trip.start_longitude, geocodedAddresses)}</span>
               <ArrowRight className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
-              <span className="truncate">{trip.end_location_name || trip.end_address || `${trip.end_latitude.toFixed(4)}, ${trip.end_longitude.toFixed(4)}`}</span>
+              <span className="truncate">{resolveLocation(trip.end_location_name, trip.end_address, trip.end_latitude, trip.end_longitude, geocodedAddresses)}</span>
             </div>
           ) : stop ? (
             <span className={`text-xs ${stop.matched_location_name ? 'text-green-600 font-medium' : 'text-amber-600'}`}>
@@ -950,7 +965,7 @@ function ActivityTableRow({
         <tr>
           <td colSpan={8} className="p-0">
             {isTrip && trip ? (
-              <TripExpandDetail trip={trip} onDataChanged={onDataChanged} />
+              <TripExpandDetail trip={trip} onDataChanged={onDataChanged} geocodedAddresses={geocodedAddresses} />
             ) : stop ? (
               <StopExpandDetail stop={stop} />
             ) : null}
@@ -1015,7 +1030,7 @@ function ActivityTimeline({ activities, groupedByDay, isRangeMode, expandedId, o
                     {getClockLocationLabel(item as ActivityClockEvent, geocodedAddresses) || ''}
                   </span>
                 ) : (
-                  <span className="text-sm truncate max-w-[300px]">{getActivityDetail(item)}</span>
+                  <span className="text-sm truncate max-w-[300px]">{getActivityDetail(item, geocodedAddresses)}</span>
                 )}
                 {item.activity_type === 'trip' && (
                   <span className="text-sm tabular-nums whitespace-nowrap text-muted-foreground">
@@ -1034,7 +1049,7 @@ function ActivityTimeline({ activities, groupedByDay, isRangeMode, expandedId, o
         {isExpanded && (
           <div className="mt-2">
             {item.activity_type === 'trip' ? (
-              <TripExpandDetail trip={item as ActivityTrip} onDataChanged={onDataChanged} />
+              <TripExpandDetail trip={item as ActivityTrip} onDataChanged={onDataChanged} geocodedAddresses={geocodedAddresses} />
             ) : item.activity_type === 'stop' ? (
               <StopExpandDetail stop={item as ActivityStop} />
             ) : null}
