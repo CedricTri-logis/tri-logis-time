@@ -1005,6 +1005,11 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     }
   }
 
+  /// Clear the auto clock-out flag after the UI has shown the error dialog.
+  void clearAutoClockOutFlag() {
+    state = state.copyWith(trackingAutoClockOutOccurred: false);
+  }
+
   /// Clear error state.
   void clearError() {
     state = state.copyWith(clearError: true);
