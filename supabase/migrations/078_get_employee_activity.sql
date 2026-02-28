@@ -155,11 +155,33 @@ BEGIN
             NULL::DECIMAL, NULL::DECIMAL, NULL::INTEGER, NULL::TEXT, NULL::TEXT,
             NULL::DECIMAL, NULL::TEXT, NULL::UUID, NULL::UUID, NULL::TEXT, NULL::INTEGER,
             NULL::DECIMAL, NULL::DECIMAL, NULL::DECIMAL, NULL::INTEGER, NULL::INTEGER,
-            NULL::UUID, NULL::TEXT,
+            ci_loc.id AS matched_location_id,
+            ci_loc.name::TEXT AS matched_location_name,
             (s.clock_in_location->>'latitude')::DECIMAL AS clock_latitude,
             (s.clock_in_location->>'longitude')::DECIMAL AS clock_longitude,
             s.clock_in_accuracy AS clock_accuracy
         FROM shifts s
+        LEFT JOIN LATERAL (
+            SELECT l.id, l.name
+            FROM locations l
+            WHERE l.is_active = TRUE
+              AND ST_DWithin(
+                l.location::geography,
+                ST_SetSRID(ST_MakePoint(
+                    (s.clock_in_location->>'longitude')::DOUBLE PRECISION,
+                    (s.clock_in_location->>'latitude')::DOUBLE PRECISION
+                ), 4326)::geography,
+                GREATEST(l.radius_meters, COALESCE(s.clock_in_accuracy, 0))
+              )
+            ORDER BY ST_Distance(
+                l.location::geography,
+                ST_SetSRID(ST_MakePoint(
+                    (s.clock_in_location->>'longitude')::DOUBLE PRECISION,
+                    (s.clock_in_location->>'latitude')::DOUBLE PRECISION
+                ), 4326)::geography
+            )
+            LIMIT 1
+        ) ci_loc ON TRUE
         WHERE s.employee_id = p_employee_id
           AND s.clocked_in_at >= p_date_from::TIMESTAMPTZ
           AND s.clocked_in_at < (p_date_to + INTERVAL '1 day')::TIMESTAMPTZ
@@ -177,11 +199,33 @@ BEGIN
             NULL::DECIMAL, NULL::DECIMAL, NULL::INTEGER, NULL::TEXT, NULL::TEXT,
             NULL::DECIMAL, NULL::TEXT, NULL::UUID, NULL::UUID, NULL::TEXT, NULL::INTEGER,
             NULL::DECIMAL, NULL::DECIMAL, NULL::DECIMAL, NULL::INTEGER, NULL::INTEGER,
-            NULL::UUID, NULL::TEXT,
+            co_loc.id AS matched_location_id,
+            co_loc.name::TEXT AS matched_location_name,
             (s.clock_out_location->>'latitude')::DECIMAL AS clock_latitude,
             (s.clock_out_location->>'longitude')::DECIMAL AS clock_longitude,
             s.clock_out_accuracy AS clock_accuracy
         FROM shifts s
+        LEFT JOIN LATERAL (
+            SELECT l.id, l.name
+            FROM locations l
+            WHERE l.is_active = TRUE
+              AND ST_DWithin(
+                l.location::geography,
+                ST_SetSRID(ST_MakePoint(
+                    (s.clock_out_location->>'longitude')::DOUBLE PRECISION,
+                    (s.clock_out_location->>'latitude')::DOUBLE PRECISION
+                ), 4326)::geography,
+                GREATEST(l.radius_meters, COALESCE(s.clock_out_accuracy, 0))
+              )
+            ORDER BY ST_Distance(
+                l.location::geography,
+                ST_SetSRID(ST_MakePoint(
+                    (s.clock_out_location->>'longitude')::DOUBLE PRECISION,
+                    (s.clock_out_location->>'latitude')::DOUBLE PRECISION
+                ), 4326)::geography
+            )
+            LIMIT 1
+        ) co_loc ON TRUE
         WHERE s.employee_id = p_employee_id
           AND s.clocked_out_at >= p_date_from::TIMESTAMPTZ
           AND s.clocked_out_at < (p_date_to + INTERVAL '1 day')::TIMESTAMPTZ

@@ -631,9 +631,20 @@ function ActivityIcon({ item }: { item: ActivityItem }) {
   return <MapPin className="h-4 w-4 text-amber-500" />;
 }
 
+function getClockLocationLabel(item: ActivityClockEvent): string | null {
+  if (item.matched_location_name) return item.matched_location_name;
+  if (item.clock_latitude != null && item.clock_longitude != null) {
+    return `${Number(item.clock_latitude).toFixed(4)}, ${Number(item.clock_longitude).toFixed(4)}`;
+  }
+  return null;
+}
+
 function getActivityDetail(item: ActivityItem): string {
-  if (item.activity_type === 'clock_in') return 'D\u00e9but de quart';
-  if (item.activity_type === 'clock_out') return 'Fin de quart';
+  if (item.activity_type === 'clock_in' || item.activity_type === 'clock_out') {
+    const label = item.activity_type === 'clock_in' ? 'Début de quart' : 'Fin de quart';
+    const loc = getClockLocationLabel(item as ActivityClockEvent);
+    return loc ? `${label} — ${loc}` : label;
+  }
   if (item.activity_type === 'trip') {
     const trip = item as ActivityTrip;
     const from = trip.start_location_name || trip.start_address || `${trip.start_latitude.toFixed(4)}, ${trip.start_longitude.toFixed(4)}`;
@@ -761,9 +772,21 @@ function ActivityTableRow({
         </td>
         <td className="px-4 py-3 max-w-[350px]">
           {isClock ? (
-            <span className={`text-xs font-medium ${item.activity_type === 'clock_in' ? 'text-emerald-600' : 'text-red-500'}`}>
-              {item.activity_type === 'clock_in' ? 'D\u00e9but de quart' : 'Fin de quart'}
-            </span>
+            <div className="flex items-center gap-1.5 text-xs">
+              <span className={`font-medium ${item.activity_type === 'clock_in' ? 'text-emerald-600' : 'text-red-500'}`}>
+                {item.activity_type === 'clock_in' ? 'Début de quart' : 'Fin de quart'}
+              </span>
+              {(() => {
+                const loc = getClockLocationLabel(item as ActivityClockEvent);
+                if (!loc) return null;
+                const clock = item as ActivityClockEvent;
+                return (
+                  <span className={`truncate ${clock.matched_location_name ? 'text-foreground' : 'text-muted-foreground'}`}>
+                    — {loc}
+                  </span>
+                );
+              })()}
+            </div>
           ) : isTrip && trip ? (
             <div className="flex items-center gap-1 text-xs truncate">
               <span className="truncate">{trip.start_location_name || trip.start_address || `${trip.start_latitude.toFixed(4)}, ${trip.start_longitude.toFixed(4)}`}</span>

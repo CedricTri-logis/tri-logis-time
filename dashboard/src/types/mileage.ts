@@ -209,6 +209,8 @@ export interface ActivityClockEvent extends ActivityItemBase {
   clock_latitude: number | null;
   clock_longitude: number | null;
   clock_accuracy: number | null;
+  matched_location_id: string | null;
+  matched_location_name: string | null;
 }
 
 export type ActivityItem = ActivityTrip | ActivityStop | ActivityClockEvent;
