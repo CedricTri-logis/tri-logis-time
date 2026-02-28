@@ -250,6 +250,8 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
   }
 
   void _showTrackingFailureDialog() {
+    if (!mounted) return;
+
     // Reset the flag so it doesn't re-trigger
     ref.read(trackingProvider.notifier).clearAutoClockOutFlag();
 

@@ -550,6 +550,10 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
   /// Verify the shift is truly completed in the local DB before stopping tracking.
   /// Prevents false stops caused by Riverpod provider rebuilds.
   Future<void> _verifyAndStopTracking(String shiftId) async {
+    // Skip if tracking already stopped (e.g. auto clock-out already handled it).
+    // Prevents wiping trackingAutoClockOutOccurred flag set by verification timer.
+    if (state.status == TrackingStatus.stopped) return;
+
     try {
       final shift = await LocalDatabase().getShiftById(shiftId);
       if (shift == null || shift.status == 'completed') {
