@@ -38,9 +38,9 @@ interface ProcessedActivity {
 }
 
 /**
- * Merge clock events into their matching stops (same matched_location_id).
- * - clock_in → merges into the FIRST stop at that location
- * - clock_out → merges into the LAST stop at that location
+ * Merge clock events into their matching stops (same matched_location_id AND same shift_id).
+ * - clock_in → merges into the FIRST stop at that location within the same shift
+ * - clock_out → merges into the LAST stop at that location within the same shift
  * - Unmatched clock events stay as standalone rows
  */
 function mergeClockEvents(items: ActivityItem[]): ProcessedActivity[] {
@@ -53,9 +53,10 @@ function mergeClockEvents(items: ActivityItem[]): ProcessedActivity[] {
     if (item.activity_type === 'clock_in') {
       const clock = item as ActivityClockEvent;
       if (clock.matched_location_id) {
-        // Find first stop at same location (forward scan)
+        // Find first stop at same location within the same shift (forward scan)
         for (let j = 0; j < items.length; j++) {
           if (items[j].activity_type === 'stop' &&
+              items[j].shift_id === clock.shift_id &&
               (items[j] as ActivityStop).matched_location_id === clock.matched_location_id) {
             mergedIndices.add(i);
             const existing = clockFlags.get(j) || {};
@@ -70,9 +71,10 @@ function mergeClockEvents(items: ActivityItem[]): ProcessedActivity[] {
     if (item.activity_type === 'clock_out') {
       const clock = item as ActivityClockEvent;
       if (clock.matched_location_id) {
-        // Find last stop at same location (reverse scan)
+        // Find last stop at same location within the same shift (reverse scan)
         for (let j = items.length - 1; j >= 0; j--) {
           if (items[j].activity_type === 'stop' &&
+              items[j].shift_id === clock.shift_id &&
               (items[j] as ActivityStop).matched_location_id === clock.matched_location_id) {
             mergedIndices.add(i);
             const existing = clockFlags.get(j) || {};
