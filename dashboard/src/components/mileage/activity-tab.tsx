@@ -15,6 +15,8 @@ import {
   ChevronDown,
   ChevronUp,
   ArrowRight,
+  LogIn,
+  LogOut,
 } from 'lucide-react';
 import { supabaseClient } from '@/lib/supabase/client';
 import { MatchStatusBadge } from '@/components/trips/match-status-badge';
@@ -22,7 +24,7 @@ import { GoogleTripRouteMap } from '@/components/trips/google-trip-route-map';
 import { detectTripStops, detectGpsClusters } from '@/lib/utils/detect-trip-stops';
 import { LocationPickerDropdown } from '@/components/trips/location-picker-dropdown';
 import { StationaryClustersMap } from '@/components/mileage/stationary-clusters-map';
-import type { ActivityItem, ActivityTrip, ActivityStop, TripGpsPoint } from '@/types/mileage';
+import type { ActivityItem, ActivityTrip, ActivityStop, ActivityClockEvent, TripGpsPoint } from '@/types/mileage';
 import type { StationaryCluster } from '@/components/mileage/stationary-clusters-map';
 
 type TypeFilter = 'all' | 'trips' | 'stops';
@@ -616,6 +618,8 @@ function StopExpandDetail({ stop }: { stop: ActivityStop }) {
 // --- Activity row icon helper ---
 
 function ActivityIcon({ item }: { item: ActivityItem }) {
+  if (item.activity_type === 'clock_in') return <LogIn className="h-4 w-4 text-emerald-600" />;
+  if (item.activity_type === 'clock_out') return <LogOut className="h-4 w-4 text-red-500" />;
   if (item.activity_type === 'trip') {
     const trip = item as ActivityTrip;
     if (trip.transport_mode === 'walking') return <Footprints className="h-4 w-4 text-orange-500" />;
@@ -628,6 +632,8 @@ function ActivityIcon({ item }: { item: ActivityItem }) {
 }
 
 function getActivityDetail(item: ActivityItem): string {
+  if (item.activity_type === 'clock_in') return 'D\u00e9but de quart';
+  if (item.activity_type === 'clock_out') return 'Fin de quart';
   if (item.activity_type === 'trip') {
     const trip = item as ActivityTrip;
     const from = trip.start_location_name || trip.start_address || `${trip.start_latitude.toFixed(4)}, ${trip.start_longitude.toFixed(4)}`;
@@ -639,6 +645,7 @@ function getActivityDetail(item: ActivityItem): string {
 }
 
 function getActivityDuration(item: ActivityItem): string {
+  if (item.activity_type === 'clock_in' || item.activity_type === 'clock_out') return '\u2014';
   if (item.activity_type === 'trip') {
     return formatDurationMinutes((item as ActivityTrip).duration_minutes);
   }
@@ -728,14 +735,17 @@ function ActivityTableRow({
   onDataChanged: () => void;
 }) {
   const isTrip = item.activity_type === 'trip';
+  const isStop = item.activity_type === 'stop';
+  const isClock = item.activity_type === 'clock_in' || item.activity_type === 'clock_out';
   const trip = isTrip ? (item as ActivityTrip) : null;
-  const stop = !isTrip ? (item as ActivityStop) : null;
+  const stop = isStop ? (item as ActivityStop) : null;
+  const canExpand = !isClock;
 
   return (
     <>
       <tr
-        className="cursor-pointer hover:bg-muted/50 transition-colors"
-        onClick={onToggle}
+        className={`${canExpand ? 'cursor-pointer' : ''} hover:bg-muted/50 transition-colors ${isClock ? 'bg-muted/20' : ''}`}
+        onClick={canExpand ? onToggle : undefined}
       >
         <td className="px-4 py-3 text-center">
           <ActivityIcon item={item} />
@@ -744,13 +754,17 @@ function ActivityTableRow({
           {formatTime(item.started_at)}
         </td>
         <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">
-          {formatTime(item.ended_at)}
+          {isClock ? '\u2014' : formatTime(item.ended_at)}
         </td>
         <td className="px-4 py-3 whitespace-nowrap tabular-nums">
           {getActivityDuration(item)}
         </td>
         <td className="px-4 py-3 max-w-[350px]">
-          {isTrip && trip ? (
+          {isClock ? (
+            <span className={`text-xs font-medium ${item.activity_type === 'clock_in' ? 'text-emerald-600' : 'text-red-500'}`}>
+              {item.activity_type === 'clock_in' ? 'D\u00e9but de quart' : 'Fin de quart'}
+            </span>
+          ) : isTrip && trip ? (
             <div className="flex items-center gap-1 text-xs truncate">
               <span className="truncate">{trip.start_location_name || trip.start_address || `${trip.start_latitude.toFixed(4)}, ${trip.start_longitude.toFixed(4)}`}</span>
               <ArrowRight className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
@@ -766,7 +780,9 @@ function ActivityTableRow({
           {isTrip && trip ? formatDistance(trip.road_distance_km ?? trip.distance_km) : '\u2014'}
         </td>
         <td className="px-4 py-3 text-center">
-          {isTrip && trip ? (
+          {isClock ? (
+            '\u2014'
+          ) : isTrip && trip ? (
             <MatchStatusBadge match_status={trip.match_status} />
           ) : (
             <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -779,11 +795,13 @@ function ActivityTableRow({
           )}
         </td>
         <td className="px-4 py-3 text-center">
-          {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+          {canExpand && (
+            isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          )}
         </td>
       </tr>
 
-      {isExpanded && (
+      {isExpanded && canExpand && (
         <tr>
           <td colSpan={8} className="p-0">
             {isTrip && trip ? (
@@ -800,6 +818,8 @@ function ActivityTableRow({
 
 function ActivityTimeline({ activities, groupedByDay, isRangeMode, expandedId, onToggleExpand, onDataChanged }: ActivityViewProps) {
   const getColors = (item: ActivityItem) => {
+    if (item.activity_type === 'clock_in') return { border: 'border-l-emerald-600', dot: 'bg-emerald-600' };
+    if (item.activity_type === 'clock_out') return { border: 'border-l-red-500', dot: 'bg-red-500' };
     if (item.activity_type === 'trip') {
       const trip = item as ActivityTrip;
       if (trip.transport_mode === 'walking') return { border: 'border-l-orange-500', dot: 'bg-orange-500' };
@@ -812,7 +832,9 @@ function ActivityTimeline({ activities, groupedByDay, isRangeMode, expandedId, o
 
   const renderItem = (item: ActivityItem) => {
     const colors = getColors(item);
-    const isExpanded = expandedId === item.id;
+    const isClock = item.activity_type === 'clock_in' || item.activity_type === 'clock_out';
+    const canExpand = !isClock;
+    const isExpanded = canExpand && expandedId === item.id;
 
     return (
       <div key={item.id} className="relative mb-4">
@@ -821,25 +843,31 @@ function ActivityTimeline({ activities, groupedByDay, isRangeMode, expandedId, o
 
         {/* Card */}
         <Card
-          className={`cursor-pointer border-l-4 ${colors.border} hover:shadow-md transition-shadow`}
-          onClick={() => onToggleExpand(item.id)}
+          className={`${canExpand ? 'cursor-pointer' : ''} border-l-4 ${colors.border} hover:shadow-md transition-shadow`}
+          onClick={canExpand ? () => onToggleExpand(item.id) : undefined}
         >
           <CardContent className="py-3 px-4">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-2 min-w-0">
                 <ActivityIcon item={item} />
                 <span className="font-medium whitespace-nowrap">{formatTime(item.started_at)}</span>
-                <span className="text-muted-foreground whitespace-nowrap">&rarr; {formatTime(item.ended_at)}</span>
-                <span className="text-muted-foreground text-xs whitespace-nowrap">({getActivityDuration(item)})</span>
+                {!isClock && (
+                  <>
+                    <span className="text-muted-foreground whitespace-nowrap">&rarr; {formatTime(item.ended_at)}</span>
+                    <span className="text-muted-foreground text-xs whitespace-nowrap">({getActivityDuration(item)})</span>
+                  </>
+                )}
               </div>
               <div className="flex items-center gap-3 min-w-0">
-                <span className="text-sm truncate max-w-[300px]">{getActivityDetail(item)}</span>
+                <span className={`text-sm truncate max-w-[300px] ${isClock ? 'font-medium' : ''}`}>{getActivityDetail(item)}</span>
                 {item.activity_type === 'trip' && (
                   <span className="text-sm tabular-nums whitespace-nowrap text-muted-foreground">
                     {formatDistance((item as ActivityTrip).road_distance_km ?? (item as ActivityTrip).distance_km)}
                   </span>
                 )}
-                {isExpanded ? <ChevronUp className="h-4 w-4 flex-shrink-0 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />}
+                {canExpand && (
+                  isExpanded ? <ChevronUp className="h-4 w-4 flex-shrink-0 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                )}
               </div>
             </div>
           </CardContent>
@@ -850,9 +878,9 @@ function ActivityTimeline({ activities, groupedByDay, isRangeMode, expandedId, o
           <div className="mt-2">
             {item.activity_type === 'trip' ? (
               <TripExpandDetail trip={item as ActivityTrip} onDataChanged={onDataChanged} />
-            ) : (
+            ) : item.activity_type === 'stop' ? (
               <StopExpandDetail stop={item as ActivityStop} />
-            )}
+            ) : null}
           </div>
         )}
       </div>

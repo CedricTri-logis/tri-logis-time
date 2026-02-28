@@ -159,9 +159,9 @@ export interface CarpoolMember {
   trip?: Trip;
 }
 
-// Activity timeline types (unified trips + stops)
+// Activity timeline types (unified trips + stops + clock events)
 export interface ActivityItemBase {
-  activity_type: 'trip' | 'stop';
+  activity_type: 'trip' | 'stop' | 'clock_in' | 'clock_out';
   id: string;
   shift_id: string;
   started_at: string;
@@ -204,4 +204,11 @@ export interface ActivityStop extends ActivityItemBase {
   matched_location_name: string | null;
 }
 
-export type ActivityItem = ActivityTrip | ActivityStop;
+export interface ActivityClockEvent extends ActivityItemBase {
+  activity_type: 'clock_in' | 'clock_out';
+  clock_latitude: number | null;
+  clock_longitude: number | null;
+  clock_accuracy: number | null;
+}
+
+export type ActivityItem = ActivityTrip | ActivityStop | ActivityClockEvent;
