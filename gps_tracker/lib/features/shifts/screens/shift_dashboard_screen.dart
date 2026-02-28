@@ -28,6 +28,7 @@ import '../../tracking/widgets/device_services_dialog.dart';
 import '../../tracking/widgets/oem_battery_guide_dialog.dart';
 import '../../tracking/widgets/permission_change_alert.dart';
 import '../../tracking/widgets/permission_explanation_dialog.dart';
+import '../../tracking/widgets/samsung_standby_dialog.dart';
 import '../../cleaning/providers/cleaning_session_provider.dart';
 import '../../cleaning/screens/qr_scanner_screen.dart';
 import '../../cleaning/widgets/active_session_card.dart';
@@ -519,6 +520,9 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
       // Battery optimization must be disabled for reliable background tracking
       if (!mounted) return;
       await BatteryOptimizationDialog.show(context);
+    } else if (guardState.isAppStandbyRestricted) {
+      if (!mounted) return;
+      await SamsungStandbyDialog.show(context);
     } else if (!guardState.isPreciseLocationEnabled) {
       // Precise/exact location must be enabled for GPS tracking
       if (!mounted) return;

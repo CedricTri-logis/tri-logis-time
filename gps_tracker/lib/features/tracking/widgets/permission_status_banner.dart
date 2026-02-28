@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/dismissible_warning_type.dart';
 import '../models/permission_guard_status.dart';
 import '../providers/permission_guard_provider.dart';
+import 'samsung_standby_dialog.dart';
 
 /// Configuration for banner display based on status.
 class _BannerConfig {
@@ -172,6 +173,15 @@ class PermissionStatusBanner extends ConsumerWidget {
           actionLabel: 'Désactiver',
           canDismiss: true,
         ),
+      PermissionGuardStatus.appStandbyRestricted => _BannerConfig(
+          backgroundColor: theme.colorScheme.errorContainer,
+          iconColor: theme.colorScheme.onErrorContainer,
+          icon: Icons.battery_alert,
+          title: 'Application mise en veille',
+          subtitle: 'Le suivi GPS sera interrompu — action requise',
+          actionLabel: 'Corriger',
+          canDismiss: false,
+        ),
       PermissionGuardStatus.preciseLocationRequired => _BannerConfig(
           backgroundColor: theme.colorScheme.errorContainer,
           iconColor: theme.colorScheme.onErrorContainer,
@@ -212,6 +222,11 @@ class PermissionStatusBanner extends ConsumerWidget {
         await notifier.requestPermission();
       case PermissionGuardStatus.batteryOptimizationRequired:
         await notifier.requestBatteryOptimization();
+      case PermissionGuardStatus.appStandbyRestricted:
+        if (context.mounted) {
+          await SamsungStandbyDialog.show(context);
+          notifier.checkStatus();
+        }
       case PermissionGuardStatus.preciseLocationRequired:
         await notifier.openAppSettings();
       case PermissionGuardStatus.allGranted:

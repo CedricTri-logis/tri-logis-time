@@ -108,6 +108,18 @@ class AndroidBatteryHealthService {
     }
   }
 
+  static Future<bool> openSamsungNeverSleepingList() async {
+    if (!Platform.isAndroid) return false;
+    try {
+      return await _channel.invokeMethod<bool>(
+            'openSamsungNeverSleepingList',
+          ) ??
+          false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static Future<AppStandbyBucketInfo> getAppStandbyBucket() async {
     if (!Platform.isAndroid) {
       return const AppStandbyBucketInfo(

@@ -73,6 +73,9 @@ class PermissionGuardState {
     if (!isBatteryOptimizationDisabled) {
       return PermissionGuardStatus.batteryOptimizationRequired;
     }
+    if (isAppStandbyRestricted) {
+      return PermissionGuardStatus.appStandbyRestricted;
+    }
     if (!isPreciseLocationEnabled) {
       return PermissionGuardStatus.preciseLocationRequired;
     }
@@ -98,6 +101,7 @@ class PermissionGuardState {
         !permission.hasAnyPermission ||
         permission.level == LocationPermissionLevel.whileInUse ||
         !isBatteryOptimizationDisabled ||
+        isAppStandbyRestricted ||
         !isPreciseLocationEnabled;
   }
 

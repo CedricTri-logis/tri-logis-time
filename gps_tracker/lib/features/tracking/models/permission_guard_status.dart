@@ -18,6 +18,9 @@ enum PermissionGuardStatus {
   /// Battery optimization enabled (Android) - optional action.
   batteryOptimizationRequired,
 
+  /// App is in restricted/rare standby bucket (Samsung sleeping or Android hibernation).
+  appStandbyRestricted,
+
   /// Precise/exact location not enabled (Android 12+) - action required.
   preciseLocationRequired,
 }

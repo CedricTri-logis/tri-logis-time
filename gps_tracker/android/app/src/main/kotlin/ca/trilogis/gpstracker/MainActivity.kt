@@ -44,6 +44,10 @@ class MainActivity : FlutterActivity() {
                         val opened = openAppBatterySettings()
                         result.success(opened)
                     }
+                    "openSamsungNeverSleepingList" -> {
+                        val opened = openSamsungNeverSleepingList()
+                        result.success(opened)
+                    }
                     else -> result.notImplemented()
                 }
             }
@@ -227,6 +231,33 @@ class MainActivity : FlutterActivity() {
                 data = Uri.fromParts("package", packageName, null)
             },
             Intent(Settings.ACTION_SETTINGS)
+        )
+        return tryStartIntents(intents)
+    }
+
+    /**
+     * Opens Samsung's "Never sleeping apps" list directly via Samsung Deeplink API.
+     * Falls back to Samsung Device Care battery page, then system battery settings.
+     */
+    private fun openSamsungNeverSleepingList(): Boolean {
+        val intents = listOf(
+            // Samsung Deeplink API: activity_type 2 = "Never sleeping apps"
+            Intent("com.samsung.android.sm.ACTION_OPEN_CHECKABLE_LISTACTIVITY").apply {
+                setPackage("com.samsung.android.lool")
+                putExtra("activity_type", 2)
+            },
+            // Fallback: Samsung Device Care battery page
+            Intent().setComponent(ComponentName(
+                "com.samsung.android.lool",
+                "com.samsung.android.lool.BatteryActivity"
+            )),
+            // Fallback: older Samsung Smart Manager
+            Intent().setComponent(ComponentName(
+                "com.samsung.android.sm",
+                "com.samsung.android.sm.ui.battery.BatteryActivity"
+            )),
+            // Last resort: system battery settings
+            Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS)
         )
         return tryStartIntents(intents)
     }

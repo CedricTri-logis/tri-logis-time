@@ -26,6 +26,7 @@ class DeviceStatusService {
         _getGpsPermission(),
         _checkPreciseLocation(),
         _checkBatteryOptimization(),
+        _getAppStandbyBucket(),
         _getDeviceInfo(),
       ]);
 
@@ -33,13 +34,15 @@ class DeviceStatusService {
       final gpsPermission = results[1] as String;
       final preciseLocation = results[2] as bool;
       final batteryOptDisabled = results[3] as bool;
-      final deviceInfo = results[4] as Map<String, String>;
+      final appStandbyBucket = results[4] as String?;
+      final deviceInfo = results[5] as Map<String, String>;
 
       await client.rpc<dynamic>('upsert_device_status', params: {
         'p_notifications_enabled': notificationsEnabled,
         'p_gps_permission': gpsPermission,
         'p_precise_location_enabled': preciseLocation,
         'p_battery_optimization_disabled': batteryOptDisabled,
+        'p_app_standby_bucket': appStandbyBucket,
         'p_app_version': deviceInfo['app_version'],
         'p_device_model': deviceInfo['device_model'],
         'p_os_version': deviceInfo['os_version'],
@@ -101,6 +104,16 @@ class DeviceStatusService {
       return await AndroidBatteryHealthService.isBatteryOptimizationDisabled;
     } catch (_) {
       return true;
+    }
+  }
+
+  static Future<String?> _getAppStandbyBucket() async {
+    if (Platform.isIOS) return null;
+    try {
+      final bucket = await AndroidBatteryHealthService.getAppStandbyBucket();
+      return bucket.bucketName;
+    } catch (_) {
+      return null;
     }
   }
 
