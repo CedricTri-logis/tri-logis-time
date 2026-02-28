@@ -10,6 +10,61 @@ def load_api_key
   )
 end
 
+def api_key_config
+  JSON.parse(File.read(File.join(Dir.pwd, "appstore-api-key.json")))
+end
+
+# Build archive + export IPA using App Store Connect API key for signing.
+# This avoids requiring an iOS Distribution certificate in the local keychain.
+def build_ipa
+  Bundler.with_unbundled_env do
+    sh("cd ../.. && flutter build ipa --release 2>&1 || true")
+  end
+
+  # Check if IPA was produced (flutter build ipa may fail on export if no local cert)
+  ipa_path = File.expand_path("../../build/ios/ipa/gps_tracker.ipa")
+  unless File.exist?(ipa_path)
+    UI.message("IPA not found — exporting archive with API key authentication...")
+    archive_path = File.expand_path("../../build/ios/archive/Runner.xcarchive")
+    ipa_dir = File.expand_path("../../build/ios/ipa")
+    config = api_key_config
+    key_path = File.join(Dir.pwd, config["key_filepath"])
+
+    FileUtils.mkdir_p(ipa_dir)
+    sh(
+      "xcodebuild -exportArchive " \
+      "-archivePath #{archive_path} " \
+      "-exportPath #{ipa_dir} " \
+      "-exportOptionsPlist #{export_options_plist} " \
+      "-allowProvisioningUpdates " \
+      "-authenticationKeyPath #{key_path} " \
+      "-authenticationKeyID #{config['key_id']} " \
+      "-authenticationKeyIssuerID #{config['issuer_id']}"
+    )
+  end
+end
+
+def export_options_plist
+  plist_path = "/tmp/FlutterExportOptions.plist"
+  File.write(plist_path, <<~PLIST)
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+    <plist version="1.0">
+    <dict>
+        <key>method</key>
+        <string>app-store-connect</string>
+        <key>teamID</key>
+        <string>ZJ7VM5B8CQ</string>
+        <key>signingStyle</key>
+        <string>automatic</string>
+        <key>uploadSymbols</key>
+        <true/>
+    </dict>
+    </plist>
+  PLIST
+  plist_path
+end
+
 platform :ios do
   desc "Get latest TestFlight build number"
   lane :latest_build do
@@ -22,10 +77,7 @@ platform :ios do
   lane :beta do
     api_key = load_api_key
 
-    # Clean bundler env so xcodebuild doesn't inherit Ruby 4.0 settings
-    Bundler.with_unbundled_env do
-      sh("cd ../.. && flutter build ipa --release")
-    end
+    build_ipa
 
     upload_to_testflight(
       api_key: api_key,
@@ -43,9 +95,7 @@ platform :ios do
   lane :production do
     api_key = load_api_key
 
-    Bundler.with_unbundled_env do
-      sh("cd ../.. && flutter build ipa --release")
-    end
+    build_ipa
 
     upload_to_app_store(
       api_key: api_key,
