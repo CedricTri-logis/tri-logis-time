@@ -101,6 +101,12 @@ function formatConfidence(conf: number | null): string {
   return `${(conf * 100).toFixed(0)}%`;
 }
 
+function formatAvgSpeed(distanceKm: number, durationMinutes: number): string {
+  if (durationMinutes <= 0) return '—';
+  const kmh = distanceKm / (durationMinutes / 60);
+  return `${kmh.toFixed(0)} km/h`;
+}
+
 function formatLocation(address: string | null, lat: number, lng: number): string {
   if (address) return address;
   return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
@@ -803,6 +809,9 @@ export default function MileagePage() {
                     >
                       Dist. route {sortIndicator('road_distance_km')}
                     </th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">
+                      Vit. moy.
+                    </th>
                     <th
                       className="cursor-pointer px-4 py-3 text-center font-medium text-muted-foreground hover:text-foreground"
                       onClick={() => toggleSort('match_status')}
@@ -1079,6 +1088,9 @@ function TripRow({
         <td className="px-4 py-3 text-right tabular-nums font-medium">
           {formatDistance(trip.road_distance_km)}
         </td>
+        <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
+          {formatAvgSpeed(trip.road_distance_km ?? trip.distance_km, trip.duration_minutes)}
+        </td>
         <td className="px-4 py-3 text-center">
           <MatchStatusBadge match_status={trip.match_status} />
         </td>
@@ -1124,7 +1136,7 @@ function TripRow({
       {/* Expanded detail row */}
       {isExpanded && (
         <tr className="bg-muted/30">
-          <td colSpan={10} className="px-6 py-4">
+          <td colSpan={11} className="px-6 py-4">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2">
                 <GoogleTripRouteMap
