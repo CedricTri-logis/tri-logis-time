@@ -180,7 +180,6 @@ class BackgroundTrackingService with WidgetsBindingObserver {
             'Foreground service start success',
             metadata: {'shift_id': shiftId, 'attempt': attempt},
           );
-          await TrackingWatchdogService.startAlarm();
           return const TrackingSuccess();
         }
 
@@ -216,7 +215,6 @@ class BackgroundTrackingService with WidgetsBindingObserver {
 
   /// Stop background GPS tracking.
   static Future<void> stopTracking() async {
-    await TrackingWatchdogService.stopAlarm();
     await FlutterForegroundTask.stopService();
     await FlutterForegroundTask.removeData(key: 'shift_id');
     await FlutterForegroundTask.removeData(key: 'employee_id');

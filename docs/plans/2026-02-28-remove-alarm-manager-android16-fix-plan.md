@@ -1,3 +1,25 @@
+# Remove android_alarm_manager_plus — Implementation Plan
+
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+
+**Goal:** Remove `android_alarm_manager_plus` to fix Android 16 (SDK 36) `RebootBroadcastReceiver` crash that corrupts the GPS foreground service on 100% of Android 16 devices.
+
+**Architecture:** Remove the AlarmManager watchdog layer entirely, promote WorkManager from 15-min backup to 5-min primary. The foreground service, GPS self-healing, app resume check, and boot receiver all remain unchanged.
+
+**Tech Stack:** Dart/Flutter, flutter_foreground_task, workmanager (existing)
+
+---
+
+### Task 1: Remove `android_alarm_manager_plus` from TrackingWatchdogService
+
+**Files:**
+- Modify: `gps_tracker/lib/features/tracking/services/tracking_watchdog_service.dart`
+
+**Step 1: Rewrite the file without AlarmManager**
+
+Replace the entire file content with:
+
+```dart
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
@@ -186,3 +208,138 @@ void _workManagerCallbackDispatcher() {
     return true;
   });
 }
+```
+
+Key changes:
+- Removed `android_alarm_manager_plus` import
+- Removed `_alarmId` constant
+- Removed `startAlarm()` and `stopAlarm()` methods
+- Removed `_alarmCallback()` method
+- Changed WorkManager frequency from 15 min to 5 min
+- Changed `existingWorkPolicy` from `keep` to `replace` (to pick up the new 5-min interval)
+- Updated class documentation
+
+**Step 2: Run analyzer**
+
+Run: `cd gps_tracker && flutter analyze lib/features/tracking/services/tracking_watchdog_service.dart`
+Expected: No errors
+
+**Step 3: Commit**
+
+```bash
+git add gps_tracker/lib/features/tracking/services/tracking_watchdog_service.dart
+git commit -m "feat: remove android_alarm_manager_plus, promote WorkManager to 5-min primary watchdog"
+```
+
+---
+
+### Task 2: Remove AlarmManager calls from BackgroundTrackingService
+
+**Files:**
+- Modify: `gps_tracker/lib/features/tracking/services/background_tracking_service.dart`
+
+**Step 1: Remove `startAlarm()` call from `startTracking()`**
+
+At line 183, remove:
+```dart
+          await TrackingWatchdogService.startAlarm();
+```
+
+**Step 2: Remove `stopAlarm()` call from `stopTracking()`**
+
+At line 219, remove:
+```dart
+    await TrackingWatchdogService.stopAlarm();
+```
+
+**Step 3: Run analyzer**
+
+Run: `cd gps_tracker && flutter analyze lib/features/tracking/services/background_tracking_service.dart`
+Expected: No errors
+
+**Step 4: Commit**
+
+```bash
+git add gps_tracker/lib/features/tracking/services/background_tracking_service.dart
+git commit -m "refactor: remove AlarmManager start/stop calls from BackgroundTrackingService"
+```
+
+---
+
+### Task 3: Remove `android_alarm_manager_plus` from pubspec.yaml and proguard
+
+**Files:**
+- Modify: `gps_tracker/pubspec.yaml`
+- Modify: `gps_tracker/android/app/proguard-rules.pro`
+
+**Step 1: Remove from pubspec.yaml**
+
+At line 11, remove:
+```yaml
+  android_alarm_manager_plus: ^4.0.0
+```
+
+**Step 2: Remove from proguard-rules.pro**
+
+At lines 41-42, remove:
+```proguard
+# Keep Android Alarm Manager (watchdog primary mechanism)
+-keep class dev.fluttercommunity.plus.androidalarmmanager.** { *; }
+```
+
+**Step 3: Run `flutter pub get`**
+
+Run: `cd gps_tracker && flutter pub get`
+Expected: No errors
+
+**Step 4: Run analyzer**
+
+Run: `cd gps_tracker && flutter analyze`
+Expected: No errors related to alarm_manager
+
+**Step 5: Commit**
+
+```bash
+git add gps_tracker/pubspec.yaml gps_tracker/pubspec.lock gps_tracker/android/app/proguard-rules.pro
+git commit -m "chore: remove android_alarm_manager_plus dependency and proguard rule"
+```
+
+---
+
+### Task 4: Clean up AndroidManifest.xml (if needed)
+
+**Files:**
+- Check: `gps_tracker/android/app/src/main/AndroidManifest.xml`
+
+**Step 1: Verify RECEIVE_BOOT_COMPLETED and WAKE_LOCK are still needed**
+
+Both permissions are still required by:
+- `flutter_foreground_task` (autoRunOnBoot needs RECEIVE_BOOT_COMPLETED)
+- `flutter_foreground_task` (allowWakeLock needs WAKE_LOCK)
+- `TrackingBootReceiver.kt` (BOOT_COMPLETED intent filter)
+
+**No changes needed** — these permissions are NOT alarm-manager-specific.
+
+**Step 2: Commit (skip if no changes)**
+
+No commit needed for this task.
+
+---
+
+### Task 5: Full build verification and deploy
+
+**Step 1: Run full analyzer**
+
+Run: `cd gps_tracker && flutter analyze`
+Expected: No errors
+
+**Step 2: Run tests**
+
+Run: `cd gps_tracker && flutter test`
+Expected: All existing tests pass
+
+**Step 3: Deploy**
+
+Run: `/deploy`
+
+This is a critical fix affecting 100% of Android 16 devices — deploy immediately.
