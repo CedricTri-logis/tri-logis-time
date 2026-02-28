@@ -49,22 +49,46 @@ interface ProcessedActivity {
  * Merge clock events into stops only when the clock event time falls
  * within the stop's time range (i.e., the clock happened inside that cluster).
  * Unmatched clock events (outside any stop) stay as standalone rows.
+ * Micro-shifts (clock-in + clock-out < 30s apart on same shift) are hidden entirely.
  */
 function mergeClockEvents(items: ActivityItem[]): ProcessedActivity[] {
+  // Step 1: Detect micro-shifts (< 30s) and collect their shift_ids to hide
+  const microShiftIds = new Set<string>();
+  const clockInByShift = new Map<string, ActivityClockEvent>();
+  const clockOutByShift = new Map<string, ActivityClockEvent>();
+  for (const item of items) {
+    if (item.activity_type === 'clock_in') clockInByShift.set(item.shift_id, item as ActivityClockEvent);
+    if (item.activity_type === 'clock_out') clockOutByShift.set(item.shift_id, item as ActivityClockEvent);
+  }
+  for (const [shiftId, clockIn] of clockInByShift) {
+    const clockOut = clockOutByShift.get(shiftId);
+    if (!clockOut) continue;
+    const durationMs = new Date(clockOut.started_at).getTime() - new Date(clockIn.started_at).getTime();
+    if (durationMs >= 0 && durationMs < 30_000) {
+      microShiftIds.add(shiftId);
+    }
+  }
+
+  // Step 2: Filter out clock events from micro-shifts
+  const filtered = items.filter((item) => {
+    if (item.activity_type !== 'clock_in' && item.activity_type !== 'clock_out') return true;
+    return !microShiftIds.has(item.shift_id);
+  });
+
+  // Step 3: Temporal merge of remaining clock events into stops
   const mergedIndices = new Set<number>();
   const clockFlags = new Map<number, { clockIn?: boolean; clockOut?: boolean }>();
 
-  for (let i = 0; i < items.length; i++) {
-    const item = items[i];
+  for (let i = 0; i < filtered.length; i++) {
+    const item = filtered[i];
     if (item.activity_type !== 'clock_in' && item.activity_type !== 'clock_out') continue;
 
     const clockTime = new Date(item.started_at).getTime();
 
-    // Find a stop that temporally contains this clock event
-    for (let j = 0; j < items.length; j++) {
-      if (items[j].activity_type !== 'stop') continue;
-      const stopStart = new Date(items[j].started_at).getTime();
-      const stopEnd = new Date(items[j].ended_at).getTime();
+    for (let j = 0; j < filtered.length; j++) {
+      if (filtered[j].activity_type !== 'stop') continue;
+      const stopStart = new Date(filtered[j].started_at).getTime();
+      const stopEnd = new Date(filtered[j].ended_at).getTime();
       if (clockTime >= stopStart && clockTime <= stopEnd) {
         mergedIndices.add(i);
         const existing = clockFlags.get(j) || {};
@@ -77,11 +101,11 @@ function mergeClockEvents(items: ActivityItem[]): ProcessedActivity[] {
   }
 
   const result: ProcessedActivity[] = [];
-  for (let i = 0; i < items.length; i++) {
+  for (let i = 0; i < filtered.length; i++) {
     if (mergedIndices.has(i)) continue;
     const flags = clockFlags.get(i);
     result.push({
-      item: items[i],
+      item: filtered[i],
       hasClockIn: flags?.clockIn,
       hasClockOut: flags?.clockOut,
     });
