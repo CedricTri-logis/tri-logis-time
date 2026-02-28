@@ -12,7 +12,7 @@ const navigation = [
     icon: LayoutDashboard,
   },
   {
-    name: 'Surveillance',
+    name: 'En direct',
     href: '/dashboard/monitoring',
     icon: Radio,
   },
@@ -42,7 +42,7 @@ const navigation = [
     icon: SprayCan,
   },
   {
-    name: 'Kilométrage',
+    name: 'Activités',
     href: '/dashboard/mileage',
     icon: Car,
   },
