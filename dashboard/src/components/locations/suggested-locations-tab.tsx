@@ -215,6 +215,10 @@ export function SuggestedLocationsTab({ onCreateLocation, locations = [], refres
           const cluster = clusters.find((c) => c.cluster_id === mapCluster.cluster_id);
           if (cluster) handleCreate(cluster);
         }}
+        onIgnoreCluster={(mapCluster) => {
+          const cluster = clusters.find((c) => c.cluster_id === mapCluster.cluster_id);
+          if (cluster) handleIgnoreCluster(cluster);
+        }}
         locations={locations}
       />
 

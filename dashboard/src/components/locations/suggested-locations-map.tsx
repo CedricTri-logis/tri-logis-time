@@ -6,11 +6,10 @@ import {
   Map,
   useMap,
   AdvancedMarker,
-  InfoWindow,
 } from '@vis.gl/react-google-maps';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, MapPin, ChevronLeft, ChevronRight, X, EyeOff } from 'lucide-react';
 import type { Location } from '@/types/location';
 import { getLocationTypeColor, getLocationTypeLabel } from '@/lib/utils/segment-colors';
 import { supabaseClient } from '@/lib/supabase/client';
@@ -50,6 +49,13 @@ interface GpsPoint {
   longitude: number;
   accuracy: number;
   received_at: string;
+  speed?: number | null;
+  speed_accuracy?: number | null;
+  heading?: number | null;
+  altitude?: number | null;
+  altitude_accuracy?: number | null;
+  activity_type?: string | null;
+  is_mocked?: boolean | null;
 }
 
 interface SuggestedLocationsMapProps {
@@ -57,6 +63,7 @@ interface SuggestedLocationsMapProps {
   selectedClusterId: number | null;
   onClusterSelect: (clusterId: number) => void;
   onCreateFromCluster: (cluster: MapCluster) => void;
+  onIgnoreCluster: (cluster: MapCluster) => void;
   locations?: Location[];
 }
 
@@ -72,6 +79,7 @@ export function SuggestedLocationsMap({
   selectedClusterId,
   onClusterSelect,
   onCreateFromCluster,
+  onIgnoreCluster,
   locations = [],
 }: SuggestedLocationsMapProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
@@ -83,6 +91,8 @@ export function SuggestedLocationsMap({
   const [occurrenceIndex, setOccurrenceIndex] = useState(0);
   const [loadingOccurrences, setLoadingOccurrences] = useState(false);
   const [gpsPoints, setGpsPoints] = useState<GpsPoint[]>([]);
+  const [selectedGpsIndex, setSelectedGpsIndex] = useState<number | null>(null);
+  const selectedGpsPoint = selectedGpsIndex != null ? gpsPoints[selectedGpsIndex] ?? null : null;
 
   // Fetch occurrences when a cluster is selected
   useEffect(() => {
@@ -125,6 +135,7 @@ export function SuggestedLocationsMap({
 
   // Fetch GPS points when the current occurrence changes
   useEffect(() => {
+    setSelectedGpsIndex(null);
     if (!currentOccurrence) {
       setGpsPoints([]);
       return;
@@ -149,8 +160,17 @@ export function SuggestedLocationsMap({
     return () => { cancelled = true; };
   }, [currentOccurrence?.cluster_id]);
 
+  const handleCloseCluster = () => {
+    onClusterSelect(-1);
+    setSelectedGpsIndex(null);
+  };
+
+  const handleCloseLocation = () => {
+    setSelectedLocationId(null);
+  };
+
   return (
-    <div className="h-[500px] w-full rounded-xl overflow-hidden border border-slate-200 shadow-sm">
+    <div className="relative h-[500px] w-full rounded-xl overflow-hidden border border-slate-200 shadow-sm">
       <APIProvider apiKey={apiKey}>
         <Map
           defaultCenter={DEFAULT_CENTER}
@@ -159,7 +179,7 @@ export function SuggestedLocationsMap({
           disableDefaultUI={true}
           zoomControl={true}
         >
-          {/* Existing location geofence circles + small markers */}
+          {/* Existing location geofence circles */}
           {locations.map((loc) => (
             <GeofenceCircle
               key={loc.id}
@@ -168,8 +188,11 @@ export function SuggestedLocationsMap({
               locationType={loc.locationType}
             />
           ))}
+
+          {/* Existing location markers — pin shape with name label */}
           {locations.map((loc) => {
             const isLocSelected = loc.id === selectedLocationId;
+            const color = getLocationTypeColor(loc.locationType);
             return (
               <AdvancedMarker
                 key={`loc-${loc.id}`}
@@ -177,24 +200,51 @@ export function SuggestedLocationsMap({
                 onClick={() => {
                   setSelectedLocationId(isLocSelected ? null : loc.id);
                   if (selectedClusterId) onClusterSelect(-1);
+                  setSelectedGpsIndex(null);
                 }}
+                zIndex={isLocSelected ? 800 : 100}
               >
-                <div
-                  className="rounded-full flex items-center justify-center shadow-sm cursor-pointer"
-                  style={{
-                    width: isLocSelected ? 26 : 20,
-                    height: isLocSelected ? 26 : 20,
-                    backgroundColor: getLocationTypeColor(loc.locationType),
-                    border: isLocSelected ? '3px solid white' : '2px solid white',
-                  }}
-                >
-                  <MapPin className="h-2.5 w-2.5 text-white" />
+                <div className="flex flex-col items-center">
+                  {/* Pin head + pointer */}
+                  <div className="relative">
+                    <div
+                      className="rounded-full flex items-center justify-center"
+                      style={{
+                        width: isLocSelected ? 30 : 24,
+                        height: isLocSelected ? 30 : 24,
+                        backgroundColor: color,
+                        border: isLocSelected ? '3px solid white' : '2px solid white',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+                      }}
+                    >
+                      <MapPin className="text-white" style={{ width: isLocSelected ? 14 : 12, height: isLocSelected ? 14 : 12 }} />
+                    </div>
+                    {/* Triangle pointer */}
+                    <div
+                      className="absolute left-1/2 -translate-x-1/2"
+                      style={{
+                        bottom: -5,
+                        width: 0,
+                        height: 0,
+                        borderLeft: '5px solid transparent',
+                        borderRight: '5px solid transparent',
+                        borderTop: `6px solid ${color}`,
+                      }}
+                    />
+                  </div>
+                  {/* Name label */}
+                  <div
+                    className="mt-1.5 px-1 py-0.5 rounded bg-white/90 shadow-sm border border-slate-200 truncate text-center font-medium text-slate-700"
+                    style={{ fontSize: 9, lineHeight: '11px', maxWidth: 90 }}
+                  >
+                    {loc.name}
+                  </div>
                 </div>
               </AdvancedMarker>
             );
           })}
 
-          {/* Cluster markers */}
+          {/* Suggested cluster markers — amber circles with count */}
           {clusters.map((cluster) => {
             const minSize = 24;
             const maxSize = 48;
@@ -214,7 +264,9 @@ export function SuggestedLocationsMap({
                 onClick={() => {
                   onClusterSelect(cluster.cluster_id);
                   setSelectedLocationId(null);
+                  setSelectedGpsIndex(null);
                 }}
+                zIndex={isSelected ? 700 : 200}
               >
                 <div
                   className="rounded-full flex items-center justify-center font-bold text-white shadow-md transition-all"
@@ -223,7 +275,9 @@ export function SuggestedLocationsMap({
                     height: size,
                     fontSize: size < 30 ? 10 : 12,
                     backgroundColor: isSelected ? '#d97706' : '#f59e0b',
-                    border: isSelected ? '3px solid #92400e' : '2px solid white',
+                    border: isSelected
+                      ? '3px solid #92400e'
+                      : '2px solid white',
                     transform: isSelected ? 'scale(1.2)' : 'scale(1)',
                   }}
                 >
@@ -233,30 +287,35 @@ export function SuggestedLocationsMap({
             );
           })}
 
-          {/* Individual GPS points for current occurrence */}
-          {selectedCluster && currentOccurrence && gpsPoints.map((pt, i) => (
-            <AdvancedMarker
-              key={`gps-${i}`}
-              position={{ lat: pt.latitude, lng: pt.longitude }}
-              zIndex={500}
-            >
-              <div
-                className="rounded-full"
-                style={{
-                  width: 6,
-                  height: 6,
-                  backgroundColor: '#3b82f6',
-                  opacity: 0.6,
-                  border: '1px solid white',
-                }}
-              />
-            </AdvancedMarker>
-          ))}
+          {/* Individual GPS points for current occurrence — clickable */}
+          {selectedCluster && currentOccurrence && gpsPoints.map((pt, i) => {
+            const isGpsSelected = i === selectedGpsIndex;
+            return (
+              <AdvancedMarker
+                key={`gps-${i}`}
+                position={{ lat: pt.latitude, lng: pt.longitude }}
+                zIndex={isGpsSelected ? 900 : 500}
+                onClick={() => setSelectedGpsIndex(isGpsSelected ? null : i)}
+              >
+                <div
+                  className="rounded-full cursor-pointer"
+                  style={{
+                    width: isGpsSelected ? 10 : 6,
+                    height: isGpsSelected ? 10 : 6,
+                    backgroundColor: isGpsSelected ? '#2563eb' : '#3b82f6',
+                    opacity: isGpsSelected ? 1 : 0.6,
+                    border: isGpsSelected ? '2px solid white' : '1px solid white',
+                    boxShadow: isGpsSelected ? '0 0 6px rgba(37,99,235,0.5)' : 'none',
+                  }}
+                />
+              </AdvancedMarker>
+            );
+          })}
 
           {/* Occurrence centroid: accuracy circle + center dot */}
           {selectedCluster && currentOccurrence && (
             <>
-              <OccurrenceAccuracyCircle
+              <AccuracyCircle
                 center={{ lat: currentOccurrence.centroid_latitude, lng: currentOccurrence.centroid_longitude }}
                 radius={currentOccurrence.centroid_accuracy ?? 0}
               />
@@ -284,162 +343,234 @@ export function SuggestedLocationsMap({
             </>
           )}
 
-          {selectedCluster && (
-            <InfoWindow
-              position={currentOccurrence
-                ? { lat: currentOccurrence.centroid_latitude, lng: currentOccurrence.centroid_longitude }
-                : { lat: selectedCluster.centroid_latitude, lng: selectedCluster.centroid_longitude }
-              }
-              onCloseClick={() => onClusterSelect(-1)}
-              pixelOffset={[0, -10]}
-            >
-              <div className="p-1 min-w-[200px] max-w-[280px]">
-                {selectedCluster.place_name && (
-                  <h4 className="font-bold text-slate-900 text-sm mb-0.5">
-                    {selectedCluster.place_name}
-                  </h4>
-                )}
-                <p className="text-xs text-slate-500 mb-1.5">
-                  {selectedCluster.google_address || 'Adresse en cours...'}
-                </p>
-                <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
-                  <Badge variant="secondary" className="text-[10px]">
-                    {selectedCluster.occurrence_count} arrêt
-                    {selectedCluster.occurrence_count > 1 ? 's' : ''}
-                  </Badge>
-                  <Badge variant="outline" className="text-[10px]">
-                    {formatDuration(selectedCluster.total_duration_seconds)}
-                  </Badge>
-                </div>
-
-                {/* Occurrence browser */}
-                {loadingOccurrences ? (
-                  <p className="text-[10px] text-slate-400 mb-2">Chargement...</p>
-                ) : occurrences.length > 0 && currentOccurrence ? (
-                  <div className="border-t border-slate-200 pt-1.5 mt-1 mb-2">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[11px] font-medium text-slate-700">
-                        {currentOccurrence.employee_name}
-                      </span>
-                      <span className="text-[10px] text-slate-400">
-                        {currentOccurrence.gps_point_count} pts GPS
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-slate-500">
-                      {new Date(currentOccurrence.started_at).toLocaleDateString('fr-CA', {
-                        day: 'numeric',
-                        month: 'short',
-                      })},{' '}
-                      {new Date(currentOccurrence.started_at).toLocaleTimeString('fr-CA', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                      {' — '}
-                      {new Date(currentOccurrence.ended_at).toLocaleTimeString('fr-CA', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                      <span className="text-slate-400">
-                        {' · '}{formatDuration(currentOccurrence.duration_seconds)}
-                      </span>
-                    </p>
-                    <p className="text-[9px] text-slate-400 font-mono">
-                      ({currentOccurrence.centroid_latitude.toFixed(5)}, {currentOccurrence.centroid_longitude.toFixed(5)})
-                      {currentOccurrence.centroid_accuracy != null && (
-                        <span className="text-slate-300">
-                          {' '}± {Math.round(currentOccurrence.centroid_accuracy)}m
-                        </span>
-                      )}
-                    </p>
-                    {occurrences.length > 1 && (
-                      <div className="flex items-center justify-center gap-2 mt-1.5">
-                        <button
-                          className="p-0.5 rounded hover:bg-slate-100 disabled:opacity-30"
-                          disabled={occurrenceIndex === 0}
-                          onClick={() => setOccurrenceIndex((i) => i - 1)}
-                        >
-                          <ChevronLeft className="h-3.5 w-3.5 text-slate-600" />
-                        </button>
-                        <span className="text-[10px] text-slate-500 tabular-nums">
-                          {occurrenceIndex + 1} / {occurrences.length}
-                        </span>
-                        <button
-                          className="p-0.5 rounded hover:bg-slate-100 disabled:opacity-30"
-                          disabled={occurrenceIndex === occurrences.length - 1}
-                          onClick={() => setOccurrenceIndex((i) => i + 1)}
-                        >
-                          <ChevronRight className="h-3.5 w-3.5 text-slate-600" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <>
-                    {selectedCluster.employee_names?.length > 0 && (
-                      <p className="text-[10px] text-slate-400 mb-1">
-                        {selectedCluster.employee_names.join(', ')}
-                      </p>
-                    )}
-                    <p className="text-[10px] text-slate-400 mb-2">
-                      {new Date(selectedCluster.first_seen).toLocaleDateString('fr-CA')} —{' '}
-                      {new Date(selectedCluster.last_seen).toLocaleDateString('fr-CA')}
-                    </p>
-                  </>
-                )}
-
-                <div className="flex gap-1.5">
-                  <Button
-                    size="sm"
-                    className="flex-1 h-7 text-[11px]"
-                    onClick={() => onCreateFromCluster(selectedCluster)}
-                  >
-                    <Plus className="h-3 w-3 mr-1" />
-                    Créer
-                  </Button>
-                </div>
-              </div>
-            </InfoWindow>
-          )}
-
-          {selectedLocation && (
-            <InfoWindow
-              position={{
-                lat: selectedLocation.latitude,
-                lng: selectedLocation.longitude,
-              }}
-              onCloseClick={() => setSelectedLocationId(null)}
-              pixelOffset={[0, -16]}
-            >
-              <div className="p-1 min-w-[160px] max-w-[240px]">
-                <h4 className="font-bold text-slate-900 text-sm mb-0.5">
-                  {selectedLocation.name}
-                </h4>
-                <div className="flex items-center gap-1.5 mb-1">
-                  <span
-                    className="px-1.5 py-0.5 rounded text-[10px] font-medium"
-                    style={{
-                      backgroundColor: `${getLocationTypeColor(selectedLocation.locationType)}20`,
-                      color: getLocationTypeColor(selectedLocation.locationType),
-                    }}
-                  >
-                    {getLocationTypeLabel(selectedLocation.locationType)}
-                  </span>
-                  <span className="text-[10px] text-slate-400">
-                    {selectedLocation.radiusMeters}m
-                  </span>
-                </div>
-                {selectedLocation.address && (
-                  <p className="text-[10px] text-slate-500">
-                    {selectedLocation.address}
-                  </p>
-                )}
-              </div>
-            </InfoWindow>
+          {/* Selected GPS point accuracy circle */}
+          {selectedGpsPoint && (
+            <AccuracyCircle
+              center={{ lat: selectedGpsPoint.latitude, lng: selectedGpsPoint.longitude }}
+              radius={selectedGpsPoint.accuracy}
+              color="#3b82f6"
+            />
           )}
 
           <AutoFitClusters clusters={clusters} locations={locations} selectedClusterId={selectedClusterId} />
         </Map>
       </APIProvider>
+
+      {/* Floating cluster detail card (bottom-left) */}
+      {selectedCluster && (
+        <div className="absolute bottom-3 left-3 z-[10] bg-white rounded-lg shadow-lg border border-amber-200 p-3 min-w-[220px] max-w-[300px]">
+          <button
+            onClick={handleCloseCluster}
+            className="absolute top-1.5 right-1.5 p-0.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+
+          {selectedCluster.place_name && (
+            <h4 className="font-bold text-slate-900 text-sm mb-0.5 pr-5">
+              {selectedCluster.place_name}
+            </h4>
+          )}
+          <p className="text-xs text-slate-500 mb-1.5 pr-5">
+            {selectedCluster.google_address || 'Adresse en cours...'}
+          </p>
+          <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+            <Badge variant="secondary" className="text-[10px]">
+              {selectedCluster.occurrence_count} arrêt
+              {selectedCluster.occurrence_count > 1 ? 's' : ''}
+            </Badge>
+            <Badge variant="outline" className="text-[10px]">
+              {formatDuration(selectedCluster.total_duration_seconds)}
+            </Badge>
+          </div>
+
+          {/* Occurrence browser */}
+          {loadingOccurrences ? (
+            <p className="text-[10px] text-slate-400 mb-2">Chargement...</p>
+          ) : occurrences.length > 0 && currentOccurrence ? (
+            <div className="border-t border-slate-200 pt-1.5 mt-1 mb-2">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px] font-medium text-slate-700">
+                  {currentOccurrence.employee_name}
+                </span>
+                <span className="text-[10px] text-slate-400">
+                  {currentOccurrence.gps_point_count} pts GPS
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-500">
+                {new Date(currentOccurrence.started_at).toLocaleDateString('fr-CA', {
+                  day: 'numeric',
+                  month: 'short',
+                })},{' '}
+                {new Date(currentOccurrence.started_at).toLocaleTimeString('fr-CA', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+                {' — '}
+                {new Date(currentOccurrence.ended_at).toLocaleTimeString('fr-CA', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+                <span className="text-slate-400">
+                  {' · '}{formatDuration(currentOccurrence.duration_seconds)}
+                </span>
+              </p>
+              <p className="text-[9px] text-slate-400 font-mono">
+                ({currentOccurrence.centroid_latitude.toFixed(5)}, {currentOccurrence.centroid_longitude.toFixed(5)})
+                {currentOccurrence.centroid_accuracy != null && (
+                  <span className="text-slate-300">
+                    {' '}± {Math.round(currentOccurrence.centroid_accuracy)}m
+                  </span>
+                )}
+              </p>
+              {occurrences.length > 1 && (
+                <div className="flex items-center justify-center gap-2 mt-1.5">
+                  <button
+                    className="p-0.5 rounded hover:bg-slate-100 disabled:opacity-30"
+                    disabled={occurrenceIndex === 0}
+                    onClick={() => { setOccurrenceIndex((i) => i - 1); setSelectedGpsIndex(null); }}
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5 text-slate-600" />
+                  </button>
+                  <span className="text-[10px] text-slate-500 tabular-nums">
+                    {occurrenceIndex + 1} / {occurrences.length}
+                  </span>
+                  <button
+                    className="p-0.5 rounded hover:bg-slate-100 disabled:opacity-30"
+                    disabled={occurrenceIndex === occurrences.length - 1}
+                    onClick={() => { setOccurrenceIndex((i) => i + 1); setSelectedGpsIndex(null); }}
+                  >
+                    <ChevronRight className="h-3.5 w-3.5 text-slate-600" />
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              {selectedCluster.employee_names?.length > 0 && (
+                <p className="text-[10px] text-slate-400 mb-1">
+                  {selectedCluster.employee_names.join(', ')}
+                </p>
+              )}
+              <p className="text-[10px] text-slate-400 mb-2">
+                {new Date(selectedCluster.first_seen).toLocaleDateString('fr-CA')} —{' '}
+                {new Date(selectedCluster.last_seen).toLocaleDateString('fr-CA')}
+              </p>
+            </>
+          )}
+
+          <div className="flex gap-1.5">
+            <Button
+              size="sm"
+              className="flex-1 h-7 text-[11px]"
+              onClick={() => onCreateFromCluster(selectedCluster)}
+            >
+              <Plus className="h-3 w-3 mr-1" />
+              Créer
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-[11px] text-muted-foreground"
+              onClick={() => onIgnoreCluster(selectedCluster)}
+            >
+              <EyeOff className="h-3 w-3 mr-1" />
+              Ignorer
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Floating existing location detail card (bottom-left, when no cluster selected) */}
+      {selectedLocation && !selectedCluster && (
+        <div className="absolute bottom-3 left-3 z-[10] bg-white rounded-lg shadow-lg border border-slate-200 p-3 min-w-[180px] max-w-[260px]">
+          <button
+            onClick={handleCloseLocation}
+            className="absolute top-1.5 right-1.5 p-0.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+          <h4 className="font-bold text-slate-900 text-sm mb-0.5 pr-5">
+            {selectedLocation.name}
+          </h4>
+          <div className="flex items-center gap-1.5 mb-1">
+            <span
+              className="px-1.5 py-0.5 rounded text-[10px] font-medium"
+              style={{
+                backgroundColor: `${getLocationTypeColor(selectedLocation.locationType)}20`,
+                color: getLocationTypeColor(selectedLocation.locationType),
+              }}
+            >
+              {getLocationTypeLabel(selectedLocation.locationType)}
+            </span>
+            <span className="text-[10px] text-slate-400">
+              {selectedLocation.radiusMeters}m
+            </span>
+          </div>
+          {selectedLocation.address && (
+            <p className="text-[10px] text-slate-500">
+              {selectedLocation.address}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* GPS point detail card (bottom-right) */}
+      {selectedGpsPoint && (
+        <div className="absolute bottom-3 right-3 z-[10] bg-white rounded-lg shadow-lg border border-blue-200 p-3 min-w-[200px] max-w-[260px]">
+          <button
+            onClick={() => setSelectedGpsIndex(null)}
+            className="absolute top-1.5 right-1.5 p-0.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+          <h4 className="font-bold text-blue-600 text-xs mb-1.5 pr-5">
+            Point GPS #{(selectedGpsIndex ?? 0) + 1}/{gpsPoints.length}
+          </h4>
+          <div className="space-y-0.5 text-[11px] text-slate-600">
+            <p>
+              Heure: <strong>
+                {new Date(selectedGpsPoint.received_at).toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </strong>
+            </p>
+            <p className="font-mono text-[10px] text-slate-500">
+              {selectedGpsPoint.latitude.toFixed(6)}, {selectedGpsPoint.longitude.toFixed(6)}
+            </p>
+            <p>
+              Précision: <strong>±{Math.round(selectedGpsPoint.accuracy)}m</strong>
+            </p>
+            {selectedGpsPoint.speed != null && (
+              <p>
+                Vitesse: <strong>{(selectedGpsPoint.speed * 3.6).toFixed(1)} km/h</strong>
+                {selectedGpsPoint.speed_accuracy != null && (
+                  <span className="text-slate-400"> (±{(selectedGpsPoint.speed_accuracy * 3.6).toFixed(1)})</span>
+                )}
+              </p>
+            )}
+            {selectedGpsPoint.altitude != null && (
+              <p>
+                Altitude: <strong>{Math.round(selectedGpsPoint.altitude)}m</strong>
+                {selectedGpsPoint.altitude_accuracy != null && (
+                  <span className="text-slate-400"> (±{Math.round(selectedGpsPoint.altitude_accuracy)}m)</span>
+                )}
+              </p>
+            )}
+            {selectedGpsPoint.heading != null && (
+              <p>
+                Cap: <strong>{Math.round(selectedGpsPoint.heading)}°</strong>
+              </p>
+            )}
+            {selectedGpsPoint.activity_type && (
+              <p>
+                Activité: <strong>{selectedGpsPoint.activity_type}</strong>
+              </p>
+            )}
+            {selectedGpsPoint.is_mocked && (
+              <p className="text-red-500 font-medium">Mocked</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -463,21 +594,21 @@ function GeofenceCircle({ center, radius, locationType }: { center: google.maps.
   return null;
 }
 
-function OccurrenceAccuracyCircle({ center, radius }: { center: google.maps.LatLngLiteral; radius: number }) {
+function AccuracyCircle({ center, radius, color = '#ef4444' }: { center: google.maps.LatLngLiteral; radius: number; color?: string }) {
   const map = useMap();
   useEffect(() => {
     if (!map || radius <= 0) return;
     const circle = new google.maps.Circle({
       map, center, radius,
-      fillColor: '#ef4444',
+      fillColor: color,
       fillOpacity: 0.12,
-      strokeColor: '#ef4444',
+      strokeColor: color,
       strokeOpacity: 0.5,
       strokeWeight: 1.5,
       clickable: false,
     });
     return () => circle.setMap(null);
-  }, [map, center.lat, center.lng, radius]);
+  }, [map, center.lat, center.lng, radius, color]);
   return null;
 }
 
@@ -500,9 +631,6 @@ function AutoFitClusters({
   selectedClusterId: number | null;
 }) {
   const map = useMap();
-
-  // No auto-fit — default center/zoom is Rouyn-Noranda
-  // User can pan/zoom manually; clicking a cluster pans to it
 
   // Pan to selected cluster
   useEffect(() => {
