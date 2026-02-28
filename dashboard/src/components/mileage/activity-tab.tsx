@@ -51,9 +51,10 @@ interface ProcessedActivity {
  * within the stop's time range (i.e., the clock happened inside that cluster).
  * Unmatched clock events (outside any stop) stay as standalone rows.
  * Micro-shifts (clock-in + clock-out < 30s apart on same shift) are hidden entirely.
+ * Rapid transitions (clock-out → clock-in across shifts < 30s) are also hidden.
  */
 function mergeClockEvents(items: ActivityItem[]): ProcessedActivity[] {
-  // Step 1: Detect micro-shifts (< 30s) and collect their shift_ids to hide
+  // Step 1a: Detect micro-shifts (< 30s) and collect their shift_ids to hide
   const microShiftIds = new Set<string>();
   const clockInByShift = new Map<string, ActivityClockEvent>();
   const clockOutByShift = new Map<string, ActivityClockEvent>();
@@ -70,10 +71,34 @@ function mergeClockEvents(items: ActivityItem[]): ProcessedActivity[] {
     }
   }
 
-  // Step 2: Filter out clock events from micro-shifts
-  const filtered = items.filter((item) => {
+  // Step 1b: Detect rapid clock-out → clock-in transitions across shifts (< 30s gap)
+  const rapidTransitionIndices = new Set<number>();
+  const clockEventsByTime = items
+    .map((item, idx) => ({ item, idx }))
+    .filter(({ item }) => item.activity_type === 'clock_in' || item.activity_type === 'clock_out')
+    .sort((a, b) => new Date(a.item.started_at).getTime() - new Date(b.item.started_at).getTime());
+  for (let k = 0; k < clockEventsByTime.length - 1; k++) {
+    const curr = clockEventsByTime[k];
+    const next = clockEventsByTime[k + 1];
+    if (
+      curr.item.activity_type === 'clock_out' &&
+      next.item.activity_type === 'clock_in' &&
+      curr.item.shift_id !== next.item.shift_id
+    ) {
+      const gap = new Date(next.item.started_at).getTime() - new Date(curr.item.started_at).getTime();
+      if (gap >= 0 && gap < 30_000) {
+        rapidTransitionIndices.add(curr.idx);
+        rapidTransitionIndices.add(next.idx);
+      }
+    }
+  }
+
+  // Step 2: Filter out clock events from micro-shifts and rapid transitions
+  const filtered = items.filter((item, idx) => {
     if (item.activity_type !== 'clock_in' && item.activity_type !== 'clock_out') return true;
-    return !microShiftIds.has(item.shift_id);
+    if (microShiftIds.has(item.shift_id)) return false;
+    if (rapidTransitionIndices.has(idx)) return false;
+    return true;
   });
 
   // Step 3: Temporal merge of remaining clock events into stops

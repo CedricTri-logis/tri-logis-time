@@ -658,6 +658,56 @@ class LocalDatabase {
     }
   }
 
+  /// Get a local shift by its server ID.
+  Future<LocalShift?> getShiftByServerId(String serverId) async {
+    try {
+      final results = await _db.query(
+        'local_shifts',
+        where: 'server_id = ?',
+        whereArgs: [serverId],
+        limit: 1,
+      );
+      if (results.isEmpty) return null;
+      return LocalShift.fromMap(results.first);
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to get shift by server ID',
+        operation: 'getShiftByServerId',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Reopen a recently-closed shift by its server ID.
+  /// Used when the server detects a quick re-clock-in (< 30s) and reopens
+  /// the previous shift instead of creating a new one.
+  Future<void> reopenShiftByServerId(String serverId) async {
+    try {
+      final now = DateTime.now().toUtc().toIso8601String();
+      await _db.update(
+        'local_shifts',
+        {
+          'status': 'active',
+          'clocked_out_at': null,
+          'clock_out_latitude': null,
+          'clock_out_longitude': null,
+          'clock_out_accuracy': null,
+          'clock_out_reason': null,
+          'sync_status': 'synced',
+          'updated_at': now,
+        },
+        where: 'server_id = ?',
+        whereArgs: [serverId],
+      );
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to reopen shift by server ID',
+        operation: 'reopenShiftByServerId',
+        originalError: e,
+      );
+    }
+  }
+
   /// Mark a shift sync attempt as failed.
   Future<void> markShiftSyncError(String shiftId, String error) async {
     try {
