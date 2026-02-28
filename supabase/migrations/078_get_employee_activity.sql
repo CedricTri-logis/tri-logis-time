@@ -6,7 +6,7 @@ CREATE OR REPLACE FUNCTION get_employee_activity(
     p_date_from DATE,
     p_date_to DATE,
     p_type TEXT DEFAULT 'all',
-    p_min_duration_seconds INTEGER DEFAULT 300
+    p_min_duration_seconds INTEGER DEFAULT 180
 )
 RETURNS TABLE (
     activity_type TEXT,

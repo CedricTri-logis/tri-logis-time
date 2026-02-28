@@ -91,7 +91,7 @@ export function ActivityTab() {
   const [dateTo, setDateTo] = useState<string>(formatDateISO(new Date()));
   const [isRangeMode, setIsRangeMode] = useState(false);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
-  const [minDuration, setMinDuration] = useState(300);
+  const [minDuration, setMinDuration] = useState(180);
   const [viewMode, setViewMode] = useState<ViewMode>('table');
 
   // Data state
