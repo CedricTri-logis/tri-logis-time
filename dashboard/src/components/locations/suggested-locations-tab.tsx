@@ -240,7 +240,7 @@ export function SuggestedLocationsTab({ onCreateLocation, locations = [], refres
             key={cluster.cluster_id}
             className={`cursor-pointer transition-all ${
               isSelected
-                ? 'ring-2 ring-amber-500 shadow-md'
+                ? 'ring-2 ring-teal-500 shadow-md'
                 : 'hover:shadow-sm'
             }`}
             onClick={() => handleCardClick(cluster.cluster_id)}

@@ -9,10 +9,26 @@ import {
 } from '@vis.gl/react-google-maps';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, MapPin, ChevronLeft, ChevronRight, X, EyeOff } from 'lucide-react';
+import { Plus, MapPin, ChevronLeft, ChevronRight, X, EyeOff, Building2, HardHat, Truck, Home, Coffee, Fuel } from 'lucide-react';
 import type { Location } from '@/types/location';
+import type { LocationType } from '@/types/location';
 import { getLocationTypeColor, getLocationTypeLabel } from '@/lib/utils/segment-colors';
 import { supabaseClient } from '@/lib/supabase/client';
+
+const LOCATION_TYPE_ICONS: Record<LocationType, React.ElementType> = {
+  office: Building2,
+  building: HardHat,
+  vendor: Truck,
+  home: Home,
+  cafe_restaurant: Coffee,
+  gaz: Fuel,
+  other: MapPin,
+};
+
+// Suggested clusters use teal to avoid collision with building (amber) location type
+const SUGGESTED_COLOR = '#0d9488';        // teal-600
+const SUGGESTED_COLOR_SELECTED = '#0f766e'; // teal-700
+const SUGGESTED_BORDER_SELECTED = '#134e4a'; // teal-900
 
 const DEFAULT_CENTER = { lat: 48.2410, lng: -79.0280 };
 const DEFAULT_ZOOM = 13;
@@ -189,10 +205,11 @@ export function SuggestedLocationsMap({
             />
           ))}
 
-          {/* Existing location markers — pin shape with name label */}
+          {/* Existing location markers — white circle with colored type icon */}
           {locations.map((loc) => {
             const isLocSelected = loc.id === selectedLocationId;
             const color = getLocationTypeColor(loc.locationType);
+            const Icon = LOCATION_TYPE_ICONS[loc.locationType as LocationType] || MapPin;
             return (
               <AdvancedMarker
                 key={`loc-${loc.id}`}
@@ -204,47 +221,23 @@ export function SuggestedLocationsMap({
                 }}
                 zIndex={isLocSelected ? 800 : 100}
               >
-                <div className="flex flex-col items-center">
-                  {/* Pin head + pointer */}
-                  <div className="relative">
-                    <div
-                      className="rounded-full flex items-center justify-center"
-                      style={{
-                        width: isLocSelected ? 30 : 24,
-                        height: isLocSelected ? 30 : 24,
-                        backgroundColor: color,
-                        border: isLocSelected ? '3px solid white' : '2px solid white',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
-                      }}
-                    >
-                      <MapPin className="text-white" style={{ width: isLocSelected ? 14 : 12, height: isLocSelected ? 14 : 12 }} />
-                    </div>
-                    {/* Triangle pointer */}
-                    <div
-                      className="absolute left-1/2 -translate-x-1/2"
-                      style={{
-                        bottom: -5,
-                        width: 0,
-                        height: 0,
-                        borderLeft: '5px solid transparent',
-                        borderRight: '5px solid transparent',
-                        borderTop: `6px solid ${color}`,
-                      }}
-                    />
-                  </div>
-                  {/* Name label */}
-                  <div
-                    className="mt-1.5 px-1 py-0.5 rounded bg-white/90 shadow-sm border border-slate-200 truncate text-center font-medium text-slate-700"
-                    style={{ fontSize: 9, lineHeight: '11px', maxWidth: 90 }}
-                  >
-                    {loc.name}
-                  </div>
+                <div
+                  className="rounded-full flex items-center justify-center shadow-md cursor-pointer transition-transform"
+                  style={{
+                    width: isLocSelected ? 32 : 26,
+                    height: isLocSelected ? 32 : 26,
+                    backgroundColor: 'white',
+                    border: `${isLocSelected ? 3 : 2}px solid ${color}`,
+                    transform: isLocSelected ? 'scale(1.15)' : 'scale(1)',
+                  }}
+                >
+                  <Icon style={{ width: isLocSelected ? 16 : 13, height: isLocSelected ? 16 : 13, color }} />
                 </div>
               </AdvancedMarker>
             );
           })}
 
-          {/* Suggested cluster markers — amber circles with count */}
+          {/* Suggested cluster markers — teal circles with count */}
           {clusters.map((cluster) => {
             const minSize = 24;
             const maxSize = 48;
@@ -274,9 +267,9 @@ export function SuggestedLocationsMap({
                     width: size,
                     height: size,
                     fontSize: size < 30 ? 10 : 12,
-                    backgroundColor: isSelected ? '#d97706' : '#f59e0b',
+                    backgroundColor: isSelected ? SUGGESTED_COLOR_SELECTED : SUGGESTED_COLOR,
                     border: isSelected
-                      ? '3px solid #92400e'
+                      ? `3px solid ${SUGGESTED_BORDER_SELECTED}`
                       : '2px solid white',
                     transform: isSelected ? 'scale(1.2)' : 'scale(1)',
                   }}
@@ -358,7 +351,7 @@ export function SuggestedLocationsMap({
 
       {/* Floating cluster detail card (bottom-left) */}
       {selectedCluster && (
-        <div className="absolute bottom-3 left-3 z-[10] bg-white rounded-lg shadow-lg border border-amber-200 p-3 min-w-[220px] max-w-[300px]">
+        <div className="absolute bottom-3 left-3 z-[10] bg-white rounded-lg shadow-lg border border-teal-200 p-3 min-w-[220px] max-w-[300px]">
           <button
             onClick={handleCloseCluster}
             className="absolute top-1.5 right-1.5 p-0.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600"
