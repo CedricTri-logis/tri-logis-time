@@ -18,7 +18,7 @@ export const LOCATION_TYPE_VALUES = ['office', 'building', 'vendor', 'home', 'ca
 // Location type display names
 export const LOCATION_TYPE_LABELS: Record<LocationTypeValue, string> = {
   office: 'Office',
-  building: 'Construction Site',
+  building: 'Immeuble',
   vendor: 'Vendor',
   home: 'Home',
   cafe_restaurant: 'Café / Restaurant',

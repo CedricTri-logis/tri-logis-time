@@ -9,16 +9,16 @@ import {
 } from '@vis.gl/react-google-maps';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, MapPin, ChevronLeft, ChevronRight, X, EyeOff, Building2, HardHat, Truck, Home, Coffee, Fuel } from 'lucide-react';
+import { Plus, MapPin, ChevronLeft, ChevronRight, X, EyeOff, Monitor, Building, ShoppingCart, Home, Coffee, Fuel } from 'lucide-react';
 import type { Location } from '@/types/location';
 import type { LocationType } from '@/types/location';
 import { getLocationTypeColor, getLocationTypeLabel } from '@/lib/utils/segment-colors';
 import { supabaseClient } from '@/lib/supabase/client';
 
 const LOCATION_TYPE_ICONS: Record<LocationType, React.ElementType> = {
-  office: Building2,
-  building: HardHat,
-  vendor: Truck,
+  office: Monitor,
+  building: Building,
+  vendor: ShoppingCart,
   home: Home,
   cafe_restaurant: Coffee,
   gaz: Fuel,
