@@ -122,13 +122,23 @@ export function useSupervisedTeam({
         }
 
         // Handle clock-out (UPDATE with status=completed)
+        // Only mark off-shift if this is the employee's CURRENT shift.
+        // Other completed shifts (e.g. old shifts updated by detect_trips)
+        // must not flip the status.
         if (payload.eventType === 'UPDATE' && payload.new?.status === 'completed') {
-          return {
-            ...employee,
-            shiftStatus: 'off-shift' as const,
-            currentShift: null,
-            currentLocation: null,
-          };
+          const completedShiftId = payload.new.id;
+          const isCurrentShift = !employee.currentShift || employee.currentShift.id === completedShiftId;
+
+          if (isCurrentShift) {
+            return {
+              ...employee,
+              shiftStatus: 'off-shift' as const,
+              currentShift: null,
+              currentLocation: null,
+            };
+          }
+          // Ignore completion events for old/other shifts
+          return employee;
         }
 
         return employee;
