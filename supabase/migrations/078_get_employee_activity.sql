@@ -170,8 +170,8 @@ BEGIN
             'clock_out'::TEXT AS v_type,
             s.id,
             s.id AS shift_id,
-            COALESCE(s.clocked_out_at, s.ended_at) AS started_at,
-            COALESCE(s.clocked_out_at, s.ended_at) AS ended_at,
+            s.clocked_out_at AS started_at,
+            s.clocked_out_at AS ended_at,
             NULL::DECIMAL, NULL::DECIMAL, NULL::TEXT, NULL::UUID, NULL::TEXT,
             NULL::DECIMAL, NULL::DECIMAL, NULL::TEXT, NULL::UUID, NULL::TEXT,
             NULL::DECIMAL, NULL::DECIMAL, NULL::INTEGER, NULL::TEXT, NULL::TEXT,
@@ -183,10 +183,10 @@ BEGIN
             s.clock_out_accuracy AS clock_accuracy
         FROM shifts s
         WHERE s.employee_id = p_employee_id
-          AND COALESCE(s.clocked_out_at, s.ended_at) >= p_date_from::TIMESTAMPTZ
-          AND COALESCE(s.clocked_out_at, s.ended_at) < (p_date_to + INTERVAL '1 day')::TIMESTAMPTZ
+          AND s.clocked_out_at >= p_date_from::TIMESTAMPTZ
+          AND s.clocked_out_at < (p_date_to + INTERVAL '1 day')::TIMESTAMPTZ
           AND s.clock_out_location IS NOT NULL
-          AND (s.clocked_out_at IS NOT NULL OR s.ended_at IS NOT NULL)
+          AND s.clocked_out_at IS NOT NULL
     )
     SELECT
         td.v_type,
