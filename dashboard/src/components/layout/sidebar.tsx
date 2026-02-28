@@ -43,7 +43,7 @@ const navigation = [
   },
   {
     name: 'Activités',
-    href: '/dashboard/mileage',
+    href: '/dashboard/activity',
     icon: Car,
   },
   {

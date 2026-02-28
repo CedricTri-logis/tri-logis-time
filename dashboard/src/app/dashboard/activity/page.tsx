@@ -191,9 +191,9 @@ export default function MileagePage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Kilom&eacute;trage</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Activit&eacute;s</h1>
           <p className="text-muted-foreground">
-            G&eacute;rer l&apos;appariement des itin&eacute;raires et le suivi du kilom&eacute;trage
+            Suivi des d&eacute;placements, arr&ecirc;ts et kilom&eacute;trage
           </p>
         </div>
         <DropdownMenu>

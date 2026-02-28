@@ -26,6 +26,7 @@ import {
   Fuel,
 } from 'lucide-react';
 import type { LocationType } from '@/types/location';
+import { LOCATION_TYPE_LABELS } from '@/lib/validations/location';
 import { supabaseClient } from '@/lib/supabase/client';
 import { MatchStatusBadge } from '@/components/trips/match-status-badge';
 import { GoogleTripRouteMap } from '@/components/trips/google-trip-route-map';
@@ -258,6 +259,15 @@ export function ActivityTab() {
     const totalDistanceRoute = trips.reduce((sum, t) => sum + (Number(t.road_distance_km) || 0), 0);
     const totalTravelSeconds = trips.reduce((sum, t) => sum + (Number(t.duration_minutes) || 0) * 60, 0);
     const totalStopSeconds = stops.reduce((sum, t) => sum + (Number(t.duration_seconds) || 0), 0);
+
+    // Group stop time by location type
+    const stopByType: Record<string, number> = {};
+    for (const stop of stops) {
+      const locType = stop.matched_location_id ? locationTypes[stop.matched_location_id] : undefined;
+      const key = locType || '_unmatched';
+      stopByType[key] = (stopByType[key] || 0) + (Number(stop.duration_seconds) || 0);
+    }
+
     return {
       total: activities.length,
       tripCount: trips.length,
@@ -266,8 +276,9 @@ export function ActivityTab() {
       totalDistanceRoute,
       totalTravelSeconds,
       totalStopSeconds,
+      stopByType,
     };
-  }, [activities]);
+  }, [activities, locationTypes]);
 
   // Merge clock events into temporally overlapping stops
   const processedActivities = useMemo(() => mergeClockEvents(activities), [activities]);
@@ -515,7 +526,7 @@ export function ActivityTab() {
 
       {/* Stats bar */}
       {selectedEmployee && !isLoading && activities.length > 0 && (
-        <div className="flex items-center gap-4 text-sm text-muted-foreground px-1">
+        <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground px-1">
           <span>{stats.total} &eacute;v&eacute;nements</span>
           <span className="text-blue-600">{stats.tripCount} trajets</span>
           <span className="text-green-600">{stats.stopCount} arr&ecirc;ts</span>
@@ -530,6 +541,43 @@ export function ActivityTab() {
             {formatDuration(stats.totalTravelSeconds)} en d&eacute;placement /{' '}
             {formatDuration(stats.totalStopSeconds)} en arr&ecirc;t
           </span>
+          {(stats.totalTravelSeconds > 0 || Object.keys(stats.stopByType).length > 0) && (
+            <span className="flex items-center gap-1.5">
+              {stats.totalTravelSeconds > 0 && (
+                <span
+                  className="inline-flex items-center gap-0.5 rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-700"
+                  title="D&eacute;placement"
+                >
+                  <Car className="h-3.5 w-3.5 text-blue-500" />
+                  {formatDuration(stats.totalTravelSeconds)}
+                </span>
+              )}
+              {Object.entries(stats.stopByType)
+                .filter(([, secs]) => secs > 0)
+                .sort(([a], [b]) => {
+                  if (a === '_unmatched') return 1;
+                  if (b === '_unmatched') return -1;
+                  return (stats.stopByType[b] || 0) - (stats.stopByType[a] || 0);
+                })
+                .map(([type, secs]) => {
+                  const isUnmatched = type === '_unmatched';
+                  const iconEntry = isUnmatched ? null : LOCATION_TYPE_ICON_MAP[type as LocationType];
+                  const Icon = iconEntry ? iconEntry.icon : MapPin;
+                  const colorClass = iconEntry ? iconEntry.className : 'h-3.5 w-3.5 text-gray-400';
+                  const label = isUnmatched ? 'Autre' : (LOCATION_TYPE_LABELS[type as LocationType] || type);
+                  return (
+                    <span
+                      key={type}
+                      className="inline-flex items-center gap-0.5 rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-700"
+                      title={label}
+                    >
+                      <Icon className={colorClass.replace('h-4 w-4', 'h-3.5 w-3.5')} />
+                      {formatDuration(secs)}
+                    </span>
+                  );
+                })}
+            </span>
+          )}
         </div>
       )}
 
