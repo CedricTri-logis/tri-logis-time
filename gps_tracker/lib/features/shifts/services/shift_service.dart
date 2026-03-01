@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
@@ -15,6 +16,7 @@ class ClockInResult {
   final String? shiftId;
   final DateTime? clockedInAt;
   final String? errorMessage;
+  final String? errorCode;
   final bool isPending;
   final bool isReopened;
 
@@ -23,9 +25,13 @@ class ClockInResult {
     this.shiftId,
     this.clockedInAt,
     this.errorMessage,
+    this.errorCode,
     this.isPending = false,
     this.isReopened = false,
   });
+
+  /// Whether the server rejected clock-in due to outdated app version.
+  bool get isVersionTooOld => errorCode == 'version_too_old';
 
   factory ClockInResult.fromJson(Map<String, dynamic> json) {
     final status = json['status'] as String;
@@ -40,6 +46,7 @@ class ClockInResult {
           ? DateTime.parse(json['clocked_in_at'].toString())
           : null,
       errorMessage: json['message']?.toString(),
+      errorCode: json['code']?.toString(),
       isReopened: status == 'reopened',
     );
   }
@@ -50,9 +57,10 @@ class ClockInResult {
         isPending: true,
       );
 
-  factory ClockInResult.error(String message) => ClockInResult(
+  factory ClockInResult.error(String message, {String? code}) => ClockInResult(
         success: false,
         errorMessage: message,
+        errorCode: code,
       );
 }
 
@@ -156,10 +164,15 @@ class ShiftService {
 
     // Server confirmation required — don't show success until server responds
     try {
+      // Pass app version for server-side enforcement (migration 097)
+      final packageInfo = await PackageInfo.fromPlatform();
+      final appVersion = '${packageInfo.version}+${packageInfo.buildNumber}';
+
       final response = await _supabase.rpc<Map<String, dynamic>>('clock_in', params: {
         'p_request_id': requestId,
         'p_location': location.toJson(),
         if (accuracy != null) 'p_accuracy': accuracy,
+        'p_app_version': appVersion,
       },);
 
       final result = ClockInResult.fromJson(response);
@@ -212,6 +225,7 @@ class ShiftService {
           'p_request_id': requestId,
           'p_location': location.toJson(),
           if (accuracy != null) 'p_accuracy': accuracy,
+          'p_app_version': appVersion,
         },);
 
         final retryResult = ClockInResult.fromJson(retryResponse);
@@ -234,6 +248,7 @@ class ShiftService {
         await _localDb.deleteShift(shiftId);
         return ClockInResult.error(
           result.errorMessage ?? 'Server rejected clock-in',
+          code: result.errorCode,
         );
       }
     } catch (e) {
@@ -542,6 +557,10 @@ class ShiftService {
     await _localDb.markShiftSyncing(shiftId);
 
     try {
+      // Pass app version for server-side enforcement (migration 097)
+      final packageInfo = await PackageInfo.fromPlatform();
+      final appVersion = '${packageInfo.version}+${packageInfo.buildNumber}';
+
       if (shift.status == 'active') {
         // Sync clock-in
         final response = await _supabase.rpc<Map<String, dynamic>>('clock_in', params: {
@@ -552,6 +571,7 @@ class ShiftService {
               'longitude': shift.clockInLongitude,
             },
           if (shift.clockInAccuracy != null) 'p_accuracy': shift.clockInAccuracy,
+          'p_app_version': appVersion,
         },);
 
         final result = ClockInResult.fromJson(response);
@@ -579,6 +599,7 @@ class ShiftService {
                 'longitude': shift.clockInLongitude,
               },
             if (shift.clockInAccuracy != null) 'p_accuracy': shift.clockInAccuracy,
+            'p_app_version': appVersion,
           },);
 
           final clockInResult = ClockInResult.fromJson(clockInResponse);

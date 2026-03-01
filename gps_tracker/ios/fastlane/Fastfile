@@ -91,6 +91,22 @@ platform :ios do
     )
   end
 
+  desc "Distribute an already-uploaded build to Employee group"
+  lane :distribute do
+    api_key = load_api_key
+
+    upload_to_testflight(
+      api_key: api_key,
+      distribute_only: true,
+      app_identifier: "com.cedriclajoie.gpstracker",
+      app_platform: "ios",
+      distribute_external: true,
+      groups: ["Employee"],
+      notify_external_testers: true,
+      changelog: ENV["CHANGELOG"] || "Bug fixes and improvements."
+    )
+  end
+
   desc "Upload to App Store for review"
   lane :production do
     api_key = load_api_key

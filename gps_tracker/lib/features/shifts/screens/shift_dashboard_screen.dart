@@ -475,14 +475,24 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
           ),
         );
       } else {
-        final error = ref.read(shiftProvider).error;
+        final shiftState = ref.read(shiftProvider);
+
+        // Server-side version rejection → show update dialog (migration 097)
+        if (shiftState.versionTooOld) {
+          _showUpdateRequiredDialog(VersionCheckResult(
+            allowed: false,
+            message: shiftState.error,
+          ));
+          return;
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
               children: [
                 const Icon(Icons.error, color: Colors.white),
                 const SizedBox(width: 12),
-                Expanded(child: Text(error ?? 'Échec du démarrage du quart')),
+                Expanded(child: Text(shiftState.error ?? 'Échec du démarrage du quart')),
               ],
             ),
             backgroundColor: Colors.red,

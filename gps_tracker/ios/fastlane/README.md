@@ -31,6 +31,14 @@ Get latest TestFlight build number
 
 Build and upload to TestFlight
 
+### ios distribute
+
+```sh
+[bundle exec] fastlane ios distribute
+```
+
+Distribute an already-uploaded build to Employee group
+
 ### ios production
 
 ```sh
