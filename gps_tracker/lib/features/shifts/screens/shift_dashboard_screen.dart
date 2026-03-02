@@ -25,6 +25,7 @@ import '../../tracking/services/background_tracking_service.dart';
 import '../../tracking/services/permission_monitor_service.dart';
 import '../../tracking/services/significant_location_service.dart';
 import '../../tracking/widgets/battery_optimization_dialog.dart';
+import '../../tracking/widgets/clock_button_settings_warning.dart';
 import '../../tracking/widgets/device_services_dialog.dart';
 import '../../tracking/widgets/oem_battery_guide_dialog.dart';
 import '../../tracking/widgets/permission_change_alert.dart';
@@ -1303,10 +1304,16 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
                     ],
                     const SizedBox(height: 32),
                     Center(
-                      child: ClockButton(
-                        onClockIn: _handleClockIn,
-                        onClockOut: _handleClockOut,
-                        isExternallyLoading: _isClockInPreparing,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ClockButton(
+                            onClockIn: _handleClockIn,
+                            onClockOut: _handleClockOut,
+                            isExternallyLoading: _isClockInPreparing,
+                          ),
+                          const ClockButtonSettingsWarning(),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 32),
