@@ -244,6 +244,7 @@ export interface ApprovalActivity {
   latitude: number | null;
   longitude: number | null;
   distance_km: number | null;
+  road_distance_km: number | null;
   transport_mode: string | null;
   has_gps_gap: boolean | null;
   start_location_id: string | null;

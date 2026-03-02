@@ -18,12 +18,6 @@ import {
   LogIn,
   LogOut,
   AlertTriangle,
-  Monitor,
-  Building,
-  ShoppingCart,
-  Home,
-  Coffee,
-  Fuel,
 } from 'lucide-react';
 import type { LocationType } from '@/types/location';
 import { LOCATION_TYPE_LABELS } from '@/lib/validations/location';
@@ -35,109 +29,12 @@ import { LocationPickerDropdown } from '@/components/trips/location-picker-dropd
 import { StationaryClustersMap } from '@/components/mileage/stationary-clusters-map';
 import type { ActivityItem, ActivityTrip, ActivityStop, ActivityClockEvent, TripGpsPoint } from '@/types/mileage';
 import type { StationaryCluster } from '@/components/mileage/stationary-clusters-map';
+import { mergeClockEvents, type ProcessedActivity } from '@/lib/utils/merge-clock-events';
+import { LOCATION_TYPE_ICON_MAP } from '@/lib/constants/location-icons';
+import { formatTime, formatDuration, formatDurationMinutes, formatDateHeader, formatDistance } from '@/lib/utils/activity-display';
 
 type TypeFilter = 'all' | 'trips' | 'stops';
 type ViewMode = 'table' | 'timeline';
-
-// Processed activity item: original item + optional merged clock flags
-interface ProcessedActivity {
-  item: ActivityItem;
-  hasClockIn?: boolean;
-  hasClockOut?: boolean;
-}
-
-/**
- * Merge clock events into stops only when the clock event time falls
- * within the stop's time range (i.e., the clock happened inside that cluster).
- * Unmatched clock events (outside any stop) stay as standalone rows.
- * Micro-shifts (clock-in + clock-out < 30s apart on same shift) are hidden entirely.
- * Rapid transitions (clock-out → clock-in across shifts < 30s) are also hidden.
- */
-function mergeClockEvents(items: ActivityItem[]): ProcessedActivity[] {
-  // Step 1a: Detect micro-shifts (< 30s) and collect their shift_ids to hide
-  const microShiftIds = new Set<string>();
-  const clockInByShift = new Map<string, ActivityClockEvent>();
-  const clockOutByShift = new Map<string, ActivityClockEvent>();
-  for (const item of items) {
-    if (item.activity_type === 'clock_in') clockInByShift.set(item.shift_id, item as ActivityClockEvent);
-    if (item.activity_type === 'clock_out') clockOutByShift.set(item.shift_id, item as ActivityClockEvent);
-  }
-  for (const [shiftId, clockIn] of clockInByShift) {
-    const clockOut = clockOutByShift.get(shiftId);
-    if (!clockOut) continue;
-    const durationMs = new Date(clockOut.started_at).getTime() - new Date(clockIn.started_at).getTime();
-    if (durationMs >= 0 && durationMs < 30_000) {
-      microShiftIds.add(shiftId);
-    }
-  }
-
-  // Step 1b: Detect rapid clock-out → clock-in transitions across shifts (< 30s gap)
-  const rapidTransitionIndices = new Set<number>();
-  const clockEventsByTime = items
-    .map((item, idx) => ({ item, idx }))
-    .filter(({ item }) => item.activity_type === 'clock_in' || item.activity_type === 'clock_out')
-    .sort((a, b) => new Date(a.item.started_at).getTime() - new Date(b.item.started_at).getTime());
-  for (let k = 0; k < clockEventsByTime.length - 1; k++) {
-    const curr = clockEventsByTime[k];
-    const next = clockEventsByTime[k + 1];
-    if (
-      curr.item.activity_type === 'clock_out' &&
-      next.item.activity_type === 'clock_in' &&
-      curr.item.shift_id !== next.item.shift_id
-    ) {
-      const gap = new Date(next.item.started_at).getTime() - new Date(curr.item.started_at).getTime();
-      if (gap >= 0 && gap < 30_000) {
-        rapidTransitionIndices.add(curr.idx);
-        rapidTransitionIndices.add(next.idx);
-      }
-    }
-  }
-
-  // Step 2: Filter out clock events from micro-shifts and rapid transitions
-  const filtered = items.filter((item, idx) => {
-    if (item.activity_type !== 'clock_in' && item.activity_type !== 'clock_out') return true;
-    if (microShiftIds.has(item.shift_id)) return false;
-    if (rapidTransitionIndices.has(idx)) return false;
-    return true;
-  });
-
-  // Step 3: Temporal merge of remaining clock events into stops
-  const mergedIndices = new Set<number>();
-  const clockFlags = new Map<number, { clockIn?: boolean; clockOut?: boolean }>();
-
-  for (let i = 0; i < filtered.length; i++) {
-    const item = filtered[i];
-    if (item.activity_type !== 'clock_in' && item.activity_type !== 'clock_out') continue;
-
-    const clockTime = new Date(item.started_at).getTime();
-
-    for (let j = 0; j < filtered.length; j++) {
-      if (filtered[j].activity_type !== 'stop') continue;
-      const stopStart = new Date(filtered[j].started_at).getTime();
-      const stopEnd = new Date(filtered[j].ended_at).getTime();
-      if (clockTime >= stopStart && clockTime <= stopEnd) {
-        mergedIndices.add(i);
-        const existing = clockFlags.get(j) || {};
-        if (item.activity_type === 'clock_in') existing.clockIn = true;
-        if (item.activity_type === 'clock_out') existing.clockOut = true;
-        clockFlags.set(j, existing);
-        break;
-      }
-    }
-  }
-
-  const result: ProcessedActivity[] = [];
-  for (let i = 0; i < filtered.length; i++) {
-    if (mergedIndices.has(i)) continue;
-    const flags = clockFlags.get(i);
-    result.push({
-      item: filtered[i],
-      hasClockIn: flags?.clockIn,
-      hasClockOut: flags?.clockOut,
-    });
-  }
-  return result;
-}
 
 interface Employee {
   id: string;
@@ -149,45 +46,6 @@ function formatDateISO(date: Date): string {
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
-}
-
-function formatTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleTimeString('fr-CA', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-function formatDuration(seconds: number): string {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  if (hours > 0) return `${hours}h ${minutes.toString().padStart(2, '0')}min`;
-  return `${minutes} min`;
-}
-
-function formatDurationMinutes(minutes: number | string): string {
-  const m = Number(minutes) || 0;
-  const hours = Math.floor(m / 60);
-  const mins = Math.round(m % 60);
-  if (hours > 0) return `${hours}h ${mins.toString().padStart(2, '0')}min`;
-  return `${mins} min`;
-}
-
-function formatDateHeader(dateStr: string): string {
-  const date = new Date(dateStr + 'T12:00:00');
-  return date.toLocaleDateString('fr-CA', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-}
-
-function formatDistance(km: number | string | null): string {
-  if (km == null) return '\u2014';
-  const n = Number(km);
-  if (isNaN(n)) return '\u2014';
-  return `${n.toFixed(1)} km`;
 }
 
 export function ActivityTab() {
@@ -390,7 +248,7 @@ export function ActivityTab() {
 
   // Group by day (for range mode + timeline)
   const processedGroupedByDay = useMemo(() => {
-    const groups: Record<string, ProcessedActivity[]> = {};
+    const groups: Record<string, ProcessedActivity<ActivityItem>[]> = {};
     for (const pa of processedActivities) {
       const day = pa.item.started_at.split('T')[0];
       if (!groups[day]) groups[day] = [];
@@ -876,16 +734,6 @@ function StopExpandDetail({ stop }: { stop: ActivityStop }) {
 
 // --- Activity row icon helper ---
 
-const LOCATION_TYPE_ICON_MAP: Record<LocationType, { icon: React.ElementType; className: string }> = {
-  office: { icon: Monitor, className: 'h-4 w-4 text-blue-500' },
-  building: { icon: Building, className: 'h-4 w-4 text-amber-500' },
-  vendor: { icon: ShoppingCart, className: 'h-4 w-4 text-violet-500' },
-  home: { icon: Home, className: 'h-4 w-4 text-green-500' },
-  cafe_restaurant: { icon: Coffee, className: 'h-4 w-4 text-pink-500' },
-  gaz: { icon: Fuel, className: 'h-4 w-4 text-red-500' },
-  other: { icon: MapPin, className: 'h-4 w-4 text-gray-500' },
-};
-
 function ActivityIcon({ item, locationType }: { item: ActivityItem; locationType?: LocationType }) {
   if (item.activity_type === 'clock_in') return <LogIn className="h-4 w-4 text-emerald-600" />;
   if (item.activity_type === 'clock_out') return <LogOut className="h-4 w-4 text-red-500" />;
@@ -954,8 +802,8 @@ function getActivityDuration(item: ActivityItem): string {
 // --- Stubs to be replaced in Tasks 4 and 5 ---
 
 interface ActivityViewProps {
-  activities: ProcessedActivity[];
-  groupedByDay: [string, ProcessedActivity[]][];
+  activities: ProcessedActivity<ActivityItem>[];
+  groupedByDay: [string, ProcessedActivity<ActivityItem>[]][];
   isRangeMode: boolean;
   expandedId: string | null;
   onToggleExpand: (id: string) => void;
@@ -965,7 +813,7 @@ interface ActivityViewProps {
 }
 
 function ActivityTable({ activities, groupedByDay, isRangeMode, expandedId, onToggleExpand, onDataChanged, geocodedAddresses, locationTypes }: ActivityViewProps) {
-  const renderRows = (items: ProcessedActivity[]) =>
+  const renderRows = (items: ProcessedActivity<ActivityItem>[]) =>
     items.map((pa) => (
       <ActivityTableRow
         key={pa.item.id}
@@ -1034,7 +882,7 @@ function ActivityTableRow({
   geocodedAddresses,
   locationTypes,
 }: {
-  pa: ProcessedActivity;
+  pa: ProcessedActivity<ActivityItem>;
   isExpanded: boolean;
   onToggle: () => void;
   onDataChanged: () => void;
@@ -1142,7 +990,7 @@ function ActivityTableRow({
 }
 
 function ActivityTimeline({ activities, groupedByDay, isRangeMode, expandedId, onToggleExpand, onDataChanged, geocodedAddresses, locationTypes }: ActivityViewProps) {
-  const getColors = (pa: ProcessedActivity) => {
+  const getColors = (pa: ProcessedActivity<ActivityItem>) => {
     const { item } = pa;
     if (item.activity_type === 'clock_in') return { border: 'border-l-emerald-600', dot: 'bg-emerald-600' };
     if (item.activity_type === 'clock_out') return { border: 'border-l-red-500', dot: 'bg-red-500' };
@@ -1156,7 +1004,7 @@ function ActivityTimeline({ activities, groupedByDay, isRangeMode, expandedId, o
     return { border: 'border-l-amber-500', dot: 'bg-amber-500' };
   };
 
-  const renderItem = (pa: ProcessedActivity) => {
+  const renderItem = (pa: ProcessedActivity<ActivityItem>) => {
     const { item } = pa;
     const colors = getColors(pa);
     const isClock = item.activity_type === 'clock_in' || item.activity_type === 'clock_out';
