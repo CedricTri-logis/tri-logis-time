@@ -52,11 +52,11 @@ class BackgroundTrackingService with WidgetsBindingObserver {
 
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
-        channelId: 'gps_tracking_channel',
+        channelId: 'gps_tracking_channel_v2',
         channelName: 'Suivi de position',
         channelDescription: 'Background location tracking during shifts',
-        channelImportance: NotificationChannelImportance.DEFAULT,
-        priority: NotificationPriority.DEFAULT,
+        channelImportance: NotificationChannelImportance.HIGH,
+        priority: NotificationPriority.HIGH,
         onlyAlertOnce: true,
       ),
       iosNotificationOptions: const IOSNotificationOptions(
