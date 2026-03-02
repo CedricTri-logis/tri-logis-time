@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_activity_recognition/flutter_activity_recognition.dart';
@@ -21,6 +22,7 @@ import '../models/tracking_config.dart';
 import '../models/tracking_state.dart';
 import '../models/tracking_status.dart';
 import '../services/background_execution_service.dart';
+import '../services/android_battery_health_service.dart';
 import '../services/background_tracking_service.dart';
 import '../services/significant_location_service.dart';
 import '../services/thermal_state_service.dart';
@@ -603,6 +605,24 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     BackgroundExecutionService.startBackgroundSession();
     // Start lifecycle observer for beginBackgroundTask + FGS health checks
     BackgroundTrackingService.startLifecycleObserver();
+    // Android: verify battery optimization is still disabled 3s after tracking starts.
+    // Catches post-reinstall cases where Android resets the exemption but
+    // battery_setup_completed_at (server flag) still says "configured".
+    if (Platform.isAndroid) {
+      Future<void>.delayed(const Duration(seconds: 3), () async {
+        if (state.status != TrackingStatus.running) return;
+        final isDisabled =
+            await AndroidBatteryHealthService.isBatteryOptimizationDisabled;
+        if (!isDisabled) {
+          _logger?.permission(
+            Severity.error,
+            'Battery optimization not disabled at tracking start — service at risk',
+            metadata: {'shift_id': state.activeShiftId},
+          );
+          BackgroundTrackingService.onBatteryOptimizationNotDisabled?.call();
+        }
+      });
+    }
     // Subscribe to thermal state changes for GPS frequency adaptation
     _startThermalMonitoring();
     // Start activity recognition for motion state tagging

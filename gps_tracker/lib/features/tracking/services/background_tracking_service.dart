@@ -366,6 +366,10 @@ class BackgroundTrackingService with WidgetsBindingObserver {
   /// Set by TrackingNotifier to trigger auto-restart.
   static VoidCallback? onForegroundServiceDied;
 
+  /// Callback invoked when battery optimization is not disabled at tracking start.
+  /// Set by ShiftDashboardScreen to trigger the battery health prompt.
+  static VoidCallback? onBatteryOptimizationNotDisabled;
+
   /// Start observing app lifecycle for iOS background task protection
   /// and Android foreground service health checks.
   static void startLifecycleObserver() {

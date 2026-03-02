@@ -49,7 +49,13 @@ class AndroidBatteryHealthService {
     );
   }
 
-  /// Returns true only when optimization was previously disabled and is now enabled again.
+  /// Returns true when battery optimization exemption is missing and should be flagged.
+  ///
+  /// Two cases:
+  /// 1. Regression: was explicitly disabled, now re-enabled (previous == true && current == false)
+  /// 2. Post-reinstall: SharedPreferences cleared (previous == null) but exemption not set
+  ///    — server flag battery_setup_completed_at survives reinstall, so this is the only
+  ///    reliable way to catch a fresh install where Android reset the exemption.
   static Future<bool> hasLostBatteryOptimizationExemption() async {
     if (!Platform.isAndroid) return false;
 
@@ -61,6 +67,9 @@ class AndroidBatteryHealthService {
       key: _lastKnownBatteryOptimizationKey,
       value: current,
     );
+    // Post-reinstall: no snapshot yet but exemption is missing
+    if (previous == null && current == false) return true;
+    // Regression: was exempted, now isn't
     return previous == true && current == false;
   }
 

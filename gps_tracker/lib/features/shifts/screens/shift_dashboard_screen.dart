@@ -167,11 +167,14 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    BackgroundTrackingService.onBatteryOptimizationNotDisabled =
+        () { if (mounted) unawaited(_checkBatteryHealthOnResume()); };
   }
 
   @override
   void dispose() {
     _cancelGpsGracePeriod();
+    BackgroundTrackingService.onBatteryOptimizationNotDisabled = null;
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
