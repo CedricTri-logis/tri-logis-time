@@ -18,8 +18,6 @@ class ClockInResult {
   final String? errorMessage;
   final String? errorCode;
   final bool isPending;
-  final bool isReopened;
-
   ClockInResult({
     required this.success,
     this.shiftId,
@@ -27,7 +25,6 @@ class ClockInResult {
     this.errorMessage,
     this.errorCode,
     this.isPending = false,
-    this.isReopened = false,
   });
 
   /// Whether the server rejected clock-in due to outdated app version.
@@ -40,14 +37,13 @@ class ClockInResult {
     final shiftId = rawShiftId?.toString();
 
     return ClockInResult(
-      success: status == 'success' || status == 'already_processed' || status == 'reopened',
+      success: status == 'success' || status == 'already_processed',
       shiftId: shiftId,
       clockedInAt: json['clocked_in_at'] != null
           ? DateTime.parse(json['clocked_in_at'].toString())
           : null,
       errorMessage: json['message']?.toString(),
       errorCode: json['code']?.toString(),
-      isReopened: status == 'reopened',
     );
   }
 
@@ -177,23 +173,7 @@ class ShiftService {
 
       final result = ClockInResult.fromJson(response);
 
-      if (result.success && result.isReopened && result.shiftId != null) {
-        // Server reopened a recently-closed shift — delete the new local shift
-        // and reopen the old one so the timer continues from the original time
-        await _localDb.deleteShift(shiftId);
-        await _localDb.reopenShiftByServerId(result.shiftId!);
-        final reopenedShift = await _localDb.getShiftByServerId(result.shiftId!);
-        _logger?.shift(Severity.info, 'Clock in reopened recent shift', metadata: {
-          'reopened_server_id': result.shiftId,
-          'original_clocked_in_at': result.clockedInAt?.toIso8601String(),
-        });
-        return ClockInResult(
-          success: true,
-          shiftId: reopenedShift?.id ?? shiftId,
-          clockedInAt: result.clockedInAt ?? now,
-          isReopened: true,
-        );
-      } else if (result.success && result.shiftId != null) {
+      if (result.success && result.shiftId != null) {
         // Server confirmed — mark as synced
         await _localDb.markShiftSynced(shiftId, serverId: result.shiftId);
         return ClockInResult(
