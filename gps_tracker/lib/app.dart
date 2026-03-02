@@ -25,6 +25,11 @@ const _phoneSkipStorageKey = 'phone_registration_skipped_at';
 final _authRecoveryInProgressProvider = StateProvider<bool>((ref) => false);
 final _authRecoveryPendingProvider = StateProvider<bool>((ref) => false);
 
+/// Circuit breaker: stop retrying auth recovery after repeated failures.
+/// Reset on successful sign-in (tokenRefreshed / signedIn events).
+const _maxRecoveryAttempts = 2;
+final _authRecoveryFailureCountProvider = StateProvider<int>((ref) => 0);
+
 /// Checks phone registration status, accounting for skip grace period.
 /// Returns ({bool needsRegistration, bool canSkip}).
 final _phoneRegistrationStatusProvider =
@@ -130,6 +135,23 @@ class _GpsTrackerAppState extends ConsumerState<GpsTrackerApp>
 
   Future<void> _attemptAuthRecovery({required String trigger}) async {
     if (ref.read(_authRecoveryInProgressProvider)) return;
+
+    // Circuit breaker: stop retrying after repeated failures (e.g. stale
+    // token after app reinstall). Without this, each signedOut event
+    // re-triggers recovery with the same invalid token → infinite loop.
+    final failureCount = ref.read(_authRecoveryFailureCountProvider);
+    if (failureCount >= _maxRecoveryAttempts) {
+      final logger = DiagnosticLogger.isInitialized
+          ? DiagnosticLogger.instance
+          : null;
+      logger?.auth(
+        Severity.warn,
+        'Auth recovery circuit breaker — skipping after $failureCount failures',
+        metadata: {'trigger': trigger},
+      );
+      return;
+    }
+
     ref.read(_authRecoveryInProgressProvider.notifier).state = true;
 
     final logger = DiagnosticLogger.isInitialized
@@ -208,9 +230,18 @@ class _GpsTrackerAppState extends ConsumerState<GpsTrackerApp>
       } catch (e) {
         logger?.auth(Severity.warn, 'Backup token recovery failed',
             metadata: {'trigger': trigger, 'error': e.toString()},);
+        // Clear the stale backup token so the same invalid token is never
+        // retried. This is the primary fix for the post-reinstall auth loop
+        // where the old refresh token is "Already Used" on the server.
+        await SessionBackupService.clear();
       }
 
-      // Both paths failed — no recovery possible
+      // Both paths failed — no recovery possible.
+      // Increment circuit breaker counter.
+      if (mounted) {
+        ref.read(_authRecoveryFailureCountProvider.notifier).state =
+            failureCount + 1;
+      }
     } finally {
       if (mounted) {
         ref.read(_authRecoveryInProgressProvider.notifier).state = false;
@@ -273,6 +304,12 @@ class _GpsTrackerAppState extends ConsumerState<GpsTrackerApp>
         }
 
         if (state.session?.refreshToken == null) return;
+
+        // Valid session received — reset the auth recovery circuit breaker.
+        if (ref.read(_authRecoveryFailureCountProvider) > 0) {
+          ref.read(_authRecoveryFailureCountProvider.notifier).state = 0;
+        }
+
         final phone = Supabase.instance.client.auth.currentUser?.phone;
 
         // Backup: write to SharedPreferences (survives Keystore corruption).
