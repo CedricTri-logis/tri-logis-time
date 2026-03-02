@@ -205,6 +205,7 @@ export interface ActivityStop extends ActivityItemBase {
   matched_location_name: string | null;
   gps_gap_seconds: number;
   gps_gap_count: number;
+  effective_location_type: string | null;
 }
 
 export interface ActivityClockEvent extends ActivityItemBase {
