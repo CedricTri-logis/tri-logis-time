@@ -74,6 +74,9 @@ export function mergeClockEvents<T extends MergeableActivity>(items: T[]): Proce
   });
 
   // Step 3: Temporal merge of remaining clock events into stops
+  // Use a 60s tolerance — clock-in often fires just before the first GPS cluster,
+  // and clock-out just after the last cluster point.
+  const MERGE_TOLERANCE_MS = 60_000;
   const mergedIndices = new Set<number>();
   const clockFlags = new Map<number, { clockIn?: boolean; clockOut?: boolean }>();
 
@@ -87,7 +90,7 @@ export function mergeClockEvents<T extends MergeableActivity>(items: T[]): Proce
       if (filtered[j].activity_type !== 'stop') continue;
       const stopStart = new Date(filtered[j].started_at).getTime();
       const stopEnd = new Date(filtered[j].ended_at).getTime();
-      if (clockTime >= stopStart && clockTime <= stopEnd) {
+      if (clockTime >= (stopStart - MERGE_TOLERANCE_MS) && clockTime <= (stopEnd + MERGE_TOLERANCE_MS)) {
         mergedIndices.add(i);
         const existing = clockFlags.get(j) || {};
         if (item.activity_type === 'clock_in') existing.clockIn = true;
