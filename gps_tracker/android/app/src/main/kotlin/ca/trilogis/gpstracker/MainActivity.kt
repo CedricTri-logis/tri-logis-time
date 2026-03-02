@@ -94,6 +94,17 @@ class MainActivity : FlutterActivity() {
                             }
                         }
                     }
+                    "startRescueAlarms" -> {
+                        val shiftId = call.argument<String>("shiftId") ?: ""
+                        TrackingRescueReceiver.startAlarmChain(this)
+                        android.util.Log.d("MainActivity", "Rescue alarm chain started for shift $shiftId")
+                        result.success(true)
+                    }
+                    "stopRescueAlarms" -> {
+                        TrackingRescueReceiver.stopAlarmChain(this)
+                        android.util.Log.d("MainActivity", "Rescue alarm chain stopped")
+                        result.success(true)
+                    }
                     else -> result.notImplemented()
                 }
             }
