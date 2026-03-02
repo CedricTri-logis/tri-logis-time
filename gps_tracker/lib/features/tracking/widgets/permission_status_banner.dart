@@ -182,6 +182,16 @@ class PermissionStatusBanner extends ConsumerWidget {
           actionLabel: 'Corriger',
           canDismiss: false,
         ),
+      PermissionGuardStatus.unusedAppRestrictionsActive => _BannerConfig(
+          backgroundColor: theme.colorScheme.errorContainer,
+          iconColor: theme.colorScheme.error,
+          icon: Icons.battery_alert,
+          title: 'Restrictions d\'application actives',
+          subtitle:
+              'Android peut révoquer les permissions. Désactivez les restrictions.',
+          actionLabel: 'Corriger',
+          canDismiss: false,
+        ),
       PermissionGuardStatus.preciseLocationRequired => _BannerConfig(
           backgroundColor: theme.colorScheme.errorContainer,
           iconColor: theme.colorScheme.onErrorContainer,
@@ -227,6 +237,8 @@ class PermissionStatusBanner extends ConsumerWidget {
           await SamsungStandbyDialog.show(context);
           notifier.checkStatus();
         }
+      case PermissionGuardStatus.unusedAppRestrictionsActive:
+        await notifier.openUnusedAppRestrictionsSettings();
       case PermissionGuardStatus.preciseLocationRequired:
         await notifier.openAppSettings();
       case PermissionGuardStatus.allGranted:

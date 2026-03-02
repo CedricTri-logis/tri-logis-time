@@ -24,6 +24,9 @@ class PermissionGuardState {
   /// Whether Android has placed the app in restricted/rare standby bucket.
   final bool isAppStandbyRestricted;
 
+  /// Whether Android 11+ unused app restrictions are active.
+  final bool isUnusedAppRestrictionsActive;
+
   /// Set of warning types the user has dismissed this session.
   final Set<DismissibleWarningType> dismissedWarnings;
 
@@ -39,6 +42,7 @@ class PermissionGuardState {
     required this.isBatteryOptimizationDisabled,
     required this.isPreciseLocationEnabled,
     required this.isAppStandbyRestricted,
+    required this.isUnusedAppRestrictionsActive,
     required this.dismissedWarnings,
     required this.hasActiveShift,
     required this.lastChecked,
@@ -51,6 +55,7 @@ class PermissionGuardState {
         isBatteryOptimizationDisabled: true,
         isPreciseLocationEnabled: true,
         isAppStandbyRestricted: false,
+        isUnusedAppRestrictionsActive: false,
         dismissedWarnings: const {},
         hasActiveShift: false,
         lastChecked: DateTime.now(),
@@ -75,6 +80,9 @@ class PermissionGuardState {
     }
     if (isAppStandbyRestricted) {
       return PermissionGuardStatus.appStandbyRestricted;
+    }
+    if (isUnusedAppRestrictionsActive) {
+      return PermissionGuardStatus.unusedAppRestrictionsActive;
     }
     if (!isPreciseLocationEnabled) {
       return PermissionGuardStatus.preciseLocationRequired;
@@ -102,6 +110,7 @@ class PermissionGuardState {
         permission.level == LocationPermissionLevel.whileInUse ||
         !isBatteryOptimizationDisabled ||
         isAppStandbyRestricted ||
+        isUnusedAppRestrictionsActive ||
         !isPreciseLocationEnabled;
   }
 
@@ -121,6 +130,7 @@ class PermissionGuardState {
     bool? isBatteryOptimizationDisabled,
     bool? isPreciseLocationEnabled,
     bool? isAppStandbyRestricted,
+    bool? isUnusedAppRestrictionsActive,
     Set<DismissibleWarningType>? dismissedWarnings,
     bool? hasActiveShift,
     DateTime? lastChecked,
@@ -134,6 +144,8 @@ class PermissionGuardState {
             isPreciseLocationEnabled ?? this.isPreciseLocationEnabled,
         isAppStandbyRestricted:
             isAppStandbyRestricted ?? this.isAppStandbyRestricted,
+        isUnusedAppRestrictionsActive:
+            isUnusedAppRestrictionsActive ?? this.isUnusedAppRestrictionsActive,
         dismissedWarnings: dismissedWarnings ?? this.dismissedWarnings,
         hasActiveShift: hasActiveShift ?? this.hasActiveShift,
         lastChecked: lastChecked ?? this.lastChecked,
