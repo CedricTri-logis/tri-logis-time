@@ -94,6 +94,8 @@ export function LocationForm({
       address: location?.address ?? prefill?.address ?? '',
       notes: location?.notes ?? '',
       is_active: location?.isActive ?? true,
+      is_employee_home: location?.isEmployeeHome ?? false,
+      is_also_office: location?.isAlsoOffice ?? false,
     },
   });
 
@@ -426,6 +428,68 @@ export function LocationForm({
                     />
                   </FormControl>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Employee Home */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Maison d&apos;employe(s)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <FormField
+              control={form.control}
+              name="is_employee_home"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                  <div className="space-y-0.5">
+                    <FormLabel>Ce lieu est la maison d&apos;employe(s)</FormLabel>
+                    <FormDescription className="text-xs">
+                      Les clusters de ces employes seront affiches comme &quot;Maison&quot; sauf si une session menage/entretien est active
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <input
+                      type="checkbox"
+                      checked={field.value}
+                      onChange={field.onChange}
+                      className="h-4 w-4 rounded border-slate-300"
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Office */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Bureau</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <FormField
+              control={form.control}
+              name="is_also_office"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                  <div className="space-y-0.5">
+                    <FormLabel>Ce lieu est aussi un bureau</FormLabel>
+                    <FormDescription className="text-xs">
+                      Les clusters de tous les employes seront affiches comme &quot;Bureau&quot; sauf si une session menage/entretien est active
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <input
+                      type="checkbox"
+                      checked={field.value}
+                      onChange={field.onChange}
+                      className="h-4 w-4 rounded border-slate-300"
+                    />
+                  </FormControl>
                 </FormItem>
               )}
             />

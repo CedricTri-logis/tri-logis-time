@@ -285,10 +285,10 @@ export function ActivityTab() {
     const totalTravelSeconds = trips.reduce((sum, t) => sum + (Number(t.duration_minutes) || 0) * 60, 0);
     const totalStopSeconds = stops.reduce((sum, t) => sum + (Number(t.duration_seconds) || 0), 0);
 
-    // Group stop time by location type
+    // Group stop time by location type (prefer effective_location_type from RPC)
     const stopByType: Record<string, number> = {};
     for (const stop of stops) {
-      const locType = stop.matched_location_id ? locationTypes[stop.matched_location_id] : undefined;
+      const locType = (stop.effective_location_type as LocationType) ?? (stop.matched_location_id ? locationTypes[stop.matched_location_id] : undefined);
       const key = locType || '_unmatched';
       stopByType[key] = (stopByType[key] || 0) + (Number(stop.duration_seconds) || 0);
     }
@@ -1048,7 +1048,7 @@ function ActivityTableRow({
   const trip = isTrip ? (item as ActivityTrip) : null;
   const stop = isStop ? (item as ActivityStop) : null;
   const canExpand = !isClock;
-  const stopLocationType = stop?.matched_location_id ? locationTypes[stop.matched_location_id] : undefined;
+  const stopLocationType = stop?.effective_location_type as LocationType | undefined ?? (stop?.matched_location_id ? locationTypes[stop.matched_location_id] : undefined);
 
   return (
     <>
@@ -1164,7 +1164,7 @@ function ActivityTimeline({ activities, groupedByDay, isRangeMode, expandedId, o
     const stop = isStop ? (item as ActivityStop) : null;
     const canExpand = !isClock;
     const isExpanded = canExpand && expandedId === item.id;
-    const stopLocationType = stop?.matched_location_id ? locationTypes[stop.matched_location_id] : undefined;
+    const stopLocationType = stop?.effective_location_type as LocationType | undefined ?? (stop?.matched_location_id ? locationTypes[stop.matched_location_id] : undefined);
 
     return (
       <div key={item.id} className="relative mb-4">

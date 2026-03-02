@@ -550,6 +550,10 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
   /// Verify the shift is truly completed in the local DB before stopping tracking.
   /// Prevents false stops caused by Riverpod provider rebuilds.
   Future<void> _verifyAndStopTracking(String shiftId) async {
+    // Skip if tracking already stopped (e.g. auto clock-out already handled it).
+    // Prevents wiping trackingAutoClockOutOccurred flag set by verification timer.
+    if (state.status == TrackingStatus.stopped) return;
+
     try {
       final shift = await LocalDatabase().getShiftById(shiftId);
       if (shift == null || shift.status == 'completed') {
@@ -607,18 +611,37 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     _startTrackingVerification();
   }
 
-  /// Start a 15-second timer to verify that background tracking is producing GPS points.
-  /// If no point is received within the timeout, marks tracking as failed.
+  /// Start a 30-second timer to verify that background tracking is producing GPS points.
+  /// If no point is received within the timeout, auto clock-out and notify UI.
   void _startTrackingVerification() {
     _verificationTimer?.cancel();
-    _verificationTimer = Timer(const Duration(seconds: 15), () {
+    _verificationTimer = Timer(const Duration(seconds: 30), () async {
       if (state.status == TrackingStatus.running && !state.trackingVerified) {
-        state = state.copyWith(trackingStartFailed: true);
+        final shiftId = state.activeShiftId;
         _logger?.gps(
           Severity.error,
-          'Tracking verification failed: no GPS point received within 15s',
-          metadata: {'shift_id': state.activeShiftId},
+          'Tracking verification failed: no GPS point within 30s — auto clock-out',
+          metadata: {'shift_id': shiftId},
         );
+
+        // Stop tracking first
+        await stopTracking(reason: 'tracking_verification_failed');
+
+        // Auto clock-out the shift
+        try {
+          await _ref.read(shiftProvider.notifier).clockOut(
+                reason: 'tracking_failed',
+              );
+        } catch (e) {
+          _logger?.gps(
+            Severity.error,
+            'Auto clock-out after tracking failure failed',
+            metadata: {'error': e.toString(), 'shift_id': shiftId},
+          );
+        }
+
+        // Signal UI to show error dialog
+        state = state.copyWith(trackingAutoClockOutOccurred: true);
       }
     });
   }
@@ -1003,6 +1026,11 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
         state = state.stopTracking();
       }
     }
+  }
+
+  /// Clear the auto clock-out flag after the UI has shown the error dialog.
+  void clearAutoClockOutFlag() {
+    state = state.copyWith(trackingAutoClockOutOccurred: false);
   }
 
   /// Clear error state.

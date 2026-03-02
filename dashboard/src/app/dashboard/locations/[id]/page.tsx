@@ -19,6 +19,8 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { LocationForm } from '@/components/locations/location-form';
+import { EmployeeHomePicker } from '@/components/locations/employee-home-picker';
+import { BuildingLinkSection } from '@/components/locations/building-link-section';
 import { useLocation, useLocationMutations } from '@/lib/hooks/use-locations';
 import { LOCATION_TYPE_COLORS } from '@/lib/utils/segment-colors';
 import type { LocationFormInput } from '@/lib/validations/location';
@@ -56,6 +58,8 @@ export default function LocationDetailPage({ params }: LocationDetailPageProps) 
           address: data.address ?? null,
           notes: data.notes ?? null,
           isActive: data.is_active,
+          isEmployeeHome: data.is_employee_home,
+          isAlsoOffice: data.is_also_office,
         });
         toast.success('Emplacement mis à jour avec succès');
         refetch();
@@ -244,6 +248,13 @@ export default function LocationDetailPage({ params }: LocationDetailPageProps) 
         onCancel={() => router.push('/dashboard/locations')}
         isSubmitting={isUpdating}
       />
+
+      <EmployeeHomePicker
+        locationId={id}
+        isEmployeeHome={location.isEmployeeHome}
+      />
+
+      <BuildingLinkSection locationId={id} />
     </div>
   );
 }

@@ -24,6 +24,8 @@ export interface LocationRow {
   address: string | null;
   notes: string | null;
   is_active: boolean;
+  is_employee_home: boolean;
+  is_also_office: boolean;
   created_at: string;
   updated_at: string;
   total_count?: number;
@@ -42,6 +44,8 @@ export interface Location {
   address: string | null;
   notes: string | null;
   isActive: boolean;
+  isEmployeeHome: boolean;
+  isAlsoOffice: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -193,6 +197,8 @@ export interface LocationFormData {
   address: string | null;
   notes: string | null;
   isActive: boolean;
+  isEmployeeHome: boolean;
+  isAlsoOffice: boolean;
 }
 
 /**
@@ -251,6 +257,8 @@ export function transformLocationRow(row: LocationRow): Location {
     address: row.address,
     notes: row.notes,
     isActive: row.is_active,
+    isEmployeeHome: row.is_employee_home,
+    isAlsoOffice: row.is_also_office,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
   };

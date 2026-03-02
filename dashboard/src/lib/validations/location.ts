@@ -50,6 +50,8 @@ export const locationFormSchema = z.object({
   address: z.string().max(500, 'Address must be 500 characters or less').nullable().optional(),
   notes: z.string().max(1000, 'Notes must be 1000 characters or less').nullable().optional(),
   is_active: z.boolean(),
+  is_employee_home: z.boolean(),
+  is_also_office: z.boolean(),
 });
 
 export type LocationFormInput = z.infer<typeof locationFormSchema>;

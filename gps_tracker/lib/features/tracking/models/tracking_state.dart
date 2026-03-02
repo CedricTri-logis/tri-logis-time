@@ -45,6 +45,9 @@ class TrackingState {
   /// Whether tracking start failed (no GPS point received within timeout).
   final bool trackingStartFailed;
 
+  /// Whether an auto clock-out was triggered due to tracking verification failure.
+  final bool trackingAutoClockOutOccurred;
+
   const TrackingState({
     this.status = TrackingStatus.stopped,
     this.activeShiftId,
@@ -59,6 +62,7 @@ class TrackingState {
     this.gpsSignalLost = false,
     this.trackingVerified = false,
     this.trackingStartFailed = false,
+    this.trackingAutoClockOutOccurred = false,
   });
 
   /// Initial state before any tracking.
@@ -89,6 +93,7 @@ class TrackingState {
     bool? gpsSignalLost,
     bool? trackingVerified,
     bool? trackingStartFailed,
+    bool? trackingAutoClockOutOccurred,
     bool clearError = false,
     bool clearActiveShift = false,
   }) =>
@@ -106,6 +111,7 @@ class TrackingState {
         gpsSignalLost: gpsSignalLost ?? this.gpsSignalLost,
         trackingVerified: trackingVerified ?? this.trackingVerified,
         trackingStartFailed: trackingStartFailed ?? this.trackingStartFailed,
+        trackingAutoClockOutOccurred: trackingAutoClockOutOccurred ?? this.trackingAutoClockOutOccurred,
       );
 
   /// Create state indicating tracking has started for a shift.
@@ -119,6 +125,7 @@ class TrackingState {
         lastAccuracy: null,
         trackingVerified: false,
         trackingStartFailed: false,
+        trackingAutoClockOutOccurred: false,
         clearError: true,
       );
 

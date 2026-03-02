@@ -41,6 +41,7 @@ class ShiftState {
   final String? error;
   final bool isClockingIn;
   final bool isClockingOut;
+  final bool versionTooOld;
 
   const ShiftState({
     this.activeShift,
@@ -48,6 +49,7 @@ class ShiftState {
     this.error,
     this.isClockingIn = false,
     this.isClockingOut = false,
+    this.versionTooOld = false,
   });
 
   ShiftState copyWith({
@@ -56,6 +58,7 @@ class ShiftState {
     String? error,
     bool? isClockingIn,
     bool? isClockingOut,
+    bool? versionTooOld,
     bool clearActiveShift = false,
     bool clearError = false,
   }) {
@@ -65,6 +68,7 @@ class ShiftState {
       error: clearError ? null : (error ?? this.error),
       isClockingIn: isClockingIn ?? this.isClockingIn,
       isClockingOut: isClockingOut ?? this.isClockingOut,
+      versionTooOld: clearError ? false : (versionTooOld ?? this.versionTooOld),
     );
   }
 }
@@ -525,10 +529,12 @@ class ShiftNotifier extends StateNotifier<ShiftState>
         _logger?.shift(Severity.error, 'Clock in failed', metadata: {
           'employee_id': employeeId,
           'error': result.errorMessage,
+          'error_code': result.errorCode,
         },);
         state = state.copyWith(
           isClockingIn: false,
           error: result.errorMessage,
+          versionTooOld: result.isVersionTooOld,
         );
         return false;
       }
