@@ -41,15 +41,15 @@ class TrackingConfig {
     distanceFilterMeters: 10,
   );
 
-  /// Compute capture interval: 10s active, 120s stationary.
+  /// Compute capture interval based on speed.
   ///
-  /// Simplified two-tier system:
-  /// - Active (any speed, or recently stopped < 5 min): 10s
-  /// - Confirmed stationary (> 5 min at same spot): 120s
+  /// Two-tier system:
+  /// - Active (speed >= 0.5 m/s, or low speed < 3 min): 10s
+  /// - Confirmed stationary (speed < 0.5 m/s for 3+ min): 120s
   ///
-  /// Stationary detection is handled by the background handler's
-  /// `_checkStationaryState()`, not by speed thresholds.
-  /// This method returns [activeIntervalSeconds] (10s) as the default.
+  /// Note: Actual stationary detection is time-based in the background
+  /// handler's `_updateStationaryState()`. This method is a simplified
+  /// snapshot that doesn't account for the 3-minute delay.
   int intervalForSpeed(double? speedMs) {
     if (speedMs == null || speedMs < 0) return activeIntervalSeconds;
     if (speedMs < 0.5) return stationaryIntervalSeconds;
