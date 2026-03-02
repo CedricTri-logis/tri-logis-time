@@ -4,25 +4,25 @@ import { useEffect, useState } from 'react';
 import { supabaseClient } from '@/lib/supabase/client';
 
 /**
- * Lightweight hook that returns the count of currently active shifts.
- * Subscribes to realtime changes on the shifts table for live updates.
+ * Lightweight hook that returns the count of on-shift employees
+ * from the supervised team (same source as the monitoring page).
+ * Subscribes to realtime shift changes for live updates.
  */
 export function useActiveShiftCount(): number {
   const [count, setCount] = useState(0);
 
   useEffect(() => {
-    // Initial fetch
     const fetchCount = async () => {
-      const { count: c } = await supabaseClient
-        .from('shifts')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'active');
-      setCount(c ?? 0);
+      const { data } = await supabaseClient.rpc('get_monitored_team', {
+        p_search: null,
+        p_shift_status: 'on-shift',
+      });
+      setCount(data?.length ?? 0);
     };
 
     fetchCount();
 
-    // Subscribe to realtime changes on shifts
+    // Re-fetch when shifts change (clock-in/out)
     const channel = supabaseClient
       .channel('sidebar-active-shifts')
       .on(
