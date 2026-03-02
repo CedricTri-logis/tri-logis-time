@@ -75,6 +75,8 @@ export function useLocations(filters: LocationFilters = {}) {
       address: row.address,
       notes: row.notes,
       isActive: row.is_active,
+      isEmployeeHome: row.is_employee_home ?? false,
+      isAlsoOffice: row.is_also_office ?? false,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
     }));
@@ -132,6 +134,8 @@ export function useLocation(locationId: string | null) {
           address: data.address,
           notes: data.notes,
           isActive: data.is_active,
+          isEmployeeHome: data.is_employee_home ?? false,
+          isAlsoOffice: data.is_also_office ?? false,
           createdAt: new Date(data.created_at),
           updatedAt: new Date(data.updated_at),
         });
@@ -221,6 +225,8 @@ export function useLocationMutations() {
         if (data.address !== undefined) updatePayload.address = data.address;
         if (data.notes !== undefined) updatePayload.notes = data.notes;
         if (data.isActive !== undefined) updatePayload.is_active = data.isActive;
+        if (data.isEmployeeHome !== undefined) updatePayload.is_employee_home = data.isEmployeeHome;
+        if (data.isAlsoOffice !== undefined) updatePayload.is_also_office = data.isAlsoOffice;
 
         const { data: result, error } = await supabaseClient
           .from('locations')

@@ -56,6 +56,8 @@ export default function LocationDetailPage({ params }: LocationDetailPageProps) 
           address: data.address ?? null,
           notes: data.notes ?? null,
           isActive: data.is_active,
+          isEmployeeHome: data.is_employee_home,
+          isAlsoOffice: data.is_also_office,
         });
         toast.success('Emplacement mis à jour avec succès');
         refetch();
