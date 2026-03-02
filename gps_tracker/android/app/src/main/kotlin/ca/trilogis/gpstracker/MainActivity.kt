@@ -9,6 +9,9 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.app.usage.UsageStatsManager
 import androidx.annotation.NonNull
+import androidx.core.content.PackageManagerCompat
+import androidx.core.content.IntentCompat
+import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -47,6 +50,49 @@ class MainActivity : FlutterActivity() {
                     "openSamsungNeverSleepingList" -> {
                         val opened = openSamsungNeverSleepingList()
                         result.success(opened)
+                    }
+                    "getUnusedAppRestrictionsStatus" -> {
+                        // PackageManagerCompat constants:
+                        // 0=ERROR, 1=FEATURE_NOT_AVAILABLE, 2=DISABLED,
+                        // 3=API_30_BACKPORT, 4=API_30, 5=API_31
+                        try {
+                            val future = PackageManagerCompat.getUnusedAppRestrictionsStatus(this)
+                            future.addListener(
+                                {
+                                    try {
+                                        result.success(future.get())
+                                    } catch (e: Exception) {
+                                        result.success(0) // ERROR — fail open
+                                    }
+                                },
+                                ContextCompat.getMainExecutor(this)
+                            )
+                        } catch (e: Exception) {
+                            result.success(1) // FEATURE_NOT_AVAILABLE — fail open
+                        }
+                    }
+                    "openManageUnusedAppRestrictionsSettings" -> {
+                        try {
+                            val intent = IntentCompat.createManageUnusedAppRestrictionsIntent(
+                                this, packageName
+                            )
+                            startActivity(intent)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            // Fall back to App Info page
+                            try {
+                                val fallback = android.content.Intent(
+                                    android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+                                ).apply {
+                                    data = android.net.Uri.fromParts("package", packageName, null)
+                                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                startActivity(fallback)
+                                result.success(true)
+                            } catch (_: Exception) {
+                                result.success(false)
+                            }
+                        }
                     }
                     else -> result.notImplemented()
                 }
