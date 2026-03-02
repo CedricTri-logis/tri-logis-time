@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LayoutDashboard, Users, MapPin, MapPinned, UserCog, Radio, History, FileBarChart, SprayCan, Car, ClipboardCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useActiveShiftCount } from '@/lib/hooks/use-active-shift-count';
 
 const navigation = [
   {
@@ -60,6 +61,7 @@ const navigation = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const activeShiftCount = useActiveShiftCount();
 
   return (
     <aside className="hidden w-64 flex-shrink-0 border-r border-slate-200 bg-white lg:flex lg:flex-col">
@@ -86,6 +88,11 @@ export function Sidebar() {
             >
               <item.icon className="h-5 w-5" />
               {item.name}
+              {item.href === '/dashboard/monitoring' && activeShiftCount > 0 && (
+                <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-green-100 px-1.5 text-xs font-semibold text-green-700">
+                  {activeShiftCount}
+                </span>
+              )}
             </Link>
           );
         })}
