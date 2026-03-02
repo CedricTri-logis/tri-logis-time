@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -308,6 +308,43 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
   const [showNotes, setShowNotes] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  // Resizable panel
+  const [panelWidth, setPanelWidth] = useState(50); // vw
+  const isDragging = useRef(false);
+  const startX = useRef(0);
+  const startWidth = useRef(50);
+
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      if (!isDragging.current) return;
+      const deltaVw = ((startX.current - e.clientX) / window.innerWidth) * 100;
+      const newWidth = Math.min(90, Math.max(25, startWidth.current + deltaVw));
+      setPanelWidth(newWidth);
+    };
+    const onMouseUp = () => {
+      if (isDragging.current) {
+        isDragging.current = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+    };
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+  }, []);
+
+  const onDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDragging.current = true;
+    startX.current = e.clientX;
+    startWidth.current = panelWidth;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, [panelWidth]);
+
   const fetchDetail = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -420,7 +457,16 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
 
   return (
     <Sheet open onOpenChange={() => onClose()}>
-      <SheetContent className="w-full sm:max-w-[50vw] overflow-y-auto" side="right">
+      <SheetContent
+        className="overflow-y-auto !max-w-none"
+        style={{ width: `${panelWidth}vw` }}
+        side="right"
+      >
+        {/* Resize drag handle */}
+        <div
+          onMouseDown={onDragStart}
+          className="absolute inset-y-0 left-0 w-1.5 cursor-col-resize hover:bg-primary/20 active:bg-primary/30 transition-colors z-10"
+        />
         <SheetHeader>
           <SheetTitle>{employeeName}</SheetTitle>
           <p className="text-sm text-muted-foreground capitalize">{formatDate(date)}</p>
