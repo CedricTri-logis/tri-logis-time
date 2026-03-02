@@ -18,7 +18,8 @@ class GPSTrackingHandler extends TaskHandler {
   DateTime? _lastCaptureTime;
   Position? _lastPosition;
   bool _isStationary = false;
-  DateTime? _stationaryCheckTime;
+  DateTime? _lowSpeedSince; // When speed first dropped below 0.5 m/s
+  static const _stationaryDelay = Duration(minutes: 3);
   bool _isCapturing = false; // Prevent duplicate captures
 
   // Thermal multiplier (received from main isolate)
@@ -221,8 +222,8 @@ class GPSTrackingHandler extends TaskHandler {
       });
     }
 
-    // Check for stationary state (distance-based fallback)
-    _checkStationaryState(position, now);
+    // Update stationary state (speed-based, 3-minute confirmation)
+    _updateStationaryState(position, now);
 
     // Skip if already capturing
     if (_isCapturing) {
@@ -248,13 +249,10 @@ class GPSTrackingHandler extends TaskHandler {
   }
 
   /// Compute capture interval: 10s when active, 120s when confirmed stationary.
-  /// "Recently stopped" (< 5 min at same spot) keeps 10s to capture micro-stops.
-  /// Only drops to 120s after 5-minute stationary confirmation.
+  /// Stationary = speed < 0.5 m/s for 3+ consecutive minutes.
   /// Applies thermal multiplier.
   Duration _computeInterval(Position position) {
-    // 10s for all active states (moving or recently stopped).
-    // 120s only after 5-minute confirmed stationary (_checkStationaryState).
-    int intervalSec = _isStationary ? _stationaryIntervalSeconds : 10;
+    int intervalSec = _isStationary ? _stationaryIntervalSeconds : _activeIntervalSeconds;
 
     // Apply thermal multiplier
     intervalSec *= _thermalMultiplier;
@@ -262,45 +260,40 @@ class GPSTrackingHandler extends TaskHandler {
     return Duration(seconds: intervalSec);
   }
 
-  void _checkStationaryState(Position position, DateTime now) {
-    if (_lastPosition == null) {
-      _stationaryCheckTime = now;
-      _lastPosition = position;
-      return;
-    }
+  /// Speed-based stationary detection.
+  ///
+  /// Uses the GPS sensor's speed field (reliable across all devices) instead
+  /// of distance-between-points (broken on Android with 10-40m accuracy due
+  /// to positional drift resetting the timer).
+  ///
+  /// - speed >= 0.5 m/s → immediately active (10s interval)
+  /// - speed < 0.5 m/s for 3 consecutive minutes → stationary (120s interval)
+  ///
+  /// Asymmetric by design: slow to enter stationary (avoids false slowdown at
+  /// traffic lights), instant to exit (never miss a departure).
+  void _updateStationaryState(Position position, DateTime now) {
+    final speed = position.speed;
 
-    // Calculate distance from last position
-    final distance = Geolocator.distanceBetween(
-      _lastPosition!.latitude,
-      _lastPosition!.longitude,
-      position.latitude,
-      position.longitude,
-    );
+    // Negative speed means geolocator has no speed data — treat as unknown,
+    // don't change state (fail-open: keep current mode).
+    if (speed < 0) return;
 
-    // Movement threshold must account for GPS accuracy — a 50m jump with
-    // 200m accuracy is noise, not real movement. Use the worse (larger)
-    // accuracy of the two positions to avoid false movement detection.
-    final worstAccuracy = position.accuracy > _lastPosition!.accuracy
-        ? position.accuracy
-        : _lastPosition!.accuracy;
-    final movementThreshold = worstAccuracy > 10 ? worstAccuracy : 10.0;
-
-    // If moved more than the accuracy-aware threshold, reset stationary check
-    if (distance > movementThreshold) {
-      _isStationary = false;
-      _stationaryCheckTime = now;
-      _lastPosition = position;
-      return;
-    }
-
-    // Only mark as stationary after 5 minutes at the same spot — this prevents
-    // premature slowdown (e.g. traffic lights, brief stops) and ensures we keep
-    // capturing at 15s intervals until we're certain the person has truly stopped.
-    if (_stationaryCheckTime != null) {
-      final stationaryDuration = now.difference(_stationaryCheckTime!);
-      if (stationaryDuration.inMinutes >= 5) {
-        _isStationary = true;
+    if (speed >= 0.5) {
+      // Any movement → immediately active
+      if (_isStationary) {
+        _sendDiagnostic('info', 'Exiting stationary mode (speed=${speed.toStringAsFixed(1)} m/s)');
       }
+      _isStationary = false;
+      _lowSpeedSince = null;
+      return;
+    }
+
+    // speed < 0.5 — track how long we've been low-speed
+    _lowSpeedSince ??= now;
+
+    if (!_isStationary && now.difference(_lowSpeedSince!) >= _stationaryDelay) {
+      _isStationary = true;
+      _sendDiagnostic('info', 'Entering stationary mode after 3 min low speed');
     }
   }
 
