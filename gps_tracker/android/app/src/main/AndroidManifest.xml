@@ -33,8 +33,6 @@
     <!-- Camera Permission for QR code scanning (Spec 016) -->
     <uses-permission android:name="android.permission.CAMERA" />
 
-    <!-- Exact alarms for GPS tracking rescue watchdog (Android 13+, auto-granted for location apps) -->
-    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 
     <application
         android:label="Tri-Logis Time"
