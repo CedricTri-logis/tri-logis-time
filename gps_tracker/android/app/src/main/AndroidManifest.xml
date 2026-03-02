@@ -33,6 +33,9 @@
     <!-- Camera Permission for QR code scanning (Spec 016) -->
     <uses-permission android:name="android.permission.CAMERA" />
 
+    <!-- Exact alarms for GPS tracking rescue watchdog (Android 13+, auto-granted for location apps) -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+
     <application
         android:label="Tri-Logis Time"
         android:name="${applicationName}"
@@ -103,6 +106,11 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+
+        <!-- 60-second rescue watchdog for GPS tracking service -->
+        <receiver
+            android:name=".TrackingRescueReceiver"
+            android:exported="false" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
