@@ -27,6 +27,7 @@ import { StationaryClustersMap } from '@/components/mileage/stationary-clusters-
 import type { StationaryCluster } from '@/components/mileage/stationary-clusters-map';
 import { detectTripStops, detectGpsClusters } from '@/lib/utils/detect-trip-stops';
 import { LOCATION_TYPE_ICON_MAP } from '@/lib/constants/location-icons';
+import { LOCATION_TYPE_LABELS } from '@/lib/validations/location';
 import { mergeClockEvents, type ProcessedActivity } from '@/lib/utils/merge-clock-events';
 import { formatTime, formatDuration, formatDurationMinutes, formatDistance } from '@/lib/utils/activity-display';
 import type { LocationType } from '@/types/location';
@@ -374,6 +375,20 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
     return mergeClockEvents(detail.activities);
   }, [detail]);
 
+  // Duration by location type (for summary badges)
+  const durationStats = useMemo(() => {
+    if (!detail) return { totalTravelSeconds: 0, stopByType: {} as Record<string, number> };
+    const trips = detail.activities.filter(a => a.activity_type === 'trip');
+    const stops = detail.activities.filter(a => a.activity_type === 'stop');
+    const totalTravelSeconds = trips.reduce((sum, t) => sum + (t.duration_minutes || 0) * 60, 0);
+    const stopByType: Record<string, number> = {};
+    for (const stop of stops) {
+      const key = stop.location_type || '_unmatched';
+      stopByType[key] = (stopByType[key] || 0) + (stop.duration_minutes || 0) * 60;
+    }
+    return { totalTravelSeconds, stopByType };
+  }, [detail]);
+
   const handleOverride = async (activity: ApprovalActivity, newStatus: 'approved' | 'rejected') => {
     // If there's already an override with the same status, remove it (toggle back to auto)
     if (activity.override_status === newStatus) {
@@ -499,6 +514,45 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                 {formatHours(detail.summary.total_shift_minutes)} total
               </Badge>
             </div>
+
+            {/* Duration by type badges */}
+            {(durationStats.totalTravelSeconds > 0 || Object.keys(durationStats.stopByType).length > 0) && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                {durationStats.totalTravelSeconds > 0 && (
+                  <span
+                    className="inline-flex items-center gap-0.5 rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-700"
+                    title="Déplacement"
+                  >
+                    <Car className="h-3.5 w-3.5 text-blue-500" />
+                    {formatDuration(durationStats.totalTravelSeconds)}
+                  </span>
+                )}
+                {Object.entries(durationStats.stopByType)
+                  .filter(([, secs]) => secs > 0)
+                  .sort(([a], [b]) => {
+                    if (a === '_unmatched') return 1;
+                    if (b === '_unmatched') return -1;
+                    return (durationStats.stopByType[b] || 0) - (durationStats.stopByType[a] || 0);
+                  })
+                  .map(([type, secs]) => {
+                    const isUnmatched = type === '_unmatched';
+                    const iconEntry = isUnmatched ? null : LOCATION_TYPE_ICON_MAP[type as LocationType];
+                    const Icon = iconEntry ? iconEntry.icon : MapPin;
+                    const colorClass = iconEntry ? iconEntry.className : 'h-3.5 w-3.5 text-gray-400';
+                    const label = isUnmatched ? 'Autre' : (LOCATION_TYPE_LABELS[type as LocationType] || type);
+                    return (
+                      <span
+                        key={type}
+                        className="inline-flex items-center gap-0.5 rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-700"
+                        title={label}
+                      >
+                        <Icon className={colorClass.replace('h-4 w-4', 'h-3.5 w-3.5')} />
+                        {formatDuration(secs)}
+                      </span>
+                    );
+                  })}
+              </div>
+            )}
 
             {/* Approval status */}
             {isApproved && (
