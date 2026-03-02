@@ -119,4 +119,19 @@ Dart 3.x / Flutter 3.x (latest stable): Follow standard conventions
 
 
 <!-- MANUAL ADDITIONS START -->
+## Superpowers Skills (MANDATORY)
+
+You MUST invoke relevant skills via the `Skill` tool before ANY response or action — including clarifying questions. Even a 1% chance a skill applies means you MUST invoke it. This is not optional.
+
+Key skills to always consider:
+- `superpowers:brainstorming` — before any creative work, new features, or building components
+- `superpowers:systematic-debugging` — before proposing any fix for a bug or unexpected behavior
+- `superpowers:writing-plans` — when you have requirements for a multi-step task, before touching code
+- `superpowers:test-driven-development` — before writing implementation code for any feature or bugfix
+- `superpowers:verification-before-completion` — before claiming work is complete, fixed, or passing
+- `superpowers:finishing-a-development-branch` — when implementation is complete and you need to integrate work
+- `superpowers:requesting-code-review` — after completing tasks or implementing major features
+- `superpowers:receiving-code-review` — when receiving code review feedback before implementing suggestions
+- `superpowers:subagent-driven-development` — when executing implementation plans with independent tasks
+- `superpowers:dispatching-parallel-agents` — when facing 2+ independent tasks that can be parallelized
 <!-- MANUAL ADDITIONS END -->
