@@ -577,13 +577,13 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
               <table className="w-full text-sm">
                 <thead className="border-b bg-muted/50">
                   <tr>
+                    <th className="px-3 py-2.5 text-center font-medium text-muted-foreground">Approbation</th>
                     <th className="px-3 py-2.5 text-center font-medium text-muted-foreground w-10">Type</th>
+                    <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">Détails</th>
                     <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">Début</th>
                     <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">Fin</th>
                     <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">Durée</th>
-                    <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">Détails</th>
                     <th className="px-3 py-2.5 text-right font-medium text-muted-foreground">Distance</th>
-                    <th className="px-3 py-2.5 text-center font-medium text-muted-foreground">Approbation</th>
                     <th className="px-3 py-2.5 w-8"></th>
                   </tr>
                 </thead>
@@ -707,6 +707,8 @@ function ActivityRow({
       ? 'bg-yellow-50'
       : activity.final_status === 'rejected'
       ? 'bg-red-50'
+      : activity.final_status === 'approved'
+      ? 'bg-green-50'
       : '';
 
   return (
@@ -715,39 +717,51 @@ function ActivityRow({
         className={`${rowBg} ${canExpand ? 'cursor-pointer' : ''} hover:bg-muted/50 transition-colors`}
         onClick={canExpand ? onToggle : undefined}
       >
+        {/* Approbation */}
+        <td className="px-3 py-2.5 text-center">
+          {!isApproved ? (
+            <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`h-7 w-7 ${
+                  activity.final_status === 'approved'
+                    ? 'text-green-600 bg-green-100'
+                    : 'text-gray-400 hover:text-green-600'
+                }`}
+                onClick={() => onOverride(activity, 'approved')}
+                disabled={isSaving}
+              >
+                <CheckCircle2 className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`h-7 w-7 ${
+                  activity.final_status === 'rejected'
+                    ? 'text-red-600 bg-red-100'
+                    : 'text-gray-400 hover:text-red-600'
+                }`}
+                onClick={() => onOverride(activity, 'rejected')}
+                disabled={isSaving}
+              >
+                <XCircle className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <Badge variant="secondary" className={STATUS_BADGE[activity.final_status].className}>
+              {(() => { const StatusIcon = STATUS_BADGE[activity.final_status].icon; return <StatusIcon className="h-3 w-3 mr-1" />; })()}
+              {STATUS_BADGE[activity.final_status].label}
+            </Badge>
+          )}
+        </td>
+
         {/* Type icon */}
         <td className="px-3 py-2.5 text-center">
           <div className="flex items-center justify-center gap-0.5">
             {hasClockIn && <LogIn className="h-3.5 w-3.5 text-emerald-600" />}
             <ApprovalActivityIcon activity={activity} />
             {hasClockOut && <LogOut className="h-3.5 w-3.5 text-red-500" />}
-          </div>
-        </td>
-
-        {/* Début */}
-        <td className="px-3 py-2.5 whitespace-nowrap font-medium">
-          {formatTime(activity.started_at)}
-        </td>
-
-        {/* Fin */}
-        <td className="px-3 py-2.5 whitespace-nowrap text-muted-foreground">
-          {isClock ? '\u2014' : formatTime(activity.ended_at)}
-        </td>
-
-        {/* Durée */}
-        <td className="px-3 py-2.5 whitespace-nowrap tabular-nums">
-          <div className="flex items-center gap-1">
-            {isClock ? '\u2014' : formatDurationMinutes(activity.duration_minutes)}
-            {isStop && (activity.gps_gap_seconds ?? 0) > 0 && (
-              <span title={`${Math.round((activity.gps_gap_seconds ?? 0) / 60)} min sans signal GPS`}>
-                <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-              </span>
-            )}
-            {isTrip && activity.has_gps_gap && (
-              <span title="Trajet sans trace GPS">
-                <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-              </span>
-            )}
           </div>
         </td>
 
@@ -789,48 +803,36 @@ function ActivityRow({
           )}
         </td>
 
+        {/* Début */}
+        <td className="px-3 py-2.5 whitespace-nowrap font-medium">
+          {formatTime(activity.started_at)}
+        </td>
+
+        {/* Fin */}
+        <td className="px-3 py-2.5 whitespace-nowrap text-muted-foreground">
+          {isClock ? '\u2014' : formatTime(activity.ended_at)}
+        </td>
+
+        {/* Durée */}
+        <td className="px-3 py-2.5 whitespace-nowrap tabular-nums">
+          <div className="flex items-center gap-1">
+            {isClock ? '\u2014' : formatDurationMinutes(activity.duration_minutes)}
+            {isStop && (activity.gps_gap_seconds ?? 0) > 0 && (
+              <span title={`${Math.round((activity.gps_gap_seconds ?? 0) / 60)} min sans signal GPS`}>
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+              </span>
+            )}
+            {isTrip && activity.has_gps_gap && (
+              <span title="Trajet sans trace GPS">
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+              </span>
+            )}
+          </div>
+        </td>
+
         {/* Distance */}
         <td className="px-3 py-2.5 text-right tabular-nums whitespace-nowrap">
           {isTrip ? formatDistance(activity.road_distance_km ?? activity.distance_km) : '\u2014'}
-        </td>
-
-        {/* Approbation */}
-        <td className="px-3 py-2.5 text-center">
-          {!isApproved ? (
-            <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={`h-7 w-7 ${
-                  activity.final_status === 'approved'
-                    ? 'text-green-600 bg-green-100'
-                    : 'text-gray-400 hover:text-green-600'
-                }`}
-                onClick={() => onOverride(activity, 'approved')}
-                disabled={isSaving}
-              >
-                <CheckCircle2 className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={`h-7 w-7 ${
-                  activity.final_status === 'rejected'
-                    ? 'text-red-600 bg-red-100'
-                    : 'text-gray-400 hover:text-red-600'
-                }`}
-                onClick={() => onOverride(activity, 'rejected')}
-                disabled={isSaving}
-              >
-                <XCircle className="h-4 w-4" />
-              </Button>
-            </div>
-          ) : (
-            <Badge variant="secondary" className={STATUS_BADGE[activity.final_status].className}>
-              {(() => { const StatusIcon = STATUS_BADGE[activity.final_status].icon; return <StatusIcon className="h-3 w-3 mr-1" />; })()}
-              {STATUS_BADGE[activity.final_status].label}
-            </Badge>
-          )}
         </td>
 
         {/* Expand chevron */}
