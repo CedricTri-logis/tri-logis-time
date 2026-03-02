@@ -51,6 +51,9 @@ class MainActivity : FlutterActivity() {
                         val opened = openSamsungNeverSleepingList()
                         result.success(opened)
                     }
+                    "getApiLevel" -> {
+                        result.success(Build.VERSION.SDK_INT)
+                    }
                     "getUnusedAppRestrictionsStatus" -> {
                         // PackageManagerCompat constants:
                         // 0=ERROR, 1=FEATURE_NOT_AVAILABLE, 2=DISABLED,

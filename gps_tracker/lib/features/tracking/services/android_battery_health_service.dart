@@ -73,6 +73,15 @@ class AndroidBatteryHealthService {
     return previous == true && current == false;
   }
 
+  static Future<int> getApiLevel() async {
+    if (!Platform.isAndroid) return 0;
+    try {
+      return await _channel.invokeMethod<int>('getApiLevel') ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
   static Future<String?> getManufacturer() async {
     if (!Platform.isAndroid) return null;
     try {
@@ -189,6 +198,43 @@ class AndroidBatteryHealthService {
   /// Status 3 (API_30_BACKPORT), 4 (API_30), 5 (API_31) = restrictions active.
   static bool unusedRestrictionsNeedAction(int status) {
     return status == 3 || status == 4 || status == 5;
+  }
+
+  /// Returns the exact toggle label the user sees in Android settings
+  /// for "unused app restrictions", based on API level and device locale.
+  ///
+  /// The label is in the phone's language so the user can recognize it.
+  static String getUnusedAppToggleLabel({
+    required int apiLevel,
+    required String languageCode,
+  }) {
+    // Android 13+ (API 33): "Pause app activity if unused"
+    if (apiLevel >= 33) {
+      return switch (languageCode) {
+        'fr' => 'Mettre en pause l\'activité de l\'appli si elle est inutilisée',
+        'es' => 'Pausar la actividad de la app si no se usa',
+        'pt' => 'Pausar atividade do app se não usado',
+        _ => 'Pause app activity if unused',
+      };
+    }
+
+    // Android 12 (API 31-32): "Remove permissions and free up space"
+    if (apiLevel >= 31) {
+      return switch (languageCode) {
+        'fr' => 'Supprimer les autorisations et libérer de l\'espace',
+        'es' => 'Quitar permisos y liberar espacio',
+        'pt' => 'Remover permissões e liberar espaço',
+        _ => 'Remove permissions and free up space',
+      };
+    }
+
+    // Android 11 (API 30): "Remove permissions if app isn't used"
+    return switch (languageCode) {
+      'fr' => 'Supprimer les autorisations si l\'appli est inutilisée',
+      'es' => 'Quitar permisos si no se usa la app',
+      'pt' => 'Remover permissões se o app não for usado',
+      _ => 'Remove permissions if app isn\'t used',
+    };
   }
 
   /// Start the 60-second AlarmManager rescue watchdog for an active shift.

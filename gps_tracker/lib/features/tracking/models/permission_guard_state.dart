@@ -27,6 +27,9 @@ class PermissionGuardState {
   /// Whether Android 11+ unused app restrictions are active.
   final bool isUnusedAppRestrictionsActive;
 
+  /// The exact toggle label for unused app restrictions (in the phone's language).
+  final String? unusedAppToggleLabel;
+
   /// Set of warning types the user has dismissed this session.
   final Set<DismissibleWarningType> dismissedWarnings;
 
@@ -43,6 +46,7 @@ class PermissionGuardState {
     required this.isPreciseLocationEnabled,
     required this.isAppStandbyRestricted,
     required this.isUnusedAppRestrictionsActive,
+    this.unusedAppToggleLabel,
     required this.dismissedWarnings,
     required this.hasActiveShift,
     required this.lastChecked,
@@ -131,6 +135,7 @@ class PermissionGuardState {
     bool? isPreciseLocationEnabled,
     bool? isAppStandbyRestricted,
     bool? isUnusedAppRestrictionsActive,
+    String? unusedAppToggleLabel,
     Set<DismissibleWarningType>? dismissedWarnings,
     bool? hasActiveShift,
     DateTime? lastChecked,
@@ -146,6 +151,8 @@ class PermissionGuardState {
             isAppStandbyRestricted ?? this.isAppStandbyRestricted,
         isUnusedAppRestrictionsActive:
             isUnusedAppRestrictionsActive ?? this.isUnusedAppRestrictionsActive,
+        unusedAppToggleLabel:
+            unusedAppToggleLabel ?? this.unusedAppToggleLabel,
         dismissedWarnings: dismissedWarnings ?? this.dismissedWarnings,
         hasActiveShift: hasActiveShift ?? this.hasActiveShift,
         lastChecked: lastChecked ?? this.lastChecked,

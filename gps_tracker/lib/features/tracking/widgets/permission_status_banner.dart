@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/dismissible_warning_type.dart';
+import '../models/permission_guard_state.dart';
 import '../models/permission_guard_status.dart';
 import '../providers/permission_guard_provider.dart';
 import 'samsung_standby_dialog.dart';
@@ -36,7 +37,7 @@ class PermissionStatusBanner extends ConsumerWidget {
     final state = ref.watch(permissionGuardProvider);
     if (!state.shouldShowBanner) return const SizedBox.shrink();
 
-    final config = _getBannerConfig(context, state.status);
+    final config = _getBannerConfig(context, state);
 
     return Semantics(
       label: '${config.title}. ${config.subtitle}. Tap ${config.actionLabel} to resolve.',
@@ -123,9 +124,10 @@ class PermissionStatusBanner extends ConsumerWidget {
 
   _BannerConfig _getBannerConfig(
     BuildContext context,
-    PermissionGuardStatus status,
+    PermissionGuardState guardState,
   ) {
     final theme = Theme.of(context);
+    final status = guardState.status;
 
     return switch (status) {
       PermissionGuardStatus.deviceServicesDisabled => _BannerConfig(
@@ -187,8 +189,9 @@ class PermissionStatusBanner extends ConsumerWidget {
           iconColor: theme.colorScheme.error,
           icon: Icons.battery_alert,
           title: 'Restrictions d\'application actives',
-          subtitle:
-              'Android peut révoquer les permissions. Désactivez les restrictions.',
+          subtitle: guardState.unusedAppToggleLabel != null
+              ? 'Désactivez « ${guardState.unusedAppToggleLabel} »'
+              : 'Android peut révoquer les permissions. Désactivez les restrictions.',
           actionLabel: 'Corriger',
           canDismiss: false,
         ),

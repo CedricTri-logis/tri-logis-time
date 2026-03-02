@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
@@ -59,11 +60,20 @@ class PermissionGuardNotifier extends StateNotifier<PermissionGuardState> {
 
       // Check unused app restrictions status (Android 11+)
       bool unusedAppRestrictionsActive = false;
+      String? unusedToggleLabel;
       if (Platform.isAndroid) {
         final unusedStatus =
             await AndroidBatteryHealthService.getUnusedAppRestrictionsStatus();
         unusedAppRestrictionsActive =
             AndroidBatteryHealthService.unusedRestrictionsNeedAction(unusedStatus);
+        if (unusedAppRestrictionsActive) {
+          final apiLevel = await AndroidBatteryHealthService.getApiLevel();
+          final locale = ui.PlatformDispatcher.instance.locale;
+          unusedToggleLabel = AndroidBatteryHealthService.getUnusedAppToggleLabel(
+            apiLevel: apiLevel,
+            languageCode: locale.languageCode,
+          );
+        }
       }
 
       // Check precise location accuracy (Android 12+, always precise on iOS)
@@ -87,6 +97,7 @@ class PermissionGuardNotifier extends StateNotifier<PermissionGuardState> {
             isPreciseLocationEnabled: preciseLocation,
             isAppStandbyRestricted: standbyBucket.isRestricted,
             isUnusedAppRestrictionsActive: unusedAppRestrictionsActive,
+            unusedAppToggleLabel: unusedToggleLabel,
             lastChecked: DateTime.now(),
           );
         }
