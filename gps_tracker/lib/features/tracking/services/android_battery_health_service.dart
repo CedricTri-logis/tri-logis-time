@@ -181,4 +181,27 @@ class AndroidBatteryHealthService {
   static bool unusedRestrictionsNeedAction(int status) {
     return status == 3 || status == 4 || status == 5;
   }
+
+  /// Start the 60-second AlarmManager rescue watchdog for an active shift.
+  /// No-op on iOS. Fire-and-forget.
+  static Future<void> startRescueAlarms(String shiftId) async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _channel.invokeMethod<bool>(
+        'startRescueAlarms',
+        {'shiftId': shiftId},
+      );
+    } catch (_) {
+      // Best-effort — WorkManager watchdog is the fallback
+    }
+  }
+
+  /// Stop the AlarmManager rescue watchdog. Call when tracking ends.
+  /// No-op on iOS. Fire-and-forget.
+  static Future<void> stopRescueAlarms() async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _channel.invokeMethod<bool>('stopRescueAlarms');
+    } catch (_) {}
+  }
 }
