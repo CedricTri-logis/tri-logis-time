@@ -11,6 +11,7 @@ import {
   XCircle,
   AlertTriangle,
   MapPin,
+  MapPinOff,
   Car,
   Footprints,
   Clock,
@@ -82,14 +83,12 @@ const STATUS_BADGE: Record<ApprovalAutoStatus, { className: string; icon: typeof
 // --- Icon helper for approval activities ---
 
 function ApprovalActivityIcon({ activity }: { activity: ApprovalActivity }) {
-  if (activity.activity_type === 'clock_in') return <LogIn className="h-4 w-4 text-emerald-600" />;
-  if (activity.activity_type === 'clock_out') return <LogOut className="h-4 w-4 text-red-500" />;
   if (activity.activity_type === 'trip') {
     if (activity.transport_mode === 'walking') return <Footprints className="h-4 w-4 text-orange-500" />;
     if (activity.transport_mode === 'driving') return <Car className="h-4 w-4 text-blue-500" />;
     return <Car className="h-4 w-4 text-gray-300" />;
   }
-  // Stop — use location type icon if available
+  // Stop or standalone clock — use location type icon if available
   if (activity.location_name && activity.location_type) {
     const entry = LOCATION_TYPE_ICON_MAP[activity.location_type as LocationType];
     if (entry) {
@@ -98,6 +97,10 @@ function ApprovalActivityIcon({ activity }: { activity: ApprovalActivity }) {
     }
   }
   if (activity.location_name) return <MapPin className="h-4 w-4 text-green-500" />;
+  // Unknown location — MapPinOff for clocks, amber MapPin for stops
+  if (activity.activity_type === 'clock_in' || activity.activity_type === 'clock_out') {
+    return <MapPinOff className="h-4 w-4 text-amber-500" />;
+  }
   return <MapPin className="h-4 w-4 text-amber-500" />;
 }
 
@@ -578,6 +581,9 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                 <thead className="border-b bg-muted/50">
                   <tr>
                     <th className="px-3 py-2.5 text-center font-medium text-muted-foreground">Approbation</th>
+                    <th className="px-3 py-2.5 text-center font-medium text-muted-foreground w-8">
+                      <Clock className="h-3.5 w-3.5 mx-auto text-muted-foreground" />
+                    </th>
                     <th className="px-3 py-2.5 text-center font-medium text-muted-foreground w-10">Type</th>
                     <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">Détails</th>
                     <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">Début</th>
@@ -590,7 +596,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                 <tbody className="divide-y">
                   {processedActivities.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-3 py-8 text-center text-sm text-gray-500">
+                      <td colSpan={9} className="px-3 py-8 text-center text-sm text-gray-500">
                         Aucune activité détectée
                       </td>
                     </tr>
@@ -756,13 +762,19 @@ function ActivityRow({
           )}
         </td>
 
-        {/* Type icon */}
-        <td className="px-3 py-2.5 text-center">
+        {/* Clock-in/out indicator */}
+        <td className="px-2 py-2.5 text-center">
           <div className="flex items-center justify-center gap-0.5">
             {hasClockIn && <LogIn className="h-3.5 w-3.5 text-emerald-600" />}
-            <ApprovalActivityIcon activity={activity} />
             {hasClockOut && <LogOut className="h-3.5 w-3.5 text-red-500" />}
+            {isClock && activity.activity_type === 'clock_in' && <LogIn className="h-3.5 w-3.5 text-emerald-600" />}
+            {isClock && activity.activity_type === 'clock_out' && <LogOut className="h-3.5 w-3.5 text-red-500" />}
           </div>
+        </td>
+
+        {/* Type icon */}
+        <td className="px-3 py-2.5 text-center">
+          <ApprovalActivityIcon activity={activity} />
         </td>
 
         {/* Détails */}
@@ -848,7 +860,7 @@ function ActivityRow({
       {/* Expanded detail row */}
       {isExpanded && canExpand && (
         <tr>
-          <td colSpan={8} className="p-0">
+          <td colSpan={9} className="p-0">
             {isTrip ? (
               <TripExpandDetail activity={activity} />
             ) : isStop ? (
