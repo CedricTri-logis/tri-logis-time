@@ -1,6 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../core/config/theme.dart';
 import '../services/android_battery_health_service.dart';
@@ -65,6 +68,45 @@ class _BatteryHealthScreenState extends State<BatteryHealthScreen> {
       _snapshotFuture = _load();
     });
     await _snapshotFuture;
+  }
+
+  Future<String> _buildDiagnosticReport() async {
+    final snapshot = await _load();
+    final packageInfo = await PackageInfo.fromPlatform();
+    final permission = await Geolocator.checkPermission();
+    final locationEnabled = await Geolocator.isLocationServiceEnabled();
+
+    final lines = <String>[
+      '=== Rapport Diagnostic Tri-Logis Time ===',
+      'Date: ${DateTime.now().toIso8601String()}',
+      'Version app: ${packageInfo.version}+${packageInfo.buildNumber}',
+      'Plateforme: ${Platform.isIOS ? 'iOS' : 'Android'}',
+      '',
+      '--- Localisation ---',
+      'Services de localisation: ${locationEnabled ? 'Activés' : 'DÉSACTIVÉS'}',
+      'Permission: ${permission.name}',
+      '',
+    ];
+
+    if (Platform.isAndroid) {
+      final standbyLabel = snapshot.standbyBucket.supported
+          ? (snapshot.standbyBucket.bucketName ?? 'INCONNU')
+          : 'Non supporté';
+      lines.addAll([
+        '--- Android ---',
+        'Constructeur: ${snapshot.manufacturer ?? 'Inconnu'}',
+        'Optimisation batterie: ${snapshot.batteryOptimizationDisabled ? 'DÉSACTIVÉE (OK)' : 'ACTIVE (PROBLÈME)'}',
+        'App Standby Bucket: $standbyLabel',
+        if (snapshot.standbyBucket.isRestricted) '  ⚠ App en veille prolongée!',
+      ]);
+    }
+
+    lines.addAll([
+      '',
+      '=== Fin du rapport ===',
+    ]);
+
+    return lines.join('\n');
   }
 
   @override
@@ -183,6 +225,22 @@ class _BatteryHealthScreenState extends State<BatteryHealthScreen> {
                   child: const Text(
                     'Astuce: apres chaque correction, revenez ici et tirez vers le bas pour verifier.',
                   ),
+                ),
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final report = await _buildDiagnosticReport();
+                    await Clipboard.setData(ClipboardData(text: report));
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Rapport copié dans le presse-papiers'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.copy),
+                  label: const Text('Copier le rapport de diagnostic'),
                 ),
               ],
             ),
