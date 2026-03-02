@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { LocationForm } from '@/components/locations/location-form';
 import { EmployeeHomePicker } from '@/components/locations/employee-home-picker';
+import { BuildingLinkSection } from '@/components/locations/building-link-section';
 import { useLocation, useLocationMutations } from '@/lib/hooks/use-locations';
 import { LOCATION_TYPE_COLORS } from '@/lib/utils/segment-colors';
 import type { LocationFormInput } from '@/lib/validations/location';
@@ -252,6 +253,8 @@ export default function LocationDetailPage({ params }: LocationDetailPageProps) 
         locationId={id}
         isEmployeeHome={location.isEmployeeHome}
       />
+
+      <BuildingLinkSection locationId={id} />
     </div>
   );
 }
