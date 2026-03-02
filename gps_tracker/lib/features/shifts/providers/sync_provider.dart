@@ -120,13 +120,14 @@ class SyncState {
 
   /// Create from persisted SyncMetadata.
   factory SyncState.fromMetadata(SyncMetadata metadata) {
-    // Determine status from metadata
+    // Determine status from metadata.
+    // IMPORTANT: Never restore SyncStatus.syncing from persisted state.
+    // If syncInProgress=true, the previous session was killed mid-sync.
+    // Treat it as pending so the sync restarts cleanly on this launch.
     SyncStatus status;
-    if (metadata.syncInProgress) {
-      status = SyncStatus.syncing;
-    } else if (metadata.hasError) {
+    if (metadata.hasError) {
       status = SyncStatus.error;
-    } else if (metadata.hasPendingData) {
+    } else if (metadata.hasPendingData || metadata.syncInProgress) {
       status = SyncStatus.pending;
     } else {
       status = SyncStatus.synced;
@@ -547,6 +548,8 @@ class SyncNotifier extends StateNotifier<SyncState> {
     _backoff.reset();
     _cancelRetryTimer();
     state = state.copyWith(
+      // Reset status so syncPendingData() can proceed even if stuck as syncing
+      status: SyncStatus.pending,
       consecutiveFailures: 0,
       clearError: true,
       clearNextRetry: true,
