@@ -175,6 +175,10 @@ class BackgroundTrackingService with WidgetsBindingObserver {
         );
 
         if (result is ServiceRequestSuccess) {
+          // Start the 60-second native rescue watchdog (Android only)
+          if (Platform.isAndroid) {
+            await AndroidBatteryHealthService.startRescueAlarms(shiftId);
+          }
           _logger?.gps(
             Severity.info,
             'Foreground service start success',
@@ -215,6 +219,10 @@ class BackgroundTrackingService with WidgetsBindingObserver {
 
   /// Stop background GPS tracking.
   static Future<void> stopTracking() async {
+    // Stop the native rescue watchdog before the service (order matters)
+    if (Platform.isAndroid) {
+      await AndroidBatteryHealthService.stopRescueAlarms();
+    }
     await FlutterForegroundTask.stopService();
     await FlutterForegroundTask.removeData(key: 'shift_id');
     await FlutterForegroundTask.removeData(key: 'employee_id');

@@ -1,62 +1,70 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// OEM-specific battery optimization guide dialog (Android only).
 ///
-/// Shows step-by-step instructions in French for Samsung, Xiaomi, Huawei,
-/// and OnePlus/Oppo/Realme devices to disable aggressive battery killers
-/// that bypass standard Android battery optimization.
-class OemBatteryGuideDialog extends StatelessWidget {
+/// Shown as a mandatory dialog when OEM battery killers are detected as
+/// still active. "C'est fait" verifies actual battery optimization state
+/// before dismissing.
+class OemBatteryGuideDialog extends StatefulWidget {
   final String manufacturer;
 
   const OemBatteryGuideDialog({required this.manufacturer, super.key});
 
-  static const _channel = MethodChannel('gps_tracker/device_manufacturer');
-
   static const _problematicOems = {
-    'samsung',
-    'xiaomi',
-    'huawei',
-    'honor',
-    'oneplus',
-    'oppo',
-    'realme',
+    'samsung', 'xiaomi', 'huawei', 'honor', 'oneplus', 'oppo', 'realme',
   };
 
-  /// Show the OEM guide if the device is a known problematic OEM and the user
-  /// hasn't completed setup yet. No-op on iOS.
+  /// Show the OEM guide if:
+  /// - Device is a known problematic OEM (Android only)
+  /// - AND battery optimization is still active (actual state check)
+  ///
+  /// Pass [force] = true to show even when battery is already fixed
+  /// (e.g. from the settings screen for re-education).
   static Future<void> showIfNeeded(
     BuildContext context, {
     bool force = false,
   }) async {
     if (!Platform.isAndroid) return;
 
-    if (!force) {
-      final completed = await FlutterForegroundTask.getData<bool>(
-        key: 'oem_setup_completed',
-      );
-      if (completed == true) return;
-    }
-
     final androidInfo = await DeviceInfoPlugin().androidInfo;
-    final manufacturer = androidInfo.manufacturer.lowercase();
-
+    final manufacturer = androidInfo.manufacturer.toLowerCase();
     if (!_problematicOems.contains(manufacturer)) return;
+
+    // Check actual state — don't rely on the one-time flag
+    final batteryOptDisabled =
+        await FlutterForegroundTask.isIgnoringBatteryOptimizations;
+    if (batteryOptDisabled && !force) return;
 
     if (!context.mounted) return;
     await showDialog<void>(
       context: context,
+      barrierDismissible: false, // Mandatory — no tap-outside dismiss
       builder: (_) => OemBatteryGuideDialog(manufacturer: manufacturer),
     );
   }
 
+  @override
+  State<OemBatteryGuideDialog> createState() => _OemBatteryGuideDialogState();
+}
+
+class _OemBatteryGuideDialogState extends State<OemBatteryGuideDialog> {
+  bool _hasOpenedSettings = false;
+  bool _showNotFixedMessage = false;
+  bool _isChecking = false;
+
+  static const _channel =
+      MethodChannel('gps_tracker/device_manufacturer');
+
   String get _title {
-    switch (manufacturer) {
+    switch (widget.manufacturer) {
       case 'samsung':
         return 'Configuration Samsung';
       case 'xiaomi':
@@ -77,44 +85,37 @@ class OemBatteryGuideDialog extends StatelessWidget {
   }
 
   List<String> get _steps {
-    switch (manufacturer) {
+    switch (widget.manufacturer) {
       case 'samsung':
         return [
           'Ouvrez Paramètres > Batterie > Limites d\'utilisation en arrière-plan',
-          'Appuyez "Applications en veille prolongée"',
-          'Retirez Tri-Logis Time de la liste',
-          'Appuyez "Applications jamais en veille"',
-          'Ajoutez Tri-Logis Time',
+          'Appuyez "Applications en veille prolongée" et retirez Tri-Logis Time',
+          'Appuyez "Applications jamais en veille" et ajoutez Tri-Logis Time',
+          'Revenez ici et appuyez "C\'est fait"',
         ];
       case 'xiaomi':
         return [
           'Ouvrez Paramètres > Applications > Gérer les applications',
-          'Trouvez Tri-Logis Time',
-          'Activez "Démarrage automatique"',
+          'Trouvez Tri-Logis Time et activez "Démarrage automatique"',
           'Appuyez Économie de batterie > Aucune restriction',
+          'Revenez ici et appuyez "C\'est fait"',
         ];
       case 'huawei':
-        return [
-          'Ouvrez Paramètres > Batterie > Lancement d\'applications',
-          'Trouvez Tri-Logis Time',
-          'Désactivez la gestion automatique',
-          'Activez les 3 options : Lancement auto, Lancement secondaire, Exécution en arrière-plan',
-        ];
       case 'honor':
         return [
           'Ouvrez Paramètres > Batterie > Lancement d\'applications',
-          'Trouvez Tri-Logis Time',
-          'Désactivez la gestion automatique',
-          'Activez les 3 options : Lancement auto, Lancement secondaire, Exécution en arrière-plan',
+          'Trouvez Tri-Logis Time et désactivez la gestion automatique',
+          'Activez : Lancement auto, Lancement secondaire, Exécution en arrière-plan',
+          'Revenez ici et appuyez "C\'est fait"',
         ];
       case 'oneplus':
       case 'oppo':
       case 'realme':
         return [
           'Ouvrez Paramètres > Batterie > Optimisation de la batterie',
-          'Trouvez Tri-Logis Time',
-          'Sélectionnez "Ne pas optimiser"',
+          'Trouvez Tri-Logis Time et sélectionnez "Ne pas optimiser"',
           'Activez "Autoriser l\'activité en arrière-plan"',
+          'Revenez ici et appuyez "C\'est fait"',
         ];
       default:
         return [];
@@ -140,7 +141,7 @@ class OemBatteryGuideDialog extends StatelessWidget {
           children: [
             Text(
               'Votre appareil peut interrompre le suivi GPS en arrière-plan. '
-              'Suivez ces étapes pour assurer un suivi continu :',
+              'Ces étapes sont requises pour un suivi continu :',
               style: theme.textTheme.bodyMedium,
             ),
             const SizedBox(height: 16),
@@ -178,10 +179,36 @@ class OemBatteryGuideDialog extends StatelessWidget {
                 ),
               );
             }),
+            if (_showNotFixedMessage) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.errorContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.warning_amber,
+                        color: theme.colorScheme.error, size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'L\'optimisation batterie est encore activée. '
+                        'Vérifiez les étapes et réessayez.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onErrorContainer,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 8),
             Center(
               child: TextButton.icon(
-                onPressed: () => _openDontKillMyApp(),
+                onPressed: _openDontKillMyApp,
                 icon: const Icon(Icons.open_in_new, size: 16),
                 label: const Text('En savoir plus'),
               ),
@@ -190,57 +217,79 @@ class OemBatteryGuideDialog extends StatelessWidget {
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Plus tard'),
-        ),
         OutlinedButton(
-          onPressed: () => _openOemSettings(),
+          onPressed: _isChecking ? null : _openOemSettings,
           child: const Text('Ouvrir les paramètres'),
         ),
         FilledButton(
-          onPressed: () => _markCompleted(context),
-          child: const Text("C'est fait"),
+          onPressed: (_isChecking || !_hasOpenedSettings)
+              ? null
+              : () => _confirmDone(context),
+          child: _isChecking
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text("C'est fait"),
         ),
       ],
     );
   }
 
   Future<void> _openOemSettings() async {
+    setState(() => _hasOpenedSettings = true);
     try {
       await _channel.invokeMethod<bool>(
         'openOemBatterySettings',
-        {'manufacturer': manufacturer},
+        {'manufacturer': widget.manufacturer},
       );
-    } catch (_) {
-      // Best-effort — settings screen may not exist on this ROM version
-    }
+    } catch (_) {}
   }
 
   Future<void> _openDontKillMyApp() async {
-    final url = Uri.parse('https://dontkillmyapp.com/$manufacturer');
+    final url = Uri.parse('https://dontkillmyapp.com/${widget.manufacturer}');
     try {
       await launchUrl(url, mode: LaunchMode.externalApplication);
+    } catch (_) {}
+  }
+
+  Future<void> _confirmDone(BuildContext context) async {
+    setState(() {
+      _isChecking = true;
+      _showNotFixedMessage = false;
+    });
+
+    final isFixed = await FlutterForegroundTask.isIgnoringBatteryOptimizations;
+
+    if (!mounted) return;
+
+    if (!isFixed) {
+      setState(() {
+        _isChecking = false;
+        _showNotFixedMessage = true;
+      });
+      return;
+    }
+
+    // Confirmed fixed — persist locally and close
+    await FlutterForegroundTask.saveData(
+        key: 'oem_setup_completed', value: true);
+    await FlutterForegroundTask.saveData(
+        key: 'oem_setup_manufacturer', value: widget.manufacturer);
+
+    // Fire-and-forget: record completion server-side for admin visibility.
+    unawaited(_syncCompletionToServer());
+
+    if (!mounted) return;
+    Navigator.of(context).pop();
+  }
+
+  Future<void> _syncCompletionToServer() async {
+    try {
+      await Supabase.instance.client.rpc<void>('mark_battery_setup_completed');
     } catch (_) {
-      // Best-effort
+      // Best-effort: local completion flag is source of truth for the app.
     }
   }
-
-  Future<void> _markCompleted(BuildContext context) async {
-    await FlutterForegroundTask.saveData(
-      key: 'oem_setup_completed',
-      value: true,
-    );
-    await FlutterForegroundTask.saveData(
-      key: 'oem_setup_manufacturer',
-      value: manufacturer,
-    );
-    if (context.mounted) {
-      Navigator.of(context).pop();
-    }
-  }
-}
-
-extension on String {
-  String lowercase() => toLowerCase();
 }

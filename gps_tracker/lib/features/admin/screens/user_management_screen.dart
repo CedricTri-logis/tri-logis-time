@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -468,6 +470,19 @@ class _UserTile extends ConsumerWidget {
                             'Vous',
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: colorScheme.onPrimaryContainer,
+                            ),
+                          ),
+                        ),
+                      if (user.batterySetupCompletedAt == null &&
+                          Platform.isAndroid)
+                        const Padding(
+                          padding: EdgeInsets.only(left: 6),
+                          child: Tooltip(
+                            message: 'Configuration batterie jamais complétée',
+                            child: Icon(
+                              Icons.battery_alert,
+                              size: 14,
+                              color: Colors.orange,
                             ),
                           ),
                         ),

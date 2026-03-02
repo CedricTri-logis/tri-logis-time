@@ -25,8 +25,8 @@ import '../../tracking/services/background_tracking_service.dart';
 import '../../tracking/services/permission_monitor_service.dart';
 import '../../tracking/services/significant_location_service.dart';
 import '../../tracking/widgets/battery_optimization_dialog.dart';
+import '../../tracking/widgets/clock_button_settings_warning.dart';
 import '../../tracking/widgets/device_services_dialog.dart';
-import '../../tracking/widgets/oem_battery_guide_dialog.dart';
 import '../../tracking/widgets/permission_change_alert.dart';
 import '../../tracking/widgets/permission_explanation_dialog.dart';
 import '../../tracking/widgets/samsung_standby_dialog.dart';
@@ -82,6 +82,10 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
   bool _isShowingGpsWarning = false;
   bool _isClockInPreparing = false;
   bool _cancelClockInPreparing = false;
+
+  /// Tracks whether the regression banner has been shown this session
+  /// to avoid repeating it every resume.
+  bool _regressionBannerShown = false;
 
   /// Currently selected tab (ménager / entretien).
   _DashboardTab _selectedTab = _DashboardTab.menager;
@@ -198,13 +202,65 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
       Severity.warn,
       'Battery optimization exemption lost on resume',
     );
+    if (!mounted) return;
 
     await BatteryOptimizationDialog.show(context);
     if (!mounted) return;
-    await OemBatteryGuideDialog.showIfNeeded(context, force: true);
-    if (!mounted) return;
 
     await ref.read(permissionGuardProvider.notifier).checkStatus();
+    if (!mounted) return;
+
+    final guardState = ref.read(permissionGuardProvider);
+    final hasActiveShift = ref.read(shiftProvider).activeShift != null;
+    final exemptionStillMissing = !guardState.isBatteryOptimizationDisabled;
+    if (exemptionStillMissing && hasActiveShift && !_regressionBannerShown) {
+      _showRegressionBanner();
+    }
+  }
+
+  void _showRegressionBanner() {
+    _regressionBannerShown = true;
+    ScaffoldMessenger.of(context).showMaterialBanner(
+      MaterialBanner(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        content: const Text(
+          'Suivi GPS dégradé — batterie non exemptée.\nTouchez Corriger pour protéger votre quart.',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+        ),
+        backgroundColor: Colors.orange,
+        leading: const Icon(Icons.battery_alert, color: Colors.white),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+              _regressionBannerShown = false;
+              await BatteryOptimizationDialog.show(context);
+              if (!mounted) return;
+              await ref.read(permissionGuardProvider.notifier).checkStatus();
+              if (!mounted) return;
+              final state = ref.read(permissionGuardProvider);
+              if (!state.isBatteryOptimizationDisabled) {
+                _showRegressionBanner();
+              }
+            },
+            child: const Text(
+              'Corriger',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+              _regressionBannerShown = false;
+            },
+            child: const Text(
+              'Plus tard',
+              style: TextStyle(color: Colors.white70),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Check with Supabase that the active shift hasn't been closed server-side
@@ -885,6 +941,8 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
       _stopPermissionMonitoring();
       _cancelGpsGracePeriod();
       ref.read(permissionGuardProvider.notifier).setActiveShift(false);
+      ScaffoldMessenger.of(context).clearMaterialBanners();
+      _regressionBannerShown = false;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1303,10 +1361,16 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
                     ],
                     const SizedBox(height: 32),
                     Center(
-                      child: ClockButton(
-                        onClockIn: _handleClockIn,
-                        onClockOut: _handleClockOut,
-                        isExternallyLoading: _isClockInPreparing,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ClockButton(
+                            onClockIn: _handleClockIn,
+                            onClockOut: _handleClockOut,
+                            isExternallyLoading: _isClockInPreparing,
+                          ),
+                          const ClockButtonSettingsWarning(),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 32),

@@ -57,6 +57,15 @@ class PermissionGuardNotifier extends StateNotifier<PermissionGuardState> {
       final standbyBucket =
           await AndroidBatteryHealthService.getAppStandbyBucket();
 
+      // Check unused app restrictions status (Android 11+)
+      bool unusedAppRestrictionsActive = false;
+      if (Platform.isAndroid) {
+        final unusedStatus =
+            await AndroidBatteryHealthService.getUnusedAppRestrictionsStatus();
+        unusedAppRestrictionsActive =
+            AndroidBatteryHealthService.unusedRestrictionsNeedAction(unusedStatus);
+      }
+
       // Check precise location accuracy (Android 12+, always precise on iOS)
       bool preciseLocation = true;
       if (Platform.isAndroid) {
@@ -77,6 +86,7 @@ class PermissionGuardNotifier extends StateNotifier<PermissionGuardState> {
             isBatteryOptimizationDisabled: batteryOpt,
             isPreciseLocationEnabled: preciseLocation,
             isAppStandbyRestricted: standbyBucket.isRestricted,
+            isUnusedAppRestrictionsActive: unusedAppRestrictionsActive,
             lastChecked: DateTime.now(),
           );
         }
@@ -100,6 +110,13 @@ class PermissionGuardNotifier extends StateNotifier<PermissionGuardState> {
             'standby_bucket': standbyBucket.bucketName,
             'standby_bucket_value': standbyBucket.bucket,
           },
+        );
+      }
+      if (unusedAppRestrictionsActive) {
+        _logger?.permission(
+          Severity.warn,
+          'Android unused app restrictions active',
+          metadata: {'platform': 'android'},
         );
       }
     } catch (e) {
@@ -142,6 +159,13 @@ class PermissionGuardNotifier extends StateNotifier<PermissionGuardState> {
   Future<void> requestBatteryOptimization() async {
     if (!Platform.isAndroid) return;
     await AndroidBatteryHealthService.requestIgnoreBatteryOptimization();
+    await checkStatus();
+  }
+
+  /// Opens unused app restrictions settings (Android 11+).
+  Future<void> openUnusedAppRestrictionsSettings() async {
+    if (!Platform.isAndroid) return;
+    await AndroidBatteryHealthService.openManageUnusedAppRestrictionsSettings();
     await checkStatus();
   }
 }

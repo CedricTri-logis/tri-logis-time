@@ -21,6 +21,9 @@ enum PermissionGuardStatus {
   /// App is in restricted/rare standby bucket (Samsung sleeping or Android hibernation).
   appStandbyRestricted,
 
+  /// Unused app restrictions active (Android 11+) — hibernation / auto-revoke risk.
+  unusedAppRestrictionsActive,
+
   /// Precise/exact location not enabled (Android 12+) - action required.
   preciseLocationRequired,
 }

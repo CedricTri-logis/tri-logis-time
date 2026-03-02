@@ -76,12 +76,16 @@ export default function LocationDetailPage({ params }: LocationDetailPageProps) 
             const unmatched = (row?.unmatched_start ?? 0) + (row?.unmatched_end ?? 0);
             const matchedClusters = row?.newly_matched_clusters ?? 0;
             const unmatchedClusters = row?.unmatched_clusters ?? 0;
-            if (matched > 0 || unmatched > 0 || matchedClusters > 0 || unmatchedClusters > 0) {
+            const matchedShifts = row?.newly_matched_shifts ?? 0;
+            const unmatchedShifts = row?.unmatched_shifts ?? 0;
+            if (matched > 0 || unmatched > 0 || matchedClusters > 0 || unmatchedClusters > 0 || matchedShifts > 0 || unmatchedShifts > 0) {
               const parts: string[] = [];
               if (matched > 0) parts.push(`${matched} trajet(s) associé(s)`);
               if (unmatched > 0) parts.push(`${unmatched} trajet(s) dissocié(s)`);
               if (matchedClusters > 0) parts.push(`${matchedClusters} arrêt(s) associé(s)`);
               if (unmatchedClusters > 0) parts.push(`${unmatchedClusters} arrêt(s) dissocié(s)`);
+              if (matchedShifts > 0) parts.push(`${matchedShifts} pointage(s) associé(s)`);
+              if (unmatchedShifts > 0) parts.push(`${unmatchedShifts} pointage(s) dissocié(s)`);
               toast.info(parts.join(', '));
             }
           } catch {

@@ -152,4 +152,56 @@ class AndroidBatteryHealthService {
       );
     }
   }
+
+  /// Unused app restrictions status constants (mirrors PackageManagerCompat):
+  /// 0=ERROR, 1=FEATURE_NOT_AVAILABLE, 2=DISABLED,
+  /// 3=API_30_BACKPORT, 4=API_30, 5=API_31
+  static Future<int> getUnusedAppRestrictionsStatus() async {
+    if (!Platform.isAndroid) return 1; // FEATURE_NOT_AVAILABLE on iOS
+    try {
+      return await _channel.invokeMethod<int>('getUnusedAppRestrictionsStatus') ?? 1;
+    } catch (_) {
+      return 1; // Fail open
+    }
+  }
+
+  static Future<bool> openManageUnusedAppRestrictionsSettings() async {
+    if (!Platform.isAndroid) return false;
+    try {
+      return await _channel.invokeMethod<bool>(
+              'openManageUnusedAppRestrictionsSettings') ??
+          false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Returns true if unused app restrictions need user action.
+  /// Status 3 (API_30_BACKPORT), 4 (API_30), 5 (API_31) = restrictions active.
+  static bool unusedRestrictionsNeedAction(int status) {
+    return status == 3 || status == 4 || status == 5;
+  }
+
+  /// Start the 60-second AlarmManager rescue watchdog for an active shift.
+  /// No-op on iOS. Fire-and-forget.
+  static Future<void> startRescueAlarms(String shiftId) async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _channel.invokeMethod<bool>(
+        'startRescueAlarms',
+        {'shiftId': shiftId},
+      );
+    } catch (_) {
+      // Best-effort — WorkManager watchdog is the fallback
+    }
+  }
+
+  /// Stop the AlarmManager rescue watchdog. Call when tracking ends.
+  /// No-op on iOS. Fire-and-forget.
+  static Future<void> stopRescueAlarms() async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _channel.invokeMethod<bool>('stopRescueAlarms');
+    } catch (_) {}
+  }
 }

@@ -22,8 +22,10 @@ class BatteryOptimizationDialog extends StatelessWidget {
     );
     final allowed = result ?? false;
 
-    // After AOSP dialog, show OEM-specific instructions if applicable
-    if (allowed && context.mounted) {
+    // After AOSP dialog, always attempt OEM guide.
+    // OemBatteryGuideDialog.showIfNeeded() gates on actual battery state,
+    // so it self-skips when exemption is already granted.
+    if (context.mounted) {
       await OemBatteryGuideDialog.showIfNeeded(context);
     }
 
