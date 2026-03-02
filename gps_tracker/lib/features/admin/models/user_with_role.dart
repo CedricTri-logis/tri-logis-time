@@ -12,6 +12,7 @@ class UserWithRole {
   final String status;
   final UserRole role;
   final DateTime createdAt;
+  final DateTime? batterySetupCompletedAt;
 
   const UserWithRole({
     required this.id,
@@ -21,6 +22,7 @@ class UserWithRole {
     required this.status,
     required this.role,
     required this.createdAt,
+    this.batterySetupCompletedAt,
   });
 
   /// Whether this user is a protected super_admin
@@ -39,6 +41,9 @@ class UserWithRole {
       status: json['status'] as String? ?? 'active',
       role: UserRole.fromString(json['role'] as String? ?? 'employee'),
       createdAt: DateTime.parse(json['created_at'] as String),
+      batterySetupCompletedAt: json['battery_setup_completed_at'] != null
+          ? DateTime.parse(json['battery_setup_completed_at'] as String)
+          : null,
     );
   }
 
@@ -51,6 +56,7 @@ class UserWithRole {
     String? status,
     UserRole? role,
     DateTime? createdAt,
+    DateTime? batterySetupCompletedAt,
   }) {
     return UserWithRole(
       id: id ?? this.id,
@@ -60,6 +66,8 @@ class UserWithRole {
       status: status ?? this.status,
       role: role ?? this.role,
       createdAt: createdAt ?? this.createdAt,
+      batterySetupCompletedAt:
+          batterySetupCompletedAt ?? this.batterySetupCompletedAt,
     );
   }
 
@@ -73,7 +81,8 @@ class UserWithRole {
         other.employeeId == employeeId &&
         other.status == status &&
         other.role == role &&
-        other.createdAt == createdAt;
+        other.createdAt == createdAt &&
+        other.batterySetupCompletedAt == batterySetupCompletedAt;
   }
 
   @override
@@ -86,6 +95,7 @@ class UserWithRole {
       status,
       role,
       createdAt,
+      batterySetupCompletedAt,
     );
   }
 }
