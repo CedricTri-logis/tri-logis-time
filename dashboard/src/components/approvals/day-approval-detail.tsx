@@ -420,7 +420,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
 
   return (
     <Sheet open onOpenChange={() => onClose()}>
-      <SheetContent className="w-full sm:max-w-[85vw] overflow-y-auto" side="right">
+      <SheetContent className="w-full sm:max-w-[50vw] overflow-y-auto" side="right">
         <SheetHeader>
           <SheetTitle>{employeeName}</SheetTitle>
           <p className="text-sm text-muted-foreground capitalize">{formatDate(date)}</p>
