@@ -19,6 +19,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { LocationForm } from '@/components/locations/location-form';
+import { EmployeeHomePicker } from '@/components/locations/employee-home-picker';
 import { useLocation, useLocationMutations } from '@/lib/hooks/use-locations';
 import { LOCATION_TYPE_COLORS } from '@/lib/utils/segment-colors';
 import type { LocationFormInput } from '@/lib/validations/location';
@@ -245,6 +246,11 @@ export default function LocationDetailPage({ params }: LocationDetailPageProps) 
         onSubmit={handleUpdate}
         onCancel={() => router.push('/dashboard/locations')}
         isSubmitting={isUpdating}
+      />
+
+      <EmployeeHomePicker
+        locationId={id}
+        isEmployeeHome={location.isEmployeeHome}
       />
     </div>
   );
