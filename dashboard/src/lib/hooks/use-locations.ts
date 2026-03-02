@@ -183,6 +183,8 @@ export function useLocationMutations() {
             address: data.address,
             notes: data.notes,
             is_active: data.isActive,
+            is_employee_home: data.isEmployeeHome,
+            is_also_office: data.isAlsoOffice,
           })
           .select()
           .single();
@@ -200,6 +202,8 @@ export function useLocationMutations() {
           address: result.address,
           notes: result.notes,
           isActive: result.is_active,
+          isEmployeeHome: result.is_employee_home ?? false,
+          isAlsoOffice: result.is_also_office ?? false,
           createdAt: new Date(result.created_at),
           updatedAt: new Date(result.updated_at),
         };
@@ -250,6 +254,8 @@ export function useLocationMutations() {
           address: result.address,
           notes: result.notes,
           isActive: result.is_active,
+          isEmployeeHome: result.is_employee_home ?? false,
+          isAlsoOffice: result.is_also_office ?? false,
           createdAt: new Date(result.created_at),
           updatedAt: new Date(result.updated_at),
         };

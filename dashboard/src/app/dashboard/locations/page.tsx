@@ -202,6 +202,8 @@ export default function LocationsPage() {
           address: data.address ?? null,
           notes: data.notes ?? null,
           isActive: data.is_active,
+          isEmployeeHome: data.is_employee_home,
+          isAlsoOffice: data.is_also_office,
         });
         toast.success('Emplacement créé avec succès');
         setIsCreateDialogOpen(false);

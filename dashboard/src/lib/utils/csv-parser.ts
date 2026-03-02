@@ -117,6 +117,8 @@ export function validateCsvRow(
         address: data.address ?? null,
         notes: data.notes ?? null,
         isActive: data.is_active,
+        isEmployeeHome: false,
+        isAlsoOffice: false,
       },
     };
   }
