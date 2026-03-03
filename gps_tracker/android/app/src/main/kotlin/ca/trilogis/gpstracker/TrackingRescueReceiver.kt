@@ -213,6 +213,34 @@ class TrackingRescueReceiver : BroadcastReceiver() {
             writeLog(context, "restart_failed:${e.javaClass.simpleName}", shiftId)
         }
 
+        // Capture GPS point natively as backup
+        try {
+            val fusedClient = com.google.android.gms.location.LocationServices
+                .getFusedLocationProviderClient(context)
+            val cancellationSource = com.google.android.gms.tasks.CancellationTokenSource()
+
+            fusedClient.getCurrentLocation(
+                com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY,
+                cancellationSource.token
+            ).addOnSuccessListener { location ->
+                if (location != null && shiftId != null) {
+                    NativeGpsBuffer.save(context, shiftId, location)
+                    writeLog(context, "native_gps_captured", shiftId)
+                }
+            }.addOnFailureListener {
+                // Fail silently — rescue alarm continues regardless
+            }
+
+            // Cancel after 10 seconds to avoid hanging
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                cancellationSource.cancel()
+            }, 10_000)
+        } catch (_: SecurityException) {
+            // Location permission not granted — skip native capture
+        } catch (_: Exception) {
+            // Any other error — skip native capture
+        }
+
         // Schedule the next alarm — continue the chain
         startAlarmChain(context)
     }

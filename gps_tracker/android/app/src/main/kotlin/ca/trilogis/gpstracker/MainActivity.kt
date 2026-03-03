@@ -108,6 +108,14 @@ class MainActivity : FlutterActivity() {
                         android.util.Log.d("MainActivity", "Rescue alarm chain stopped")
                         result.success(true)
                     }
+                    "drainNativeGpsBuffer" -> {
+                        val json = NativeGpsBuffer.drain(this)
+                        result.success(json)
+                    }
+                    "getNativeGpsBufferCount" -> {
+                        val count = NativeGpsBuffer.count(this)
+                        result.success(count)
+                    }
                     else -> result.notImplemented()
                 }
             }
