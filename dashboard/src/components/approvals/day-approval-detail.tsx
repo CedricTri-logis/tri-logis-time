@@ -20,6 +20,8 @@ import {
   ChevronDown,
   ChevronUp,
   ArrowRight,
+  Calendar,
+  User,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabaseClient } from '@/lib/supabase/client';
@@ -378,6 +380,11 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
     return mergeClockEvents(detail.activities);
   }, [detail]);
 
+  // Client-side visible needs_review count (excludes merged/hidden clock events)
+  const visibleNeedsReviewCount = useMemo(() => {
+    return processedActivities.filter(pa => pa.item.final_status === 'needs_review').length;
+  }, [processedActivities]);
+
   // Duration by location type (for summary badges)
   const durationStats = useMemo(() => {
     if (!detail) return { totalTravelSeconds: 0, stopByType: {} as Record<string, number> };
@@ -392,11 +399,21 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
     return { totalTravelSeconds, stopByType };
   }, [detail]);
 
+  // Find trips adjacent to a stop (arriving trip ends when stop starts, departing trip starts when stop ends)
+  const findAdjacentTrips = useCallback((stopActivity: ApprovalActivity): ApprovalActivity[] => {
+    if (!detail) return [];
+    return detail.activities.filter(a =>
+      a.activity_type === 'trip' &&
+      (a.ended_at === stopActivity.started_at || a.started_at === stopActivity.ended_at)
+    );
+  }, [detail]);
+
   const handleOverride = async (activity: ApprovalActivity, newStatus: 'approved' | 'rejected') => {
     // If there's already an override with the same status, remove it (toggle back to auto)
     if (activity.override_status === newStatus) {
       setIsSaving(true);
       try {
+        let lastData;
         const { data, error } = await supabaseClient.rpc('remove_activity_override', {
           p_employee_id: employeeId,
           p_date: date,
@@ -407,7 +424,24 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
           toast.error('Erreur: ' + error.message);
           return;
         }
-        setDetail(data as DayApprovalDetailType);
+        lastData = data;
+
+        // Cascade: un-rejecting a stop also un-rejects adjacent trips
+        if (activity.activity_type === 'stop' && activity.override_status === 'rejected') {
+          for (const trip of findAdjacentTrips(activity)) {
+            if (trip.override_status) {
+              const { data: d } = await supabaseClient.rpc('remove_activity_override', {
+                p_employee_id: employeeId,
+                p_date: date,
+                p_activity_type: trip.activity_type,
+                p_activity_id: trip.activity_id,
+              });
+              if (d) lastData = d;
+            }
+          }
+        }
+
+        setDetail(lastData as DayApprovalDetailType);
       } finally {
         setIsSaving(false);
       }
@@ -416,6 +450,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
 
     setIsSaving(true);
     try {
+      let lastData;
       const { data, error } = await supabaseClient.rpc('save_activity_override', {
         p_employee_id: employeeId,
         p_date: date,
@@ -427,7 +462,23 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
         toast.error('Erreur: ' + error.message);
         return;
       }
-      setDetail(data as DayApprovalDetailType);
+      lastData = data;
+
+      // Cascade: rejecting a stop also rejects adjacent trips
+      if (activity.activity_type === 'stop' && newStatus === 'rejected') {
+        for (const trip of findAdjacentTrips(activity)) {
+          const { data: d } = await supabaseClient.rpc('save_activity_override', {
+            p_employee_id: employeeId,
+            p_date: date,
+            p_activity_type: trip.activity_type,
+            p_activity_id: trip.activity_id,
+            p_status: 'rejected',
+          });
+          if (d) lastData = d;
+        }
+      }
+
+      setDetail(lastData as DayApprovalDetailType);
     } finally {
       setIsSaving(false);
     }
@@ -471,7 +522,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
   };
 
   const isApproved = detail?.approval_status === 'approved';
-  const canApprove = detail && !isApproved && detail.summary.needs_review_count === 0 && !detail.has_active_shift;
+  const canApprove = detail && !isApproved && visibleNeedsReviewCount === 0 && !detail.has_active_shift;
 
   return (
     <Sheet open onOpenChange={() => onClose()}>
@@ -485,48 +536,101 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
           onMouseDown={onDragStart}
           className="absolute inset-y-0 left-0 w-1.5 cursor-col-resize hover:bg-primary/20 active:bg-primary/30 transition-colors z-10"
         />
-        <SheetHeader>
-          <SheetTitle>{employeeName}</SheetTitle>
-          <p className="text-sm text-muted-foreground capitalize">{formatDate(date)}</p>
-        </SheetHeader>
+        
+        <div className="flex flex-col gap-6 pb-6 mb-2 border-b">
+          <div className="flex items-start justify-between">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2.5">
+                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
+                  <User className="h-5 w-5" />
+                </div>
+                <SheetTitle className="text-2xl font-bold tracking-tight">{employeeName}</SheetTitle>
+              </div>
+              <div className="flex items-center gap-4 text-sm text-muted-foreground ml-1.5">
+                <p className="flex items-center gap-1.5 capitalize font-medium">
+                  <Calendar className="h-4 w-4 text-primary" />
+                  {formatDate(date)}
+                </p>
+                {detail?.summary.total_shift_minutes ? (
+                  <p className="flex items-center gap-1.5">
+                    <Clock className="h-4 w-4 text-primary" />
+                    <span>{formatHours(detail.summary.total_shift_minutes)} enregistrés</span>
+                  </p>
+                ) : null}
+              </div>
+            </div>
+            
+            {isApproved && (
+              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 px-3 py-1 text-xs font-semibold rounded-full shadow-sm animate-in fade-in zoom-in duration-300">
+                <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+                Approuvée
+              </Badge>
+            )}
+          </div>
+        </div>
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <div className="flex items-center justify-center py-24">
+            <Loader2 className="h-10 w-10 animate-spin text-primary/40" />
           </div>
         ) : detail ? (
-          <div className="mt-4 space-y-4">
-            {/* Summary bar */}
-            <div className="flex flex-wrap gap-2">
-              <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
-                <CheckCircle2 className="h-3 w-3 mr-1" />
-                {formatHours(detail.summary.approved_minutes)} approuvé
-              </Badge>
-              <Badge className="bg-red-100 text-red-700 hover:bg-red-100">
-                <XCircle className="h-3 w-3 mr-1" />
-                {formatHours(detail.summary.rejected_minutes)} rejeté
-              </Badge>
-              {detail.summary.needs_review_count > 0 && (
-                <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100">
-                  <AlertTriangle className="h-3 w-3 mr-1" />
-                  {detail.summary.needs_review_count} à vérifier
-                </Badge>
-              )}
-              <Badge variant="outline">
-                <Clock className="h-3 w-3 mr-1" />
-                {formatHours(detail.summary.total_shift_minutes)} total
-              </Badge>
+          <div className="mt-6 space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            {/* Summary Grid - Modern Analytics Style */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="group relative overflow-hidden flex flex-col p-4 bg-green-50/50 rounded-2xl border border-green-100 shadow-sm transition-all hover:shadow-md">
+                <div className="absolute top-0 right-0 p-3 text-green-200/50 group-hover:scale-110 transition-transform">
+                  <CheckCircle2 className="h-12 w-12" />
+                </div>
+                <span className="text-[10px] uppercase tracking-[0.1em] text-green-700/60 font-bold mb-1">Approuvé</span>
+                <div className="flex items-baseline gap-1 mt-auto">
+                  <span className="text-2xl font-black text-green-700 tracking-tight">{formatHours(detail.summary.approved_minutes)}</span>
+                </div>
+              </div>
+              
+              <div className="group relative overflow-hidden flex flex-col p-4 bg-red-50/50 rounded-2xl border border-red-100 shadow-sm transition-all hover:shadow-md">
+                <div className="absolute top-0 right-0 p-3 text-red-200/50 group-hover:scale-110 transition-transform">
+                  <XCircle className="h-12 w-12" />
+                </div>
+                <span className="text-[10px] uppercase tracking-[0.1em] text-red-700/60 font-bold mb-1">Rejeté</span>
+                <div className="flex items-baseline gap-1 mt-auto">
+                  <span className="text-2xl font-black text-red-700 tracking-tight">{formatHours(detail.summary.rejected_minutes)}</span>
+                </div>
+              </div>
+              
+              <div className={`group relative overflow-hidden flex flex-col p-4 rounded-2xl border shadow-sm transition-all hover:shadow-md ${visibleNeedsReviewCount > 0 ? 'bg-amber-50/50 border-amber-100' : 'bg-muted/30 border-muted-foreground/10'}`}>
+                <div className={`absolute top-0 right-0 p-3 transition-transform group-hover:scale-110 ${visibleNeedsReviewCount > 0 ? 'text-amber-200/50' : 'text-muted-foreground/10'}`}>
+                  <AlertTriangle className="h-12 w-12" />
+                </div>
+                <span className={`text-[10px] uppercase tracking-[0.1em] font-bold mb-1 ${visibleNeedsReviewCount > 0 ? 'text-amber-700/60' : 'text-muted-foreground/60'}`}>À vérifier</span>
+                <div className="flex items-baseline gap-1 mt-auto">
+                  <span className={`text-2xl font-black tracking-tight ${visibleNeedsReviewCount > 0 ? 'text-amber-700' : 'text-muted-foreground/40'}`}>
+                    {visibleNeedsReviewCount}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground/60 font-medium lowercase">activité{visibleNeedsReviewCount > 1 ? 's' : ''}</span>
+                </div>
+              </div>
+              
+              <div className="group relative overflow-hidden flex flex-col p-4 bg-slate-50 rounded-2xl border border-slate-200 shadow-sm transition-all hover:shadow-md">
+                <div className="absolute top-0 right-0 p-3 text-slate-200 group-hover:scale-110 transition-transform">
+                  <Clock className="h-12 w-12" />
+                </div>
+                <span className="text-[10px] uppercase tracking-[0.1em] text-slate-500 font-bold mb-1">Total</span>
+                <div className="flex items-baseline gap-1 mt-auto">
+                  <span className="text-2xl font-black text-slate-800 tracking-tight">{formatHours(detail.summary.total_shift_minutes)}</span>
+                </div>
+              </div>
             </div>
 
             {/* Duration by type badges */}
             {(durationStats.totalTravelSeconds > 0 || Object.keys(durationStats.stopByType).length > 0) && (
-              <div className="flex flex-wrap items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-1.5 px-1">
+                <span className="text-[10px] font-semibold text-muted-foreground uppercase mr-1">Répartition:</span>
                 {durationStats.totalTravelSeconds > 0 && (
                   <span
-                    className="inline-flex items-center gap-0.5 rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-700"
+                    className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 border border-blue-100"
                     title="Déplacement"
                   >
-                    <Car className="h-3.5 w-3.5 text-blue-500" />
+                    <Car className="h-3 w-3" />
                     {formatDuration(durationStats.totalTravelSeconds)}
                   </span>
                 )}
@@ -541,15 +645,15 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                     const isUnmatched = type === '_unmatched';
                     const iconEntry = isUnmatched ? null : LOCATION_TYPE_ICON_MAP[type as LocationType];
                     const Icon = iconEntry ? iconEntry.icon : MapPin;
-                    const colorClass = iconEntry ? iconEntry.className : 'h-3.5 w-3.5 text-gray-400';
+                    const colorClass = iconEntry ? iconEntry.className : 'h-3 w-3 text-gray-400';
                     const label = isUnmatched ? 'Autre' : (LOCATION_TYPE_LABELS[type as LocationType] || type);
                     return (
                       <span
                         key={type}
-                        className="inline-flex items-center gap-0.5 rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-700"
+                        className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-700 border border-slate-200"
                         title={label}
                       >
-                        <Icon className={colorClass.replace('h-4 w-4', 'h-3.5 w-3.5')} />
+                        <Icon className={colorClass.replace('h-4 w-4', 'h-3 w-3')} />
                         {formatDuration(secs)}
                       </span>
                     );
@@ -557,47 +661,55 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
               </div>
             )}
 
-            {/* Approval status */}
+            {/* Approval status badge if approved */}
             {isApproved && (
-              <div className="rounded-md bg-green-50 p-3 text-sm text-green-700 flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4" />
-                <span>
-                  Journée approuvée
-                  {detail.approved_at && ` le ${new Date(detail.approved_at).toLocaleDateString('fr-CA')}`}
-                </span>
+              <div className="rounded-lg bg-green-50/50 border border-green-200 p-3 text-sm text-green-700 flex items-center gap-3">
+                <div className="bg-green-100 rounded-full p-1.5">
+                  <CheckCircle2 className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="font-semibold">Journée approuvée</p>
+                  <p className="text-xs opacity-80">
+                    {detail.approved_at && `Le ${new Date(detail.approved_at).toLocaleDateString('fr-CA', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`}
+                  </p>
+                </div>
               </div>
             )}
 
             {detail.has_active_shift && (
-              <div className="rounded-md bg-gray-50 p-3 text-sm text-gray-600 flex items-center gap-2">
-                <Clock className="h-4 w-4" />
-                <span>Un quart de travail est encore en cours</span>
+              <div className="rounded-lg bg-amber-50/50 border border-amber-200 p-3 text-sm text-amber-700 flex items-center gap-3">
+                <div className="bg-amber-100 rounded-full p-1.5 animate-pulse">
+                  <Clock className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="font-semibold text-xs uppercase tracking-tight">En cours</p>
+                  <p className="text-xs">Un quart de travail est encore actif pour cet employé.</p>
+                </div>
               </div>
             )}
 
             {/* Activity table */}
-            <div className="overflow-x-auto border rounded-lg">
+            <div className="overflow-hidden border rounded-xl shadow-sm bg-background">
               <table className="w-full text-sm">
-                <thead className="border-b bg-muted/50">
+                <thead className="bg-muted/30">
                   <tr>
-                    <th className="px-3 py-2.5 text-center font-medium text-muted-foreground">Approbation</th>
-                    <th className="px-3 py-2.5 text-center font-medium text-muted-foreground w-8">
-                      <Clock className="h-3.5 w-3.5 mx-auto text-muted-foreground" />
+                    <th className="px-3 py-3 text-center font-semibold text-muted-foreground uppercase text-[10px] tracking-wider border-b">Action</th>
+                    <th className="px-2 py-3 text-center font-semibold text-muted-foreground uppercase text-[10px] tracking-wider border-b w-8">
+                      <Clock className="h-3.5 w-3.5 mx-auto" />
                     </th>
-                    <th className="px-3 py-2.5 text-center font-medium text-muted-foreground w-10">Type</th>
-                    <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">Détails</th>
-                    <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">Début</th>
-                    <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">Fin</th>
-                    <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">Durée</th>
-                    <th className="px-3 py-2.5 text-right font-medium text-muted-foreground">Distance</th>
-                    <th className="px-3 py-2.5 w-8"></th>
+                    <th className="px-2 py-3 text-center font-semibold text-muted-foreground uppercase text-[10px] tracking-wider border-b w-8">Type</th>
+                    <th className="px-3 py-3 text-left font-semibold text-muted-foreground uppercase text-[10px] tracking-wider border-b">Durée</th>
+                    <th className="px-3 py-3 text-left font-semibold text-muted-foreground uppercase text-[10px] tracking-wider border-b">Détails de l'activité</th>
+                    <th className="px-3 py-3 text-left font-semibold text-muted-foreground uppercase text-[10px] tracking-wider border-b">Horaire</th>
+                    <th className="px-3 py-3 text-right font-semibold text-muted-foreground uppercase text-[10px] tracking-wider border-b">Distance</th>
+                    <th className="px-3 py-3 w-8 border-b"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {processedActivities.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="px-3 py-8 text-center text-sm text-gray-500">
-                        Aucune activité détectée
+                      <td colSpan={8} className="px-3 py-12 text-center text-sm text-muted-foreground italic">
+                        Aucune activité détectée pour cette période
                       </td>
                     </tr>
                   ) : (
@@ -649,9 +761,9 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                   Approuver la journée
                 </Button>
 
-                {!canApprove && detail.summary.needs_review_count > 0 && (
+                {!canApprove && visibleNeedsReviewCount > 0 && (
                   <p className="text-xs text-yellow-600 text-center">
-                    {detail.summary.needs_review_count} activité(s) à vérifier avant approbation
+                    {visibleNeedsReviewCount} activité(s) à vérifier avant approbation
                   </p>
                 )}
               </div>
@@ -708,151 +820,208 @@ function ActivityRow({
   const canExpand = !isClock;
   const hasOverride = activity.override_status !== null;
 
-  const rowBg =
-    activity.final_status === 'needs_review'
-      ? 'bg-yellow-50'
-      : activity.final_status === 'rejected'
-      ? 'bg-red-50'
-      : activity.final_status === 'approved'
-      ? 'bg-green-50'
-      : '';
+  const statusConfig = {
+    approved: {
+      row: hasOverride 
+        ? 'bg-green-100 border-l-[6px] border-l-green-600 hover:bg-green-200/70' 
+        : 'bg-green-50 border-l-4 border-l-green-500 hover:bg-green-100/80',
+      badge: 'bg-green-100 text-green-700 border-green-200 ring-1 ring-green-600/10',
+      icon: CheckCircle2,
+      label: 'Approuvé',
+      btnApprove: 'text-green-700 bg-green-100 border-green-300 shadow-sm',
+      btnReject: 'text-gray-400 hover:text-red-600 hover:bg-red-50 border-transparent',
+      text: hasOverride ? 'text-green-950 font-bold' : 'text-green-900 font-medium',
+      subtext: 'text-green-700/70',
+    },
+    rejected: {
+      row: hasOverride 
+        ? 'bg-red-100 border-l-[6px] border-l-red-600 hover:bg-red-200/70' 
+        : 'bg-red-50 border-l-4 border-l-red-500 hover:bg-red-100/80',
+      badge: 'bg-red-100 text-red-700 border-red-200 ring-1 ring-red-600/10',
+      icon: XCircle,
+      label: 'Rejeté',
+      btnApprove: 'text-gray-400 hover:text-green-600 hover:bg-green-50 border-transparent',
+      btnReject: 'text-red-700 bg-red-100 border-red-300 shadow-sm',
+      text: hasOverride ? 'text-red-950 font-bold' : 'text-red-900 font-medium',
+      subtext: 'text-red-700/70',
+    },
+    needs_review: {
+      row: 'bg-amber-50 border-l-4 border-l-amber-500 hover:bg-amber-100/80 shadow-[inset_0_0_0_1px_rgba(251,191,36,0.1)]',
+      badge: 'bg-amber-100 text-amber-800 border-amber-200 ring-2 ring-amber-500/20',
+      icon: AlertTriangle,
+      label: 'À vérifier',
+      btnApprove: 'text-gray-500 hover:text-green-600 hover:bg-green-50 border-gray-200',
+      btnReject: 'text-gray-500 hover:text-red-600 hover:bg-red-50 border-gray-200',
+      text: 'text-amber-950 font-bold',
+      subtext: 'text-amber-800/80',
+    }
+  }[activity.final_status];
 
   return (
     <>
       <tr
-        className={`${rowBg} ${canExpand ? 'cursor-pointer' : ''} hover:bg-muted/50 transition-colors`}
+        className={`${statusConfig.row} ${canExpand ? 'cursor-pointer' : ''} transition-all duration-200 group border-b border-white/50`}
         onClick={canExpand ? onToggle : undefined}
       >
-        {/* Approbation */}
-        <td className="px-3 py-2.5 text-center">
+        {/* Action / Approbation */}
+        <td className="px-3 py-3 text-center">
           {!isApproved ? (
-            <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={`h-7 w-7 ${
-                  activity.final_status === 'approved'
-                    ? 'text-green-600 bg-green-100'
-                    : 'text-gray-400 hover:text-green-600'
-                }`}
-                onClick={() => onOverride(activity, 'approved')}
-                disabled={isSaving}
-              >
-                <CheckCircle2 className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={`h-7 w-7 ${
-                  activity.final_status === 'rejected'
-                    ? 'text-red-600 bg-red-100'
-                    : 'text-gray-400 hover:text-red-600'
-                }`}
-                onClick={() => onOverride(activity, 'rejected')}
-                disabled={isSaving}
-              >
-                <XCircle className="h-4 w-4" />
-              </Button>
+            <div className="flex items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
+              {/* Approve Button */}
+              <div className="relative group/btn">
+                {activity.override_status === 'approved' && (
+                  <>
+                    {/* Double Electric Border - Static */}
+                    <div className="absolute -inset-1 rounded-full border border-blue-500/40 shadow-[0_0_12px_rgba(59,130,246,0.3)]" />
+                    <div className="absolute -inset-[3px] rounded-full border border-blue-500/10" />
+                  </>
+                )}
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className={`h-9 w-9 rounded-full transition-all relative z-0 hover:scale-105 active:scale-95 border-2 ${
+                    activity.override_status === 'approved' 
+                      ? 'border-blue-600 bg-white text-green-600 shadow-sm' 
+                      : statusConfig.btnApprove + ' border-transparent shadow-none'
+                  }`}
+                  onClick={() => onOverride(activity, 'approved')}
+                  disabled={isSaving}
+                >
+                  <CheckCircle2 className={`h-4.5 w-4.5 ${activity.override_status === 'approved' ? 'stroke-[2.5px]' : ''}`} />
+                </Button>
+              </div>
+
+              {/* Reject Button */}
+              <div className="relative group/btn">
+                {activity.override_status === 'rejected' && (
+                  <>
+                    {/* Double Electric Border - Static */}
+                    <div className="absolute -inset-1 rounded-full border border-blue-500/40 shadow-[0_0_12px_rgba(59,130,246,0.3)]" />
+                    <div className="absolute -inset-[3px] rounded-full border border-blue-500/10" />
+                  </>
+                )}
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className={`h-9 w-9 rounded-full transition-all relative z-0 hover:scale-105 active:scale-95 border-2 ${
+                    activity.override_status === 'rejected' 
+                      ? 'border-blue-600 bg-white text-red-600 shadow-sm' 
+                      : statusConfig.btnReject + ' border-transparent shadow-none'
+                  }`}
+                  onClick={() => onOverride(activity, 'rejected')}
+                  disabled={isSaving}
+                >
+                  <XCircle className={`h-4.5 w-4.5 ${activity.override_status === 'rejected' ? 'stroke-[2.5px]' : ''}`} />
+                </Button>
+              </div>
             </div>
           ) : (
-            <Badge variant="secondary" className={STATUS_BADGE[activity.final_status].className}>
-              {(() => { const StatusIcon = STATUS_BADGE[activity.final_status].icon; return <StatusIcon className="h-3 w-3 mr-1" />; })()}
-              {STATUS_BADGE[activity.final_status].label}
-            </Badge>
+            <div className="flex justify-center">
+              <Badge variant="outline" className={`font-bold text-[10px] px-2.5 py-0.5 rounded-full shadow-sm ${statusConfig.badge}`}>
+                {(() => { const StatusIcon = statusConfig.icon; return <StatusIcon className="h-3 w-3 mr-1" />; })()}
+                {statusConfig.label}
+              </Badge>
+            </div>
           )}
         </td>
 
         {/* Clock-in/out indicator */}
-        <td className="px-2 py-2.5 text-center">
+        <td className="px-2 py-3 text-center">
           <div className="flex items-center justify-center gap-0.5">
-            {hasClockIn && <LogIn className="h-3.5 w-3.5 text-emerald-600" />}
-            {hasClockOut && <LogOut className="h-3.5 w-3.5 text-red-500" />}
+            {hasClockIn && <span title="Début de quart"><LogIn className="h-3.5 w-3.5 text-emerald-600" /></span>}
+            {hasClockOut && <span title="Fin de quart"><LogOut className="h-3.5 w-3.5 text-red-600" /></span>}
             {isClock && activity.activity_type === 'clock_in' && <LogIn className="h-3.5 w-3.5 text-emerald-600" />}
-            {isClock && activity.activity_type === 'clock_out' && <LogOut className="h-3.5 w-3.5 text-red-500" />}
+            {isClock && activity.activity_type === 'clock_out' && <LogOut className="h-3.5 w-3.5 text-red-600" />}
           </div>
         </td>
 
         {/* Type icon */}
-        <td className="px-3 py-2.5 text-center">
-          <ApprovalActivityIcon activity={activity} />
+        <td className="px-2 py-3 text-center">
+          <div className="flex justify-center bg-white/80 rounded-lg p-1.5 shadow-sm border border-black/5 group-hover:scale-110 transition-transform">
+            <ApprovalActivityIcon activity={activity} />
+          </div>
+        </td>
+
+        {/* Durée */}
+        <td className="px-3 py-3 whitespace-nowrap">
+          <div className={`flex items-center gap-1.5 tabular-nums text-xs ${statusConfig.text}`}>
+            {isClock ? '—' : formatDurationMinutes(activity.duration_minutes)}
+            {((isStop && (activity.gps_gap_seconds ?? 0) > 0) || (isTrip && activity.has_gps_gap)) ? (
+              <AlertTriangle className="h-3.5 w-3.5 text-amber-600 animate-pulse" />
+            ) : null}
+          </div>
         </td>
 
         {/* Détails */}
-        <td className="px-3 py-2.5 max-w-[350px]">
+        <td className="px-3 py-3 max-w-[300px]">
           {isTrip ? (
-            <div>
-              <div className="flex items-center gap-1 text-xs truncate">
+            <div className="space-y-1">
+              <div className={`flex items-center gap-2 text-xs ${statusConfig.text}`}>
                 <span className="truncate">{activity.start_location_name || 'Inconnu'}</span>
-                <ArrowRight className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+                <ArrowRight className="h-3 w-3 flex-shrink-0 opacity-50" />
                 <span className="truncate">{activity.end_location_name || 'Inconnu'}</span>
               </div>
-              <div className="text-xs text-gray-500 mt-0.5">
-                {activity.auto_reason}
-                {hasOverride && <span className="ml-1 text-blue-600">(modifié manuellement)</span>}
+              <div className="flex items-center gap-1.5">
+                <span className={`text-[10px] leading-tight italic ${statusConfig.subtext}`}>
+                  {activity.auto_reason}
+                </span>
               </div>
             </div>
           ) : isStop ? (
-            <div>
-              <span className={`text-xs ${activity.location_name ? 'text-green-600 font-medium' : 'text-amber-600'}`}>
-                Arrêt{activity.location_name ? ` \u2014 ${activity.location_name}` : ' \u2014 Non associé'}
-              </span>
-              <div className="text-xs text-gray-500 mt-0.5">
-                {activity.auto_reason}
-                {hasOverride && <span className="ml-1 text-blue-600">(modifié manuellement)</span>}
+            <div className="space-y-1">
+              <div className={`text-xs flex items-center gap-1.5 ${statusConfig.text}`}>
+                <span className={activity.location_name ? 'font-bold underline decoration-current/20' : ''}>
+                  {activity.location_name || 'Arrêt non associé'}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className={`text-[10px] leading-tight italic ${statusConfig.subtext}`}>
+                  {activity.auto_reason}
+                </span>
               </div>
             </div>
           ) : (
-            <div>
-              <span className="text-xs text-muted-foreground">
-                {activity.activity_type === 'clock_in' ? 'Clock-in' : 'Clock-out'}
-                {activity.location_name ? ` \u2014 ${activity.location_name}` : ''}
+            <div className="space-y-1">
+              <span className={`text-xs font-bold ${statusConfig.text}`}>
+                {activity.activity_type === 'clock_in' ? 'POINTAGE ENTRÉE' : 'POINTAGE SORTIE'}
               </span>
-              <div className="text-xs text-gray-500 mt-0.5">
-                {activity.auto_reason}
-                {hasOverride && <span className="ml-1 text-blue-600">(modifié manuellement)</span>}
+              <div className={`text-[10px] italic ${statusConfig.subtext}`}>
+                {activity.location_name || 'Lieu inconnu'}
               </div>
             </div>
           )}
         </td>
 
-        {/* Début */}
-        <td className="px-3 py-2.5 whitespace-nowrap font-medium">
-          {formatTime(activity.started_at)}
-        </td>
-
-        {/* Fin */}
-        <td className="px-3 py-2.5 whitespace-nowrap text-muted-foreground">
-          {isClock ? '\u2014' : formatTime(activity.ended_at)}
-        </td>
-
-        {/* Durée */}
-        <td className="px-3 py-2.5 whitespace-nowrap tabular-nums">
-          <div className="flex items-center gap-1">
-            {isClock ? '\u2014' : formatDurationMinutes(activity.duration_minutes)}
-            {isStop && (activity.gps_gap_seconds ?? 0) > 0 && (
-              <span title={`${Math.round((activity.gps_gap_seconds ?? 0) / 60)} min sans signal GPS`}>
-                <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-              </span>
-            )}
-            {isTrip && activity.has_gps_gap && (
-              <span title="Trajet sans trace GPS">
-                <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-              </span>
+        {/* Horaire */}
+        <td className="px-3 py-3 whitespace-nowrap">
+          <div className="flex flex-col">
+            <span className={`text-xs font-black ${statusConfig.text}`}>{formatTime(activity.started_at)}</span>
+            {!isClock && (
+              <span className={`text-[10px] font-medium ${statusConfig.subtext}`}>{formatTime(activity.ended_at)}</span>
             )}
           </div>
         </td>
 
         {/* Distance */}
-        <td className="px-3 py-2.5 text-right tabular-nums whitespace-nowrap">
-          {isTrip ? formatDistance(activity.road_distance_km ?? activity.distance_km) : '\u2014'}
+        <td className="px-3 py-3 text-right tabular-nums whitespace-nowrap">
+          {isTrip ? (
+            <span className={`text-xs font-black ${statusConfig.text}`}>
+              {formatDistance(activity.road_distance_km ?? activity.distance_km)}
+            </span>
+          ) : (
+            <span className="opacity-20 text-xs font-bold">—</span>
+          )}
         </td>
 
         {/* Expand chevron */}
-        <td className="px-3 py-2.5 text-center">
+        <td className="px-3 py-3 text-center">
           {canExpand && (
-            isExpanded
-              ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
-              : <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            <div className={`rounded-full p-1 transition-colors ${isExpanded ? 'bg-muted' : 'group-hover:bg-muted'}`}>
+              {isExpanded
+                ? <ChevronUp className="h-4 w-4 text-primary" />
+                : <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              }
+            </div>
           )}
         </td>
       </tr>
@@ -860,15 +1029,18 @@ function ActivityRow({
       {/* Expanded detail row */}
       {isExpanded && canExpand && (
         <tr>
-          <td colSpan={9} className="p-0">
-            {isTrip ? (
-              <TripExpandDetail activity={activity} />
-            ) : isStop ? (
-              <StopExpandDetail activity={activity} />
-            ) : null}
+          <td colSpan={8} className="p-0 border-b">
+            <div className="px-4 py-6 bg-muted/10 border-t border-b">
+              {isTrip ? (
+                <TripExpandDetail activity={activity} />
+              ) : isStop ? (
+                <StopExpandDetail activity={activity} />
+              ) : null}
+            </div>
           </td>
         </tr>
       )}
     </>
   );
 }
+
