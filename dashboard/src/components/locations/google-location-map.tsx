@@ -32,9 +32,12 @@ export function GoogleLocationMap({
   apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
 }: LocationMapProps) {
   const center = position ? { lat: position[0], lng: position[1] } : { lat: 45.5017, lng: -73.5673 };
+  const lastDragEndRef = useRef(0);
 
   const handleMapClick = (e: MapMouseEvent) => {
     if (!readOnly && e.detail.latLng) {
+      // Ignore click events that fire right after a marker drag (ghost click)
+      if (Date.now() - lastDragEndRef.current < 300) return;
       onPositionChange(e.detail.latLng.lat, e.detail.latLng.lng);
     }
   };
@@ -56,7 +59,10 @@ export function GoogleLocationMap({
                 position={{ lat: position[0], lng: position[1] }}
                 draggable={!readOnly}
                 onDragEnd={(e) => {
-                  if (e.latLng) onPositionChange(e.latLng.lat(), e.latLng.lng());
+                  if (e.latLng) {
+                    lastDragEndRef.current = Date.now();
+                    onPositionChange(e.latLng.lat(), e.latLng.lng());
+                  }
                 }}
               />
               <GeofenceCircle 

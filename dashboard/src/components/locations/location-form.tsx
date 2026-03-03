@@ -57,6 +57,7 @@ interface LocationFormProps {
   onSubmit: (data: LocationFormInput) => Promise<void>;
   onCancel?: () => void;
   isSubmitting?: boolean;
+  onEmployeeHomeChange?: (value: boolean) => void;
 }
 
 const LOCATION_TYPE_ICONS: Record<LocationType, React.ElementType> = {
@@ -79,6 +80,7 @@ export function LocationForm({
   onSubmit,
   onCancel,
   isSubmitting = false,
+  onEmployeeHomeChange,
 }: LocationFormProps) {
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [geocodeError, setGeocodeError] = useState<string | null>(null);
@@ -104,6 +106,7 @@ export function LocationForm({
   const radius = form.watch('radius_meters');
   const locationType = form.watch('location_type');
   const address = form.watch('address');
+  const isEmployeeHome = form.watch('is_employee_home');
 
   // Auto-check is_employee_home when location type changes to 'home'
   useEffect(() => {
@@ -111,6 +114,11 @@ export function LocationForm({
       form.setValue('is_employee_home', true);
     }
   }, [locationType, form]);
+
+  // Notify parent when is_employee_home changes
+  useEffect(() => {
+    onEmployeeHomeChange?.(isEmployeeHome);
+  }, [isEmployeeHome, onEmployeeHomeChange]);
 
   // Position for map (null if coordinates are default/unset)
   const mapPosition: [number, number] | null =

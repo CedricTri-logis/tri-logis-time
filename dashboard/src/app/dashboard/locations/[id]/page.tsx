@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, use } from 'react';
+import { useCallback, use, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { MapPin, ArrowLeft, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
 import { toast } from 'sonner';
@@ -39,6 +39,7 @@ export default function LocationDetailPage({ params }: LocationDetailPageProps) 
   const router = useRouter();
   const { location, isLoading, error, refetch } = useLocation(id);
   const { updateLocation, deleteLocation, isUpdating, isDeleting } = useLocationMutations();
+  const [liveIsEmployeeHome, setLiveIsEmployeeHome] = useState(false);
 
   const handleUpdate = useCallback(
     async (data: LocationFormInput) => {
@@ -251,11 +252,12 @@ export default function LocationDetailPage({ params }: LocationDetailPageProps) 
         onSubmit={handleUpdate}
         onCancel={() => router.push('/dashboard/locations')}
         isSubmitting={isUpdating}
+        onEmployeeHomeChange={setLiveIsEmployeeHome}
       />
 
       <EmployeeHomePicker
         locationId={id}
-        isEmployeeHome={location.isEmployeeHome}
+        isEmployeeHome={liveIsEmployeeHome}
       />
 
       <BuildingLinkSection locationId={id} />
