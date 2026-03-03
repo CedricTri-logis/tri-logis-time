@@ -3,21 +3,20 @@ package ca.trilogis.gpstracker
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.util.Log
 
 /**
  * BroadcastReceiver that restarts the GPS tracking foreground service
  * after device boot or app update if there was an active shift.
  *
- * This is a safety net on top of flutter_foreground_task's autoRunOnBoot,
- * providing more reliable restart on OEM Android ROMs.
+ * This receiver actively restarts the service (not just logging),
+ * and starts the rescue alarm chain for ongoing protection.
  */
 class TrackingBootReceiver : BroadcastReceiver() {
 
     companion object {
         private const val TAG = "TrackingBootReceiver"
-        // flutter_foreground_task uses Flutter's SharedPreferences (file: FlutterSharedPreferences)
-        // Keys are prefixed with "flutter." (Flutter plugin) + "com.pravera.flutter_foreground_task.prefs." (FGT plugin)
         private const val FGT_PREFS = "FlutterSharedPreferences"
         private const val KEY_SHIFT_ID = "flutter.com.pravera.flutter_foreground_task.prefs.shift_id"
     }
@@ -42,10 +41,27 @@ class TrackingBootReceiver : BroadcastReceiver() {
             return
         }
 
-        Log.i(TAG, "Active shift found ($shiftId) — attempting service restart")
+        Log.i(TAG, "Active shift found ($shiftId) — restarting service after $action")
 
-        // flutter_foreground_task's autoRunOnBoot should handle the actual restart,
-        // but we log here for diagnostic visibility. If the plugin's mechanism fails,
-        // the AlarmManager/WorkManager watchdogs will catch it within 5-15 min.
+        // Restart the foreground service
+        try {
+            val serviceIntent = Intent().apply {
+                setClassName(
+                    context.packageName,
+                    "com.pravera.flutter_foreground_task.service.ForegroundService"
+                )
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(serviceIntent)
+            } else {
+                context.startService(serviceIntent)
+            }
+            Log.i(TAG, "FFT service restart attempted after $action for shift $shiftId")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to restart FFT service after $action: ${e.message}")
+        }
+
+        // Start the rescue alarm chain for ongoing protection
+        TrackingRescueReceiver.startAlarmChain(context)
     }
 }
