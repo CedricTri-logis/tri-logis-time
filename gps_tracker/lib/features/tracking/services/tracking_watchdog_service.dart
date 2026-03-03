@@ -44,7 +44,7 @@ class TrackingWatchdogService {
         _workManagerUniqueId,
         _workManagerTaskName,
         frequency: const Duration(minutes: 5),
-        existingWorkPolicy: ExistingPeriodicWorkPolicy.replace,
+        existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
         constraints: Constraints(
           networkType: NetworkType.notRequired,
           requiresBatteryNotLow: false,
