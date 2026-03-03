@@ -12,7 +12,7 @@ class GPSTrackingHandler extends TaskHandler {
   String? _shiftId;
   String? _employeeId;
   int _activeIntervalSeconds = 10;
-  int _stationaryIntervalSeconds = 120;
+  int _stationaryIntervalSeconds = 60;
   int _distanceFilterMeters = 0;
   int _pointCount = 0;
   DateTime? _lastCaptureTime;
