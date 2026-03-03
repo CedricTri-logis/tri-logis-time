@@ -207,6 +207,7 @@ export interface MonitoringFilters {
 
 // Sort options for team list
 export type TeamSortOption = 'name' | 'last-connection' | 'last-gps';
+export type SortDirection = 'asc' | 'desc';
 
 // Utility functions for staleness calculation
 export const STALENESS_THRESHOLDS = {

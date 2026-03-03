@@ -11,7 +11,7 @@ import { TeamFilters } from '@/components/monitoring/team-filters';
 import { StalenessLegend } from '@/components/monitoring/staleness-indicator';
 import { ConnectionStatusBanner, OfflineBanner } from '@/components/monitoring/connection-status';
 import { useSupervisedTeam } from '@/lib/hooks/use-supervised-team';
-import type { ConnectionStatus, TeamSortOption } from '@/types/monitoring';
+import type { ConnectionStatus, SortDirection, TeamSortOption } from '@/types/monitoring';
 
 // Dynamically import the map component to avoid SSR issues
 const TeamMap = dynamic(
@@ -27,6 +27,7 @@ export default function MonitoringPage() {
   const [search, setSearch] = useState('');
   const [shiftStatus, setShiftStatus] = useState<'all' | 'on-shift' | 'off-shift' | 'never-installed'>('on-shift');
   const [sortBy, setSortBy] = useState<TeamSortOption>('name');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
   // Fetch team data with real-time updates
   const {
@@ -44,28 +45,30 @@ export default function MonitoringPage() {
 
   // Client-side sort
   const sortedTeam = useMemo(() => {
+    const dir = sortDirection === 'asc' ? 1 : -1;
+
     if (sortBy === 'name') {
-      return [...team].sort((a, b) => a.displayName.localeCompare(b.displayName));
+      return [...team].sort((a, b) => dir * a.displayName.localeCompare(b.displayName));
     }
     if (sortBy === 'last-gps') {
-      // Most recent GPS first, nulls last
       return [...team].sort((a, b) => {
         const aTime = a.currentLocation?.capturedAt?.getTime() ?? 0;
         const bTime = b.currentLocation?.capturedAt?.getTime() ?? 0;
         if (!aTime && !bTime) return 0;
         if (!aTime) return 1;
         if (!bTime) return -1;
-        return bTime - aTime;
+        // asc = oldest first, desc = most recent first
+        return dir * (aTime - bTime);
       });
     }
-    // 'last-connection': most recent first, nulls last
+    // 'last-connection'
     return [...team].sort((a, b) => {
       if (!a.lastSignInAt && !b.lastSignInAt) return 0;
       if (!a.lastSignInAt) return 1;
       if (!b.lastSignInAt) return -1;
-      return b.lastSignInAt.getTime() - a.lastSignInAt.getTime();
+      return dir * (a.lastSignInAt.getTime() - b.lastSignInAt.getTime());
     });
-  }, [team, sortBy]);
+  }, [team, sortBy, sortDirection]);
 
   // Refresh handler
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -175,9 +178,15 @@ export default function MonitoringPage() {
         search={search}
         shiftStatus={shiftStatus}
         sortBy={sortBy}
+        sortDirection={sortDirection}
         onSearchChange={setSearch}
         onShiftStatusChange={setShiftStatus}
-        onSortChange={setSortBy}
+        onSortChange={(option) => {
+          setSortBy(option);
+          // Default direction: name=asc (A→Z), dates=desc (recent first)
+          setSortDirection(option === 'name' ? 'asc' : 'desc');
+        }}
+        onSortDirectionToggle={() => setSortDirection((d) => d === 'asc' ? 'desc' : 'asc')}
         onClearFilters={handleClearFilters}
       />
 

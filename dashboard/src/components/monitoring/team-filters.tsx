@@ -1,10 +1,10 @@
 'use client';
 
-import { Search, X, ArrowUpDown } from 'lucide-react';
+import { Search, X, ArrowUp, ArrowDown } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { TeamSortOption } from '@/types/monitoring';
+import type { SortDirection, TeamSortOption } from '@/types/monitoring';
 
 type ShiftStatusFilter = 'all' | 'on-shift' | 'off-shift' | 'never-installed';
 
@@ -12,9 +12,11 @@ interface TeamFiltersProps {
   search: string;
   shiftStatus: ShiftStatusFilter;
   sortBy: TeamSortOption;
+  sortDirection: SortDirection;
   onSearchChange: (value: string) => void;
   onShiftStatusChange: (value: ShiftStatusFilter) => void;
   onSortChange: (value: TeamSortOption) => void;
+  onSortDirectionToggle: () => void;
   onClearFilters: () => void;
 }
 
@@ -25,9 +27,11 @@ export function TeamFilters({
   search,
   shiftStatus,
   sortBy,
+  sortDirection,
   onSearchChange,
   onShiftStatusChange,
   onSortChange,
+  onSortDirectionToggle,
   onClearFilters,
 }: TeamFiltersProps) {
   const hasActiveFilters = search !== '' || shiftStatus !== 'all';
@@ -56,7 +60,7 @@ export function TeamFilters({
 
         <div className="flex items-center gap-3">
           {/* Sort toggle */}
-          <SortToggle value={sortBy} onChange={onSortChange} />
+          <SortToggle value={sortBy} direction={sortDirection} onChange={onSortChange} onDirectionToggle={onSortDirectionToggle} />
 
           {/* Clear filters button */}
           {hasActiveFilters && (
@@ -116,19 +120,33 @@ function ShiftStatusToggle({ value, onChange }: ShiftStatusToggleProps) {
 
 interface SortToggleProps {
   value: TeamSortOption;
+  direction: SortDirection;
   onChange: (value: TeamSortOption) => void;
+  onDirectionToggle: () => void;
 }
 
-function SortToggle({ value, onChange }: SortToggleProps) {
+function SortToggle({ value, direction, onChange, onDirectionToggle }: SortToggleProps) {
   const options: { value: TeamSortOption; label: string }[] = [
     { value: 'name', label: 'Nom' },
     { value: 'last-connection', label: 'Dernière connexion' },
     { value: 'last-gps', label: 'Dernier GPS' },
   ];
 
+  const DirectionIcon = direction === 'asc' ? ArrowUp : ArrowDown;
+  const directionLabel = value === 'name'
+    ? (direction === 'asc' ? 'A → Z' : 'Z → A')
+    : (direction === 'asc' ? 'Plus ancien' : 'Plus récent');
+
   return (
     <div className="flex items-center gap-2">
-      <ArrowUpDown className="h-4 w-4 text-slate-400" />
+      <button
+        onClick={onDirectionToggle}
+        className="flex items-center gap-1 text-slate-500 hover:text-slate-700 transition-colors"
+        title={directionLabel}
+      >
+        <DirectionIcon className="h-4 w-4" />
+        <span className="text-xs hidden sm:inline">{directionLabel}</span>
+      </button>
       <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
         {options.map((option) => (
           <button

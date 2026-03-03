@@ -1,12 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { ChevronRight, Clock, LogIn, MapPin, MonitorSmartphone, Navigation, PaintBucket, Smartphone, User, Wrench } from 'lucide-react';
+import { ChevronRight, Clock, LogIn, MonitorSmartphone, PaintBucket, Smartphone, User, Wrench } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DurationCounter } from './duration-counter';
-import { StalenessIndicator, LastUpdatedBadge } from './staleness-indicator';
+import { LastUpdatedBadge } from './staleness-indicator';
 import { NoTeamEmptyState, NoResultsEmptyState } from './empty-states';
 import { formatDeviceModel } from '@/lib/utils/device-model';
 import type { MonitoredEmployee } from '@/types/monitoring';
@@ -81,14 +81,14 @@ function TeamListItem({ employee }: TeamListItemProps) {
         href={`/dashboard/monitoring/${employee.id}`}
         className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors"
       >
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
           {/* Avatar placeholder */}
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500 flex-shrink-0">
             <User className="h-5 w-5" />
           </div>
 
           {/* Employee info */}
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <span className="font-medium text-slate-900 truncate">
                 {employee.displayName}
@@ -124,10 +124,7 @@ function TeamListItem({ employee }: TeamListItemProps) {
                 </span>
               )}
               {employee.currentLocation?.capturedAt && (
-                <span className="flex items-center gap-1">
-                  <Navigation className="h-3 w-3" />
-                  {formatLastConnection(employee.currentLocation.capturedAt)}
-                </span>
+                <LastUpdatedBadge capturedAt={employee.currentLocation.capturedAt} />
               )}
               {employee.lastShiftAt && (
                 <span className="flex items-center gap-1">
@@ -151,13 +148,8 @@ function TeamListItem({ employee }: TeamListItemProps) {
           </div>
         </div>
 
-        {/* Right side: location info + chevron */}
-        <div className="flex items-center gap-3">
-          {isOnShift && (
-            <LocationInfo
-              location={employee.currentLocation}
-            />
-          )}
+        {/* Right side: chevron */}
+        <div className="flex items-center flex-shrink-0">
           <ChevronRight className="h-5 w-5 text-slate-400" />
         </div>
       </Link>
@@ -220,31 +212,6 @@ function ShiftStatusBadge({ status }: ShiftStatusBadgeProps) {
   );
 }
 
-interface LocationInfoProps {
-  location: MonitoredEmployee['currentLocation'];
-}
-
-function LocationInfo({ location }: LocationInfoProps) {
-  if (!location) {
-    return (
-      <div className="flex items-center gap-1.5 text-sm text-slate-400">
-        <MapPin className="h-4 w-4" />
-        <span>En attente</span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-2">
-      <StalenessIndicator
-        capturedAt={location.capturedAt}
-        showLabel={false}
-        size="sm"
-      />
-      <LastUpdatedBadge capturedAt={location.capturedAt} />
-    </div>
-  );
-}
 
 function formatOsVersion(osVersion: string): string {
   // "Android 14 (SDK 34)" → "Android 14"
