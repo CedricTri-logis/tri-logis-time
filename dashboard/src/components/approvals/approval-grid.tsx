@@ -109,9 +109,12 @@ export function ApprovalGrid() {
     return rows;
   }, [data, search, statusFilter]);
 
-  // Week total per employee
-  const getWeekTotal = (row: WeeklyEmployeeRow): number => {
-    return row.days.reduce((sum, d) => sum + d.total_shift_minutes, 0);
+  // Week totals per employee
+  const getWeekApproved = (row: WeeklyEmployeeRow): number => {
+    return row.days.reduce((sum, d) => sum + (d.approved_minutes ?? 0), 0);
+  };
+  const getWeekRejected = (row: WeeklyEmployeeRow): number => {
+    return row.days.reduce((sum, d) => sum + (d.rejected_minutes ?? 0), 0);
   };
 
   const weekLabel = useMemo(() => {
@@ -157,15 +160,19 @@ export function ApprovalGrid() {
       return <Clock className="h-4 w-4 text-gray-400 mx-auto" />;
     }
 
+    const approved = day.approved_minutes ?? 0;
+    const rejected = day.rejected_minutes ?? 0;
+    const needsReviewMinutes = day.total_shift_minutes - approved - rejected;
+
     return (
       <div className="flex flex-col items-center gap-0.5">
-        <span className="text-xs font-medium">{formatHours(day.total_shift_minutes)}</span>
-        {day.status === 'approved' && day.approved_minutes !== null && (
-          <span className="text-[10px] text-green-600">{formatHours(day.approved_minutes)} approuvé</span>
+        <span className="text-xs font-bold">{formatHours(approved)}</span>
+        {rejected > 0 && (
+          <span className="text-[10px] text-red-600">{formatHours(rejected)} refusé</span>
         )}
-        {day.status === 'needs_review' && day.needs_review_count > 0 && (
+        {needsReviewMinutes > 0 && day.needs_review_count > 0 && (
           <Badge variant="secondary" className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100 text-[10px] px-1 py-0">
-            {day.needs_review_count} à vérifier
+            {formatHours(needsReviewMinutes)} à vérifier
           </Badge>
         )}
         {day.status === 'approved' && (
@@ -261,8 +268,15 @@ export function ApprovalGrid() {
                           {renderCell(day)}
                         </td>
                       ))}
-                      <td className="px-4 py-3 text-center font-medium text-gray-900">
-                        {getWeekTotal(row) > 0 ? formatHours(getWeekTotal(row)) : '—'}
+                      <td className="px-4 py-3 text-center">
+                        {getWeekApproved(row) > 0 || getWeekRejected(row) > 0 ? (
+                          <div className="flex flex-col items-center gap-0.5">
+                            <span className="font-bold text-gray-900">{formatHours(getWeekApproved(row))}</span>
+                            {getWeekRejected(row) > 0 && (
+                              <span className="text-[10px] text-red-600">{formatHours(getWeekRejected(row))} refusé</span>
+                            )}
+                          </div>
+                        ) : '—'}
                       </td>
                     </tr>
                   ))
