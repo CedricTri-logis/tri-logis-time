@@ -19,7 +19,7 @@ class GPSTrackingHandler extends TaskHandler {
   Position? _lastPosition;
   bool _isStationary = false;
   DateTime? _lowSpeedSince; // When speed first dropped below 0.5 m/s
-  static const _stationaryDelay = Duration(minutes: 3);
+  static const _stationaryDelay = Duration(minutes: 5);
   bool _isCapturing = false; // Prevent duplicate captures
 
   // Thermal multiplier (received from main isolate)
@@ -222,7 +222,7 @@ class GPSTrackingHandler extends TaskHandler {
       });
     }
 
-    // Update stationary state (speed-based, 3-minute confirmation)
+    // Update stationary state (speed-based, 5-minute confirmation)
     _updateStationaryState(position, now);
 
     // Skip if already capturing
@@ -267,7 +267,7 @@ class GPSTrackingHandler extends TaskHandler {
   /// to positional drift resetting the timer).
   ///
   /// - speed >= 0.5 m/s → immediately active (10s interval)
-  /// - speed < 0.5 m/s for 3 consecutive minutes → stationary (120s interval)
+  /// - speed < 0.5 m/s for 5 consecutive minutes → stationary (120s interval)
   ///
   /// Asymmetric by design: slow to enter stationary (avoids false slowdown at
   /// traffic lights), instant to exit (never miss a departure).
@@ -293,7 +293,7 @@ class GPSTrackingHandler extends TaskHandler {
 
     if (!_isStationary && now.difference(_lowSpeedSince!) >= _stationaryDelay) {
       _isStationary = true;
-      _sendDiagnostic('info', 'Entering stationary mode after 3 min low speed');
+      _sendDiagnostic('info', 'Entering stationary mode after 5 min low speed');
     }
   }
 
