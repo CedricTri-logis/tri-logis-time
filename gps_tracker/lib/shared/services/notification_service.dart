@@ -119,4 +119,44 @@ class NotificationService {
     if (!_initialized) return;
     await _plugin.cancel(_midnightWarningId);
   }
+
+  /// Show an alert when GPS has been lost for 5+ minutes.
+  static const int _gpsAlertId = 9999;
+
+  Future<void> showGpsAlertNotification({required int gapMinutes}) async {
+    if (!_initialized) return;
+
+    const androidDetails = AndroidNotificationDetails(
+      'gps_alert',
+      'Alerte GPS',
+      channelDescription: 'Alerte quand le suivi GPS est interrompu',
+      importance: Importance.high,
+      priority: Priority.high,
+      autoCancel: false,
+      ongoing: true,
+      icon: '@mipmap/ic_launcher',
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentSound: true,
+    );
+
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await _plugin.show(
+      _gpsAlertId,
+      'Suivi de position interrompu',
+      'Votre quart n\'est plus suivi depuis $gapMinutes min. Appuyez pour reprendre.',
+      details,
+    );
+  }
+
+  Future<void> dismissGpsAlertNotification() async {
+    if (!_initialized) return;
+    await _plugin.cancel(_gpsAlertId);
+  }
 }

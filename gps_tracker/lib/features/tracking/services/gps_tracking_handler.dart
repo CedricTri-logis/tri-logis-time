@@ -36,6 +36,10 @@ class GPSTrackingHandler extends TaskHandler {
   // GPS gap tracking
   DateTime? _gpsGapStartedAt;
 
+  // GPS alert notification (user-facing, 5-minute threshold)
+  static const _gpsAlertThreshold = Duration(minutes: 5);
+  bool _gpsAlertShown = false;
+
   // Stream recovery (unlimited attempts with exponential backoff)
   int _streamRecoveryAttempts = 0;
   DateTime? _lastRecoveryAttemptAt;
@@ -197,6 +201,15 @@ class GPSTrackingHandler extends TaskHandler {
     // Update GPS loss tracking — we got a valid position
     _lastSuccessfulPositionAt = now;
     _streamRecoveryAttempts = 0; // Reset recovery counter on success
+
+    // Dismiss GPS alert if shown
+    if (_gpsAlertShown) {
+      _gpsAlertShown = false;
+      FlutterForegroundTask.sendDataToMain({
+        'type': 'gps_alert',
+        'action': 'dismiss',
+      });
+    }
 
     if (_gpsLostNotified) {
       _gpsLostNotified = false;
@@ -400,6 +413,9 @@ class GPSTrackingHandler extends TaskHandler {
     // Stream health check — detects silently dead streams
     _checkStreamHealth(timestamp);
 
+    // User-facing alert when GPS lost > 5 minutes
+    _checkAndNotifyGpsAlert(timestamp);
+
     // Force capture when stationary and interval has passed (iOS fix)
     // iOS distance filter prevents updates when not moving
     if (_lastCaptureTime != null && _lastPosition != null) {
@@ -527,6 +543,28 @@ class GPSTrackingHandler extends TaskHandler {
         notificationTitle: elapsedStr.isNotEmpty ? 'GPS PERDU — $elapsedStr' : 'GPS PERDU',
         notificationText: 'Signal perdu depuis $lostMinutes min — le quart continue',
       );
+    }
+  }
+
+  /// Check if GPS has been lost for 5+ minutes and show/dismiss user alert.
+  void _checkAndNotifyGpsAlert(DateTime now) {
+    if (_lastSuccessfulPositionAt == null) return;
+
+    final elapsed = now.difference(_lastSuccessfulPositionAt!);
+
+    if (elapsed >= _gpsAlertThreshold && !_gpsAlertShown) {
+      _gpsAlertShown = true;
+      FlutterForegroundTask.sendDataToMain({
+        'type': 'gps_alert',
+        'action': 'show',
+        'gap_minutes': elapsed.inMinutes,
+      });
+    } else if (elapsed < _gpsAlertThreshold && _gpsAlertShown) {
+      _gpsAlertShown = false;
+      FlutterForegroundTask.sendDataToMain({
+        'type': 'gps_alert',
+        'action': 'dismiss',
+      });
     }
   }
 

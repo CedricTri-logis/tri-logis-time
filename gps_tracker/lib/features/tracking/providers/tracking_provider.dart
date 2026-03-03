@@ -175,6 +175,8 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
         _logger?.gps(Severity.info, 'GPS stream recovered', metadata: {'attempt': data['attempt']});
       case 'stream_recovery_failing':
         _logger?.gps(Severity.warn, 'GPS stream recovery failing', metadata: {'attempts': data['attempts'], 'gap_minutes': data['gap_minutes']});
+      case 'gps_alert':
+        _handleGpsAlert(data);
       case 'diagnostic':
         _handleDiagnosticMessage(data);
       default:
@@ -197,6 +199,17 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
 
     // Start recording the gap
     _startGpsGap(data);
+  }
+
+  void _handleGpsAlert(Map<String, dynamic> data) {
+    final action = data['action'] as String;
+    if (action == 'show') {
+      NotificationService().showGpsAlertNotification(
+        gapMinutes: data['gap_minutes'] as int,
+      );
+    } else if (action == 'dismiss') {
+      NotificationService().dismissGpsAlertNotification();
+    }
   }
 
   void _handleGpsRestored(Map<String, dynamic> data) {
