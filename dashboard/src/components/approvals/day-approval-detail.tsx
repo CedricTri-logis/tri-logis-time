@@ -193,10 +193,15 @@ function TripExpandDetail({ activity }: { activity: ApprovalActivity }) {
         )}
       </div>
       <div className="grid grid-cols-2 gap-y-4 text-sm content-start">
-        {activity.has_gps_gap && (
+        {(activity.has_gps_gap || (activity.gps_gap_seconds ?? 0) > 0) && (
           <div className="col-span-2 flex items-center gap-2 p-2 mb-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700">
             <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-            <span>Trajet sans trace GPS &mdash; aucune donn&eacute;e de parcours disponible</span>
+            <span>
+              {activity.has_gps_gap && (activity.gps_gap_seconds ?? 0) === 0
+                ? 'Trajet sans trace GPS — aucune donnée de parcours disponible'
+                : `Signal GPS perdu pendant ${Math.round((activity.gps_gap_seconds ?? 0) / 60)} min (${activity.gps_gap_count ?? 0} interruption${(activity.gps_gap_count ?? 0) > 1 ? 's' : ''})`
+              }
+            </span>
           </div>
         )}
         <div>
@@ -399,6 +404,17 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
     return { totalTravelSeconds, stopByType };
   }, [detail]);
 
+  const gpsGapTotals = useMemo(() => {
+    if (!detail?.activities) return { seconds: 0, count: 0 };
+    return detail.activities.reduce(
+      (acc, a) => ({
+        seconds: acc.seconds + (a.gps_gap_seconds ?? 0),
+        count: acc.count + (a.gps_gap_count ?? 0),
+      }),
+      { seconds: 0, count: 0 }
+    );
+  }, [detail?.activities]);
+
   // Find trips adjacent to a stop (arriving trip ends when stop starts, departing trip starts when stop ends)
   const findAdjacentTrips = useCallback((stopActivity: ApprovalActivity): ApprovalActivity[] => {
     if (!detail) return [];
@@ -576,7 +592,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
         ) : detail ? (
           <div className="mt-6 space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
             {/* Summary Grid - Modern Analytics Style */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className={`grid grid-cols-2 ${gpsGapTotals.seconds > 0 ? 'sm:grid-cols-5' : 'sm:grid-cols-4'} gap-4`}>
               <div className="group relative overflow-hidden flex flex-col p-4 bg-green-50/50 rounded-2xl border border-green-100 shadow-sm transition-all hover:shadow-md">
                 <div className="absolute top-0 right-0 p-3 text-green-200/50 group-hover:scale-110 transition-transform">
                   <CheckCircle2 className="h-12 w-12" />
@@ -586,7 +602,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                   <span className="text-2xl font-black text-green-700 tracking-tight">{formatHours(detail.summary.approved_minutes)}</span>
                 </div>
               </div>
-              
+
               <div className="group relative overflow-hidden flex flex-col p-4 bg-red-50/50 rounded-2xl border border-red-100 shadow-sm transition-all hover:shadow-md">
                 <div className="absolute top-0 right-0 p-3 text-red-200/50 group-hover:scale-110 transition-transform">
                   <XCircle className="h-12 w-12" />
@@ -596,7 +612,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                   <span className="text-2xl font-black text-red-700 tracking-tight">{formatHours(detail.summary.rejected_minutes)}</span>
                 </div>
               </div>
-              
+
               <div className={`group relative overflow-hidden flex flex-col p-4 rounded-2xl border shadow-sm transition-all hover:shadow-md ${visibleNeedsReviewCount > 0 ? 'bg-amber-50/50 border-amber-100' : 'bg-muted/30 border-muted-foreground/10'}`}>
                 <div className={`absolute top-0 right-0 p-3 transition-transform group-hover:scale-110 ${visibleNeedsReviewCount > 0 ? 'text-amber-200/50' : 'text-muted-foreground/10'}`}>
                   <AlertTriangle className="h-12 w-12" />
@@ -609,7 +625,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                   <span className="text-[10px] text-muted-foreground/60 font-medium lowercase">activité{visibleNeedsReviewCount > 1 ? 's' : ''}</span>
                 </div>
               </div>
-              
+
               <div className="group relative overflow-hidden flex flex-col p-4 bg-slate-50 rounded-2xl border border-slate-200 shadow-sm transition-all hover:shadow-md">
                 <div className="absolute top-0 right-0 p-3 text-slate-200 group-hover:scale-110 transition-transform">
                   <Clock className="h-12 w-12" />
@@ -619,6 +635,27 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                   <span className="text-2xl font-black text-slate-800 tracking-tight">{formatHours(detail.summary.total_shift_minutes)}</span>
                 </div>
               </div>
+
+              {gpsGapTotals.seconds > 0 && (
+                <div className={`group relative overflow-hidden flex flex-col p-4 bg-amber-50/50 rounded-2xl border shadow-sm transition-all hover:shadow-md ${
+                  gpsGapTotals.seconds >= 300 ? 'border-amber-200' : 'border-amber-100'
+                }`}>
+                  <div className="absolute top-0 right-0 p-3 text-amber-200/50 group-hover:scale-110 transition-transform">
+                    <AlertTriangle className="h-12 w-12" />
+                  </div>
+                  <span className={`text-[10px] uppercase tracking-[0.1em] font-bold mb-1 ${
+                    gpsGapTotals.seconds >= 300 ? 'text-amber-700/60' : 'text-amber-600/60'
+                  }`}>GPS perdu</span>
+                  <div className="flex items-baseline gap-1 mt-auto">
+                    <span className={`text-2xl font-black tracking-tight ${
+                      gpsGapTotals.seconds >= 300 ? 'text-amber-700' : 'text-amber-600'
+                    }`}>{Math.round(gpsGapTotals.seconds / 60)} min</span>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground/60 font-medium">
+                    {gpsGapTotals.count} interruption{gpsGapTotals.count > 1 ? 's' : ''}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Duration by type badges */}
@@ -946,10 +983,24 @@ function ActivityRow({
         <td className="px-3 py-3 whitespace-nowrap">
           <div className={`flex items-center gap-1.5 tabular-nums text-xs ${statusConfig.text}`}>
             {isClock ? '—' : formatDurationMinutes(activity.duration_minutes)}
-            {((isStop && (activity.gps_gap_seconds ?? 0) > 0) || (isTrip && activity.has_gps_gap)) ? (
+            {((activity.gps_gap_seconds ?? 0) > 0 || (isTrip && activity.has_gps_gap && (activity.gps_gap_seconds ?? 0) === 0)) ? (
               <AlertTriangle className="h-3.5 w-3.5 text-amber-600 animate-pulse" />
             ) : null}
           </div>
+          {(activity.gps_gap_seconds ?? 0) > 0 && (
+            <div className={`text-[10px] mt-0.5 ${
+              (activity.gps_gap_seconds ?? 0) >= 300
+                ? 'text-amber-600 font-medium'
+                : 'text-muted-foreground'
+            }`}>
+              {Math.round((activity.gps_gap_seconds ?? 0) / 60)} min perdues ({activity.gps_gap_count ?? 0} gap{(activity.gps_gap_count ?? 0) > 1 ? 's' : ''})
+            </div>
+          )}
+          {isTrip && activity.has_gps_gap && (activity.gps_gap_seconds ?? 0) === 0 && (
+            <div className="text-[10px] mt-0.5 text-amber-600 font-medium">
+              Sans trace GPS
+            </div>
+          )}
         </td>
 
         {/* Détails */}
