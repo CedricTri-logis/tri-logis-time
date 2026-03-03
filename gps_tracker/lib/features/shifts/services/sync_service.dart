@@ -1,7 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
 
+import '../models/local_gps_point.dart';
 import '../../../shared/models/diagnostic_event.dart';
 import '../../../shared/services/diagnostic_logger.dart';
 import '../../../shared/services/local_database.dart';
@@ -79,6 +84,9 @@ class SyncService {
     if (userId == null) {
       return SyncResult(lastError: 'Not authenticated');
     }
+
+    // Step 0: Drain native GPS buffers (Android/iOS backup points)
+    await _drainNativeGpsBuffers();
 
     // Get counts for progress tracking
     final pendingShifts = await _localDb.getPendingShifts(userId);
@@ -383,6 +391,73 @@ class SyncService {
   Future<int> cleanupOldData() async {
     final threshold = DateTime.now().subtract(const Duration(days: 30));
     return await _localDb.deleteOldSyncedGpsPoints(threshold);
+  }
+
+  /// Drains native GPS buffers (Android SharedPreferences / iOS UserDefaults)
+  /// and inserts points into local SQLCipher for normal sync pipeline.
+  Future<int> _drainNativeGpsBuffers() async {
+    try {
+      String? json;
+
+      if (Platform.isAndroid) {
+        json = await const MethodChannel('gps_tracker/device_manufacturer')
+            .invokeMethod<String>('drainNativeGpsBuffer');
+      } else if (Platform.isIOS) {
+        json = await const MethodChannel('gps_tracker/native_gps_buffer')
+            .invokeMethod<String>('drain');
+      }
+
+      if (json == null || json == '[]') return 0;
+
+      final points = jsonDecode(json) as List<dynamic>;
+      if (points.isEmpty) return 0;
+
+      final userId = _currentUserId;
+      if (userId == null) return 0;
+
+      int inserted = 0;
+      for (final point in points) {
+        final capturedAt = DateTime.fromMillisecondsSinceEpoch(
+          point['captured_at'] as int,
+        );
+        final gpsPoint = LocalGpsPoint(
+          id: const Uuid().v4(),
+          shiftId: point['shift_id'] as String,
+          employeeId: userId,
+          latitude: (point['latitude'] as num).toDouble(),
+          longitude: (point['longitude'] as num).toDouble(),
+          accuracy: (point['accuracy'] as num?)?.toDouble(),
+          altitude: (point['altitude'] as num?)?.toDouble(),
+          speed: (point['speed'] as num?)?.toDouble(),
+          heading: (point['heading'] as num?)?.toDouble(),
+          capturedAt: capturedAt,
+          syncStatus: 'pending',
+          createdAt: capturedAt,
+        );
+        await _localDb.insertGpsPoint(gpsPoint);
+        inserted++;
+      }
+
+      if (inserted > 0) {
+        _logger?.gps(
+          Severity.info,
+          'Drained native GPS buffer',
+          metadata: {
+            'count': inserted,
+            'source': points.first['source'],
+          },
+        );
+      }
+
+      return inserted;
+    } catch (e) {
+      _logger?.gps(
+        Severity.warn,
+        'Failed to drain native GPS buffer',
+        metadata: {'error': e.toString()},
+      );
+      return 0;
+    }
   }
 
   /// Fire-and-forget trip detection for recently completed shifts.
