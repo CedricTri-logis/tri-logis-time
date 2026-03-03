@@ -1,6 +1,6 @@
 # Background Tracking Resilience - Audit complet
 
-> Dernière mise à jour : 2026-03-03 | Build actuel : v1.0.0+95
+> Dernière mise à jour : 2026-03-03 | Build actuel : v1.0.0+98
 
 ## Table des matières
 
@@ -23,7 +23,8 @@ L'architecture de résilience utilise une approche **multi-couches** (defense in
 ┌─────────────────────────────────────────────┐
 │           COUCHE SERVEUR (Supabase)          │
 │  pg_cron midnight cleanup, heartbeat,       │
-│  flag_gpsless_shifts, minimum_app_version   │
+│  flag_gpsless_shifts, minimum_app_version,  │
+│  wake-stale-devices cron (2min), FCM push   │
 ├─────────────────────────────────────────────┤
 │         COUCHE FLUTTER (Main Isolate)        │
 │  GPS self-healing (2min nudge),             │
@@ -38,12 +39,13 @@ L'architecture de résilience utilise une approche **multi-couches** (defense in
 │           COUCHE NATIVE iOS                  │
 │  CLBackgroundActivitySession (iOS 17+),      │
 │  beginBackgroundTask, SLC (~500m),           │
-│  Live Activity (Lock Screen)                 │
+│  Live Activity, NativeGpsBuffer (UserDefaults)│
 ├─────────────────────────────────────────────┤
 │           COUCHE NATIVE Android              │
 │  setAlarmClock (45s rescue chain),           │
 │  WorkManager (5min periodic),                │
-│  Boot/Package receiver, OEM battery guide    │
+│  Boot/Package receiver, OEM battery guide,   │
+│  NativeGpsBuffer (SharedPreferences)         │
 └─────────────────────────────────────────────┘
 ```
 
@@ -103,7 +105,18 @@ L'architecture de résilience utilise une approche **multi-couches** (defense in
 | **Statut** | ✅ ACTIF |
 | **Principe** | Affiche le statut du shift sur le Lock Screen. Donne une visibilité à l'utilisateur que le tracking est actif. |
 
-### 2.5 Configuration iOS critique
+### 2.5 NativeGpsBuffer (UserDefaults)
+
+| Attribut | Valeur |
+|----------|--------|
+| **Fichier** | `ios/Runner/NativeGpsBuffer.swift` |
+| **Introduit** | Build +98 |
+| **Statut** | ✅ ACTIF |
+| **Principe** | Capture des points GPS dans UserDefaults quand le SLC callback se déclenche. Permet de sauver des points même si Flutter engine est mort. Drainé dans SQLCipher au prochain sync. |
+
+**Limites** : Max 100 points. Source tag : `native_slc`. Singleton pattern. Intégré dans `SignificantLocationPlugin.didUpdateLocations`.
+
+### 2.6 Configuration iOS critique
 
 | Paramètre | Valeur | Pourquoi |
 |------------|--------|----------|
@@ -163,7 +176,18 @@ L'architecture de résilience utilise une approche **multi-couches** (defense in
 
 **Boucle** : Alarme toutes les 45s → vérifie si shift actif → si le service FFT est mort, le redémarre → re-programme la prochaine alarme.
 
-### 3.3 TrackingWatchdogService (WorkManager — 5min)
+### 3.3 NativeGpsBuffer (SharedPreferences)
+
+| Attribut | Valeur |
+|----------|--------|
+| **Fichier** | `android/.../NativeGpsBuffer.kt` |
+| **Introduit** | Build +98 |
+| **Statut** | ✅ ACTIF |
+| **Principe** | Capture native via `FusedLocationProviderClient` dans le rescue alarm callback. Sauve dans SharedPreferences (JSON array). Drainé dans SQLCipher au prochain sync via MethodChannel. |
+
+**Limites** : Max 100 points. Source tag : `native_rescue`. Timeout GPS : 10s. Intégré dans `TrackingRescueReceiver`.
+
+### 3.4 TrackingWatchdogService (WorkManager — 5min)
 
 | Attribut | Valeur |
 |----------|--------|
@@ -295,16 +319,16 @@ Tentative 4+ → attente 15 min (cap)
 
 | État | Vitesse | Intervalle de base |
 |------|---------|-------------------|
-| Stationnaire | < 0.5 m/s pendant 5 min | 120s |
+| Stationnaire | < 0.5 m/s pendant 5 min | 60s |
 | Actif (marche/véhicule) | ≥ 0.5 m/s | 10s |
 
 **Multiplicateur thermique** :
 
 | Niveau | Multiplicateur | Intervalle stationnaire | Intervalle actif |
 |--------|---------------|------------------------|-----------------|
-| Normal | ×1 | 120s | 10s |
-| Élevé | ×2 | 240s | 20s |
-| Critique | ×4 | 480s | 40s |
+| Normal | ×1 | 60s | 10s |
+| Élevé | ×2 | 120s | 20s |
+| Critique | ×4 | 240s | 40s |
 
 **Transition asymétrique** : Passage immédiat vers actif, mais 5 min de délai avant stationnaire (tolérance feu rouge / arrêt temporaire).
 
@@ -378,7 +402,26 @@ Tentative 4+ → attente 15 min (cap)
 | **Statut** | ✅ ACTIF |
 | **Principe** | Empêche les faux arrêts lors des rebuilds de `authStateChangesProvider`. Valide le shift dans SQLCipher avant d'arrêter le tracking. |
 
-### 4.13 Breadcrumb Logging (Watchdog)
+### 4.13 GPS Alert Notification (5 min)
+
+| Attribut | Valeur |
+|----------|--------|
+| **Fichier** | `gps_tracking_handler.dart`, `tracking_provider.dart`, `notification_service.dart` |
+| **Introduit** | Build +98 |
+| **Statut** | ✅ ACTIF |
+| **Seuil** | 5 minutes sans point GPS |
+| **Principe** | Le background handler envoie un message `gps_alert` au main isolate après 5 min sans GPS. Le main isolate affiche une notification persistante "Suivi de position interrompu". Automatiquement dismiss quand un point GPS est reçu. |
+
+### 4.14 Native GPS Buffer Drain
+
+| Attribut | Valeur |
+|----------|--------|
+| **Fichier** | `sync_service.dart` |
+| **Introduit** | Build +98 |
+| **Statut** | ✅ ACTIF |
+| **Principe** | Step 0 de `syncAll()` — lit les GPS buffers natifs via MethodChannel (Android: `gps_tracker/device_manufacturer`, iOS: `gps_tracker/native_gps_buffer`), crée des `LocalGpsPoint`, insère dans SQLCipher. |
+
+### 4.15 Breadcrumb Logging (Watchdog)
 
 | Attribut | Valeur |
 |----------|--------|
@@ -420,7 +463,35 @@ Tentative 4+ → attente 15 min (cap)
 | **Statut** | ✅ ACTIF |
 | **Complément** | RPC `ping_shift_heartbeat` appelé toutes les ~90s par l'app (indépendant des GPS points) |
 
-### 5.4 Minimum App Version Enforcement
+### 5.4 FCM Silent Push Wake (pg_cron + Edge Function)
+
+| Attribut | Valeur |
+|----------|--------|
+| **Migrations** | 127 (fcm_wake_push), 128 (wake_stale_devices_cron) |
+| **Edge Function** | `send-wake-push` |
+| **Introduit** | Build +98 (server-side prêt, client-side en attente Firebase) |
+| **Statut** | ⏳ PRÊT côté serveur — en attente d'intégration Firebase côté client |
+| **Fréquence** | Toutes les 2 min (pg_cron) |
+| **Throttle** | Max 1 push par 5 min par device |
+
+**Comment ça marche** :
+1. pg_cron appelle `send-wake-push` Edge Function toutes les 2 min via pg_net
+2. La fonction appelle `get_stale_active_devices()` (shifts actifs + heartbeat > 5 min + FCM token valide)
+3. Pour chaque device stale : envoie un silent push FCM v1 (Android `priority: high`, iOS `content-available: 1`)
+4. `record_wake_push()` met à jour `last_wake_push_at` pour le throttle
+
+**Prérequis non-déployé** : Firebase doit être configuré côté Flutter (Task 10-11 du plan Firebase) + `FIREBASE_SERVICE_ACCOUNT_KEY` en secret Supabase. Sans ça, la fonction retourne `{sent: 0, skipped: true}` (no-op gracieux).
+
+### 5.5 Advisory Locks (detect_trips / detect_carpools)
+
+| Attribut | Valeur |
+|----------|--------|
+| **Migration** | 126 (advisory_locks_detect_trips) |
+| **Introduit** | Build +98 |
+| **Statut** | ✅ ACTIF |
+| **Principe** | `pg_advisory_xact_lock` empêche l'exécution concurrente de `detect_trips` (clé: shift_id) et `detect_carpools` (clé: date). Prévient les deadlocks DB. |
+
+### 5.6 Minimum App Version Enforcement
 
 | Attribut | Valeur |
 |----------|--------|
@@ -468,6 +539,20 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +91 | Mar 2 | Supprimé permission `USE_EXACT_ALARM` | ✅ Fix politique Google Play |
 | +94 | Mar 3 | **Réécriture** : `setAlarmClock()` comme tier principal, 45s, 3 tiers | ✅ **Solution actuelle** |
 | +95 | Mar 3 | Stationary delay 3→5 min, GPS gap time window filter | ✅ Actif |
+| +96 | Mar 3 | Dashboard: approval grid hours breakdown | ✅ (dashboard only) |
+
+### Phase 5 : Background Resilience v2 (Build +98)
+
+| Build | Date | Changement | Statut |
+|-------|------|-----------|--------|
+| +98 | Mar 3 | **Advisory locks** sur detect_trips/detect_carpools (migration 126) — prévient deadlocks DB concurrents | ✅ Actif |
+| +98 | Mar 3 | **detect_trips retiré du cycle actif** — exécuté seulement sur shifts complétés, réduit contention DB | ✅ Actif |
+| +98 | Mar 3 | **Stationary interval 120s→60s** — détection de gap GPS 2x plus rapide quand immobile | ✅ Actif |
+| +98 | Mar 3 | **NativeGpsBuffer Android** (Kotlin, SharedPreferences) — capture GPS native dans rescue alarm, max 100 pts | ✅ Actif |
+| +98 | Mar 3 | **NativeGpsBuffer iOS** (Swift, UserDefaults) — capture GPS native dans SLC callback, max 100 pts | ✅ Actif |
+| +98 | Mar 3 | **Native buffer drain** (sync_service.dart) — Step 0 de syncAll(), lit buffers natifs via MethodChannel | ✅ Actif |
+| +98 | Mar 3 | **GPS alert notification** — notification persistante après 5 min sans GPS, auto-dismiss au retour | ✅ Actif |
+| +98 | Mar 3 | **FCM wake push server-side** (migrations 127-128, Edge Function) — pg_cron 2min, silent push, throttle 5min | ⏳ Prêt (attend Firebase client) |
 
 ### Chronologie complète Android Watchdog
 
@@ -563,12 +648,16 @@ TrackingRescueReceiver v2 (Kotlin natif, setAlarmClock tier principal, 45s)
 | `ios/Runner/SignificantLocationPlugin.swift` | SLC — relance après kill iOS |
 | `ios/Runner/BackgroundTaskPlugin.swift` | CLBackgroundActivitySession + beginBackgroundTask + thermal |
 | `ios/Runner/LiveActivityPlugin.swift` | Lock Screen tracking status |
-| `android/.../TrackingRescueReceiver.kt` | Rescue alarm chain (setAlarmClock 45s) |
+| `ios/Runner/NativeGpsBuffer.swift` | UserDefaults GPS buffer (max 100 pts) |
+| `android/.../TrackingRescueReceiver.kt` | Rescue alarm chain (setAlarmClock 45s) + native GPS capture |
+| `android/.../NativeGpsBuffer.kt` | SharedPreferences GPS buffer (max 100 pts) |
 | `android/.../TrackingBootReceiver.kt` | Boot/update recovery |
-| `android/.../MainActivity.kt` | OEM battery guide + thermal + rescue alarm control |
+| `android/.../MainActivity.kt` | OEM battery guide + thermal + rescue alarm + native buffer drain |
 | `lib/features/tracking/services/background_tracking_service.dart` | FFT lifecycle manager |
 | `lib/features/tracking/services/gps_tracking_handler.dart` | Background isolate — GPS capture + recovery |
 | `lib/features/tracking/services/tracking_watchdog_service.dart` | WorkManager 5min watchdog |
-| `lib/features/tracking/providers/tracking_provider.dart` | Main isolate — state + self-healing + heartbeat |
+| `lib/features/tracking/providers/tracking_provider.dart` | Main isolate — state + self-healing + heartbeat + GPS alert |
+| `lib/features/shifts/services/sync_service.dart` | Sync cycle + native buffer drain (Step 0) |
+| `lib/shared/services/notification_service.dart` | Local notifications (midnight, GPS alert) |
 | `supabase/migrations/030_*` | Midnight cleanup pg_cron |
 | `supabase/migrations/098_*` | GPS-less shift monitoring |
