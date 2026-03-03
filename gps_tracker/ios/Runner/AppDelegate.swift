@@ -25,6 +25,23 @@ import GoogleMaps
     // Register Live Activity plugin (iOS 16.1+ shift status on Lock Screen)
     LiveActivityPlugin.register(with: self.registrar(forPlugin: "LiveActivityPlugin")!)
 
+    // Register native GPS buffer MethodChannel
+    let controller = window?.rootViewController as! FlutterViewController
+    let nativeGpsChannel = FlutterMethodChannel(
+        name: "gps_tracker/native_gps_buffer",
+        binaryMessenger: controller.binaryMessenger
+    )
+    nativeGpsChannel.setMethodCallHandler { (call, result) in
+        switch call.method {
+        case "drain":
+            result(NativeGpsBuffer.shared.drain())
+        case "count":
+            result(NativeGpsBuffer.shared.count())
+        default:
+            result(FlutterMethodNotImplemented)
+        }
+    }
+
     // Required for flutter_foreground_task
     SwiftFlutterForegroundTaskPlugin.setPluginRegistrantCallback { registry in
       GeneratedPluginRegistrant.register(with: registry)

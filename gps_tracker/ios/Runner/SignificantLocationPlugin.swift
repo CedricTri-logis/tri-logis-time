@@ -60,6 +60,8 @@ class SignificantLocationPlugin: NSObject, FlutterPlugin, CLLocationManagerDeleg
 
     // Called when iOS detects a significant location change.
     // This fires even if the app was terminated — iOS relaunches it.
+    private static let fftShiftIdKey = "flutter.com.pravera.flutter_foreground_task.prefs.shift_id"
+
     func locationManager(
         _ manager: CLLocationManager,
         didUpdateLocations locations: [CLLocation]
@@ -72,6 +74,12 @@ class SignificantLocationPlugin: NSObject, FlutterPlugin, CLLocationManagerDeleg
             "accuracy": location.horizontalAccuracy,
             "timestamp": location.timestamp.timeIntervalSince1970,
         ])
+
+        // Also save natively as backup (Flutter MethodChannel may fail if engine is dead)
+        if let shiftId = UserDefaults.standard.string(forKey: SignificantLocationPlugin.fftShiftIdKey),
+           !shiftId.isEmpty {
+            NativeGpsBuffer.shared.save(location: location, shiftId: shiftId)
+        }
     }
 
     func locationManager(
