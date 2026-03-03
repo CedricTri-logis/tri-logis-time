@@ -199,7 +199,7 @@ function TripExpandDetail({ activity }: { activity: ApprovalActivity }) {
             <span>
               {activity.has_gps_gap && (activity.gps_gap_seconds ?? 0) === 0
                 ? 'Trajet sans trace GPS — aucune donnée de parcours disponible'
-                : `Signal GPS perdu pendant ${Math.round((activity.gps_gap_seconds ?? 0) / 60)} min (${activity.gps_gap_count ?? 0} interruption${(activity.gps_gap_count ?? 0) > 1 ? 's' : ''})`
+                : `Signal GPS perdu — ${Math.round((activity.gps_gap_seconds ?? 0) / 60)} min (${activity.gps_gap_count ?? 0})`
               }
             </span>
           </div>
@@ -993,7 +993,7 @@ function ActivityRow({
                 ? 'text-amber-600 font-medium'
                 : 'text-muted-foreground'
             }`}>
-              {Math.round((activity.gps_gap_seconds ?? 0) / 60)} min perdues ({activity.gps_gap_count ?? 0} gap{(activity.gps_gap_count ?? 0) > 1 ? 's' : ''})
+              −{Math.round((activity.gps_gap_seconds ?? 0) / 60)} min GPS{(activity.gps_gap_count ?? 0) > 1 ? ` (${activity.gps_gap_count})` : ''}
             </div>
           )}
           {isTrip && activity.has_gps_gap && (activity.gps_gap_seconds ?? 0) === 0 && (

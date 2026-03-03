@@ -15,8 +15,7 @@ interface EmployeeHomePickerProps {
 
 interface EmployeeRow {
   id: string;
-  first_name: string;
-  last_name: string;
+  full_name: string;
 }
 
 export function EmployeeHomePicker({ locationId, isEmployeeHome }: EmployeeHomePickerProps) {
@@ -37,9 +36,9 @@ export function EmployeeHomePicker({ locationId, isEmployeeHome }: EmployeeHomeP
       const ids = data.map((d) => d.employee_id);
       const { data: profiles } = await supabaseClient
         .from('employee_profiles')
-        .select('id, first_name, last_name')
+        .select('id, full_name')
         .in('id', ids)
-        .order('first_name');
+        .order('full_name');
       setEmployees(profiles ?? []);
     } else {
       setEmployees([]);
@@ -57,9 +56,9 @@ export function EmployeeHomePicker({ locationId, isEmployeeHome }: EmployeeHomeP
     setIsSearching(true);
     const { data } = await supabaseClient
       .from('employee_profiles')
-      .select('id, first_name, last_name')
-      .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%`)
-      .order('first_name')
+      .select('id, full_name')
+      .ilike('full_name', `%${query}%`)
+      .order('full_name')
       .limit(10);
     const existingIds = new Set(employees.map((e) => e.id));
     setSearchResults((data ?? []).filter((e) => !existingIds.has(e.id)));
@@ -105,7 +104,7 @@ export function EmployeeHomePicker({ locationId, isEmployeeHome }: EmployeeHomeP
           <>
             {employees.map((emp) => (
               <div key={emp.id} className="flex items-center justify-between rounded-lg border p-2">
-                <span className="text-sm">{emp.first_name} {emp.last_name}</span>
+                <span className="text-sm">{emp.full_name}</span>
                 <Button variant="ghost" size="icon" onClick={() => handleRemove(emp.id)}>
                   <X className="h-4 w-4 text-red-500" />
                 </Button>
@@ -130,7 +129,7 @@ export function EmployeeHomePicker({ locationId, isEmployeeHome }: EmployeeHomeP
                       onClick={() => handleAdd(emp.id)}
                     >
                       <Plus className="h-3 w-3" />
-                      {emp.first_name} {emp.last_name}
+                      {emp.full_name}
                     </button>
                   ))}
                 </div>

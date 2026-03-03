@@ -21,7 +21,21 @@ Steps:
    - **NEVER leave iOS and Android on different build numbers.** This is the #1 rule of this workflow.
 5. **Verify build number parity**: After both deploys succeed, confirm the deployed build numbers match. If they don't, redeploy the lagging platform.
 6. Sync pubspec.yaml to match the actual deployed build number (so it stays in sync for next deploy).
-7. **Enforce minimum version (automated)**:
+7. **Update the Background Tracking Resilience Audit** (`docs/background-tracking-resilience-audit.md`):
+   - **Get the diff since the last deploy**: Run `git log --oneline <last-deploy-commit>..HEAD` (find the last deploy commit with `git log --oneline --grep="Deploy v" -1`). Also run `git diff <last-deploy-commit>..HEAD --stat` to see which files changed.
+   - **Analyze ALL changes** related to tracking, GPS, background services, resilience, alarms, watchdogs, native plugins, permissions, or foreground service. Look at the actual code diffs for these files if needed.
+   - **Update the document**:
+     1. Update the header line: `> Dernière mise à jour : YYYY-MM-DD | Build actuel : v<version>+<build>`
+     2. Add a new row in section 6 ("Historique des builds") under the appropriate phase table (or create a new phase if warranted). Format:
+        ```
+        | +<build> | <date> | <description of change> | <status: ✅/⚠️/❌> |
+        ```
+     3. If anything was **tried but removed/reverted** in this build cycle, add it to section 7 "❌ N'a pas fonctionné / Supprimé" table.
+     4. If a new mechanism was added, add or update its entry in the relevant section (2-5).
+     5. If a mechanism's behavior changed (thresholds, timing, etc.), update its existing entry in sections 2-5.
+   - **If no tracking-related changes exist** in this build, still add the build row with a brief note (e.g., "Dashboard/UI changes only — no tracking changes") so the build history is complete.
+   - Keep the document concise and factual. Write in the same style as existing entries (French, technical, with specific values).
+8. **Enforce minimum version (automated)**:
    - If the user passed "no enforce" / "sans bloquer": skip this entire step.
    - **Launch the automated enforcement script as a background task:**
      ```
@@ -34,15 +48,15 @@ Steps:
      - If not yet available → polls every 5 minutes for up to 60 minutes
      - On success: prints confirmation with the enforced version
      - On timeout: prints manual SQL to run later
-   - **Run this as a background task** so the deploy can continue to step 8 (push/commit).
+   - **Run this as a background task** so the deploy can continue to step 9 (push/commit).
    - **DO NOT manually update `minimum_app_version` yourself.** The script does it. NEVER run the SQL UPDATE directly — let the script handle it to ensure the status check happens first.
    - Report the script's output to the user when it completes.
-8. **Push (run the full /push workflow)** — only if both deploys succeeded:
+9. **Push (run the full /push workflow)** — only if both deploys succeeded:
    - **Apply pending migrations**: Check `git status --short supabase/migrations/` and `git diff --name-only HEAD supabase/migrations/` for new/modified migration files. If any are found, list them and run `supabase db push --linked` from the project root. If it fails, stop and report the error.
-   - **Commit**: Stage all modified files (pubspec.yaml, build configs, code changes, migrations, etc.). Create a commit with message: `chore: Deploy v<version>+<build> to TestFlight & Google Play` (using HEREDOC, with `Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>`).
+   - **Commit**: Stage all modified files (pubspec.yaml, build configs, code changes, migrations, the audit doc, etc.). Create a commit with message: `chore: Deploy v<version>+<build> to TestFlight & Google Play` (using HEREDOC, with `Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>`).
    - **Push**: `git push` (or `git push -u origin HEAD` if no upstream).
    - **Vercel deployment**: Run `npx vercel --prod --yes` to trigger and watch the production deployment. Report the deployment URL and status.
-9. Report the summary: both deploy statuses, the SINGLE build number deployed to both platforms, Google Play review status, what minimum version is now enforced, and the git push status.
+10. Report the summary: both deploy statuses, the SINGLE build number deployed to both platforms, Google Play review status, what minimum version is now enforced, and the git push status.
 
 Important notes:
 - **Both platforms are ALWAYS deployed together** — there is no option to skip one. If the user asks to deploy only one platform, warn them that both must be deployed to keep build numbers in sync, and deploy both.

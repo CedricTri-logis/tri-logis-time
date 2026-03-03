@@ -105,6 +105,13 @@ export function LocationForm({
   const locationType = form.watch('location_type');
   const address = form.watch('address');
 
+  // Auto-check is_employee_home when location type changes to 'home'
+  useEffect(() => {
+    if (locationType === 'home') {
+      form.setValue('is_employee_home', true);
+    }
+  }, [locationType, form]);
+
   // Position for map (null if coordinates are default/unset)
   const mapPosition: [number, number] | null =
     latitude !== 0 || longitude !== 0 ? [latitude, longitude] : null;

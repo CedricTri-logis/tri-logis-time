@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
 import {
   APIProvider,
   Map,
@@ -99,10 +99,14 @@ function GeofenceCircle({ center, radius, locationType }: { center: google.maps.
 
 function AutoFitCircle({ center, radius }: { center: google.maps.LatLngLiteral, radius: number }) {
   const map = useMap();
+  const centerRef = useRef(center);
+  centerRef.current = center;
+
+  // Only re-fit on initial mount or radius change — NOT on position drag
   useEffect(() => {
     if (!map) return;
-    const circle = new google.maps.Circle({ center, radius });
+    const circle = new google.maps.Circle({ center: centerRef.current, radius });
     map.fitBounds(circle.getBounds()!, { top: 40, right: 40, bottom: 40, left: 40 });
-  }, [map, center, radius]);
+  }, [map, radius]);
   return null;
 }
