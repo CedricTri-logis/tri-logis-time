@@ -26,7 +26,7 @@ export default function MonitoringPage() {
   // Filter state
   const [search, setSearch] = useState('');
   const [shiftStatus, setShiftStatus] = useState<'all' | 'on-shift' | 'off-shift' | 'never-installed'>('on-shift');
-  const [sortBy, setSortBy] = useState<TeamSortOption>('last-connection');
+  const [sortBy, setSortBy] = useState<TeamSortOption>('name');
 
   // Fetch team data with real-time updates
   const {
@@ -46,6 +46,17 @@ export default function MonitoringPage() {
   const sortedTeam = useMemo(() => {
     if (sortBy === 'name') {
       return [...team].sort((a, b) => a.displayName.localeCompare(b.displayName));
+    }
+    if (sortBy === 'last-gps') {
+      // Most recent GPS first, nulls last
+      return [...team].sort((a, b) => {
+        const aTime = a.currentLocation?.capturedAt?.getTime() ?? 0;
+        const bTime = b.currentLocation?.capturedAt?.getTime() ?? 0;
+        if (!aTime && !bTime) return 0;
+        if (!aTime) return 1;
+        if (!bTime) return -1;
+        return bTime - aTime;
+      });
     }
     // 'last-connection': most recent first, nulls last
     return [...team].sort((a, b) => {

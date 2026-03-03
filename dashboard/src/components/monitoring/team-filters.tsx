@@ -123,6 +123,7 @@ function SortToggle({ value, onChange }: SortToggleProps) {
   const options: { value: TeamSortOption; label: string }[] = [
     { value: 'name', label: 'Nom' },
     { value: 'last-connection', label: 'Dernière connexion' },
+    { value: 'last-gps', label: 'Dernier GPS' },
   ];
 
   return (

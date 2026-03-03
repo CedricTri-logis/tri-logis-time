@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ChevronRight, Clock, LogIn, MapPin, MonitorSmartphone, PaintBucket, Smartphone, User, Wrench } from 'lucide-react';
+import { ChevronRight, Clock, LogIn, MapPin, MonitorSmartphone, Navigation, PaintBucket, Smartphone, User, Wrench } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -121,6 +121,12 @@ function TeamListItem({ employee }: TeamListItemProps) {
                 <span className="flex items-center gap-1">
                   <LogIn className="h-3 w-3" />
                   {formatLastConnection(employee.lastSignInAt)}
+                </span>
+              )}
+              {employee.currentLocation?.capturedAt && (
+                <span className="flex items-center gap-1">
+                  <Navigation className="h-3 w-3" />
+                  {formatLastConnection(employee.currentLocation.capturedAt)}
                 </span>
               )}
               {employee.lastShiftAt && (
