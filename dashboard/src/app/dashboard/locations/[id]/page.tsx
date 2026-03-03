@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, use, useState } from 'react';
+import { useCallback, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { MapPin, ArrowLeft, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
 import { toast } from 'sonner';
@@ -19,7 +19,6 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { LocationForm } from '@/components/locations/location-form';
-import { EmployeeHomePicker } from '@/components/locations/employee-home-picker';
 import { BuildingLinkSection } from '@/components/locations/building-link-section';
 import { useLocation, useLocationMutations } from '@/lib/hooks/use-locations';
 import { LOCATION_TYPE_COLORS } from '@/lib/utils/segment-colors';
@@ -39,7 +38,6 @@ export default function LocationDetailPage({ params }: LocationDetailPageProps) 
   const router = useRouter();
   const { location, isLoading, error, refetch } = useLocation(id);
   const { updateLocation, deleteLocation, isUpdating, isDeleting } = useLocationMutations();
-  const [liveIsEmployeeHome, setLiveIsEmployeeHome] = useState(false);
 
   const handleUpdate = useCallback(
     async (data: LocationFormInput) => {
@@ -252,12 +250,7 @@ export default function LocationDetailPage({ params }: LocationDetailPageProps) 
         onSubmit={handleUpdate}
         onCancel={() => router.push('/dashboard/locations')}
         isSubmitting={isUpdating}
-        onEmployeeHomeChange={setLiveIsEmployeeHome}
-      />
-
-      <EmployeeHomePicker
         locationId={id}
-        isEmployeeHome={liveIsEmployeeHome}
       />
 
       <BuildingLinkSection locationId={id} />

@@ -3,9 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabaseClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { X, Plus, Loader2, Home } from 'lucide-react';
+import { X, Plus, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface EmployeeHomePickerProps {
@@ -70,7 +69,7 @@ export function EmployeeHomePicker({ locationId, isEmployeeHome }: EmployeeHomeP
       .from('employee_home_locations')
       .insert({ employee_id: employeeId, location_id: locationId });
     if (error) { toast.error("Erreur lors de l'ajout"); return; }
-    toast.success('Employe associe');
+    toast.success('Employé associé');
     setSearch('');
     setSearchResults([]);
     fetchEmployees();
@@ -83,61 +82,54 @@ export function EmployeeHomePicker({ locationId, isEmployeeHome }: EmployeeHomeP
       .eq('employee_id', employeeId)
       .eq('location_id', locationId);
     if (error) { toast.error('Erreur lors de la suppression'); return; }
-    toast.success('Association supprimee');
+    toast.success('Association supprimée');
     fetchEmployees();
   }, [locationId, fetchEmployees]);
 
   if (!isEmployeeHome) return null;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base flex items-center gap-2">
-          <Home className="h-4 w-4" />
-          Employes associes a ce domicile
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {isLoading ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <>
-            {employees.map((emp) => (
-              <div key={emp.id} className="flex items-center justify-between rounded-lg border p-2">
-                <span className="text-sm">{emp.full_name}</span>
-                <Button variant="ghost" size="icon" onClick={() => handleRemove(emp.id)}>
-                  <X className="h-4 w-4 text-red-500" />
-                </Button>
-              </div>
-            ))}
-            {employees.length === 0 && (
-              <p className="text-sm text-slate-500">Aucun employe associe</p>
-            )}
-            <div className="relative">
-              <Input
-                placeholder="Rechercher un employe..."
-                value={search}
-                onChange={(e) => handleSearch(e.target.value)}
-              />
-              {isSearching && <Loader2 className="h-4 w-4 animate-spin absolute right-3 top-3" />}
-              {searchResults.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
-                  {searchResults.map((emp) => (
-                    <button
-                      key={emp.id}
-                      className="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm flex items-center gap-2"
-                      onClick={() => handleAdd(emp.id)}
-                    >
-                      <Plus className="h-3 w-3" />
-                      {emp.full_name}
-                    </button>
-                  ))}
-                </div>
-              )}
+    <div className="space-y-3">
+      <p className="text-sm font-medium">Employés associés à ce domicile</p>
+      {isLoading ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        <>
+          {employees.map((emp) => (
+            <div key={emp.id} className="flex items-center justify-between rounded-lg border p-2">
+              <span className="text-sm">{emp.full_name}</span>
+              <Button variant="ghost" size="icon" onClick={() => handleRemove(emp.id)}>
+                <X className="h-4 w-4 text-red-500" />
+              </Button>
             </div>
-          </>
-        )}
-      </CardContent>
-    </Card>
+          ))}
+          {employees.length === 0 && (
+            <p className="text-sm text-slate-500">Aucun employé associé</p>
+          )}
+          <div className="relative">
+            <Input
+              placeholder="Rechercher un employé..."
+              value={search}
+              onChange={(e) => handleSearch(e.target.value)}
+            />
+            {isSearching && <Loader2 className="h-4 w-4 animate-spin absolute right-3 top-3" />}
+            {searchResults.length > 0 && (
+              <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                {searchResults.map((emp) => (
+                  <button
+                    key={emp.id}
+                    className="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm flex items-center gap-2"
+                    onClick={() => handleAdd(emp.id)}
+                  >
+                    <Plus className="h-3 w-3" />
+                    {emp.full_name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
   );
 }

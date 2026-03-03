@@ -44,6 +44,7 @@ import {
 import { LOCATION_TYPE_COLORS } from '@/lib/utils/segment-colors';
 import type { Location, LocationType } from '@/types/location';
 import { Monitor, Building, ShoppingCart, Home, Coffee, Fuel, MapPin, Search, Loader2 } from 'lucide-react';
+import { EmployeeHomePicker } from './employee-home-picker';
 
 interface LocationFormProps {
   location?: Location | null;
@@ -57,7 +58,8 @@ interface LocationFormProps {
   onSubmit: (data: LocationFormInput) => Promise<void>;
   onCancel?: () => void;
   isSubmitting?: boolean;
-  onEmployeeHomeChange?: (value: boolean) => void;
+  /** Location ID for the employee home picker (only needed in edit mode) */
+  locationId?: string;
 }
 
 const LOCATION_TYPE_ICONS: Record<LocationType, React.ElementType> = {
@@ -80,7 +82,7 @@ export function LocationForm({
   onSubmit,
   onCancel,
   isSubmitting = false,
-  onEmployeeHomeChange,
+  locationId,
 }: LocationFormProps) {
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [geocodeError, setGeocodeError] = useState<string | null>(null);
@@ -114,11 +116,6 @@ export function LocationForm({
       form.setValue('is_employee_home', true);
     }
   }, [locationType, form]);
-
-  // Notify parent when is_employee_home changes
-  useEffect(() => {
-    onEmployeeHomeChange?.(isEmployeeHome);
-  }, [isEmployeeHome, onEmployeeHomeChange]);
 
   // Position for map (null if coordinates are default/unset)
   const mapPosition: [number, number] | null =
@@ -477,6 +474,11 @@ export function LocationForm({
                 </FormItem>
               )}
             />
+            {isEmployeeHome && locationId && (
+              <div className="mt-3">
+                <EmployeeHomePicker locationId={locationId} isEmployeeHome={isEmployeeHome} />
+              </div>
+            )}
           </CardContent>
         </Card>
 
