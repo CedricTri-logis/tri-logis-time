@@ -385,32 +385,12 @@ class SyncService {
     return await _localDb.deleteOldSyncedGpsPoints(threshold);
   }
 
-  /// Fire-and-forget trip detection for active and recently completed shifts.
+  /// Fire-and-forget trip detection for recently completed shifts.
   /// Called after GPS points sync to detect/re-detect trips with new data.
-  /// Active shifts use incremental detection (preserves already-matched trips).
+  /// Active shift detection is skipped — trips aren't needed until after clock-out.
   void _triggerTripDetection(String userId) async {
     try {
-      // 1. Detect trips for the current active shift (real-time detection)
-      final activeShift = await _shiftService.getActiveShift();
-      if (activeShift != null && activeShift.serverId != null) {
-        _supabase.rpc('detect_trips', params: {
-          'p_shift_id': activeShift.serverId,
-        }).then((_) {
-          _logger?.sync(Severity.debug, 'Active shift trip detection completed', metadata: {'shift_id': activeShift.serverId});
-          // Fire-and-forget carpool detection for today
-          _supabase.rpc('detect_carpools', params: {
-            'p_date': DateTime.now().toIso8601String().substring(0, 10),
-          }).then((_) {
-            _logger?.sync(Severity.debug, 'Carpool detection completed');
-          }).catchError((e) {
-            _logger?.sync(Severity.warn, 'Carpool detection failed', metadata: {'error': e.toString()});
-          });
-        }).catchError((e) {
-          _logger?.sync(Severity.warn, 'Active shift trip detection failed', metadata: {'shift_id': activeShift.serverId, 'error': e.toString()});
-        });
-      }
-
-      // 2. Re-detect trips for recently completed shifts
+      // Re-detect trips for recently completed shifts
       final recentShifts = await _localDb.getShiftHistory(
         employeeId: userId,
         limit: 10,
