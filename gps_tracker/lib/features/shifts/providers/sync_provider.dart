@@ -177,6 +177,11 @@ class SyncNotifier extends StateNotifier<SyncState> {
   Timer? _countdownTimer;
   StreamSubscription<SyncProgress>? _progressSub;
 
+  /// Completer that resolves once [_initialize] finishes.
+  /// Guards [notifyPendingData] against race conditions when the provider
+  /// is lazily created during clock-in (e.g. after an app update).
+  final Completer<void> _initCompleter = Completer<void>();
+
   /// Guarded access to the diagnostic logger singleton.
   DiagnosticLogger? get _logger =>
       DiagnosticLogger.isInitialized ? DiagnosticLogger.instance : null;
@@ -192,7 +197,9 @@ class SyncNotifier extends StateNotifier<SyncState> {
 
   SyncNotifier(this._ref) : super(const SyncState()) {
     _backoff = ExponentialBackoff();
-    _initialize();
+    _initialize().whenComplete(() {
+      if (!_initCompleter.isCompleted) _initCompleter.complete();
+    });
   }
 
   Future<void> _initialize() async {
@@ -530,7 +537,15 @@ class SyncNotifier extends StateNotifier<SyncState> {
   }
 
   /// Notify that new data needs sync.
-  void notifyPendingData() {
+  ///
+  /// Waits for [_initialize] to complete before scheduling, preventing a race
+  /// condition where [_loadPersistedState] could overwrite state set by an
+  /// earlier [refreshPendingCounts] call (observed after v93→v95 app update).
+  void notifyPendingData() async {
+    // Wait for init to finish so persisted state is fully loaded and won't
+    // overwrite the pending counts we're about to refresh.
+    await _initCompleter.future;
+
     refreshPendingCounts();
 
     // Only schedule sync if not already syncing and we have a connection
