@@ -1,9 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app.dart';
 import 'core/config/env_config.dart';
@@ -17,6 +23,32 @@ import 'shared/services/local_database.dart';
 import 'shared/services/notification_service.dart';
 import 'shared/services/session_backup_service.dart';
 import 'shared/services/shift_activity_service.dart';
+
+/// Top-level handler for FCM background/terminated messages.
+/// Firebase requires this to be a top-level function (not a class method).
+///
+/// On iOS: receiving this silent push relaunches the full app (main() re-runs),
+/// so the existing tracking recovery handles restart.
+/// On Android: the rescue alarm chain handles restart independently.
+///
+/// We write a breadcrumb for debugging + to satisfy Apple's "useful work"
+/// requirement for silent push budget.
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final timestamp = DateTime.now().toIso8601String();
+    final breadcrumbs = prefs.getStringList('fcm_wake_breadcrumbs') ?? [];
+    breadcrumbs.add('$timestamp|fcm_wake|${message.data['type'] ?? 'unknown'}');
+    // Keep last 20 breadcrumbs only
+    if (breadcrumbs.length > 20) {
+      breadcrumbs.removeRange(0, breadcrumbs.length - 20);
+    }
+    await prefs.setStringList('fcm_wake_breadcrumbs', breadcrumbs);
+  } catch (_) {
+    // Silently fail — this is a best-effort breadcrumb
+  }
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -117,6 +149,12 @@ Future<void> main() async {
     }
   }
 
+  // Firebase init — non-blocking, after tracking recovery completes.
+  // FCM is an additive recovery layer; tracking must not wait for it.
+  if (initError == null) {
+    unawaited(_initializeFirebase());
+  }
+
   if (initError != null) {
     runApp(_ErrorApp(error: initError));
     return;
@@ -192,4 +230,15 @@ Future<void> _initializeTracking() async {
   await BackgroundTrackingService.initialize();
   await AndroidBatteryHealthService.saveBatteryOptimizationSnapshot();
   await TrackingWatchdogService.initialize();
+}
+
+Future<void> _initializeFirebase() async {
+  try {
+    await Firebase.initializeApp();
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    debugPrint('[Main] Firebase initialized successfully');
+  } catch (e) {
+    // Non-fatal: app works without Firebase, just no silent push wake
+    debugPrint('[Main] Firebase init failed (non-critical): $e');
+  }
 }

@@ -17,6 +17,7 @@ import 'shared/models/diagnostic_event.dart';
 import 'shared/services/diagnostic_logger.dart';
 import 'shared/services/realtime_service.dart';
 import 'shared/services/session_backup_service.dart';
+import 'shared/services/fcm_service.dart';
 
 /// Grace period for skipping phone registration (7 days).
 const _phoneSkipGraceDays = 7;
@@ -291,6 +292,8 @@ class _GpsTrackerAppState extends ConsumerState<GpsTrackerApp>
         },);
 
         if (state.event == AuthChangeEvent.signedOut) {
+          // Clear FCM token on sign-out
+          FcmService().clearToken();
           logger?.auth(
             Severity.warn,
             'Auth signed out',
@@ -365,6 +368,9 @@ class _GpsTrackerAppState extends ConsumerState<GpsTrackerApp>
               if (userId != null) {
                 realtimeService.subscribe(userId);
                 DeviceInfoService(Supabase.instance.client).syncDeviceInfo();
+                // Register FCM token for silent push wake (no-op if disabled)
+                FcmService().registerToken();
+                FcmService().listenForTokenRefresh();
               }
               return const _PhoneCheckGate();
             }
