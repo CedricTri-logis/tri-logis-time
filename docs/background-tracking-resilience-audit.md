@@ -1,6 +1,6 @@
 # Background Tracking Resilience - Audit complet
 
-> Dernière mise à jour : 2026-03-05 | Build actuel : v1.0.0+101
+> Dernière mise à jour : 2026-03-05 | Build actuel : v1.0.0+102
 
 ## Table des matières
 
@@ -562,6 +562,7 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +101 | Mar 5 | **Watchdog relance rescue alarm** après restart FFT | ✅ Actif |
 | +101 | Mar 5 | **FCM client activé** — Firebase init (non-bloquant), FCM token enregistré, kill switch migration 132 | ✅ Actif |
 | +101 | Mar 5 | Dashboard : untracked time gaps dans approval timeline, GPS freshness badges sidebar, badge monitoring | Dashboard |
+| +102 | Mar 5 | iOS push notification entitlement APS ajouté, dashboard overlap prevention geofences (migration 133), map fixes — pas de changement tracking | ✅ Stable |
 
 ### Chronologie complète Android Watchdog
 
