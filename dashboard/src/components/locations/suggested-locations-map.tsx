@@ -9,7 +9,7 @@ import {
 } from '@vis.gl/react-google-maps';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, MapPin, ChevronLeft, ChevronRight, X, EyeOff, Monitor, Building, ShoppingCart, Home, Coffee, Fuel } from 'lucide-react';
+import { Plus, MapPin, ChevronLeft, ChevronRight, X, EyeOff, Monitor, Building, ShoppingCart, Home, Coffee, Fuel, Map as MapIcon, Layers } from 'lucide-react';
 import type { Location } from '@/types/location';
 import type { LocationType } from '@/types/location';
 import { getLocationTypeColor, getLocationTypeLabel } from '@/lib/utils/segment-colors';
@@ -102,6 +102,7 @@ export function SuggestedLocationsMap({
   const [gpsPoints, setGpsPoints] = useState<GpsPoint[]>([]);
   const [selectedGpsIndex, setSelectedGpsIndex] = useState<number | null>(null);
   const selectedGpsPoint = selectedGpsIndex != null ? gpsPoints[selectedGpsIndex] ?? null : null;
+  const [mapType, setMapType] = useState<'roadmap' | 'hybrid'>('roadmap');
 
   // Fetch occurrences when a cluster is selected
   useEffect(() => {
@@ -164,6 +165,7 @@ export function SuggestedLocationsMap({
           defaultCenter={DEFAULT_CENTER}
           defaultZoom={DEFAULT_ZOOM}
           mapId="suggested_locations_map"
+          mapTypeId={mapType}
           disableDefaultUI={true}
           zoomControl={true}
         >
@@ -320,6 +322,24 @@ export function SuggestedLocationsMap({
           <AutoFitClusters clusters={clusters} locations={locations} selectedClusterId={selectedClusterId} />
         </Map>
       </APIProvider>
+
+      {/* Map type toggle (top-right) */}
+      <div className="absolute top-3 right-3 z-[10] flex items-center gap-1 bg-slate-50 p-1 rounded-md border border-slate-100 shadow-sm">
+        <button
+          onClick={() => setMapType('roadmap')}
+          className={`p-1.5 rounded transition-all ${mapType === 'roadmap' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
+          title="Carte"
+        >
+          <MapIcon className="h-3.5 w-3.5" />
+        </button>
+        <button
+          onClick={() => setMapType('hybrid')}
+          className={`p-1.5 rounded transition-all ${mapType === 'hybrid' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
+          title="Satellite"
+        >
+          <Layers className="h-3.5 w-3.5" />
+        </button>
+      </div>
 
       {/* Floating cluster detail card (bottom-left) */}
       {selectedCluster && (
