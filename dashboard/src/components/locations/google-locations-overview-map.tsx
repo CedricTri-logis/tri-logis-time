@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Location } from '@/types/location';
 import { LOCATION_TYPE_COLORS, getLocationTypeColor } from '@/lib/utils/segment-colors';
-import { MapPin, ExternalLink, Layers } from 'lucide-react';
+import { MapPin, ExternalLink, Layers, Map as MapIcon } from 'lucide-react';
 
 const DEFAULT_CENTER = { lat: 45.5017, lng: -73.5673 };
 const DEFAULT_ZOOM = 11;
@@ -40,6 +40,7 @@ export function GoogleLocationsOverviewMap({
 }: LocationsOverviewMapProps) {
   const router = useRouter();
   const [infoWindowLocation, setInfoWindowLocation] = useState<Location | null>(null);
+  const [mapType, setMapType] = useState<'roadmap' | 'hybrid'>('roadmap');
 
   const filteredLocations = useMemo(() => {
     if (showInactive) return locations;
@@ -79,12 +80,13 @@ export function GoogleLocationsOverviewMap({
       </CardHeader>
 
       <CardContent className="p-0 relative">
-        <div className="h-[500px] w-full">
+        <div className="h-[500px] w-full relative">
           <APIProvider apiKey={apiKey}>
             <Map
               defaultCenter={DEFAULT_CENTER}
               defaultZoom={DEFAULT_ZOOM}
               mapId="locations_overview_map"
+              mapTypeId={mapType}
               disableDefaultUI={true}
               zoomControl={true}
             >
@@ -141,8 +143,26 @@ export function GoogleLocationsOverviewMap({
               <AutoFitLocations locations={filteredLocations} />
             </Map>
           </APIProvider>
+
+          {/* Map type toggle (top-right) */}
+          <div className="absolute top-3 right-3 z-[10] flex items-center gap-1 bg-slate-50 p-1 rounded-md border border-slate-100 shadow-sm">
+            <button
+              onClick={() => setMapType('roadmap')}
+              className={`p-1.5 rounded transition-all ${mapType === 'roadmap' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
+              title="Carte"
+            >
+              <MapIcon className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => setMapType('hybrid')}
+              className={`p-1.5 rounded transition-all ${mapType === 'hybrid' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
+              title="Satellite"
+            >
+              <Layers className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
-        
+
         <div className="p-3 border-t border-slate-100 flex gap-4 overflow-x-auto">
            {Object.entries(LOCATION_TYPE_COLORS).map(([type, config]) => (
              <div key={type} className="flex items-center gap-1.5 whitespace-nowrap">

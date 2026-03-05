@@ -9,6 +9,7 @@ import {
   MapMouseEvent,
 } from '@vis.gl/react-google-maps';
 import { Card } from '@/components/ui/card';
+import { Map as MapIcon, Layers } from 'lucide-react';
 import type { LocationType } from '@/types/location';
 import { getLocationTypeColor } from '@/lib/utils/segment-colors';
 
@@ -44,6 +45,7 @@ export function GoogleLocationMap({
 }: LocationMapProps) {
   const center = position ? { lat: position[0], lng: position[1] } : { lat: 45.5017, lng: -73.5673 };
   const lastDragEndRef = useRef(0);
+  const [mapType, setMapType] = useState<'roadmap' | 'hybrid'>('roadmap');
 
   const handleMapClick = (e: MapMouseEvent) => {
     if (!readOnly && e.detail.latLng) {
@@ -54,12 +56,13 @@ export function GoogleLocationMap({
   };
 
   return (
-    <Card className={className}>
+    <Card className={`${className} relative`}>
       <APIProvider apiKey={apiKey}>
         <Map
           defaultCenter={center}
           defaultZoom={position ? 15 : 12}
           mapId="location_edit_map"
+          mapTypeId={mapType}
           onClick={handleMapClick}
           disableDefaultUI={readOnly}
           gestureHandling={readOnly ? 'none' : 'auto'}
@@ -96,6 +99,26 @@ export function GoogleLocationMap({
           ))}
         </Map>
       </APIProvider>
+
+      {/* Map type toggle (top-right) */}
+      {!readOnly && (
+        <div className="absolute top-3 right-3 z-[10] flex items-center gap-1 bg-slate-50 p-1 rounded-md border border-slate-100 shadow-sm">
+          <button
+            onClick={() => setMapType('roadmap')}
+            className={`p-1.5 rounded transition-all ${mapType === 'roadmap' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
+            title="Carte"
+          >
+            <MapIcon className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => setMapType('hybrid')}
+            className={`p-1.5 rounded transition-all ${mapType === 'hybrid' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
+            title="Satellite"
+          >
+            <Layers className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
     </Card>
   );
 }
