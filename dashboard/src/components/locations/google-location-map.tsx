@@ -81,11 +81,7 @@ export function GoogleLocationMap({
                 radius={radius} 
                 locationType={locationType} 
               />
-              <AutoFitBounds
-                center={{ lat: position[0], lng: position[1] }}
-                radius={radius}
-                nearbyLocations={nearbyLocations}
-              />
+              <AutoFitCircle center={{ lat: position[0], lng: position[1] }} radius={radius} />
             </>
           )}
           {/* Nearby location circles */}
@@ -128,54 +124,17 @@ function GeofenceCircle({ center, radius, locationType }: { center: google.maps.
   return null;
 }
 
-/**
- * Fits the map to show the main circle plus any nearby locations.
- * Only re-fits on radius or nearby locations change — NOT on position drag.
- */
-function AutoFitBounds({
-  center,
-  radius,
-  nearbyLocations,
-}: {
-  center: google.maps.LatLngLiteral;
-  radius: number;
-  nearbyLocations?: NearbyLocationCircle[];
-}) {
+function AutoFitCircle({ center, radius }: { center: google.maps.LatLngLiteral, radius: number }) {
   const map = useMap();
   const centerRef = useRef(center);
   centerRef.current = center;
 
-  // Stable key for nearby locations to avoid re-fitting on every render
-  const nearbyKey = useMemo(
-    () => (nearbyLocations ?? []).map((l) => l.id).sort().join(','),
-    [nearbyLocations]
-  );
-
+  // Only re-fit on initial mount or radius change — NOT on position drag
   useEffect(() => {
     if (!map) return;
-
-    const bounds = new google.maps.LatLngBounds();
-
-    // Include main circle
-    const mainCircle = new google.maps.Circle({ center: centerRef.current, radius });
-    const mainBounds = mainCircle.getBounds();
-    if (mainBounds) bounds.union(mainBounds);
-
-    // Include nearby location circles
-    if (nearbyLocations?.length) {
-      for (const loc of nearbyLocations) {
-        const c = new google.maps.Circle({
-          center: { lat: loc.latitude, lng: loc.longitude },
-          radius: loc.radiusMeters,
-        });
-        const cb = c.getBounds();
-        if (cb) bounds.union(cb);
-      }
-    }
-
-    map.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
-  }, [map, radius, nearbyKey, nearbyLocations]);
-
+    const circle = new google.maps.Circle({ center: centerRef.current, radius });
+    map.fitBounds(circle.getBounds()!, { top: 40, right: 40, bottom: 40, left: 40 });
+  }, [map, radius]);
   return null;
 }
 
