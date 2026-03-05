@@ -125,8 +125,8 @@ BEGIN
   JOIN employee_profiles ep ON ep.id = s.employee_id
   WHERE s.employee_id = p_employee_id
     AND s.status = 'completed'
-    AND s.clocked_in_at::DATE >= p_start_date
-    AND s.clocked_in_at::DATE <= p_end_date
+    AND (s.clocked_in_at AT TIME ZONE 'America/Toronto')::DATE >= p_start_date
+    AND (s.clocked_in_at AT TIME ZONE 'America/Toronto')::DATE <= p_end_date
   ORDER BY s.clocked_in_at DESC;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -190,7 +190,7 @@ BEGIN
   SELECT
     gp.id,
     gp.shift_id,
-    s.clocked_in_at::DATE AS shift_date,
+    (s.clocked_in_at AT TIME ZONE 'America/Toronto')::DATE AS shift_date,
     gp.latitude,
     gp.longitude,
     gp.accuracy,

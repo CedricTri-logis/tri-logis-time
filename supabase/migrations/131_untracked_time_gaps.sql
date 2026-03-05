@@ -96,7 +96,7 @@ BEGIN
     SELECT EXISTS(
         SELECT 1 FROM shifts
         WHERE employee_id = p_employee_id
-          AND clocked_in_at::DATE = p_date
+          AND (clocked_in_at AT TIME ZONE 'America/Toronto')::DATE = p_date
           AND status = 'active'
     ) INTO v_has_active_shift;
 
@@ -117,7 +117,7 @@ BEGIN
     INTO v_total_shift_minutes
     FROM shifts
     WHERE employee_id = p_employee_id
-      AND clocked_in_at::DATE = p_date
+      AND (clocked_in_at AT TIME ZONE 'America/Toronto')::DATE = p_date
       AND status = 'completed';
 
     -- Build classified activity list
@@ -125,7 +125,7 @@ BEGIN
         SELECT s.id AS shift_id, s.clocked_in_at, s.clocked_out_at
         FROM shifts s
         WHERE s.employee_id = p_employee_id
-          AND s.clocked_in_at::DATE = p_date
+          AND (s.clocked_in_at AT TIME ZONE 'America/Toronto')::DATE = p_date
           AND s.status = 'completed'
           AND s.clocked_out_at IS NOT NULL
     ),
@@ -320,7 +320,7 @@ BEGIN
             LIMIT 1
         ) ci_loc ON TRUE
         WHERE s.employee_id = p_employee_id
-          AND s.clocked_in_at::DATE = p_date
+          AND (s.clocked_in_at AT TIME ZONE 'America/Toronto')::DATE = p_date
           AND s.status = 'completed'
 
         UNION ALL
@@ -382,7 +382,7 @@ BEGIN
             LIMIT 1
         ) co_loc ON TRUE
         WHERE s.employee_id = p_employee_id
-          AND s.clocked_in_at::DATE = p_date
+          AND (s.clocked_in_at AT TIME ZONE 'America/Toronto')::DATE = p_date
           AND s.status = 'completed'
           AND s.clocked_out_at IS NOT NULL
     ),
@@ -608,13 +608,13 @@ BEGIN
     day_shifts AS (
         SELECT
             s.employee_id,
-            s.clocked_in_at::DATE AS shift_date,
+            (s.clocked_in_at AT TIME ZONE 'America/Toronto')::DATE AS shift_date,
             SUM(EXTRACT(EPOCH FROM (s.clocked_out_at - s.clocked_in_at)) / 60)::INTEGER AS total_shift_minutes,
             bool_or(s.status = 'active') AS has_active_shift
         FROM shifts s
-        WHERE s.clocked_in_at::DATE BETWEEN p_week_start AND v_week_end
+        WHERE (s.clocked_in_at AT TIME ZONE 'America/Toronto')::DATE BETWEEN p_week_start AND v_week_end
           AND s.employee_id IN (SELECT employee_id FROM employee_list)
-        GROUP BY s.employee_id, s.clocked_in_at::DATE
+        GROUP BY s.employee_id, (s.clocked_in_at AT TIME ZONE 'America/Toronto')::DATE
     ),
     existing_approvals AS (
         SELECT da.employee_id, da.date, da.status, da.approved_minutes, da.rejected_minutes
@@ -626,7 +626,7 @@ BEGIN
     completed_shifts AS (
         SELECT s.id AS shift_id, s.employee_id, s.clocked_in_at, s.clocked_out_at
         FROM shifts s
-        WHERE s.clocked_in_at::DATE BETWEEN p_week_start AND v_week_end
+        WHERE (s.clocked_in_at AT TIME ZONE 'America/Toronto')::DATE BETWEEN p_week_start AND v_week_end
           AND s.employee_id IN (SELECT employee_id FROM employee_list)
           AND s.status = 'completed'
           AND s.clocked_out_at IS NOT NULL
@@ -689,6 +689,9 @@ BEGIN
         FROM completed_shifts cs
         WHERE NOT EXISTS (
             SELECT 1 FROM shift_real_activities ra WHERE ra.shift_id = cs.shift_id
+        )
+        AND NOT EXISTS (
+            SELECT 1 FROM gap_pairs gp WHERE gp.shift_id = cs.shift_id
         )
         AND EXTRACT(EPOCH FROM (cs.clocked_out_at - cs.clocked_in_at)) > 300
     ),

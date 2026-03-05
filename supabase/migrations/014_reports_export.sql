@@ -232,8 +232,8 @@ BEGIN
     SELECT COUNT(*) INTO v_count
     FROM shifts s
     WHERE s.employee_id = ANY(v_authorized_employees)
-      AND s.clocked_in_at::DATE >= p_start_date
-      AND s.clocked_in_at::DATE <= p_end_date;
+      AND (s.clocked_in_at AT TIME ZONE 'America/Toronto')::DATE >= p_start_date
+      AND (s.clocked_in_at AT TIME ZONE 'America/Toronto')::DATE <= p_end_date;
   ELSIF p_report_type = 'attendance' THEN
     -- For attendance, count is employee * days
     v_count := array_length(v_authorized_employees, 1) * (p_end_date - p_start_date + 1);
@@ -241,8 +241,8 @@ BEGIN
     SELECT COUNT(*) INTO v_count
     FROM shifts s
     WHERE s.employee_id = ANY(v_authorized_employees)
-      AND s.clocked_in_at::DATE >= p_start_date
-      AND s.clocked_in_at::DATE <= p_end_date;
+      AND (s.clocked_in_at AT TIME ZONE 'America/Toronto')::DATE >= p_start_date
+      AND (s.clocked_in_at AT TIME ZONE 'America/Toronto')::DATE <= p_end_date;
   ELSE
     v_count := 0;
   END IF;
@@ -490,7 +490,7 @@ BEGIN
     s.employee_id,
     ep.full_name AS employee_name,
     ep.employee_id AS employee_identifier,
-    s.clocked_in_at::DATE AS shift_date,
+    (s.clocked_in_at AT TIME ZONE 'America/Toronto')::DATE AS shift_date,
     s.clocked_in_at,
     s.clocked_out_at,
     CASE
@@ -507,8 +507,8 @@ BEGIN
   FROM shifts s
   JOIN employee_profiles ep ON ep.id = s.employee_id
   WHERE s.employee_id = ANY(v_authorized_employees)
-    AND s.clocked_in_at::DATE >= p_start_date
-    AND s.clocked_in_at::DATE <= p_end_date
+    AND (s.clocked_in_at AT TIME ZONE 'America/Toronto')::DATE >= p_start_date
+    AND (s.clocked_in_at AT TIME ZONE 'America/Toronto')::DATE <= p_end_date
     AND (p_include_incomplete OR s.clocked_out_at IS NOT NULL)
   ORDER BY ep.full_name, s.clocked_in_at;
 END;
@@ -598,8 +598,8 @@ BEGIN
   FROM shifts s
   JOIN employee_profiles ep ON ep.id = s.employee_id
   WHERE s.employee_id = ANY(v_authorized_employees)
-    AND s.clocked_in_at::DATE >= p_start_date
-    AND s.clocked_in_at::DATE <= p_end_date
+    AND (s.clocked_in_at AT TIME ZONE 'America/Toronto')::DATE >= p_start_date
+    AND (s.clocked_in_at AT TIME ZONE 'America/Toronto')::DATE <= p_end_date
   ORDER BY ep.full_name, s.clocked_in_at DESC;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -667,11 +667,11 @@ BEGIN
           EXTRACT(EPOCH FROM (s.clocked_out_at - s.clocked_in_at)) / 3600.0
         ELSE 0
       END AS hours_worked,
-      TO_CHAR(s.clocked_in_at, 'Dy') AS day_name
+      TO_CHAR(s.clocked_in_at AT TIME ZONE 'America/Toronto', 'Dy') AS day_name
     FROM shifts s
     WHERE s.employee_id = ANY(v_authorized_employees)
-      AND s.clocked_in_at::DATE >= p_start_date
-      AND s.clocked_in_at::DATE <= p_end_date
+      AND (s.clocked_in_at AT TIME ZONE 'America/Toronto')::DATE >= p_start_date
+      AND (s.clocked_in_at AT TIME ZONE 'America/Toronto')::DATE <= p_end_date
       AND s.clocked_out_at IS NOT NULL
   ),
   day_breakdown AS (
@@ -753,13 +753,13 @@ BEGIN
   WITH employee_shifts AS (
     SELECT
       s.employee_id,
-      s.clocked_in_at::DATE AS work_date
+      (s.clocked_in_at AT TIME ZONE 'America/Toronto')::DATE AS work_date
     FROM shifts s
     WHERE s.employee_id = ANY(v_authorized_employees)
-      AND s.clocked_in_at::DATE >= p_start_date
-      AND s.clocked_in_at::DATE <= p_end_date
+      AND (s.clocked_in_at AT TIME ZONE 'America/Toronto')::DATE >= p_start_date
+      AND (s.clocked_in_at AT TIME ZONE 'America/Toronto')::DATE <= p_end_date
       AND s.clocked_out_at IS NOT NULL
-    GROUP BY s.employee_id, s.clocked_in_at::DATE
+    GROUP BY s.employee_id, (s.clocked_in_at AT TIME ZONE 'America/Toronto')::DATE
   ),
   calendar AS (
     SELECT
