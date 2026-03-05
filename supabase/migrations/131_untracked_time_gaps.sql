@@ -143,7 +143,11 @@ BEGIN
             l.location_type::TEXT AS location_type,
             sc.centroid_latitude AS latitude,
             sc.centroid_longitude AS longitude,
-            sc.gps_gap_seconds,
+            -- Subtract pre-clock-in and post-clock-out time from GPS gap seconds
+            GREATEST(0, sc.gps_gap_seconds
+                - GREATEST(0, EXTRACT(EPOCH FROM (sb.clocked_in_at - sc.started_at))::INTEGER)
+                - GREATEST(0, EXTRACT(EPOCH FROM (sc.ended_at - sb.clocked_out_at))::INTEGER)
+            ) AS gps_gap_seconds,
             sc.gps_gap_count,
             CASE
                 WHEN l.location_type IN ('office', 'building') THEN 'approved'
@@ -195,7 +199,10 @@ BEGIN
             NULL::TEXT AS location_type,
             t.start_latitude AS latitude,
             t.start_longitude AS longitude,
-            t.gps_gap_seconds,
+            GREATEST(0, t.gps_gap_seconds
+                - GREATEST(0, EXTRACT(EPOCH FROM (sb.clocked_in_at - t.started_at))::INTEGER)
+                - GREATEST(0, EXTRACT(EPOCH FROM (t.ended_at - sb.clocked_out_at))::INTEGER)
+            ) AS gps_gap_seconds,
             t.gps_gap_count,
             CASE
                 WHEN t.has_gps_gap = TRUE THEN 'needs_review'
