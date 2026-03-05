@@ -9,6 +9,7 @@ import type {
   LocationFormData,
   BulkInsertResult,
   BulkInsertResultRow,
+  NearbyLocation,
 } from '@/types/location';
 import type { LocationType } from '@/types/location';
 
@@ -373,4 +374,84 @@ export function useActiveLocations() {
     sortBy: 'name',
     sortOrder: 'asc',
   });
+}
+
+/**
+ * Hook to fetch nearby locations for the edit map.
+ * Returns neighbors within range, with overlap detection.
+ */
+export function useNearbyLocations(
+  latitude: number | null,
+  longitude: number | null,
+  radiusMeters: number,
+  excludeId?: string | null
+) {
+  const [nearbyLocations, setNearbyLocations] = useState<NearbyLocation[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const fetchNearby = useCallback(async () => {
+    if (latitude === null || longitude === null || (latitude === 0 && longitude === 0)) {
+      setNearbyLocations([]);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const params: Record<string, unknown> = {
+        p_latitude: latitude,
+        p_longitude: longitude,
+        p_limit: 20,
+      };
+      if (excludeId) params.p_exclude_id = excludeId;
+
+      const { data, error } = await supabaseClient.rpc('get_nearby_locations', params);
+      if (error) throw error;
+
+      const rows = (data ?? []) as Array<{
+        id: string;
+        name: string;
+        location_type: string;
+        distance_meters: number;
+        radius_meters: number;
+        latitude: number;
+        longitude: number;
+      }>;
+
+      // Only keep locations within 500m
+      setNearbyLocations(
+        rows
+          .filter((r) => r.distance_meters <= 500)
+          .map((r) => ({
+            id: r.id,
+            name: r.name,
+            locationType: r.location_type,
+            distanceMeters: r.distance_meters,
+            radiusMeters: r.radius_meters,
+            latitude: r.latitude,
+            longitude: r.longitude,
+          }))
+      );
+    } catch {
+      setNearbyLocations([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [latitude, longitude, excludeId]);
+
+  // Debounce: re-fetch when position changes (300ms)
+  useEffect(() => {
+    const timer = setTimeout(fetchNearby, 300);
+    return () => clearTimeout(timer);
+  }, [fetchNearby]);
+
+  // Compute overlaps client-side
+  const overlappingLocations = useMemo(
+    () =>
+      nearbyLocations.filter(
+        (loc) => loc.distanceMeters < loc.radiusMeters + radiusMeters
+      ),
+    [nearbyLocations, radiusMeters]
+  );
+
+  return { nearbyLocations, overlappingLocations, isLoading };
 }

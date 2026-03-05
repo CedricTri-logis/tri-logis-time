@@ -43,9 +43,9 @@ import {
 } from '@/lib/validations/location';
 import { LOCATION_TYPE_COLORS } from '@/lib/utils/segment-colors';
 import type { Location, LocationType } from '@/types/location';
-import { Monitor, Building, ShoppingCart, Home, Coffee, Fuel, MapPin, Search, Loader2 } from 'lucide-react';
+import { Monitor, Building, ShoppingCart, Home, Coffee, Fuel, MapPin, Search, Loader2, AlertTriangle } from 'lucide-react';
 import { EmployeeHomePicker } from './employee-home-picker';
-
+import { useNearbyLocations } from '@/lib/hooks/use-locations';
 interface LocationFormProps {
   location?: Location | null;
   /** Pre-fill values for creating a new location (does not trigger "edit" mode) */
@@ -110,6 +110,25 @@ export function LocationForm({
   const address = form.watch('address');
   const isEmployeeHome = form.watch('is_employee_home');
 
+  // Fetch nearby locations and compute overlaps
+  const { nearbyLocations, overlappingLocations } = useNearbyLocations(
+    latitude !== 0 || longitude !== 0 ? latitude : null,
+    latitude !== 0 || longitude !== 0 ? longitude : null,
+    radius,
+    location?.id ?? null
+  );
+
+  const hasOverlap = overlappingLocations.length > 0;
+
+  // Build nearby circles for the map
+  const nearbyCircles = nearbyLocations.map((loc) => ({
+    id: loc.id,
+    name: loc.name,
+    latitude: loc.latitude,
+    longitude: loc.longitude,
+    radiusMeters: loc.radiusMeters,
+    isOverlapping: overlappingLocations.some((o) => o.id === loc.id),
+  }));
   // Auto-check is_employee_home when location type changes to 'home'
   useEffect(() => {
     if (locationType === 'home') {
@@ -182,6 +201,7 @@ export function LocationForm({
       form.setError('latitude', { message: 'Veuillez sélectionner un emplacement sur la carte' });
       return;
     }
+    if (hasOverlap) return;  // safety net
     await onSubmit(data);
   });
 
@@ -334,7 +354,30 @@ export function LocationForm({
               locationType={locationType}
               onPositionChange={handlePositionChange}
               className="h-[350px] w-full rounded-lg border"
+              nearbyLocations={nearbyCircles}
             />
+
+            {hasOverlap && (
+              <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
+                <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-red-800">
+                    Chevauchement detecte
+                  </p>
+                  <ul className="mt-1 text-xs text-red-700 space-y-0.5">
+                    {overlappingLocations.map((loc) => (
+                      <li key={loc.id}>
+                        {loc.name} — {Math.round(loc.distanceMeters)}m de distance,
+                        chevauchement de {Math.round(loc.radiusMeters + radius - loc.distanceMeters)}m
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-1.5 text-xs text-red-600">
+                    Deplacez le marqueur ou reduisez le rayon pour eliminer le chevauchement.
+                  </p>
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <FormField
@@ -525,7 +568,7 @@ export function LocationForm({
               Annuler
             </Button>
           )}
-          <Button type="submit" disabled={isSubmitting}>
+          <Button type="submit" disabled={isSubmitting || hasOverlap}>
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {location ? 'Modifier l\'emplacement' : 'Créer l\'emplacement'}
           </Button>

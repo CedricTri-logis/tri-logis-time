@@ -201,6 +201,15 @@ export interface LocationFormData {
   isAlsoOffice: boolean;
 }
 
+export interface NearbyLocation {
+  id: string;
+  name: string;
+  locationType: string;
+  distanceMeters: number;
+  radiusMeters: number;
+  latitude: number;
+  longitude: number;
+}
 /**
  * CSV import row (pre-validation)
  */
