@@ -1,6 +1,6 @@
 # Background Tracking Resilience - Audit complet
 
-> Dernière mise à jour : 2026-03-04 | Build actuel : v1.0.0+100
+> Dernière mise à jour : 2026-03-05 | Build actuel : v1.0.0+101
 
 ## Table des matières
 
@@ -45,7 +45,8 @@ L'architecture de résilience utilise une approche **multi-couches** (defense in
 │  setAlarmClock (45s rescue chain),           │
 │  WorkManager (5min periodic),                │
 │  Boot/Package receiver, OEM battery guide,   │
-│  NativeGpsBuffer (SharedPreferences)         │
+│  GeofenceWakeReceiver (200m exit),           │
+│  NativeGpsBuffer (SharedPreferences, 500pts) │
 └─────────────────────────────────────────────┘
 ```
 
@@ -555,6 +556,12 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +98 | Mar 3 | **FCM wake push server-side** (migrations 127-128, Edge Function) — pg_cron 2min, silent push, throttle 5min | ⏳ Prêt (attend Firebase client) |
 | +99 | Mar 4 | iOS Fastfile réécriture xcodebuild direct avec API key auth (nouveau Mac) | ✅ (iOS deploy only) |
 | +100 | Mar 4 | Fix `MinimumOSVersion` manquant dans AppFrameworkInfo.plist, widget extension version sync (`$(CURRENT_PROJECT_VERSION)`) | ✅ Actif |
+| +101 | Mar 5 | **NativeGpsBuffer 100→500 pts** (iOS+Android) — couvre ~6.25h au lieu de 75min | ✅ Actif |
+| +101 | Mar 5 | **GeofenceWakeReceiver** (Android) — geofence 200m, redémarre tracking si l'employé bouge après un kill Samsung | ✅ Actif |
+| +101 | Mar 5 | **Dialogue batterie OEM obligatoire** avant clock-in sur Android | ✅ Actif |
+| +101 | Mar 5 | **Watchdog relance rescue alarm** après restart FFT | ✅ Actif |
+| +101 | Mar 5 | **FCM client activé** — Firebase init (non-bloquant), FCM token enregistré, kill switch migration 132 | ✅ Actif |
+| +101 | Mar 5 | Dashboard : untracked time gaps dans approval timeline, GPS freshness badges sidebar, badge monitoring | Dashboard |
 
 ### Chronologie complète Android Watchdog
 
@@ -621,8 +628,8 @@ TrackingRescueReceiver v2 (Kotlin natif, setAlarmClock tier principal, 45s)
 | Idée | Plateforme | Complexité | Impact potentiel |
 |------|------------|-----------|-----------------|
 | **BGProcessingTask** (iOS 13+) | iOS | Moyenne | Tâche de fond planifiée par iOS — pourrait vérifier le tracking après un kill |
-| **Geofencing API** | Both | Moyenne | Créer des geofences dynamiques autour de la dernière position connue → wake up si l'employé bouge |
-| **Push-to-Wake** (Silent Push) | Both | Faible | Envoyer un push silencieux depuis le serveur pour réveiller l'app si heartbeat manquant |
+| ~~**Geofencing API**~~ | ~~Both~~ | ~~Moyenne~~ | ✅ Implémenté (+101) — GeofenceWakeReceiver Android avec 200m exit trigger |
+| ~~**Push-to-Wake** (Silent Push)~~ | ~~Both~~ | ~~Faible~~ | ✅ Implémenté (+98→+101) — FCM silent push server-side (pg_cron 2min) + client FCM service |
 | **Persistent connection** (WebSocket/SSE) | Both | Élevée | Connexion permanente qui garderait l'app éveillée — mais coûteux en batterie |
 | **Companion Watch App** | Both | Élevée | Apple Watch / Wear OS peut continuer le tracking si le téléphone tue l'app |
 | **Native GPS stream** (bypass Flutter) | Both | Élevée | GPS directement en natif Swift/Kotlin au lieu de passer par geolocator — éliminerait la couche Flutter comme point de failure |
@@ -650,9 +657,10 @@ TrackingRescueReceiver v2 (Kotlin natif, setAlarmClock tier principal, 45s)
 | `ios/Runner/SignificantLocationPlugin.swift` | SLC — relance après kill iOS |
 | `ios/Runner/BackgroundTaskPlugin.swift` | CLBackgroundActivitySession + beginBackgroundTask + thermal |
 | `ios/Runner/LiveActivityPlugin.swift` | Lock Screen tracking status |
-| `ios/Runner/NativeGpsBuffer.swift` | UserDefaults GPS buffer (max 100 pts) |
+| `ios/Runner/NativeGpsBuffer.swift` | UserDefaults GPS buffer (max 500 pts) |
 | `android/.../TrackingRescueReceiver.kt` | Rescue alarm chain (setAlarmClock 45s) + native GPS capture |
-| `android/.../NativeGpsBuffer.kt` | SharedPreferences GPS buffer (max 100 pts) |
+| `android/.../GeofenceWakeReceiver.kt` | Geofence 200m — redémarre tracking après kill Samsung |
+| `android/.../NativeGpsBuffer.kt` | SharedPreferences GPS buffer (max 500 pts) |
 | `android/.../TrackingBootReceiver.kt` | Boot/update recovery |
 | `android/.../MainActivity.kt` | OEM battery guide + thermal + rescue alarm + native buffer drain |
 | `lib/features/tracking/services/background_tracking_service.dart` | FFT lifecycle manager |
@@ -660,6 +668,7 @@ TrackingRescueReceiver v2 (Kotlin natif, setAlarmClock tier principal, 45s)
 | `lib/features/tracking/services/tracking_watchdog_service.dart` | WorkManager 5min watchdog |
 | `lib/features/tracking/providers/tracking_provider.dart` | Main isolate — state + self-healing + heartbeat + GPS alert |
 | `lib/features/shifts/services/sync_service.dart` | Sync cycle + native buffer drain (Step 0) |
+| `lib/shared/services/fcm_service.dart` | FCM silent push — token registration + kill switch |
 | `lib/shared/services/notification_service.dart` | Local notifications (midnight, GPS alert) |
 | `supabase/migrations/030_*` | Midnight cleanup pg_cron |
 | `supabase/migrations/098_*` | GPS-less shift monitoring |
