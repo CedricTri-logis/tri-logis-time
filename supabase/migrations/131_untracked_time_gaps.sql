@@ -178,6 +178,7 @@ BEGIN
           AND sc.started_at >= p_date::TIMESTAMPTZ
           AND sc.started_at < (p_date + INTERVAL '1 day')::TIMESTAMPTZ
           AND sc.duration_seconds >= 180
+          AND sc.shift_id IN (SELECT shift_id FROM shift_boundaries)
 
         UNION ALL
 
@@ -251,6 +252,7 @@ BEGIN
         WHERE t.employee_id = p_employee_id
           AND t.started_at >= p_date::TIMESTAMPTZ
           AND t.started_at < (p_date + INTERVAL '1 day')::TIMESTAMPTZ
+          AND t.shift_id IN (SELECT shift_id FROM shift_boundaries)
 
         UNION ALL
 
