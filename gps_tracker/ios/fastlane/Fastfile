@@ -1,3 +1,5 @@
+require 'shellwords'
+
 default_platform(:ios)
 
 def load_api_key
@@ -15,33 +17,47 @@ def api_key_config
 end
 
 # Build archive + export IPA using App Store Connect API key for signing.
-# This avoids requiring an iOS Distribution certificate in the local keychain.
+# Uses xcodebuild directly with API key auth so no local certificate is needed.
 def build_ipa
+  config = api_key_config
+  key_path = Shellwords.shellescape(File.join(Dir.pwd, config["key_filepath"]))
+  key_id = Shellwords.shellescape(config["key_id"])
+  issuer_id = Shellwords.shellescape(config["issuer_id"])
+
+  # Step 1: Generate Xcode project config and install pods
   Bundler.with_unbundled_env do
-    sh("cd ../.. && flutter build ipa --release 2>&1 || true")
+    sh("cd ../.. && flutter build ios --config-only --release --no-codesign 2>&1")
   end
 
-  # Check if IPA was produced (flutter build ipa may fail on export if no local cert)
-  ipa_path = File.expand_path("../../build/ios/ipa/gps_tracker.ipa")
-  unless File.exist?(ipa_path)
-    UI.message("IPA not found — exporting archive with API key authentication...")
-    archive_path = File.expand_path("../../build/ios/archive/Runner.xcarchive")
-    ipa_dir = File.expand_path("../../build/ios/ipa")
-    config = api_key_config
-    key_path = File.join(Dir.pwd, config["key_filepath"])
+  # Step 2: Archive with API key authentication (no local cert needed)
+  workspace = Shellwords.shellescape(File.expand_path("../Runner.xcworkspace"))
+  archive_path = Shellwords.shellescape(File.expand_path("../../build/ios/archive/Runner.xcarchive"))
+  sh(
+    "xcodebuild archive " \
+    "-workspace #{workspace} " \
+    "-scheme Runner " \
+    "-configuration Release " \
+    "-destination 'generic/platform=iOS' " \
+    "-archivePath #{archive_path} " \
+    "-allowProvisioningUpdates " \
+    "-authenticationKeyPath #{key_path} " \
+    "-authenticationKeyID #{key_id} " \
+    "-authenticationKeyIssuerID #{issuer_id}"
+  )
 
-    FileUtils.mkdir_p(ipa_dir)
-    sh(
-      "xcodebuild -exportArchive " \
-      "-archivePath #{archive_path} " \
-      "-exportPath #{ipa_dir} " \
-      "-exportOptionsPlist #{export_options_plist} " \
-      "-allowProvisioningUpdates " \
-      "-authenticationKeyPath #{key_path} " \
-      "-authenticationKeyID #{config['key_id']} " \
-      "-authenticationKeyIssuerID #{config['issuer_id']}"
-    )
-  end
+  # Step 3: Export IPA with API key authentication
+  ipa_dir = File.expand_path("../../build/ios/ipa")
+  FileUtils.mkdir_p(ipa_dir)
+  sh(
+    "xcodebuild -exportArchive " \
+    "-archivePath #{archive_path} " \
+    "-exportPath #{Shellwords.shellescape(ipa_dir)} " \
+    "-exportOptionsPlist #{Shellwords.shellescape(export_options_plist)} " \
+    "-allowProvisioningUpdates " \
+    "-authenticationKeyPath #{key_path} " \
+    "-authenticationKeyID #{key_id} " \
+    "-authenticationKeyIssuerID #{issuer_id}"
+  )
 end
 
 def export_options_plist
