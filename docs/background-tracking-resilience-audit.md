@@ -1,6 +1,6 @@
 # Background Tracking Resilience - Audit complet
 
-> Dernière mise à jour : 2026-03-03 | Build actuel : v1.0.0+98
+> Dernière mise à jour : 2026-03-04 | Build actuel : v1.0.0+100
 
 ## Table des matières
 
@@ -553,6 +553,8 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +98 | Mar 3 | **Native buffer drain** (sync_service.dart) — Step 0 de syncAll(), lit buffers natifs via MethodChannel | ✅ Actif |
 | +98 | Mar 3 | **GPS alert notification** — notification persistante après 5 min sans GPS, auto-dismiss au retour | ✅ Actif |
 | +98 | Mar 3 | **FCM wake push server-side** (migrations 127-128, Edge Function) — pg_cron 2min, silent push, throttle 5min | ⏳ Prêt (attend Firebase client) |
+| +99 | Mar 4 | iOS Fastfile réécriture xcodebuild direct avec API key auth (nouveau Mac) | ✅ (iOS deploy only) |
+| +100 | Mar 4 | Fix `MinimumOSVersion` manquant dans AppFrameworkInfo.plist, widget extension version sync (`$(CURRENT_PROJECT_VERSION)`) | ✅ Actif |
 
 ### Chronologie complète Android Watchdog
 

@@ -53,15 +53,37 @@ class ReportShareSheet extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: () {
-                Share.shareXFiles([XFile(filePath)]);
-              },
-              icon: const Icon(Icons.share),
-              label: const Text('Partager'),
-            ),
+          Builder(
+            builder: (context) {
+              return SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () async {
+                    try {
+                      final box =
+                          context.findRenderObject() as RenderBox?;
+                      await Share.shareXFiles(
+                        [XFile(filePath)],
+                        sharePositionOrigin: box != null
+                            ? box.localToGlobal(Offset.zero) & box.size
+                            : null,
+                      );
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Erreur de partage : $e'),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.share),
+                  label: const Text('Partager'),
+                ),
+              );
+            },
           ),
           const SizedBox(height: 8),
           SizedBox(
