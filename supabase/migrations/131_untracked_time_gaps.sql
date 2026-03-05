@@ -440,6 +440,9 @@ BEGIN
         WHERE NOT EXISTS (
             SELECT 1 FROM real_activities ra WHERE ra.shift_id = sb.shift_id
         )
+        AND NOT EXISTS (
+            SELECT 1 FROM gap_pairs gp WHERE gp.shift_id = sb.shift_id
+        )
         AND EXTRACT(EPOCH FROM (sb.clocked_out_at - sb.clocked_in_at)) > 300
     ),
     all_gaps AS (
