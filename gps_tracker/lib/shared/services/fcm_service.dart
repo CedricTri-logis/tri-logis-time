@@ -87,7 +87,7 @@ class FcmService {
         metadata: {'token_prefix': token.substring(0, 12)},
       );
     } catch (e) {
-      _logger?.error(
+      _logger?.lifecycle(
         Severity.warn,
         'FCM token registration failed',
         metadata: {'error': e.toString()},

@@ -12,7 +12,7 @@ import org.json.JSONObject
 object NativeGpsBuffer {
     private const val PREFS_NAME = "native_gps_buffer"
     private const val KEY_POINTS = "points"
-    private const val MAX_POINTS = 100
+    private const val MAX_POINTS = 500
 
     fun save(context: Context, shiftId: String, location: Location) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)

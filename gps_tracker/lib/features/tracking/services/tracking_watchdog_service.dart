@@ -7,6 +7,7 @@ import 'package:workmanager/workmanager.dart';
 import '../../../shared/models/diagnostic_event.dart';
 import '../../../shared/services/diagnostic_logger.dart';
 import 'background_tracking_service.dart';
+import 'android_battery_health_service.dart';
 
 /// Watchdog service that detects and restarts the GPS foreground service
 /// if Android kills it during an active shift.
@@ -101,6 +102,14 @@ class TrackingWatchdogService {
       );
 
       await _writeLog(source, 'restart_success', shiftId);
+
+      // Also restart the native rescue alarm chain (Android only)
+      // This ensures native GPS capture continues even if FFT restart fails
+      try {
+        await AndroidBatteryHealthService.startRescueAlarms(shiftId);
+      } catch (_) {
+        // Best-effort — alarm chain may already be running
+      }
 
       // Also try DiagnosticLogger (may not be initialized in isolate)
       _tryLog(source, shiftId);

@@ -4,7 +4,7 @@ import CoreLocation
 class NativeGpsBuffer {
     static let shared = NativeGpsBuffer()
     private let key = "native_gps_buffer_points"
-    private let maxPoints = 100
+    private let maxPoints = 500
 
     func save(location: CLLocation, shiftId: String) {
         var points = load()

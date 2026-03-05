@@ -110,6 +110,9 @@
 
         <!-- 60-second rescue watchdog for GPS tracking service -->
         <receiver
+            android:name=".GeofenceWakeReceiver"
+            android:exported="false" />
+        <receiver
             android:name=".TrackingRescueReceiver"
             android:exported="false" />
     </application>

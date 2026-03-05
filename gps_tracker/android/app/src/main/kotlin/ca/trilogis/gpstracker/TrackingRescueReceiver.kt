@@ -133,6 +133,7 @@ class TrackingRescueReceiver : BroadcastReceiver() {
             val pendingIntent = buildPendingIntent(context) ?: return
             alarmManager.cancel(pendingIntent)
             pendingIntent.cancel()
+            GeofenceWakeReceiver.remove(context)
             Log.d(TAG, "Rescue alarm chain stopped")
         }
 
@@ -225,6 +226,9 @@ class TrackingRescueReceiver : BroadcastReceiver() {
             ).addOnSuccessListener { location ->
                 if (location != null && shiftId != null) {
                     NativeGpsBuffer.save(context, shiftId, location)
+                    // Register wake geofence around current position
+                    // If employee moves 200m, GeofenceWakeReceiver restarts tracking
+                    GeofenceWakeReceiver.register(context, location.latitude, location.longitude)
                     writeLog(context, "native_gps_captured", shiftId)
                 }
             }.addOnFailureListener {

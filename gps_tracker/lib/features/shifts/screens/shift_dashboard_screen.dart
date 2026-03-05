@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import '../../tracking/widgets/oem_battery_guide_dialog.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -503,6 +504,11 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
       if (!mounted) return;
       messenger.hideCurrentSnackBar();
 
+      // Enforce OEM battery setup on problematic devices before clock-in
+      if (Platform.isAndroid && mounted) {
+        await OemBatteryGuideDialog.showIfNeeded(context);
+        if (!mounted) return;
+      }
       // Clock in (location is guaranteed non-null after validation above)
       final success = await shiftNotifier.clockIn(
         location: gpsResult.location!,
