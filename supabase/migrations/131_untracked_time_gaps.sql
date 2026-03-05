@@ -130,14 +130,14 @@ BEGIN
           AND s.clocked_out_at IS NOT NULL
     ),
     activity_data AS (
-        -- STOPS
+        -- STOPS (clamped to shift boundaries)
         SELECT
             'stop'::TEXT AS activity_type,
             sc.id AS activity_id,
             sc.shift_id,
-            sc.started_at,
-            sc.ended_at,
-            (sc.duration_seconds / 60)::INTEGER AS duration_minutes,
+            GREATEST(sc.started_at, sb.clocked_in_at) AS started_at,
+            LEAST(sc.ended_at, sb.clocked_out_at) AS ended_at,
+            (EXTRACT(EPOCH FROM (LEAST(sc.ended_at, sb.clocked_out_at) - GREATEST(sc.started_at, sb.clocked_in_at))) / 60)::INTEGER AS duration_minutes,
             sc.matched_location_id,
             l.name AS location_name,
             l.location_type::TEXT AS location_type,
@@ -173,23 +173,23 @@ BEGIN
             NULL::TEXT AS end_location_name,
             NULL::TEXT AS end_location_type
         FROM stationary_clusters sc
+        JOIN shift_boundaries sb ON sb.shift_id = sc.shift_id
         LEFT JOIN locations l ON l.id = sc.matched_location_id
         WHERE sc.employee_id = p_employee_id
           AND sc.started_at >= p_date::TIMESTAMPTZ
           AND sc.started_at < (p_date + INTERVAL '1 day')::TIMESTAMPTZ
           AND sc.duration_seconds >= 180
-          AND sc.shift_id IN (SELECT shift_id FROM shift_boundaries)
 
         UNION ALL
 
-        -- TRIPS (with cluster-based location fallback)
+        -- TRIPS (clamped to shift boundaries, with cluster-based location fallback)
         SELECT
             'trip'::TEXT,
             t.id,
             t.shift_id,
-            t.started_at,
-            t.ended_at,
-            t.duration_minutes,
+            GREATEST(t.started_at, sb.clocked_in_at) AS started_at,
+            LEAST(t.ended_at, sb.clocked_out_at) AS ended_at,
+            (EXTRACT(EPOCH FROM (LEAST(t.ended_at, sb.clocked_out_at) - GREATEST(t.started_at, sb.clocked_in_at))) / 60)::INTEGER AS duration_minutes,
             NULL::UUID AS matched_location_id,
             NULL::TEXT AS location_name,
             NULL::TEXT AS location_type,
@@ -231,6 +231,7 @@ BEGIN
             COALESCE(el.name, arr_loc.name)::TEXT AS end_location_name,
             COALESCE(el.location_type, arr_loc.location_type)::TEXT AS end_location_type
         FROM trips t
+        JOIN shift_boundaries sb ON sb.shift_id = t.shift_id
         LEFT JOIN locations sl ON sl.id = t.start_location_id
         LEFT JOIN locations el ON el.id = t.end_location_id
         LEFT JOIN LATERAL (
@@ -252,7 +253,6 @@ BEGIN
         WHERE t.employee_id = p_employee_id
           AND t.started_at >= p_date::TIMESTAMPTZ
           AND t.started_at < (p_date + INTERVAL '1 day')::TIMESTAMPTZ
-          AND t.shift_id IN (SELECT shift_id FROM shift_boundaries)
 
         UNION ALL
 
