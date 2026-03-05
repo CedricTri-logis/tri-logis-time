@@ -11,6 +11,7 @@ import { TeamFilters } from '@/components/monitoring/team-filters';
 import { StalenessLegend } from '@/components/monitoring/staleness-indicator';
 import { ConnectionStatusBanner, OfflineBanner } from '@/components/monitoring/connection-status';
 import { useSupervisedTeam } from '@/lib/hooks/use-supervised-team';
+import { useTeamStats } from '@/lib/hooks/use-team-stats';
 import type { ConnectionStatus, SortDirection, TeamSortOption } from '@/types/monitoring';
 
 // Dynamically import the map component to avoid SSR issues
@@ -42,6 +43,9 @@ export default function MonitoringPage() {
     search: search || undefined,
     shiftStatus,
   });
+
+  // Unfiltered stats — always shows full team regardless of filters
+  const teamStats = useTeamStats();
 
   // Client-side sort
   const sortedTeam = useMemo(() => {
@@ -86,12 +90,6 @@ export default function MonitoringPage() {
     setSearch('');
     setShiftStatus('all');
   }, []);
-
-  // Stats for header
-  const onShiftCount = team.filter((e) => e.shiftStatus === 'on-shift').length;
-  const offShiftCount = team.filter((e) => e.shiftStatus === 'off-shift').length;
-  const neverInstalledCount = team.filter((e) => e.shiftStatus === 'never-installed').length;
-  const totalCount = team.length;
 
   return (
     <div className="space-y-6">
@@ -143,33 +141,33 @@ export default function MonitoringPage() {
         </Card>
       )}
 
-      {/* Summary stats */}
+      {/* Summary stats — always unfiltered */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
         <StatCard
           label="Total équipe"
-          value={totalCount}
-          isLoading={isLoading}
+          value={teamStats.total}
+          isLoading={teamStats.isLoading}
         />
         <StatCard
           label="En quart"
-          value={onShiftCount}
-          isLoading={isLoading}
+          value={teamStats.onShift}
+          isLoading={teamStats.isLoading}
           highlight="green"
         />
         <StatCard
           label="Hors quart"
-          value={offShiftCount}
-          isLoading={isLoading}
+          value={teamStats.offShift}
+          isLoading={teamStats.isLoading}
         />
         <StatCard
           label="Jamais installé"
-          value={neverInstalledCount}
-          isLoading={isLoading}
+          value={teamStats.neverInstalled}
+          isLoading={teamStats.isLoading}
           highlight="orange"
         />
         <LastUpdatedCard
-          lastUpdated={lastUpdated}
-          isLoading={isLoading}
+          lastUpdated={teamStats.lastUpdated}
+          isLoading={teamStats.isLoading}
         />
       </div>
 
