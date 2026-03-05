@@ -313,7 +313,6 @@ BEGIN
         WHERE s.employee_id = p_employee_id
           AND s.clocked_in_at::DATE = p_date
           AND s.status = 'completed'
-          AND s.clock_in_location IS NOT NULL
 
         UNION ALL
 
@@ -376,7 +375,6 @@ BEGIN
         WHERE s.employee_id = p_employee_id
           AND s.clocked_out_at::DATE = p_date
           AND s.status = 'completed'
-          AND s.clock_out_location IS NOT NULL
           AND s.clocked_out_at IS NOT NULL
     ),
     -- Gap detection: find periods within completed shifts not covered by stops or trips
@@ -535,7 +533,7 @@ BEGIN
                 a->>'activity_type' IN ('clock_in', 'clock_out')
                 AND EXISTS (
                     SELECT 1 FROM jsonb_array_elements(COALESCE(v_activities, '[]'::JSONB)) s
-                    WHERE s->>'activity_type' = 'stop'
+                    WHERE s->>'activity_type' IN ('stop', 'gap')
                       AND (a->>'started_at')::TIMESTAMPTZ >= ((s->>'started_at')::TIMESTAMPTZ - INTERVAL '60 seconds')
                       AND (a->>'started_at')::TIMESTAMPTZ <= ((s->>'ended_at')::TIMESTAMPTZ + INTERVAL '60 seconds')
                 )
