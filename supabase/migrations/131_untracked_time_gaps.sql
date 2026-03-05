@@ -373,7 +373,7 @@ BEGIN
             LIMIT 1
         ) co_loc ON TRUE
         WHERE s.employee_id = p_employee_id
-          AND s.clocked_out_at::DATE = p_date
+          AND s.clocked_in_at::DATE = p_date
           AND s.status = 'completed'
           AND s.clocked_out_at IS NOT NULL
     ),
