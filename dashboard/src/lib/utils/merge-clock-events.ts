@@ -6,7 +6,7 @@
 
 /** Minimal interface required for merging — works with both ActivityItem and ApprovalActivity */
 export interface MergeableActivity {
-  activity_type: 'trip' | 'stop' | 'clock_in' | 'clock_out';
+  activity_type: 'trip' | 'stop' | 'clock_in' | 'clock_out' | 'gap';
   shift_id: string;
   started_at: string;
   ended_at: string;

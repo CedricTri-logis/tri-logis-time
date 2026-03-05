@@ -22,6 +22,7 @@ import {
   ArrowRight,
   Calendar,
   User,
+  WifiOff,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabaseClient } from '@/lib/supabase/client';
@@ -85,6 +86,9 @@ const STATUS_BADGE: Record<ApprovalAutoStatus, { className: string; icon: typeof
 // --- Icon helper for approval activities ---
 
 function ApprovalActivityIcon({ activity }: { activity: ApprovalActivity }) {
+  if (activity.activity_type === 'gap') {
+    return <WifiOff className="h-4 w-4 text-purple-500" />;
+  }
   if (activity.activity_type === 'trip') {
     if (activity.transport_mode === 'walking') return <Footprints className="h-4 w-4 text-orange-500" />;
     if (activity.transport_mode === 'driving') return <Car className="h-4 w-4 text-blue-500" />;
@@ -392,16 +396,18 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
 
   // Duration by location type (for summary badges)
   const durationStats = useMemo(() => {
-    if (!detail) return { totalTravelSeconds: 0, stopByType: {} as Record<string, number> };
+    if (!detail) return { totalTravelSeconds: 0, stopByType: {} as Record<string, number>, totalGapSeconds: 0 };
     const trips = detail.activities.filter(a => a.activity_type === 'trip');
     const stops = detail.activities.filter(a => a.activity_type === 'stop');
+    const gaps = detail.activities.filter(a => a.activity_type === 'gap');
     const totalTravelSeconds = trips.reduce((sum, t) => sum + (t.duration_minutes || 0) * 60, 0);
+    const totalGapSeconds = gaps.reduce((sum, g) => sum + (g.duration_minutes || 0) * 60, 0);
     const stopByType: Record<string, number> = {};
     for (const stop of stops) {
       const key = stop.location_type || '_unmatched';
       stopByType[key] = (stopByType[key] || 0) + (stop.duration_minutes || 0) * 60;
     }
-    return { totalTravelSeconds, stopByType };
+    return { totalTravelSeconds, stopByType, totalGapSeconds };
   }, [detail]);
 
   const gpsGapTotals = useMemo(() => {
@@ -659,7 +665,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
             </div>
 
             {/* Duration by type badges */}
-            {(durationStats.totalTravelSeconds > 0 || Object.keys(durationStats.stopByType).length > 0) && (
+            {(durationStats.totalTravelSeconds > 0 || Object.keys(durationStats.stopByType).length > 0 || durationStats.totalGapSeconds > 0) && (
               <div className="flex flex-wrap items-center gap-1.5 px-1">
                 <span className="text-[10px] font-semibold text-muted-foreground uppercase mr-1">Répartition:</span>
                 {durationStats.totalTravelSeconds > 0 && (
@@ -669,6 +675,15 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                   >
                     <Car className="h-3 w-3" />
                     {formatDuration(durationStats.totalTravelSeconds)}
+                  </span>
+                )}
+                {durationStats.totalGapSeconds > 0 && (
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700 border border-purple-100"
+                    title="Temps non suivi"
+                  >
+                    <WifiOff className="h-3 w-3" />
+                    {formatDuration(durationStats.totalGapSeconds)}
                   </span>
                 )}
                 {Object.entries(durationStats.stopByType)
@@ -854,7 +869,8 @@ function ActivityRow({
   const isTrip = activity.activity_type === 'trip';
   const isStop = activity.activity_type === 'stop';
   const isClock = activity.activity_type === 'clock_in' || activity.activity_type === 'clock_out';
-  const canExpand = !isClock;
+  const isGap = activity.activity_type === 'gap';
+  const canExpand = !isClock && !isGap;
   const hasOverride = activity.override_status !== null;
 
   const statusConfig = {
@@ -898,6 +914,7 @@ function ActivityRow({
     <>
       <tr
         className={`${statusConfig.row} ${canExpand ? 'cursor-pointer' : ''} transition-all duration-200 group border-b border-white/50`}
+        style={isGap ? { borderLeftStyle: 'dashed' } : undefined}
         onClick={canExpand ? onToggle : undefined}
       >
         {/* Action / Approbation */}
@@ -1017,6 +1034,16 @@ function ActivityRow({
                   {activity.auto_reason}
                 </span>
               </div>
+            </div>
+          ) : isGap ? (
+            <div className="space-y-1">
+              <div className={`text-xs flex items-center gap-1.5 ${statusConfig.text}`}>
+                <WifiOff className="h-3 w-3" />
+                <span className="font-bold">Temps non suivi</span>
+              </div>
+              <span className={`text-[10px] leading-tight italic ${statusConfig.subtext}`}>
+                Aucune donnee GPS durant cette periode
+              </span>
             </div>
           ) : isStop ? (
             <div className="space-y-1">
