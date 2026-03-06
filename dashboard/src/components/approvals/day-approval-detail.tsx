@@ -903,10 +903,10 @@ function TripConnectorRow({
               {activity.start_location_name || '?'} → {activity.end_location_name || '?'}
             </span>
             {activity.has_gps_gap && (
-              <AlertTriangle className="h-3 w-3 text-amber-500 flex-shrink-0" title="Données GPS incomplètes" />
+              <span aria-label="Données GPS incomplètes"><AlertTriangle className="h-3 w-3 text-amber-500 flex-shrink-0" /></span>
             )}
             {activity.duration_minutes > 60 && (
-              <Clock className="h-3 w-3 text-amber-500 flex-shrink-0" title={`Trajet long: ${activity.duration_minutes} min`} />
+              <span aria-label={`Trajet long: ${activity.duration_minutes} min`}><Clock className="h-3 w-3 text-amber-500 flex-shrink-0" /></span>
             )}
           </div>
         </td>
