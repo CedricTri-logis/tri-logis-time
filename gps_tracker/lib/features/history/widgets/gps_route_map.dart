@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../shared/utils/timezone_formatter.dart';
 import '../screens/fullscreen_map_screen.dart';
 import '../services/history_service.dart';
 
-/// Widget that displays GPS route on a Google Map
+/// Widget that displays GPS route on an OpenStreetMap via flutter_map
 ///
 /// Shows clock-in/out locations as markers and GPS points as a route polyline.
 class GpsRouteMap extends StatefulWidget {
@@ -62,16 +63,22 @@ class GpsRouteMap extends StatefulWidget {
 }
 
 class _GpsRouteMapState extends State<GpsRouteMap> {
-  GoogleMapController? _controller;
-  Set<Marker> _markers = {};
-  Set<Polyline> _polylines = {};
+  late final MapController _controller;
+  List<Marker> _markers = [];
+  List<Polyline> _polylines = [];
   GpsPointData? _selectedPoint;
-  MapType _mapType = MapType.normal;
 
   @override
   void initState() {
     super.initState();
+    _controller = MapController();
     _buildMapElements();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   @override
@@ -85,22 +92,17 @@ class _GpsRouteMapState extends State<GpsRouteMap> {
   }
 
   void _buildMapElements() {
-    final markers = <Marker>{};
+    final markers = <Marker>[];
     final polylinePoints = <LatLng>[];
 
     // Add clock-in marker
     if (widget.clockInLocation != null) {
       markers.add(
         Marker(
-          markerId: const MarkerId('clock_in'),
-          position: widget.clockInLocation!,
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-          infoWindow: InfoWindow(
-            title: 'Pointage',
-            snippet: widget.clockedInAt != null
-                ? TimezoneFormatter.formatDateTimeWithTz(widget.clockedInAt!)
-                : null,
-          ),
+          point: widget.clockInLocation!,
+          width: 40,
+          height: 40,
+          child: const Icon(Icons.location_on, color: Colors.green, size: 40),
         ),
       );
       polylinePoints.add(widget.clockInLocation!);
@@ -116,17 +118,16 @@ class _GpsRouteMapState extends State<GpsRouteMap> {
       if (widget.gpsPoints.length <= 20 || i % (widget.gpsPoints.length ~/ 20) == 0) {
         markers.add(
           Marker(
-            markerId: MarkerId('point_${point.id}'),
-            position: position,
-            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-            infoWindow: InfoWindow(
-              title: 'Point GPS ${i + 1}',
-              snippet: TimezoneFormatter.formatTimeWithSecondsTz(point.capturedAt),
+            point: position,
+            width: 24,
+            height: 24,
+            child: GestureDetector(
+              onTap: () {
+                setState(() => _selectedPoint = point);
+                widget.onPointTapped?.call(point);
+              },
+              child: const Icon(Icons.circle, color: Colors.blue, size: 14),
             ),
-            onTap: () {
-              setState(() => _selectedPoint = point);
-              widget.onPointTapped?.call(point);
-            },
           ),
         );
       }
@@ -136,29 +137,23 @@ class _GpsRouteMapState extends State<GpsRouteMap> {
     if (widget.clockOutLocation != null) {
       markers.add(
         Marker(
-          markerId: const MarkerId('clock_out'),
-          position: widget.clockOutLocation!,
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-          infoWindow: InfoWindow(
-            title: 'Dépointage',
-            snippet: widget.clockedOutAt != null
-                ? TimezoneFormatter.formatDateTimeWithTz(widget.clockedOutAt!)
-                : null,
-          ),
+          point: widget.clockOutLocation!,
+          width: 40,
+          height: 40,
+          child: const Icon(Icons.location_on, color: Colors.red, size: 40),
         ),
       );
       polylinePoints.add(widget.clockOutLocation!);
     }
 
     // Create polyline for the route
-    final polylines = <Polyline>{};
+    final polylines = <Polyline>[];
     if (polylinePoints.length >= 2) {
       polylines.add(
         Polyline(
-          polylineId: const PolylineId('route'),
           points: polylinePoints,
           color: Colors.blue,
-          width: 4,
+          strokeWidth: 4,
         ),
       );
     }
@@ -211,16 +206,16 @@ class _GpsRouteMapState extends State<GpsRouteMap> {
     }
 
     return LatLngBounds(
-      southwest: LatLng(minLat, minLng),
-      northeast: LatLng(maxLat, maxLng),
+      LatLng(minLat, minLng),
+      LatLng(maxLat, maxLng),
     );
   }
 
   void _fitBounds() {
     final bounds = _getBounds();
-    if (bounds != null && _controller != null) {
-      _controller!.animateCamera(
-        CameraUpdate.newLatLngBounds(bounds, 50),
+    if (bounds != null) {
+      _controller.fitCamera(
+        CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(50)),
       );
     }
   }
@@ -265,7 +260,7 @@ class _GpsRouteMapState extends State<GpsRouteMap> {
               ),
               const SizedBox(height: 16),
               Text(
-                'Aucune donnée GPS disponible',
+                'Aucune donnee GPS disponible',
                 style: theme.textTheme.bodyLarge?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -276,6 +271,8 @@ class _GpsRouteMapState extends State<GpsRouteMap> {
       );
     }
 
+    final bounds = _getBounds();
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -285,26 +282,33 @@ class _GpsRouteMapState extends State<GpsRouteMap> {
             height: widget.height ?? 300,
             child: Stack(
               children: [
-                GoogleMap(
-                  initialCameraPosition: CameraPosition(
-                    target: _getInitialPosition(),
-                    zoom: 15,
+                FlutterMap(
+                  mapController: _controller,
+                  options: MapOptions(
+                    initialCenter: _getInitialPosition(),
+                    initialZoom: 15,
+                    initialCameraFit: bounds != null
+                        ? CameraFit.bounds(
+                            bounds: bounds,
+                            padding: const EdgeInsets.all(50),
+                          )
+                        : null,
+                    interactionOptions: InteractionOptions(
+                      flags: widget.interactive
+                          ? InteractiveFlag.all
+                          : InteractiveFlag.none,
+                    ),
                   ),
-                  markers: _markers,
-                  polylines: _polylines,
-                  mapType: _mapType,
-                  onMapCreated: (controller) {
-                    _controller = controller;
-                    // Fit to bounds after map is created
-                    Future.delayed(const Duration(milliseconds: 300), _fitBounds);
-                  },
-                  myLocationEnabled: false,
-                  myLocationButtonEnabled: false,
-                  zoomControlsEnabled: false, // Using custom controls
-                  scrollGesturesEnabled: widget.interactive,
-                  zoomGesturesEnabled: widget.interactive,
-                  rotateGesturesEnabled: widget.interactive,
-                  tiltGesturesEnabled: widget.interactive,
+                  children: [
+                    TileLayer(
+                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'ca.trilogis.gpstracker',
+                    ),
+                    if (_polylines.isNotEmpty)
+                      PolylineLayer(polylines: _polylines),
+                    if (_markers.isNotEmpty)
+                      MarkerLayer(markers: _markers),
+                  ],
                 ),
                 // Custom map controls
                 if (widget.interactive)
@@ -313,45 +317,34 @@ class _GpsRouteMapState extends State<GpsRouteMap> {
                     top: 8,
                     child: Column(
                       children: [
-                        // Satellite toggle
-                        _MapControlButton(
-                          icon: _mapType == MapType.satellite
-                              ? Icons.map
-                              : Icons.satellite_alt,
-                          tooltip: _mapType == MapType.satellite
-                              ? 'Vue normale'
-                              : 'Vue satellite',
-                          onPressed: () {
-                            setState(() {
-                              _mapType = _mapType == MapType.satellite
-                                  ? MapType.normal
-                                  : MapType.satellite;
-                            });
-                          },
-                        ),
-                        const SizedBox(height: 8),
                         // Zoom in
                         _MapControlButton(
                           icon: Icons.add,
                           tooltip: 'Zoom avant',
                           onPressed: () {
-                            _controller?.animateCamera(CameraUpdate.zoomIn());
+                            _controller.move(
+                              _controller.camera.center,
+                              _controller.camera.zoom + 1,
+                            );
                           },
                         ),
                         const SizedBox(height: 4),
                         // Zoom out
                         _MapControlButton(
                           icon: Icons.remove,
-                          tooltip: 'Zoom arrière',
+                          tooltip: 'Zoom arriere',
                           onPressed: () {
-                            _controller?.animateCamera(CameraUpdate.zoomOut());
+                            _controller.move(
+                              _controller.camera.center,
+                              _controller.camera.zoom - 1,
+                            );
                           },
                         ),
                         const SizedBox(height: 8),
                         // Fit bounds
                         _MapControlButton(
                           icon: Icons.fit_screen,
-                          tooltip: 'Ajuster le tracé',
+                          tooltip: 'Ajuster le trace',
                           onPressed: _fitBounds,
                         ),
                         if (widget.showFullscreenButton) ...[
@@ -359,7 +352,7 @@ class _GpsRouteMapState extends State<GpsRouteMap> {
                           // Fullscreen
                           _MapControlButton(
                             icon: Icons.fullscreen,
-                            tooltip: 'Plein écran',
+                            tooltip: 'Plein ecran',
                             onPressed: () => _openFullscreen(context),
                           ),
                         ],
@@ -415,7 +408,7 @@ class _GpsRouteMapState extends State<GpsRouteMap> {
                 ),
                 if (point.accuracy != null)
                   Text(
-                    'Précision : ±${point.accuracy!.toStringAsFixed(0)}m',
+                    'Precision : \u00b1${point.accuracy!.toStringAsFixed(0)}m',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onPrimaryContainer,
                     ),
@@ -439,8 +432,8 @@ class _GpsRouteMapState extends State<GpsRouteMap> {
       runSpacing: 8,
       children: [
         _buildLegendItem(theme, Colors.green, 'Pointage'),
-        _buildLegendItem(theme, Colors.red, 'Dépointage'),
-        _buildLegendItem(theme, Colors.blue, 'Tracé GPS'),
+        _buildLegendItem(theme, Colors.red, 'Depointage'),
+        _buildLegendItem(theme, Colors.blue, 'Trace GPS'),
       ],
     );
   }

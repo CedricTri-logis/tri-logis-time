@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../../../shared/utils/polyline_decoder.dart';
 import '../models/trip.dart';
 
@@ -20,54 +21,34 @@ class TripRouteMap extends StatelessWidget {
     final startLatLng = LatLng(trip.startLatitude, trip.startLongitude);
     final endLatLng = LatLng(trip.endLatitude, trip.endLongitude);
 
-    final markers = <Marker>{
-      Marker(
-        markerId: const MarkerId('start'),
-        position: startLatLng,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-        infoWindow: InfoWindow(title: 'Start', snippet: trip.startDisplayName),
-      ),
-      Marker(
-        markerId: const MarkerId('end'),
-        position: endLatLng,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-        infoWindow: InfoWindow(title: 'End', snippet: trip.endDisplayName),
-      ),
-    };
+    // Build polylines
+    final polylines = <Polyline>[];
+    bool isDotted = false;
+    List<LatLng> polylinePoints;
 
-    final polylines = <Polyline>{};
-
-    // Use matched route geometry if available
     if (trip.isRouteMatched && trip.routeGeometry != null) {
       final matchedPoints = decodePolyline6(trip.routeGeometry!);
       if (matchedPoints.isNotEmpty) {
-        polylines.add(Polyline(
-          polylineId: const PolylineId('route'),
-          points: matchedPoints,
-          color: Theme.of(context).colorScheme.primary,
-          width: 4,
-        ));
+        polylinePoints = matchedPoints;
+      } else {
+        polylinePoints = [startLatLng, endLatLng];
+        isDotted = true;
       }
     } else if (routePoints != null && routePoints!.isNotEmpty) {
-      // Use provided route points (GPS points as straight lines)
-      polylines.add(Polyline(
-        polylineId: const PolylineId('route'),
-        points: routePoints!,
-        color: Theme.of(context).colorScheme.primary,
-        width: 4,
-      ));
+      polylinePoints = routePoints!;
     } else {
-      // Dashed line between start and end if no route points
-      polylines.add(Polyline(
-        polylineId: const PolylineId('route'),
-        points: [startLatLng, endLatLng],
-        color: Theme.of(context).colorScheme.primary,
-        width: 3,
-        patterns: [PatternItem.dash(10), PatternItem.gap(5)],
-      ));
+      polylinePoints = [startLatLng, endLatLng];
+      isDotted = true;
     }
 
-    // Calculate bounds including all polyline points
+    polylines.add(Polyline(
+      points: polylinePoints,
+      color: Theme.of(context).colorScheme.primary,
+      strokeWidth: isDotted ? 3 : 4,
+      isDotted: isDotted,
+    ));
+
+    // Calculate bounds including all polyline points and endpoints
     double minLat = startLatLng.latitude;
     double maxLat = startLatLng.latitude;
     double minLng = startLatLng.longitude;
@@ -82,43 +63,59 @@ class TripRouteMap extends StatelessWidget {
       }
     }
 
-    // Include end point in bounds
     if (endLatLng.latitude < minLat) minLat = endLatLng.latitude;
     if (endLatLng.latitude > maxLat) maxLat = endLatLng.latitude;
     if (endLatLng.longitude < minLng) minLng = endLatLng.longitude;
     if (endLatLng.longitude > maxLng) maxLng = endLatLng.longitude;
 
     final bounds = LatLngBounds(
-      southwest: LatLng(minLat, minLng),
-      northeast: LatLng(maxLat, maxLng),
+      LatLng(minLat, minLng),
+      LatLng(maxLat, maxLng),
     );
+
+    // Build markers
+    final markers = <Marker>[
+      Marker(
+        point: startLatLng,
+        width: 32,
+        height: 32,
+        child: const Icon(Icons.location_on, color: Colors.green, size: 32),
+      ),
+      Marker(
+        point: endLatLng,
+        width: 32,
+        height: 32,
+        child: const Icon(Icons.location_on, color: Colors.red, size: 32),
+      ),
+    ];
 
     return SizedBox(
       height: height,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: GoogleMap(
-          initialCameraPosition: CameraPosition(
-            target: LatLng(
+        child: FlutterMap(
+          options: MapOptions(
+            initialCenter: LatLng(
               (minLat + maxLat) / 2,
               (minLng + maxLng) / 2,
             ),
-            zoom: 12,
+            initialZoom: 12,
+            initialCameraFit: CameraFit.bounds(
+              bounds: bounds,
+              padding: const EdgeInsets.all(50),
+            ),
+            interactionOptions: const InteractionOptions(
+              flags: InteractiveFlag.none,
+            ),
           ),
-          markers: markers,
-          polylines: polylines,
-          myLocationEnabled: false,
-          myLocationButtonEnabled: false,
-          zoomControlsEnabled: false,
-          mapToolbarEnabled: false,
-          liteModeEnabled: true,
-          onMapCreated: (controller) {
-            Future.delayed(const Duration(milliseconds: 200), () {
-              controller.animateCamera(
-                CameraUpdate.newLatLngBounds(bounds, 50),
-              );
-            });
-          },
+          children: [
+            TileLayer(
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              userAgentPackageName: 'ca.trilogis.gpstracker',
+            ),
+            PolylineLayer(polylines: polylines),
+            MarkerLayer(markers: markers),
+          ],
         ),
       ),
     );
