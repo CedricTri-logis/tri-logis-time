@@ -14,6 +14,10 @@ import GoogleMaps
       GMSServices.provideAPIKey(apiKey)
     }
 
+    // Register BGAppRefreshTask BEFORE plugins — BGTaskScheduler.register
+    // must be called before application(_:didFinishLaunchingWithOptions:) returns.
+    BackgroundAppRefreshPlugin.registerBackgroundTask()
+
     GeneratedPluginRegistrant.register(with: self)
 
     // Register Significant Location Change plugin (safety net for terminated app)
@@ -24,6 +28,9 @@ import GoogleMaps
 
     // Register Live Activity plugin (iOS 16.1+ shift status on Lock Screen)
     LiveActivityPlugin.register(with: self.registrar(forPlugin: "LiveActivityPlugin")!)
+
+    // Register BGAppRefresh MethodChannel (Dart-side schedule/cancel)
+    BackgroundAppRefreshPlugin.register(with: self.registrar(forPlugin: "BackgroundAppRefreshPlugin")!)
 
     // Register native GPS buffer MethodChannel
     let controller = window?.rootViewController as! FlutterViewController

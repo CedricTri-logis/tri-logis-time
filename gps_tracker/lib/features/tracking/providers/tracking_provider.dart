@@ -24,6 +24,7 @@ import '../models/tracking_status.dart';
 import '../services/background_execution_service.dart';
 import '../services/android_battery_health_service.dart';
 import '../services/background_tracking_service.dart';
+import '../services/bg_app_refresh_service.dart';
 import '../services/significant_location_service.dart';
 import '../services/thermal_state_service.dart';
 import '../../../shared/services/shift_activity_service.dart';
@@ -616,6 +617,9 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
         _onForegroundServiceDied;
     // Start CLBackgroundActivitySession (iOS 17+, no-op on Android/older iOS)
     BackgroundExecutionService.startBackgroundSession();
+    // Schedule BGAppRefreshTask (iOS only) — safety net for stationary employees
+    // when iOS kills the app and SLC can't trigger (no movement).
+    BgAppRefreshService.schedule();
     // Start lifecycle observer for beginBackgroundTask + FGS health checks
     BackgroundTrackingService.startLifecycleObserver();
     // Android: verify battery optimization is still disabled 3s after tracking starts.
@@ -861,6 +865,8 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     }
     // Stop CLBackgroundActivitySession
     BackgroundExecutionService.stopBackgroundSession();
+    // Cancel BGAppRefreshTask — no active shift, no need to wake
+    BgAppRefreshService.cancel();
     // Stop lifecycle observer and clear callbacks
     BackgroundTrackingService.onForegroundServiceDied = null;
     BackgroundTrackingService.stopLifecycleObserver();
