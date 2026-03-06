@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -185,10 +183,14 @@ Future<void> main() async {
     }
   }
 
-  // Firebase init — non-blocking, after tracking recovery completes.
-  // FCM is an additive recovery layer; tracking must not wait for it.
+  // Firebase init — deferred to reduce CPU pressure on background launches.
+  // On iOS, SLC background launches get ~10s of CPU budget. Running Firebase
+  // init concurrently with Supabase + SQLCipher + tracking can exceed that
+  // budget, causing iOS to kill the app (observed: 3 kills in 40s on build 102).
+  // Solution: wait 3s for lifecycle state to settle, then init Firebase only
+  // if we're in the foreground. Background launches defer until next foreground.
   if (initError == null) {
-    unawaited(_initializeFirebase());
+    _scheduleFirebaseInit();
   }
 
   if (initError != null) {
@@ -268,7 +270,44 @@ Future<void> _initializeTracking() async {
   await TrackingWatchdogService.initialize();
 }
 
+/// Whether Firebase has been initialized this session.
+/// Guards against double-init from both the schedule timer and the
+/// foreground deferral observer firing.
+bool _firebaseInitialized = false;
+
+/// Schedule Firebase init based on whether the app is in foreground or background.
+/// Waits 3 seconds for the lifecycle state to settle (on a cold start,
+/// `lifecycleState` is null until the first frame renders).
+void _scheduleFirebaseInit() {
+  Future<void>.delayed(const Duration(seconds: 3), () {
+    final state = WidgetsBinding.instance.lifecycleState;
+    if (state == AppLifecycleState.resumed) {
+      // App is in foreground — safe to init Firebase now
+      _initializeFirebase();
+    } else {
+      // Background launch (SLC / FCM) — defer Firebase to save CPU budget.
+      // The FCM background handler still works: it's registered at the native
+      // plugin level, independent of Dart-side Firebase.initializeApp().
+      debugPrint('[Main] Background launch detected (lifecycle=$state) — deferring Firebase');
+      WidgetsBinding.instance.addObserver(_FirebaseDeferralObserver());
+    }
+  });
+}
+
+/// Lifecycle observer that initializes Firebase when the app comes to foreground.
+class _FirebaseDeferralObserver with WidgetsBindingObserver {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && !_firebaseInitialized) {
+      WidgetsBinding.instance.removeObserver(this);
+      _initializeFirebase();
+    }
+  }
+}
+
 Future<void> _initializeFirebase() async {
+  if (_firebaseInitialized) return;
+  _firebaseInitialized = true;
   try {
     await Firebase.initializeApp();
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
@@ -276,6 +315,7 @@ Future<void> _initializeFirebase() async {
     FcmService().initialize();
     debugPrint('[Main] Firebase initialized successfully');
   } catch (e) {
+    _firebaseInitialized = false; // Allow retry on next foreground
     // Non-fatal: app works without Firebase, just no silent push wake
     debugPrint('[Main] Firebase init failed (non-critical): $e');
   }
