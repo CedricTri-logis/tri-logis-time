@@ -1,6 +1,6 @@
 # Background Tracking Resilience - Audit complet
 
-> Dernière mise à jour : 2026-03-06 | Build actuel : v1.0.0+105
+> Dernière mise à jour : 2026-03-06 | Build actuel : v1.0.0+106
 
 ## Table des matières
 
@@ -585,6 +585,7 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +103 | Mar 6 | Dashboard : satellite/roadmap toggle sur toutes les cartes location | Dashboard |
 | +104 | Mar 6 | **HOTFIX** — `FirebaseMessaging.instance` crash quand Firebase pas encore initialisé (deferred 3s). try/catch ajouté dans app.dart + fcm_service.dart | ✅ Fix |
 | +105 | Mar 6 | **Remplacement google_maps_flutter → flutter_map** (OpenStreetMap) — élimine crash shift detail quand clé API Google Maps absente. 5 fichiers convertis : gps_route_map, fullscreen_map_screen, trip_route_map, shift_detail_screen, polyline_decoder | ✅ Fix |
+| +106 | Mar 6 | **Pause dîner** — stopTracking(reason: 'lunch_break') pendant la pause, reprise startTracking() à la fin. Live Activity status 'lunch'. Sync lunch_breaks via sync_service. Pas de changement aux mécanismes de résilience eux-mêmes | ✅ Actif |
 
 ### Chronologie complète Android Watchdog
 
