@@ -49,7 +49,9 @@ import '../providers/location_provider.dart';
 import '../providers/shift_provider.dart';
 import '../providers/sync_provider.dart';
 import '../services/version_check_service.dart';
+import '../providers/lunch_break_provider.dart';
 import '../widgets/clock_button.dart';
+import '../widgets/lunch_break_button.dart';
 import '../widgets/shift_status_card.dart';
 import '../widgets/shift_timer.dart';
 
@@ -1377,8 +1379,11 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
                             onClockIn: _handleClockIn,
                             onClockOut: _handleClockOut,
                             isExternallyLoading: _isClockInPreparing,
+                            isDisabled: ref.watch(isOnLunchProvider),
                           ),
                           const ClockButtonSettingsWarning(),
+                          const SizedBox(height: 16),
+                          const LunchBreakButton(),
                         ],
                       ),
                     ),

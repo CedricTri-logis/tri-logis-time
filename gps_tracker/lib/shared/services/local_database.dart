@@ -24,7 +24,7 @@ import 'session_backup_service.dart';
 /// Local SQLite database service with encrypted storage.
 class LocalDatabase {
   static const String _databaseName = 'gps_tracker.db';
-  static const int _databaseVersion = 6;
+  static const int _databaseVersion = 7;
   static const String _encryptionKeyKey = 'local_db_encryption_key';
 
   static LocalDatabase? _instance;
@@ -260,6 +260,9 @@ class LocalDatabase {
 
     // Create diagnostic events table
     await _createDiagnosticEventsTable(db);
+
+    // Create lunch breaks table
+    await _createLunchBreaksTable(db);
   }
 
   /// Create tables for offline resilience feature.
@@ -412,6 +415,31 @@ class LocalDatabase {
     ''');
   }
 
+  /// Create lunch breaks table for offline-first lunch tracking.
+  Future<void> _createLunchBreaksTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS local_lunch_breaks (
+        id TEXT PRIMARY KEY,
+        shift_id TEXT NOT NULL,
+        employee_id TEXT NOT NULL,
+        started_at TEXT NOT NULL,
+        ended_at TEXT,
+        sync_status TEXT NOT NULL DEFAULT 'pending' CHECK (sync_status IN ('pending', 'synced')),
+        server_id TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (shift_id) REFERENCES local_shifts(id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_local_lunch_breaks_shift ON local_lunch_breaks(shift_id)
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_local_lunch_breaks_sync ON local_lunch_breaks(sync_status)
+    ''');
+  }
+
   /// Ensure clock_out_reason column exists on local_shifts.
   /// Covers edge case where DB was freshly created at v3 without the column.
   Future<void> _ensureClockOutReasonColumn(Database db) async {
@@ -448,6 +476,10 @@ class LocalDatabase {
     // Migration from v5 to v6: Add activity_type column for activity recognition
     if (oldVersion < 6) {
       await db.execute('ALTER TABLE local_gps_points ADD COLUMN activity_type TEXT');
+    }
+    // Migration from v6 to v7: Add lunch breaks table
+    if (oldVersion < 7) {
+      await _createLunchBreaksTable(db);
     }
   }
 
@@ -1772,5 +1804,64 @@ class LocalDatabase {
     } catch (_) {
       return 0;
     }
+  }
+
+  // ============ LUNCH BREAK OPERATIONS ============
+
+  /// Insert a new lunch break record.
+  Future<void> insertLunchBreak({
+    required String id,
+    required String shiftId,
+    required String employeeId,
+    required DateTime startedAt,
+  }) async {
+    await _db.insert('local_lunch_breaks', {
+      'id': id,
+      'shift_id': shiftId,
+      'employee_id': employeeId,
+      'started_at': startedAt.toUtc().toIso8601String(),
+      'sync_status': 'pending',
+      'created_at': DateTime.now().toUtc().toIso8601String(),
+    });
+  }
+
+  /// End a lunch break by setting ended_at.
+  Future<void> endLunchBreak(String id, DateTime endedAt) async {
+    await _db.update(
+      'local_lunch_breaks',
+      {'ended_at': endedAt.toUtc().toIso8601String()},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  /// Get the active (open) lunch break for a shift.
+  Future<Map<String, dynamic>?> getActiveLunchBreak(String shiftId) async {
+    final results = await _db.query(
+      'local_lunch_breaks',
+      where: 'shift_id = ? AND ended_at IS NULL',
+      whereArgs: [shiftId],
+      limit: 1,
+    );
+    return results.isEmpty ? null : results.first;
+  }
+
+  /// Get pending (unsynced) lunch breaks.
+  Future<List<Map<String, dynamic>>> getPendingLunchBreaks() async {
+    return _db.query(
+      'local_lunch_breaks',
+      where: 'sync_status = ? AND ended_at IS NOT NULL',
+      whereArgs: ['pending'],
+    );
+  }
+
+  /// Mark a lunch break as synced.
+  Future<void> markLunchBreakSynced(String id, String serverId) async {
+    await _db.update(
+      'local_lunch_breaks',
+      {'sync_status': 'synced', 'server_id': serverId},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 }

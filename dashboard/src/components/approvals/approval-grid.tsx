@@ -175,6 +175,11 @@ export function ApprovalGrid() {
             {formatHours(needsReviewMinutes)} à vérifier
           </Badge>
         )}
+        {(day.lunch_minutes ?? 0) > 0 && (
+          <span className="text-[10px] text-orange-600">
+            {formatHours(day.lunch_minutes)} dîner
+          </span>
+        )}
         {day.status === 'approved' && (
           <CheckCircle2 className="h-3 w-3 text-green-600" />
         )}

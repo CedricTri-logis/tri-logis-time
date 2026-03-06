@@ -161,7 +161,7 @@ export interface CarpoolMember {
 
 // Activity timeline types (unified trips + stops + clock events)
 export interface ActivityItemBase {
-  activity_type: 'trip' | 'stop' | 'clock_in' | 'clock_out' | 'gap';
+  activity_type: 'trip' | 'stop' | 'clock_in' | 'clock_out' | 'gap' | 'lunch_start' | 'lunch_end';
   id: string;
   shift_id: string;
   started_at: string;
@@ -227,7 +227,7 @@ export type ApprovalAutoStatus = 'approved' | 'rejected' | 'needs_review';
 export type DayApprovalStatus = 'no_shift' | 'active' | 'pending' | 'needs_review' | 'approved';
 
 export interface ApprovalActivity {
-  activity_type: 'trip' | 'stop' | 'clock_in' | 'clock_out' | 'gap';
+  activity_type: 'trip' | 'stop' | 'clock_in' | 'clock_out' | 'gap' | 'lunch_start' | 'lunch_end';
   activity_id: string;
   shift_id: string;
   started_at: string;
@@ -271,6 +271,7 @@ export interface DayApprovalDetail {
     approved_minutes: number;
     rejected_minutes: number;
     needs_review_count: number;
+    lunch_minutes: number;
   };
 }
 
@@ -283,6 +284,7 @@ export interface WeeklyDayEntry {
   approved_minutes: number | null;
   rejected_minutes: number | null;
   needs_review_count: number;
+  lunch_minutes: number;
 }
 
 export interface WeeklyEmployeeRow {
