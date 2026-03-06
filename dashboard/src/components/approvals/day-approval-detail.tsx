@@ -389,10 +389,13 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
     return mergeClockEvents(detail.activities);
   }, [detail]);
 
-  // Client-side visible needs_review count (excludes merged/hidden clock events)
-  const visibleNeedsReviewCount = useMemo(() => {
-    return processedActivities.filter(pa => pa.item.final_status === 'needs_review').length;
-  }, [processedActivities]);
+  // Client-side visible needs_review count (excludes trips — they derive from stops)
+  const visibleNeedsReviewCount = useMemo(() =>
+    processedActivities.filter(pa =>
+      pa.item.final_status === 'needs_review' &&
+      pa.item.activity_type !== 'trip'
+    ).length
+  , [processedActivities]);
 
   // Duration by location type (for summary badges)
   const durationStats = useMemo(() => {
@@ -421,21 +424,10 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
     );
   }, [detail?.activities]);
 
-  // Find trips adjacent to a stop (arriving trip ends when stop starts, departing trip starts when stop ends)
-  const findAdjacentTrips = useCallback((stopActivity: ApprovalActivity): ApprovalActivity[] => {
-    if (!detail) return [];
-    return detail.activities.filter(a =>
-      a.activity_type === 'trip' &&
-      (a.ended_at === stopActivity.started_at || a.started_at === stopActivity.ended_at)
-    );
-  }, [detail]);
-
   const handleOverride = async (activity: ApprovalActivity, newStatus: 'approved' | 'rejected') => {
-    // If there's already an override with the same status, remove it (toggle back to auto)
     if (activity.override_status === newStatus) {
       setIsSaving(true);
       try {
-        let lastData;
         const { data, error } = await supabaseClient.rpc('remove_activity_override', {
           p_employee_id: employeeId,
           p_date: date,
@@ -446,24 +438,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
           toast.error('Erreur: ' + error.message);
           return;
         }
-        lastData = data;
-
-        // Cascade: un-rejecting a stop also un-rejects adjacent trips
-        if (activity.activity_type === 'stop' && activity.override_status === 'rejected') {
-          for (const trip of findAdjacentTrips(activity)) {
-            if (trip.override_status) {
-              const { data: d } = await supabaseClient.rpc('remove_activity_override', {
-                p_employee_id: employeeId,
-                p_date: date,
-                p_activity_type: trip.activity_type,
-                p_activity_id: trip.activity_id,
-              });
-              if (d) lastData = d;
-            }
-          }
-        }
-
-        setDetail(lastData as DayApprovalDetailType);
+        setDetail(data as DayApprovalDetailType);
       } finally {
         setIsSaving(false);
       }
@@ -472,7 +447,6 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
 
     setIsSaving(true);
     try {
-      let lastData;
       const { data, error } = await supabaseClient.rpc('save_activity_override', {
         p_employee_id: employeeId,
         p_date: date,
@@ -484,23 +458,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
         toast.error('Erreur: ' + error.message);
         return;
       }
-      lastData = data;
-
-      // Cascade: rejecting a stop also rejects adjacent trips
-      if (activity.activity_type === 'stop' && newStatus === 'rejected') {
-        for (const trip of findAdjacentTrips(activity)) {
-          const { data: d } = await supabaseClient.rpc('save_activity_override', {
-            p_employee_id: employeeId,
-            p_date: date,
-            p_activity_type: trip.activity_type,
-            p_activity_id: trip.activity_id,
-            p_status: 'rejected',
-          });
-          if (d) lastData = d;
-        }
-      }
-
-      setDetail(lastData as DayApprovalDetailType);
+      setDetail(data as DayApprovalDetailType);
     } finally {
       setIsSaving(false);
     }
@@ -765,20 +723,32 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                       </td>
                     </tr>
                   ) : (
-                    processedActivities.map((pa) => (
-                      <ActivityRow
-                        key={`${pa.item.activity_type}-${pa.item.activity_id}`}
-                        pa={pa}
-                        isApproved={isApproved}
-                        isSaving={isSaving}
-                        isExpanded={expandedId === `${pa.item.activity_type}-${pa.item.activity_id}`}
-                        onToggle={() => {
-                          const key = `${pa.item.activity_type}-${pa.item.activity_id}`;
-                          setExpandedId(expandedId === key ? null : key);
-                        }}
-                        onOverride={handleOverride}
-                      />
-                    ))
+                    processedActivities.map((pa) => {
+                      const key = `${pa.item.activity_type}-${pa.item.activity_id}`;
+                      const isTrip = pa.item.activity_type === 'trip';
+
+                      return isTrip ? (
+                        <TripConnectorRow
+                          key={key}
+                          pa={pa}
+                          isApproved={isApproved}
+                          isSaving={isSaving}
+                          isExpanded={expandedId === key}
+                          onToggle={() => setExpandedId(expandedId === key ? null : key)}
+                          onOverride={handleOverride}
+                        />
+                      ) : (
+                        <ActivityRow
+                          key={key}
+                          pa={pa}
+                          isApproved={isApproved}
+                          isSaving={isSaving}
+                          isExpanded={expandedId === key}
+                          onToggle={() => setExpandedId(expandedId === key ? null : key)}
+                          onOverride={handleOverride}
+                        />
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -848,7 +818,171 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
   );
 }
 
-// --- Individual activity row ---
+// --- Compact trip connector row ---
+
+function TripConnectorRow({
+  pa,
+  isApproved,
+  isSaving,
+  isExpanded,
+  onToggle,
+  onOverride,
+}: {
+  pa: ProcessedActivity<ApprovalActivity>;
+  isApproved: boolean;
+  isSaving: boolean;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onOverride: (activity: ApprovalActivity, status: 'approved' | 'rejected') => void;
+}) {
+  const { item: activity } = pa;
+  const hasOverride = activity.override_status !== null;
+
+  const statusColor = {
+    approved: {
+      bg: 'bg-green-50/40',
+      text: 'text-green-700',
+      subtext: 'text-green-600/60',
+      border: 'border-l-green-400',
+    },
+    rejected: {
+      bg: 'bg-red-50/40',
+      text: 'text-red-700',
+      subtext: 'text-red-600/60',
+      border: 'border-l-red-400',
+    },
+    needs_review: {
+      bg: 'bg-amber-50/30',
+      text: 'text-amber-700',
+      subtext: 'text-amber-600/60',
+      border: 'border-l-amber-400',
+    },
+  }[activity.final_status];
+
+  return (
+    <>
+      <tr
+        className={`${statusColor.bg} border-l-2 ${statusColor.border} cursor-pointer transition-all hover:brightness-95 group`}
+        onClick={onToggle}
+      >
+        {/* Empty action column — no buttons */}
+        <td className="px-3 py-1.5">
+          {hasOverride && (
+            <div className="flex justify-center">
+              <div className="h-2 w-2 rounded-full bg-blue-500" title="Override manuel" />
+            </div>
+          )}
+        </td>
+
+        {/* Empty clock column */}
+        <td className="py-1.5" />
+
+        {/* Arrow connector icon */}
+        <td className="px-2 py-1.5 text-center">
+          <div className="flex justify-center">
+            {activity.transport_mode === 'walking'
+              ? <Footprints className="h-3 w-3 text-orange-400" />
+              : <Car className="h-3 w-3 text-blue-400" />
+            }
+          </div>
+        </td>
+
+        {/* Duration + distance inline */}
+        <td colSpan={3} className="px-3 py-1.5">
+          <div className="flex items-center gap-2 ml-2">
+            <ArrowRight className="h-3 w-3 text-muted-foreground/40 flex-shrink-0" />
+            <span className={`text-[11px] font-medium tabular-nums ${statusColor.text}`}>
+              {formatDurationMinutes(activity.duration_minutes)}
+            </span>
+            {(activity.road_distance_km ?? activity.distance_km) ? (
+              <span className={`text-[11px] tabular-nums ${statusColor.subtext}`}>
+                {formatDistance(activity.road_distance_km ?? activity.distance_km)}
+              </span>
+            ) : null}
+            <span className={`text-[11px] truncate ${statusColor.subtext}`}>
+              {activity.start_location_name || '?'} → {activity.end_location_name || '?'}
+            </span>
+            {activity.has_gps_gap && (
+              <AlertTriangle className="h-3 w-3 text-amber-500 flex-shrink-0" title="Données GPS incomplètes" />
+            )}
+            {activity.duration_minutes > 60 && (
+              <Clock className="h-3 w-3 text-amber-500 flex-shrink-0" title={`Trajet long: ${activity.duration_minutes} min`} />
+            )}
+          </div>
+        </td>
+
+        {/* Distance column */}
+        <td className="py-1.5" />
+
+        {/* Expand chevron */}
+        <td className="px-3 py-1.5 text-center">
+          <div className={`rounded-full p-0.5 transition-colors ${isExpanded ? 'bg-muted' : 'group-hover:bg-muted'}`}>
+            {isExpanded
+              ? <ChevronUp className="h-3 w-3 text-primary" />
+              : <ChevronDown className="h-3 w-3 text-muted-foreground" />
+            }
+          </div>
+        </td>
+      </tr>
+
+      {/* Expanded: route map + override toggle */}
+      {isExpanded && (
+        <tr>
+          <td colSpan={8} className="p-0 border-b">
+            <div className="px-4 py-4 bg-muted/10 border-t border-b space-y-4">
+              {/* Override controls (only when day not approved) */}
+              {!isApproved && (
+                <div className="flex items-center gap-3 px-2 py-2 bg-background rounded-lg border">
+                  <span className="text-xs font-medium text-muted-foreground">Forcer le statut:</span>
+                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={`h-7 text-xs rounded-full ${
+                        activity.override_status === 'approved'
+                          ? 'border-green-500 bg-green-50 text-green-700'
+                          : 'text-muted-foreground hover:text-green-600 hover:bg-green-50'
+                      }`}
+                      onClick={() => onOverride(activity, 'approved')}
+                      disabled={isSaving}
+                    >
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      Approuver
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={`h-7 text-xs rounded-full ${
+                        activity.override_status === 'rejected'
+                          ? 'border-red-500 bg-red-50 text-red-700'
+                          : 'text-muted-foreground hover:text-red-600 hover:bg-red-50'
+                      }`}
+                      onClick={() => onOverride(activity, 'rejected')}
+                      disabled={isSaving}
+                    >
+                      <XCircle className="h-3 w-3 mr-1" />
+                      Rejeter
+                    </Button>
+                  </div>
+                  {hasOverride && (
+                    <Badge variant="outline" className="text-[10px] border-blue-300 text-blue-600">
+                      Override actif
+                    </Badge>
+                  )}
+                </div>
+              )}
+
+              {/* Route map */}
+              <TripExpandDetail activity={activity} />
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+// --- Individual activity row (stops, clocks, gaps) ---
 
 function ActivityRow({
   pa,
@@ -866,11 +1000,10 @@ function ActivityRow({
   onOverride: (activity: ApprovalActivity, status: 'approved' | 'rejected') => void;
 }) {
   const { item: activity, hasClockIn, hasClockOut } = pa;
-  const isTrip = activity.activity_type === 'trip';
   const isStop = activity.activity_type === 'stop';
   const isClock = activity.activity_type === 'clock_in' || activity.activity_type === 'clock_out';
   const isGap = activity.activity_type === 'gap';
-  const canExpand = !isClock && !isGap;
+  const canExpand = isStop;
   const hasOverride = activity.override_status !== null;
 
   const statusConfig = {
@@ -1000,9 +1133,9 @@ function ActivityRow({
         <td className="px-3 py-3 whitespace-nowrap">
           <div className={`flex items-center gap-1.5 tabular-nums text-xs ${statusConfig.text}`}>
             {isClock ? '—' : formatDurationMinutes(activity.duration_minutes)}
-            {((activity.gps_gap_seconds ?? 0) > 0 || (isTrip && activity.has_gps_gap && (activity.gps_gap_seconds ?? 0) === 0)) ? (
+            {(activity.gps_gap_seconds ?? 0) > 0 && (
               <AlertTriangle className="h-3.5 w-3.5 text-amber-600 animate-pulse" />
-            ) : null}
+            )}
           </div>
           {(activity.gps_gap_seconds ?? 0) > 0 && (
             <div className={`text-[10px] mt-0.5 ${
@@ -1013,29 +1146,11 @@ function ActivityRow({
               −{Math.round((activity.gps_gap_seconds ?? 0) / 60)} min GPS{(activity.gps_gap_count ?? 0) > 1 ? ` (${activity.gps_gap_count})` : ''}
             </div>
           )}
-          {isTrip && activity.has_gps_gap && (activity.gps_gap_seconds ?? 0) === 0 && (
-            <div className="text-[10px] mt-0.5 text-amber-600 font-medium">
-              Sans trace GPS
-            </div>
-          )}
         </td>
 
         {/* Détails */}
         <td className="px-3 py-3 max-w-[300px]">
-          {isTrip ? (
-            <div className="space-y-1">
-              <div className={`flex items-center gap-2 text-xs ${statusConfig.text}`}>
-                <span className="truncate">{activity.start_location_name || 'Inconnu'}</span>
-                <ArrowRight className="h-3 w-3 flex-shrink-0 opacity-50" />
-                <span className="truncate">{activity.end_location_name || 'Inconnu'}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className={`text-[10px] leading-tight italic ${statusConfig.subtext}`}>
-                  {activity.auto_reason}
-                </span>
-              </div>
-            </div>
-          ) : isGap ? (
+          {isGap ? (
             <div className="space-y-1">
               <div className={`text-xs flex items-center gap-1.5 ${statusConfig.text}`}>
                 <WifiOff className="h-3 w-3" />
@@ -1082,13 +1197,7 @@ function ActivityRow({
 
         {/* Distance */}
         <td className="px-3 py-3 text-right tabular-nums whitespace-nowrap">
-          {isTrip ? (
-            <span className={`text-xs font-black ${statusConfig.text}`}>
-              {formatDistance(activity.road_distance_km ?? activity.distance_km)}
-            </span>
-          ) : (
-            <span className="opacity-20 text-xs font-bold">—</span>
-          )}
+          <span className="opacity-20 text-xs font-bold">—</span>
         </td>
 
         {/* Expand chevron */}
@@ -1104,16 +1213,12 @@ function ActivityRow({
         </td>
       </tr>
 
-      {/* Expanded detail row */}
+      {/* Expanded detail row (stops only — trips use TripConnectorRow) */}
       {isExpanded && canExpand && (
         <tr>
           <td colSpan={8} className="p-0 border-b">
             <div className="px-4 py-6 bg-muted/10 border-t border-b">
-              {isTrip ? (
-                <TripExpandDetail activity={activity} />
-              ) : isStop ? (
-                <StopExpandDetail activity={activity} />
-              ) : null}
+              <StopExpandDetail activity={activity} />
             </div>
           </td>
         </tr>
