@@ -122,14 +122,20 @@ class FcmService {
   }
 
   /// Listen for token refreshes and re-register. Safe to call multiple times.
+  /// Catches FirebaseException if Firebase isn't initialized yet (deferred init).
   void listenForTokenRefresh() {
     if (_tokenRefreshListening) return;
     _tokenRefreshListening = true;
 
-    FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
-      _lastRegisteredToken = null; // Force re-registration
-      await registerToken();
-    });
+    try {
+      FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
+        _lastRegisteredToken = null; // Force re-registration
+        await registerToken();
+      });
+    } catch (e) {
+      _tokenRefreshListening = false; // Allow retry after Firebase initializes
+      debugPrint('[FCM] listenForTokenRefresh failed (Firebase not ready?): $e');
+    }
   }
 
   /// Clear FCM token from server on sign-out.
