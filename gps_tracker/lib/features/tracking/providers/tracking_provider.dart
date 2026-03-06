@@ -148,6 +148,28 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     }
   }
 
+  /// Public health check — call from any user interaction (QR scan, project
+  /// selection, etc.) to restart tracking if iOS killed the service.
+  /// No-op if tracking is already running or there's no active shift.
+  Future<void> verifyTrackingHealth() async {
+    if (state.status == TrackingStatus.running ||
+        state.status == TrackingStatus.starting) {
+      return;
+    }
+    final shift = _ref.read(shiftProvider).activeShift;
+    if (shift == null) return;
+
+    final isRunning = await BackgroundTrackingService.isTracking;
+    if (isRunning) return;
+
+    _logger?.lifecycle(
+      Severity.warn,
+      'Tracking dead during user interaction — restarting',
+      metadata: {'shift_id': shift.id},
+    );
+    startTracking();
+  }
+
   void _handleTaskData(dynamic data) {
     if (data is! Map<String, dynamic>) return;
 

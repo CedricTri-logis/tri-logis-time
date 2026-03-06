@@ -6,6 +6,7 @@ import '../../../shared/providers/supabase_provider.dart';
 import '../../shifts/providers/connectivity_provider.dart';
 import '../../shifts/providers/location_provider.dart';
 import '../../shifts/providers/shift_provider.dart';
+import '../../tracking/providers/tracking_provider.dart';
 import '../models/cleaning_session.dart';
 import '../models/scan_result.dart';
 import '../../maintenance/services/maintenance_local_db.dart';
@@ -169,6 +170,9 @@ class CleaningSessionNotifier extends StateNotifier<CleaningSessionState> {
   /// [serverShiftId] is the Supabase shift ID (for RPC calls).
   Future<ScanResult> scanIn(String qrCode, String shiftId,
       {String? serverShiftId}) async {
+    // User is interacting — verify GPS tracking is alive
+    _ref.read(trackingProvider.notifier).verifyTrackingHealth();
+
     final employeeId = _employeeId;
     if (employeeId == null) {
       return ScanResult.error(ScanErrorType.noActiveShift);
@@ -222,6 +226,9 @@ class CleaningSessionNotifier extends StateNotifier<CleaningSessionState> {
 
   /// Scan a QR code to complete an existing cleaning session.
   Future<ScanResult> scanOut(String qrCode) async {
+    // User is interacting — verify GPS tracking is alive
+    _ref.read(trackingProvider.notifier).verifyTrackingHealth();
+
     final employeeId = _employeeId;
     if (employeeId == null) {
       return ScanResult.error(ScanErrorType.noActiveSession);
