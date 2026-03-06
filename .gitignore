@@ -16,6 +16,7 @@ gps_tracker/.env.*
 !gps_tracker/.env.example
 
 # iOS
+gps_tracker/ios/Runner/Secrets.xcconfig
 gps_tracker/ios/Pods/
 gps_tracker/ios/.symlinks/
 gps_tracker/ios/Flutter/Flutter.framework
@@ -27,6 +28,7 @@ gps_tracker/ios/ServiceDefinitions.json
 *.xcuserdata
 
 # Android
+gps_tracker/android/secrets.properties
 gps_tracker/android/.gradle/
 gps_tracker/android/captures/
 gps_tracker/android/gradlew
