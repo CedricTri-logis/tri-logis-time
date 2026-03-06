@@ -1,6 +1,6 @@
 # Background Tracking Resilience - Audit complet
 
-> Dernière mise à jour : 2026-03-05 | Build actuel : v1.0.0+102
+> Dernière mise à jour : 2026-03-06 | Build actuel : v1.0.0+103
 
 ## Table des matières
 
@@ -29,7 +29,8 @@ L'architecture de résilience utilise une approche **multi-couches** (defense in
 │         COUCHE FLUTTER (Main Isolate)        │
 │  GPS self-healing (2min nudge),             │
 │  connectivity monitor, server heartbeat,     │
-│  tracking verification, thermal adaptation   │
+│  tracking verification, thermal adaptation,  │
+│  verifyTrackingHealth (user interaction)     │
 ├─────────────────────────────────────────────┤
 │       COUCHE FLUTTER (Background Isolate)    │
 │  GPS stream + exponential backoff recovery,  │
@@ -39,7 +40,8 @@ L'architecture de résilience utilise une approche **multi-couches** (defense in
 │           COUCHE NATIVE iOS                  │
 │  CLBackgroundActivitySession (iOS 17+),      │
 │  beginBackgroundTask, SLC (~500m),           │
-│  Live Activity, NativeGpsBuffer (UserDefaults)│
+│  BGAppRefreshTask (~5min), Live Activity,    │
+│  NativeGpsBuffer (UserDefaults, 500pts)      │
 ├─────────────────────────────────────────────┤
 │           COUCHE NATIVE Android              │
 │  setAlarmClock (45s rescue chain),           │
@@ -117,7 +119,18 @@ L'architecture de résilience utilise une approche **multi-couches** (defense in
 
 **Limites** : Max 100 points. Source tag : `native_slc`. Singleton pattern. Intégré dans `SignificantLocationPlugin.didUpdateLocations`.
 
-### 2.6 Configuration iOS critique
+### 2.6 BGAppRefreshTask (iOS 13+)
+
+| Attribut | Valeur |
+|----------|--------|
+| **Fichier** | `ios/Runner/BackgroundAppRefreshPlugin.swift` + `lib/features/tracking/services/bg_app_refresh_service.dart` |
+| **Introduit** | Build +103 |
+| **Statut** | ✅ ACTIF |
+| **Principe** | iOS schedule un refresh ~5min (réel : 15-30min selon usage). Quand l'employé est stationnaire (pas de SLC trigger), c'est le seul mécanisme capable de relancer l'app. Le handler vérifie UserDefaults pour shift_id, écrit un breadcrumb, et laisse `_refreshServiceState()` de main.dart redémarrer le tracking. |
+
+**Comportement** : One-shot — se re-schedule à chaque exécution. Scheduled au clock-in (`BgAppRefreshService.schedule()`), annulé au clock-out (`BgAppRefreshService.cancel()`). Handler minimal (UserDefaults reads only) pour ne pas faire baisser la priorité iOS.
+
+### 2.7 Configuration iOS critique
 
 | Paramètre | Valeur | Pourquoi |
 |------------|--------|----------|
@@ -563,6 +576,13 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +101 | Mar 5 | **FCM client activé** — Firebase init (non-bloquant), FCM token enregistré, kill switch migration 132 | ✅ Actif |
 | +101 | Mar 5 | Dashboard : untracked time gaps dans approval timeline, GPS freshness badges sidebar, badge monitoring | Dashboard |
 | +102 | Mar 5 | iOS push notification entitlement APS ajouté, dashboard overlap prevention geofences (migration 133), map fixes — pas de changement tracking | ✅ Stable |
+| +103 | Mar 6 | **BGAppRefreshTask iOS** (Swift native + Dart bridge) — relance l'app quand employé stationnaire, schedule ~5min, breadcrumbs UserDefaults | ✅ Actif |
+| +103 | Mar 6 | **Firebase init différé** — attend 3s + foreground avant init Firebase ; background launches (SLC) skip Firebase pour éviter Jetsam kills iOS | ✅ Actif |
+| +103 | Mar 6 | **FCM background handler amélioré** — vérifie shift actif, relance app via `FlutterForegroundTask.launchApp()` si service mort | ✅ Actif |
+| +103 | Mar 6 | **verifyTrackingHealth()** sur interactions utilisateur (QR scan in/out, maintenance) — redémarre tracking si iOS l'a tué | ✅ Actif |
+| +103 | Mar 6 | **FCM foreground listener** — log diagnostic quand wake reçu en foreground (no-op, déjà en marche) | ✅ Actif |
+| +103 | Mar 6 | **Orphan GPS log batching** — logs quarantaine groupés par shift au lieu d'un par point (réduit spam diagnostic) | ✅ Actif |
+| +103 | Mar 6 | Dashboard : satellite/roadmap toggle sur toutes les cartes location | Dashboard |
 
 ### Chronologie complète Android Watchdog
 
@@ -659,6 +679,8 @@ TrackingRescueReceiver v2 (Kotlin natif, setAlarmClock tier principal, 45s)
 | `ios/Runner/BackgroundTaskPlugin.swift` | CLBackgroundActivitySession + beginBackgroundTask + thermal |
 | `ios/Runner/LiveActivityPlugin.swift` | Lock Screen tracking status |
 | `ios/Runner/NativeGpsBuffer.swift` | UserDefaults GPS buffer (max 500 pts) |
+| `ios/Runner/BackgroundAppRefreshPlugin.swift` | BGAppRefreshTask — relance app quand stationnaire (~5min) |
+| `lib/features/tracking/services/bg_app_refresh_service.dart` | Dart bridge pour BGAppRefreshTask iOS |
 | `android/.../TrackingRescueReceiver.kt` | Rescue alarm chain (setAlarmClock 45s) + native GPS capture |
 | `android/.../GeofenceWakeReceiver.kt` | Geofence 200m — redémarre tracking après kill Samsung |
 | `android/.../NativeGpsBuffer.kt` | SharedPreferences GPS buffer (max 500 pts) |
