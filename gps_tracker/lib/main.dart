@@ -20,6 +20,7 @@ import 'shared/models/diagnostic_event.dart';
 import 'shared/providers/diagnostic_provider.dart';
 import 'shared/services/diagnostic_logger.dart';
 import 'shared/services/local_database.dart';
+import 'shared/services/fcm_service.dart';
 import 'shared/services/notification_service.dart';
 import 'shared/services/session_backup_service.dart';
 import 'shared/services/shift_activity_service.dart';
@@ -27,14 +28,20 @@ import 'shared/services/shift_activity_service.dart';
 /// Top-level handler for FCM background/terminated messages.
 /// Firebase requires this to be a top-level function (not a class method).
 ///
+/// Runs in a SEPARATE ISOLATE — cannot access Riverpod providers or app state.
+/// CAN access SharedPreferences and FlutterForegroundTask platform channels
+/// (firebase_messaging sets up a background Flutter engine).
+///
 /// On iOS: receiving this silent push relaunches the full app (main() re-runs),
-/// so the existing tracking recovery handles restart.
-/// On Android: the rescue alarm chain handles restart independently.
+/// so the existing tracking recovery in _refreshServiceState() handles restart.
+/// On Android: we additionally restart the foreground service here as a belt-
+/// and-suspenders complement to the rescue alarm chain.
 ///
 /// We write a breadcrumb for debugging + to satisfy Apple's "useful work"
 /// requirement for silent push budget.
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // 1. Write breadcrumb (existing behavior)
   try {
     final prefs = await SharedPreferences.getInstance();
     final timestamp = DateTime.now().toIso8601String();
@@ -47,6 +54,26 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     await prefs.setStringList('fcm_wake_breadcrumbs', breadcrumbs);
   } catch (_) {
     // Silently fail — this is a best-effort breadcrumb
+  }
+
+  // 2. If there's an active shift, ensure the foreground tracking service is alive.
+  //    Uses FlutterForegroundTask shared prefs key (same as TrackingRescueReceiver.kt).
+  //    If the service was killed, launch the app to trigger recovery via
+  //    _refreshServiceState(). If still running, this is a no-op.
+  try {
+    final shiftId = await FlutterForegroundTask.getData<String>(key: 'shift_id');
+    if (shiftId != null && shiftId.isNotEmpty) {
+      final isRunning = await FlutterForegroundTask.isRunningService;
+      if (!isRunning) {
+        // Service was killed — launch app to trigger existing recovery path
+        FlutterForegroundTask.launchApp();
+        debugPrint('[FCM] Active shift $shiftId, service dead — launched app for recovery');
+      } else {
+        debugPrint('[FCM] Active shift $shiftId, service already running — no action needed');
+      }
+    }
+  } catch (_) {
+    // Best-effort — don't crash the background handler
   }
 }
 
@@ -140,6 +167,15 @@ Future<void> main() async {
         DiagnosticLogger.instance
             .lifecycle(Severity.info, 'App started', metadata: {
           'init_duration_ms': stopwatch.elapsedMilliseconds,
+        });
+
+        // Listen for auth state changes so _employeeId gets set once
+        // the session is restored (often null at cold start).
+        Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+          if (DiagnosticLogger.isInitialized) {
+            DiagnosticLogger.instance
+                .setEmployeeId(data.session?.user.id);
+          }
         });
       } catch (e) {
         debugPrint('[Main] DiagnosticLogger init failed (non-critical): $e');
@@ -236,6 +272,8 @@ Future<void> _initializeFirebase() async {
   try {
     await Firebase.initializeApp();
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    // Set up foreground message listener (logs wake messages, no-op for tracking)
+    FcmService().initialize();
     debugPrint('[Main] Firebase initialized successfully');
   } catch (e) {
     // Non-fatal: app works without Firebase, just no silent push wake

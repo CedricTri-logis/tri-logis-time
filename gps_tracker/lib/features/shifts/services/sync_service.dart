@@ -212,6 +212,7 @@ class SyncService {
       final pointsByClientId = <String, dynamic>{};
 
       int skippedOrphanCount = 0;
+      final quarantinedPerShift = <String, int>{};
 
       for (final point in pendingPoints) {
         var shift = await _localDb.getShiftById(point.shiftId);
@@ -246,7 +247,7 @@ class SyncService {
               );
               // Mark as synced to remove from pending queue
               await _localDb.markGpsPointsSynced([point.id]);
-              _logger?.sync(Severity.warn, 'GPS point quarantined', metadata: {'point_id': point.id, 'shift_id': point.shiftId, 'reason': 'orphaned_shift', 'attempt_count': attempts});
+              quarantinedPerShift[point.shiftId] = (quarantinedPerShift[point.shiftId] ?? 0) + 1;
             } catch (_) {
               failedCount++;
             }
@@ -254,6 +255,11 @@ class SyncService {
             failedCount++;
           }
         }
+      }
+
+      // Log one summary per shift for quarantined points
+      for (final entry in quarantinedPerShift.entries) {
+        _logger?.sync(Severity.warn, 'Quarantined ${entry.value} orphaned GPS points', metadata: {'shift_id': entry.key, 'count': entry.value, 'reason': 'orphaned_shift'});
       }
 
       // If all points were orphaned (no valid server IDs), report as error to trigger retry

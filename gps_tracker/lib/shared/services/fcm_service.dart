@@ -20,6 +20,32 @@ class FcmService {
   String? _lastRegisteredToken;
   bool _permissionRequested = false;
   bool _tokenRefreshListening = false;
+  bool _foregroundListenerActive = false;
+
+  /// Set up the foreground message listener.
+  /// Call once after Firebase.initializeApp(). Safe to call multiple times.
+  ///
+  /// Logs a diagnostic event when a "wake" message arrives while the app is
+  /// in the foreground. No tracking restart needed — if the app is foregrounded,
+  /// tracking should already be running.
+  void initialize() {
+    if (_foregroundListenerActive) return;
+    _foregroundListenerActive = true;
+
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      final type = message.data['type'];
+      if (type == 'wake') {
+        _logger?.lifecycle(
+          Severity.info,
+          'FCM wake received in foreground (no-op)',
+          metadata: {
+            'timestamp': message.data['timestamp'] ?? '',
+          },
+        );
+        debugPrint('[FCM] Wake message received in foreground — no action needed');
+      }
+    });
+  }
 
   /// Check if FCM is enabled for this employee via app_config + per-employee opt-in.
   /// Returns false if anything fails (safe default = disabled).
