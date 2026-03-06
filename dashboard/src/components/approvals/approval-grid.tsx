@@ -116,6 +116,9 @@ export function ApprovalGrid() {
   const getWeekRejected = (row: WeeklyEmployeeRow): number => {
     return row.days.reduce((sum, d) => sum + (d.rejected_minutes ?? 0), 0);
   };
+  const getWeekTotal = (row: WeeklyEmployeeRow): number => {
+    return row.days.reduce((sum, d) => sum + (d.total_shift_minutes ?? 0), 0);
+  };
 
   const weekLabel = useMemo(() => {
     const start = new Date(weekStart + 'T12:00:00');
@@ -162,22 +165,34 @@ export function ApprovalGrid() {
 
     const approved = day.approved_minutes ?? 0;
     const rejected = day.rejected_minutes ?? 0;
-    const needsReviewMinutes = day.total_shift_minutes - approved - rejected;
 
+    if (day.status === 'approved') {
+      return (
+        <div className="flex flex-col items-center gap-0.5">
+          <span className="text-xs font-bold">{formatHours(approved)}</span>
+          {rejected > 0 && (
+            <span className="text-[10px] text-red-600">{formatHours(rejected)} refusé</span>
+          )}
+          <CheckCircle2 className="h-3 w-3 text-green-600" />
+        </div>
+      );
+    }
+
+    if (day.status === 'needs_review') {
+      return (
+        <div className="flex flex-col items-center gap-0.5">
+          <span className="text-xs font-bold">{formatHours(approved)}</span>
+          <Badge variant="secondary" className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100 text-[10px] px-1 py-0">
+            {formatHours(day.total_shift_minutes - approved - rejected)} à vérifier
+          </Badge>
+        </div>
+      );
+    }
+
+    // pending: show total shift minutes as the main number
     return (
       <div className="flex flex-col items-center gap-0.5">
-        <span className="text-xs font-bold">{formatHours(approved)}</span>
-        {rejected > 0 && (
-          <span className="text-[10px] text-red-600">{formatHours(rejected)} refusé</span>
-        )}
-        {needsReviewMinutes > 0 && day.needs_review_count > 0 && (
-          <Badge variant="secondary" className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100 text-[10px] px-1 py-0">
-            {formatHours(needsReviewMinutes)} à vérifier
-          </Badge>
-        )}
-        {day.status === 'approved' && (
-          <CheckCircle2 className="h-3 w-3 text-green-600" />
-        )}
+        <span className="text-xs font-bold">{formatHours(day.total_shift_minutes)}</span>
       </div>
     );
   };
@@ -269,9 +284,13 @@ export function ApprovalGrid() {
                         </td>
                       ))}
                       <td className="px-4 py-3 text-center">
-                        {getWeekApproved(row) > 0 || getWeekRejected(row) > 0 ? (
+                        {getWeekTotal(row) > 0 ? (
                           <div className="flex flex-col items-center gap-0.5">
-                            <span className="font-bold text-gray-900">{formatHours(getWeekApproved(row))}</span>
+                            {getWeekApproved(row) > 0 ? (
+                              <span className="font-bold text-gray-900">{formatHours(getWeekApproved(row))}</span>
+                            ) : (
+                              <span className="font-bold text-gray-500">{formatHours(getWeekTotal(row))}</span>
+                            )}
                             {getWeekRejected(row) > 0 && (
                               <span className="text-[10px] text-red-600">{formatHours(getWeekRejected(row))} refusé</span>
                             )}
