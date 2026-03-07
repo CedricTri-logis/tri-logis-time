@@ -27,7 +27,7 @@ import { GoogleTripRouteMap } from '@/components/trips/google-trip-route-map';
 import { detectTripStops, detectGpsClusters } from '@/lib/utils/detect-trip-stops';
 import { LocationPickerDropdown } from '@/components/trips/location-picker-dropdown';
 import { StationaryClustersMap } from '@/components/mileage/stationary-clusters-map';
-import type { ActivityItem, ActivityTrip, ActivityStop, ActivityClockEvent, TripGpsPoint } from '@/types/mileage';
+import type { ActivityItem, ActivityTrip, ActivityStop, ActivityClockEvent, ActivityGap, TripGpsPoint } from '@/types/mileage';
 import type { StationaryCluster } from '@/components/mileage/stationary-clusters-map';
 import { mergeClockEvents, type ProcessedActivity } from '@/lib/utils/merge-clock-events';
 import { LOCATION_TYPE_ICON_MAP } from '@/lib/constants/location-icons';
@@ -737,6 +737,12 @@ function StopExpandDetail({ stop }: { stop: ActivityStop }) {
 function ActivityIcon({ item, locationType }: { item: ActivityItem; locationType?: LocationType }) {
   if (item.activity_type === 'clock_in') return <LogIn className="h-4 w-4 text-emerald-600" />;
   if (item.activity_type === 'clock_out') return <LogOut className="h-4 w-4 text-red-500" />;
+  if (item.activity_type === 'gap') {
+    const gap = item as ActivityGap;
+    if (!gap.start_cluster_id) return <LogIn className="h-4 w-4 text-amber-500" />;
+    if (!gap.end_cluster_id) return <LogOut className="h-4 w-4 text-amber-500" />;
+    return <AlertTriangle className="h-4 w-4 text-amber-500" />;
+  }
   if (item.activity_type === 'trip') {
     const trip = item as ActivityTrip;
     if (trip.transport_mode === 'walking') return <Footprints className="h-4 w-4 text-orange-500" />;
@@ -781,6 +787,12 @@ function getActivityDetail(item: ActivityItem, geocodedAddresses: Record<string,
   if (item.activity_type === 'clock_in' || item.activity_type === 'clock_out') {
     return getClockLocationLabel(item as ActivityClockEvent, geocodedAddresses) || '';
   }
+  if (item.activity_type === 'gap') {
+    const gap = item as ActivityGap;
+    const from = gap.start_location_name || 'Inconnu';
+    const to = gap.end_location_name || 'Inconnu';
+    return `${from} \u2192 ${to}`;
+  }
   if (item.activity_type === 'trip') {
     const trip = item as ActivityTrip;
     const from = resolveLocation(trip.start_location_name, trip.start_address, trip.start_latitude, trip.start_longitude, geocodedAddresses);
@@ -793,6 +805,9 @@ function getActivityDetail(item: ActivityItem, geocodedAddresses: Record<string,
 
 function getActivityDuration(item: ActivityItem): string {
   if (item.activity_type === 'clock_in' || item.activity_type === 'clock_out') return '\u2014';
+  if (item.activity_type === 'gap') {
+    return formatDurationMinutes((item as ActivityGap).duration_minutes);
+  }
   if (item.activity_type === 'trip') {
     return formatDurationMinutes((item as ActivityTrip).duration_minutes);
   }
@@ -892,16 +907,20 @@ function ActivityTableRow({
   const { item, hasClockIn, hasClockOut } = pa;
   const isTrip = item.activity_type === 'trip';
   const isStop = item.activity_type === 'stop';
+  const isGap = item.activity_type === 'gap';
   const isClock = item.activity_type === 'clock_in' || item.activity_type === 'clock_out';
   const trip = isTrip ? (item as ActivityTrip) : null;
   const stop = isStop ? (item as ActivityStop) : null;
-  const canExpand = !isClock;
+  const gap = isGap ? (item as ActivityGap) : null;
+  const canExpand = !isClock && !isGap;
   const stopLocationType = stop?.effective_location_type as LocationType | undefined ?? (stop?.matched_location_id ? locationTypes[stop.matched_location_id] : undefined);
+  const hasGpsGap = (isTrip && trip?.has_gps_gap) || isGap;
 
   return (
     <>
       <tr
-        className={`${canExpand ? 'cursor-pointer' : ''} hover:bg-muted/50 transition-colors ${isClock ? 'bg-muted/20' : ''}`}
+        className={`${canExpand ? 'cursor-pointer' : ''} hover:bg-muted/50 transition-colors ${isClock ? 'bg-muted/20' : ''} ${hasGpsGap ? 'bg-amber-50/30' : ''}`}
+        style={hasGpsGap ? { borderLeft: '3px dashed rgb(245 158 11)' } : undefined}
         onClick={canExpand ? onToggle : undefined}
       >
         <td className="px-4 py-3 text-center">
@@ -937,12 +956,17 @@ function ActivityTableRow({
             <span className="text-xs text-muted-foreground truncate">
               {getClockLocationLabel(item as ActivityClockEvent, geocodedAddresses) || ''}
             </span>
-          ) : isTrip && trip ? (
-            <div className="flex items-center gap-1 text-xs truncate">
-              <span className="truncate">{resolveLocation(trip.start_location_name, trip.start_address, trip.start_latitude, trip.start_longitude, geocodedAddresses)}</span>
-              <ArrowRight className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
-              <span className="truncate">{resolveLocation(trip.end_location_name, trip.end_address, trip.end_latitude, trip.end_longitude, geocodedAddresses)}</span>
+          ) : isGap && gap ? (
+            <div className="flex items-center gap-1 text-xs truncate text-amber-700">
+              <span className="truncate">{gap.start_location_name || 'Inconnu'}</span>
+              <ArrowRight className="h-3 w-3 flex-shrink-0 text-amber-500" />
+              <span className="truncate">{gap.end_location_name || 'Inconnu'}</span>
+              <span className="text-amber-500 text-[10px] ml-1">D&eacute;placement non trac&eacute;</span>
             </div>
+          ) : isTrip && trip ? (
+            <span className="text-xs text-muted-foreground italic">
+              {trip.has_gps_gap ? 'Sans trace GPS' : ''}
+            </span>
           ) : stop ? (
             <span className={`text-xs ${stop.matched_location_name ? 'text-green-600 font-medium' : 'text-amber-600'}`}>
               {stop.matched_location_name || 'Non associ\u00e9'}
@@ -950,11 +974,17 @@ function ActivityTableRow({
           ) : null}
         </td>
         <td className="px-4 py-3 text-right tabular-nums">
-          {isTrip && trip ? formatDistance(trip.road_distance_km ?? trip.distance_km) : '\u2014'}
+          {isTrip && trip ? formatDistance(trip.road_distance_km ?? trip.distance_km)
+           : isGap && gap ? formatDistance(gap.distance_km)
+           : '\u2014'}
         </td>
         <td className="px-4 py-3 text-center">
           {isClock ? (
             '\u2014'
+          ) : isGap ? (
+            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700">
+              Non trac&eacute;
+            </span>
           ) : isTrip && trip ? (
             <MatchStatusBadge match_status={trip.match_status} />
           ) : (
@@ -992,16 +1022,18 @@ function ActivityTableRow({
 function ActivityTimeline({ activities, groupedByDay, isRangeMode, expandedId, onToggleExpand, onDataChanged, geocodedAddresses, locationTypes }: ActivityViewProps) {
   const getColors = (pa: ProcessedActivity<ActivityItem>) => {
     const { item } = pa;
-    if (item.activity_type === 'clock_in') return { border: 'border-l-emerald-600', dot: 'bg-emerald-600' };
-    if (item.activity_type === 'clock_out') return { border: 'border-l-red-500', dot: 'bg-red-500' };
+    if (item.activity_type === 'clock_in') return { border: 'border-l-emerald-600', dot: 'bg-emerald-600', dashed: false };
+    if (item.activity_type === 'clock_out') return { border: 'border-l-red-500', dot: 'bg-red-500', dashed: false };
+    if (item.activity_type === 'gap') return { border: 'border-l-amber-500', dot: 'bg-amber-500', dashed: true };
     if (item.activity_type === 'trip') {
       const trip = item as ActivityTrip;
-      if (trip.transport_mode === 'walking') return { border: 'border-l-orange-500', dot: 'bg-orange-500' };
-      return { border: 'border-l-blue-500', dot: 'bg-blue-500' };
+      if (trip.has_gps_gap) return { border: 'border-l-amber-500', dot: 'bg-amber-500', dashed: true };
+      if (trip.transport_mode === 'walking') return { border: 'border-l-orange-500', dot: 'bg-orange-500', dashed: false };
+      return { border: 'border-l-blue-500', dot: 'bg-blue-500', dashed: false };
     }
     const stop = item as ActivityStop;
-    if (stop.matched_location_name) return { border: 'border-l-green-500', dot: 'bg-green-500' };
-    return { border: 'border-l-amber-500', dot: 'bg-amber-500' };
+    if (stop.matched_location_name) return { border: 'border-l-green-500', dot: 'bg-green-500', dashed: false };
+    return { border: 'border-l-amber-500', dot: 'bg-amber-500', dashed: false };
   };
 
   const renderItem = (pa: ProcessedActivity<ActivityItem>) => {
@@ -1009,8 +1041,9 @@ function ActivityTimeline({ activities, groupedByDay, isRangeMode, expandedId, o
     const colors = getColors(pa);
     const isClock = item.activity_type === 'clock_in' || item.activity_type === 'clock_out';
     const isStop = item.activity_type === 'stop';
+    const isGap = item.activity_type === 'gap';
     const stop = isStop ? (item as ActivityStop) : null;
-    const canExpand = !isClock;
+    const canExpand = !isClock && !isGap;
     const isExpanded = canExpand && expandedId === item.id;
     const stopLocationType = stop?.effective_location_type as LocationType | undefined ?? (stop?.matched_location_id ? locationTypes[stop.matched_location_id] : undefined);
 
@@ -1021,7 +1054,8 @@ function ActivityTimeline({ activities, groupedByDay, isRangeMode, expandedId, o
 
         {/* Card */}
         <Card
-          className={`${canExpand ? 'cursor-pointer' : ''} border-l-4 ${colors.border} hover:shadow-md transition-shadow`}
+          className={`${canExpand ? 'cursor-pointer' : ''} border-l-4 ${colors.border} hover:shadow-md transition-shadow ${isGap ? 'bg-amber-50/30' : ''}`}
+          style={colors.dashed ? { borderLeftStyle: 'dashed' } : undefined}
           onClick={canExpand ? () => onToggleExpand(item.id) : undefined}
         >
           <CardContent className="py-3 px-4">
@@ -1047,12 +1081,16 @@ function ActivityTimeline({ activities, groupedByDay, isRangeMode, expandedId, o
                   <span className="text-sm truncate max-w-[300px] text-muted-foreground">
                     {getClockLocationLabel(item as ActivityClockEvent, geocodedAddresses) || ''}
                   </span>
+                ) : isGap ? (
+                  <span className="text-sm truncate max-w-[300px] text-amber-700">{getActivityDetail(item, geocodedAddresses)}</span>
                 ) : (
                   <span className="text-sm truncate max-w-[300px]">{getActivityDetail(item, geocodedAddresses)}</span>
                 )}
-                {item.activity_type === 'trip' && (
+                {(item.activity_type === 'trip' || item.activity_type === 'gap') && (
                   <span className="text-sm tabular-nums whitespace-nowrap text-muted-foreground">
-                    {formatDistance((item as ActivityTrip).road_distance_km ?? (item as ActivityTrip).distance_km)}
+                    {item.activity_type === 'trip'
+                      ? formatDistance((item as ActivityTrip).road_distance_km ?? (item as ActivityTrip).distance_km)
+                      : formatDistance((item as ActivityGap).distance_km)}
                   </span>
                 )}
                 {canExpand && (

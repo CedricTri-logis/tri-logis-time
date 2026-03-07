@@ -91,6 +91,13 @@ function ApprovalActivityIcon({ activity }: { activity: ApprovalActivity }) {
     return <UtensilsCrossed className="h-4 w-4 text-orange-500" />;
   }
   if (activity.activity_type === 'gap') {
+    // Clock gaps have start/end location names from the SQL function
+    if (activity.start_location_name || activity.end_location_name) {
+      // Clock-in gap: starts from clock location (no start_location_id), ends at first cluster
+      if (!activity.start_location_id && activity.end_location_id) return <LogIn className="h-4 w-4 text-amber-500" />;
+      // Clock-out gap: starts from last cluster, ends at clock location (no end_location_id)
+      if (activity.start_location_id && !activity.end_location_id) return <LogOut className="h-4 w-4 text-amber-500" />;
+    }
     return <WifiOff className="h-4 w-4 text-purple-500" />;
   }
   if (activity.activity_type === 'trip') {
@@ -879,6 +886,7 @@ function TripConnectorRow({
     <>
       <tr
         className={`${statusColor.bg} border-l-2 ${statusColor.border} cursor-pointer transition-all hover:brightness-95 group`}
+        style={activity.has_gps_gap ? { borderLeftStyle: 'dashed', borderLeftColor: 'rgb(245 158 11)', borderLeftWidth: '3px' } : undefined}
         onClick={onToggle}
       >
         {/* Empty action column — no buttons */}
@@ -1181,12 +1189,29 @@ function ActivityRow({
           {isGap ? (
             <div className="space-y-1">
               <div className={`text-xs flex items-center gap-1.5 ${statusConfig.text}`}>
-                <WifiOff className="h-3 w-3" />
-                <span className="font-bold">Temps non suivi</span>
+                {(activity.start_location_name || activity.end_location_name) ? (
+                  <>
+                    <AlertTriangle className="h-3 w-3 text-amber-500" />
+                    <span className="font-bold">D&eacute;placement non trac&eacute;</span>
+                  </>
+                ) : (
+                  <>
+                    <WifiOff className="h-3 w-3" />
+                    <span className="font-bold">Temps non suivi</span>
+                  </>
+                )}
               </div>
-              <span className={`text-[10px] leading-tight italic ${statusConfig.subtext}`}>
-                Aucune donnee GPS durant cette periode
-              </span>
+              {(activity.start_location_name || activity.end_location_name) ? (
+                <div className={`text-[10px] flex items-center gap-1 ${statusConfig.subtext}`}>
+                  <span>{activity.start_location_name || 'Inconnu'}</span>
+                  <ArrowRight className="h-2.5 w-2.5 flex-shrink-0" />
+                  <span>{activity.end_location_name || 'Inconnu'}</span>
+                </div>
+              ) : (
+                <span className={`text-[10px] leading-tight italic ${statusConfig.subtext}`}>
+                  Aucune donnee GPS durant cette periode
+                </span>
+              )}
             </div>
           ) : isLunch ? (
             <div className="space-y-1">
@@ -1234,7 +1259,11 @@ function ActivityRow({
 
         {/* Distance */}
         <td className="px-3 py-3 text-right tabular-nums whitespace-nowrap">
-          <span className="opacity-20 text-xs font-bold">—</span>
+          {isGap && activity.distance_km ? (
+            <span className="text-xs text-amber-600">{formatDistance(activity.distance_km)}</span>
+          ) : (
+            <span className="opacity-20 text-xs font-bold">—</span>
+          )}
         </td>
 
         {/* Expand chevron */}
