@@ -1044,7 +1044,7 @@ function TripConnectorRow({
               </span>
             ) : null}
             <span className={`text-[11px] truncate ${statusColor.subtext}`}>
-              {activity.start_location_name || '?'} → {activity.end_location_name || '?'}
+              {formatDurationMinutes(activity.duration_minutes)}
             </span>
             {activity.has_gps_gap && (
               <span aria-label="Données GPS incomplètes"><AlertTriangle className="h-3 w-3 text-amber-500 flex-shrink-0" /></span>
