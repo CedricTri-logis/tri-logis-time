@@ -46,6 +46,7 @@ export interface MonitoredEmployee {
   activeSessionType: 'cleaning' | 'maintenance' | null;
   activeSessionLocation: string | null;
   activeSessionStartedAt: Date | null;
+  isOnLunch: boolean;
 }
 
 // GPS trail point for path rendering
@@ -274,6 +275,7 @@ export function transformMonitoredTeamRow(row: MonitoredTeamRow): MonitoredEmplo
     activeSessionStartedAt: row.active_session_started_at
       ? new Date(row.active_session_started_at)
       : null,
+    isOnLunch: row.is_on_lunch === true,
   };
 }
 
