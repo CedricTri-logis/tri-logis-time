@@ -3,7 +3,9 @@ import {
   createServiceClient,
   fetchTripGpsPoints,
   matchTripToRoad,
+  routeTripDirect,
   selectOsrmUrl,
+  selectOsrmUrlForCoords,
   storeMatchResult,
   type MatchResult,
 } from "../_shared/osrm-matcher.ts";
@@ -145,7 +147,7 @@ serve(async (req: Request) => {
         // Fetch trip details
         const { data: trip, error: tripError } = await supabase
           .from("trips")
-          .select("id, distance_km, match_attempts, match_status, transport_mode")
+          .select("id, distance_km, match_attempts, match_status, transport_mode, gps_point_count, start_latitude, start_longitude, end_latitude, end_longitude")
           .eq("id", tripId)
           .single();
 
@@ -217,6 +219,35 @@ serve(async (req: Request) => {
         const gpsPoints = await fetchTripGpsPoints(supabase, tripId);
 
         if (gpsPoints.length < 3) {
+          // Synthetic trip (no GPS trace) — try A→B direct route if we have endpoints
+          const sLat = trip.start_latitude ? Number(trip.start_latitude) : null;
+          const sLng = trip.start_longitude ? Number(trip.start_longitude) : null;
+          const eLat = trip.end_latitude ? Number(trip.end_latitude) : null;
+          const eLng = trip.end_longitude ? Number(trip.end_longitude) : null;
+
+          if (sLat && sLng && eLat && eLng && (sLat !== eLat || sLng !== eLng)) {
+            const directOsrmUrl = selectOsrmUrlForCoords(sLat, sLng);
+            if (directOsrmUrl) {
+              const directResult = await routeTripDirect(sLat, sLng, eLat, eLng, directOsrmUrl);
+              await storeMatchResult(supabase, tripId, directResult);
+              processed++;
+              results.push({
+                trip_id: tripId,
+                status: directResult.match_status,
+                road_distance_km: directResult.road_distance_km,
+                match_confidence: directResult.match_confidence,
+                error: directResult.match_error,
+              });
+              if (directResult.match_status === "matched") matched++;
+              else if (directResult.match_status === "anomalous") anomalous++;
+              else failed++;
+
+              if (i < tripIds.length - 1) await delay(OSRM_DELAY_MS);
+              continue;
+            }
+          }
+
+          // No endpoints available — truly insufficient data
           const result: MatchResult = {
             success: false,
             match_status: "failed",
