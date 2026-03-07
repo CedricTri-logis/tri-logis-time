@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../shared/services/local_database.dart';
 import '../../../shared/services/shift_activity_service.dart';
+import '../../tracking/providers/gps_health_guard_provider.dart';
 import '../../tracking/providers/tracking_provider.dart';
 import '../models/lunch_break.dart';
 import 'shift_provider.dart';
@@ -130,6 +131,9 @@ class LunchBreakNotifier extends StateNotifier<LunchBreakState> {
 
       // Refresh lunch breaks list so timer shows accumulated time
       _ref.invalidate(lunchBreaksForShiftProvider(lunchBreak.shiftId));
+
+      // Ensure GPS is alive before resuming tracking
+      await ensureGpsAlive(_ref, source: 'lunch_end');
 
       // Resume GPS tracking
       await _ref.read(trackingProvider.notifier).startTracking();

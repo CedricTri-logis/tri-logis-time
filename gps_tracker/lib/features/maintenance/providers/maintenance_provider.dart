@@ -7,7 +7,7 @@ import '../../cleaning/providers/cleaning_session_provider.dart';
 import '../../shifts/providers/connectivity_provider.dart';
 import '../../shifts/providers/location_provider.dart';
 import '../../shifts/providers/shift_provider.dart';
-import '../../tracking/providers/tracking_provider.dart';
+import '../../tracking/providers/gps_health_guard_provider.dart';
 import '../models/maintenance_session.dart';
 import '../../../shared/services/shift_activity_service.dart';
 import '../services/maintenance_local_db.dart';
@@ -152,8 +152,8 @@ class MaintenanceSessionNotifier
     String? unitNumber,
     String? serverShiftId,
   }) async {
-    // User is interacting — verify GPS tracking is alive
-    _ref.read(trackingProvider.notifier).verifyTrackingHealth();
+    // Hard-gate GPS health check — restart if dead
+    await ensureGpsAlive(_ref, source: 'maintenance_start');
 
     final employeeId = _employeeId;
     if (employeeId == null) {
@@ -214,8 +214,8 @@ class MaintenanceSessionNotifier
 
   /// Complete the active maintenance session.
   Future<bool> completeSession() async {
-    // User is interacting — verify GPS tracking is alive
-    _ref.read(trackingProvider.notifier).verifyTrackingHealth();
+    // Hard-gate GPS health check — restart if dead
+    await ensureGpsAlive(_ref, source: 'maintenance_complete');
 
     final employeeId = _employeeId;
     if (employeeId == null) return false;
