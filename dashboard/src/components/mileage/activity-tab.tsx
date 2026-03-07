@@ -814,7 +814,76 @@ function getActivityDuration(item: ActivityItem): string {
   return formatDuration((item as ActivityStop).duration_seconds);
 }
 
-// --- Stubs to be replaced in Tasks 4 and 5 ---
+// --- Gap expand detail (route map between start/end) ---
+
+function GapExpandDetail({ gap }: { gap: ActivityGap }) {
+  const tripForMap = {
+    id: gap.id,
+    start_latitude: gap.start_latitude,
+    start_longitude: gap.start_longitude,
+    end_latitude: gap.end_latitude,
+    end_longitude: gap.end_longitude,
+    match_status: 'pending' as const,
+    route_geometry: null,
+    distance_km: gap.distance_km,
+    road_distance_km: null,
+    duration_minutes: gap.duration_minutes,
+    classification: 'business' as const,
+    gps_point_count: 0,
+    transport_mode: 'driving' as 'driving' | 'walking' | 'unknown',
+  } as any;
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-4 bg-amber-50/30 border-t">
+      <div className="lg:col-span-2">
+        <GoogleTripRouteMap
+          trips={[tripForMap]}
+          gpsPoints={[]}
+          stops={[]}
+          clusters={[]}
+          height={300}
+          showGpsPoints={false}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-y-4 text-sm content-start">
+        <div className="col-span-2 flex items-center gap-2 p-2 mb-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700">
+          <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+          <span>D&eacute;placement non trac&eacute; &mdash; aucune donn&eacute;e GPS</span>
+        </div>
+        <div>
+          <span className="text-xs text-muted-foreground block">D&eacute;part</span>
+          <span className="font-medium">{gap.start_location_name || 'Inconnu'}</span>
+        </div>
+        <div>
+          <span className="text-xs text-muted-foreground block">Arriv&eacute;e</span>
+          <span className="font-medium">{gap.end_location_name || 'Inconnu'}</span>
+        </div>
+        <div>
+          <span className="text-xs text-muted-foreground block">Distance</span>
+          <span className="font-medium">{formatDistance(gap.distance_km)}</span>
+        </div>
+        <div>
+          <span className="text-xs text-muted-foreground block">Dur&eacute;e</span>
+          <span className="font-medium">{formatDurationMinutes(gap.duration_minutes)}</span>
+        </div>
+        <div>
+          <span className="text-xs text-muted-foreground block">Coordonn&eacute;es d&eacute;part</span>
+          <span className="font-mono text-xs">
+            {gap.start_latitude.toFixed(6)}, {gap.start_longitude.toFixed(6)}
+          </span>
+        </div>
+        <div>
+          <span className="text-xs text-muted-foreground block">Coordonn&eacute;es arriv&eacute;e</span>
+          <span className="font-mono text-xs">
+            {gap.end_latitude.toFixed(6)}, {gap.end_longitude.toFixed(6)}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---
 
 interface ActivityViewProps {
   activities: ProcessedActivity<ActivityItem>[];
@@ -912,7 +981,7 @@ function ActivityTableRow({
   const trip = isTrip ? (item as ActivityTrip) : null;
   const stop = isStop ? (item as ActivityStop) : null;
   const gap = isGap ? (item as ActivityGap) : null;
-  const canExpand = !isClock && !isGap;
+  const canExpand = !isClock;
   const stopLocationType = stop?.effective_location_type as LocationType | undefined ?? (stop?.matched_location_id ? locationTypes[stop.matched_location_id] : undefined);
   const hasGpsGap = (isTrip && trip?.has_gps_gap) || isGap;
 
@@ -1009,6 +1078,8 @@ function ActivityTableRow({
           <td colSpan={8} className="p-0">
             {isTrip && trip ? (
               <TripExpandDetail trip={trip} onDataChanged={onDataChanged} geocodedAddresses={geocodedAddresses} />
+            ) : isGap && gap ? (
+              <GapExpandDetail gap={gap} />
             ) : stop ? (
               <StopExpandDetail stop={stop} />
             ) : null}
@@ -1043,7 +1114,7 @@ function ActivityTimeline({ activities, groupedByDay, isRangeMode, expandedId, o
     const isStop = item.activity_type === 'stop';
     const isGap = item.activity_type === 'gap';
     const stop = isStop ? (item as ActivityStop) : null;
-    const canExpand = !isClock && !isGap;
+    const canExpand = !isClock;
     const isExpanded = canExpand && expandedId === item.id;
     const stopLocationType = stop?.effective_location_type as LocationType | undefined ?? (stop?.matched_location_id ? locationTypes[stop.matched_location_id] : undefined);
 
@@ -1106,6 +1177,8 @@ function ActivityTimeline({ activities, groupedByDay, isRangeMode, expandedId, o
           <div className="mt-2">
             {item.activity_type === 'trip' ? (
               <TripExpandDetail trip={item as ActivityTrip} onDataChanged={onDataChanged} geocodedAddresses={geocodedAddresses} />
+            ) : item.activity_type === 'gap' ? (
+              <GapExpandDetail gap={item as ActivityGap} />
             ) : item.activity_type === 'stop' ? (
               <StopExpandDetail stop={item as ActivityStop} />
             ) : null}
