@@ -68,8 +68,8 @@ type DisplayItem =
 
 /**
  * Detect consecutive same-location stop/gap chains and merge them.
- * A "same-location gap" is a gap where start_location_id === end_location_id
- * and both are non-null.
+ * A "same-location gap" is a trip or gap where start_location_id === end_location_id
+ * and both are non-null (GPS signal lost while stationary — RPC classifies these as trips).
  */
 function mergeSameLocationGaps(items: ProcessedActivity<ApprovalActivity>[]): DisplayItem[] {
   const result: DisplayItem[] = [];
@@ -93,9 +93,9 @@ function mergeSameLocationGaps(items: ProcessedActivity<ApprovalActivity>[]): Di
     while (j < items.length) {
       const next = items[j];
 
-      // Next must be a same-location gap
+      // Next must be a same-location gap (trip or gap with identical start/end location)
       if (
-        next.item.activity_type === 'gap' &&
+        (next.item.activity_type === 'trip' || next.item.activity_type === 'gap') &&
         next.item.start_location_id &&
         next.item.end_location_id &&
         next.item.start_location_id === next.item.end_location_id
