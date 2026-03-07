@@ -101,6 +101,9 @@ class LunchBreakNotifier extends StateNotifier<LunchBreakState> {
 
       // Update iOS Live Activity
       ShiftActivityService.instance.updateStatus('lunch');
+
+      // Sync lunch break start to Supabase so dashboard shows it
+      _ref.read(syncProvider.notifier).notifyPendingData();
     } catch (e) {
       state = state.copyWith(
         isStarting: false,

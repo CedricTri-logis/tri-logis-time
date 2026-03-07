@@ -1825,11 +1825,11 @@ class LocalDatabase {
     });
   }
 
-  /// End a lunch break by setting ended_at.
+  /// End a lunch break by setting ended_at and re-marking as pending for sync.
   Future<void> endLunchBreak(String id, DateTime endedAt) async {
     await _db.update(
       'local_lunch_breaks',
-      {'ended_at': endedAt.toUtc().toIso8601String()},
+      {'ended_at': endedAt.toUtc().toIso8601String(), 'sync_status': 'pending'},
       where: 'id = ?',
       whereArgs: [id],
     );
@@ -1850,7 +1850,7 @@ class LocalDatabase {
   Future<List<Map<String, dynamic>>> getPendingLunchBreaks() async {
     return _db.query(
       'local_lunch_breaks',
-      where: 'sync_status = ? AND ended_at IS NOT NULL',
+      where: 'sync_status = ?',
       whereArgs: ['pending'],
     );
   }

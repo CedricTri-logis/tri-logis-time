@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, MapPin, MapPinned, UserCog, Radio, History, FileBarChart, SprayCan, Car, ClipboardCheck } from 'lucide-react';
+import { LayoutDashboard, Users, MapPin, MapPinned, UserCog, Radio, History, FileBarChart, SprayCan, Car, ClipboardCheck, UtensilsCrossed } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMonitoringBadges } from '@/lib/hooks/use-monitoring-badges';
 
@@ -103,6 +103,12 @@ export function Sidebar() {
                   {badges.veryStale > 0 && (
                     <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-100 px-1.5 text-xs font-semibold text-red-700">
                       {badges.veryStale}
+                    </span>
+                  )}
+                  {badges.onLunch > 0 && (
+                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-100 px-1.5 text-xs font-semibold text-orange-700 gap-0.5">
+                      <UtensilsCrossed className="h-3 w-3" />
+                      {badges.onLunch}
                     </span>
                   )}
                 </span>

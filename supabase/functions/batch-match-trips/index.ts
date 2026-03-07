@@ -3,7 +3,9 @@ import {
   createServiceClient,
   fetchTripGpsPoints,
   matchTripToRoad,
+  routeTripDirect,
   selectOsrmUrl,
+  selectOsrmUrlForCoords,
   storeMatchResult,
   type MatchResult,
 } from "../_shared/osrm-matcher.ts";
@@ -145,7 +147,7 @@ serve(async (req: Request) => {
         // Fetch trip details
         const { data: trip, error: tripError } = await supabase
           .from("trips")
-          .select("id, distance_km, match_attempts, match_status, transport_mode")
+          .select("id, distance_km, match_attempts, match_status, transport_mode, gps_point_count, start_latitude, start_longitude, end_latitude, end_longitude, started_at, ended_at")
           .eq("id", tripId)
           .single();
 
@@ -217,6 +219,76 @@ serve(async (req: Request) => {
         const gpsPoints = await fetchTripGpsPoints(supabase, tripId);
 
         if (gpsPoints.length < 3) {
+          // Synthetic trip (no GPS trace) — classify walking vs driving
+          const sLat = trip.start_latitude ? Number(trip.start_latitude) : null;
+          const sLng = trip.start_longitude ? Number(trip.start_longitude) : null;
+          const eLat = trip.end_latitude ? Number(trip.end_latitude) : null;
+          const eLng = trip.end_longitude ? Number(trip.end_longitude) : null;
+          const distKm = trip.distance_km as number ?? 0;
+
+          // Calculate speed from distance and duration
+          let speedKmh = 0;
+          if (trip.started_at && trip.ended_at) {
+            const durationHours =
+              (new Date(trip.ended_at).getTime() - new Date(trip.started_at).getTime()) / 3_600_000;
+            if (durationHours > 0) speedKmh = distKm / durationHours;
+          }
+
+          // Walking: < 150m always, or speed ≤ 6 km/h
+          const isWalking = distKm < 0.15 || speedKmh <= 6;
+
+          if (isWalking) {
+            // Mark as walking — no OSRM route needed
+            await supabase
+              .from("trips")
+              .update({
+                transport_mode: "walking",
+                match_status: "matched",
+                route_geometry: null,
+                road_distance_km: null,
+                match_confidence: null,
+                match_error: null,
+              })
+              .eq("id", tripId);
+            results.push({
+              trip_id: tripId,
+              status: "matched",
+              road_distance_km: null,
+              match_confidence: null,
+              error: null,
+            });
+            matched++;
+            continue;
+          }
+
+          // Driving synthetic trip — route via A→B direct OSRM
+          if (sLat && sLng && eLat && eLng && (sLat !== eLat || sLng !== eLng)) {
+            const directOsrmUrl = selectOsrmUrlForCoords(sLat, sLng);
+            if (directOsrmUrl) {
+              await supabase
+                .from("trips")
+                .update({ transport_mode: "driving" })
+                .eq("id", tripId);
+              const directResult = await routeTripDirect(sLat, sLng, eLat, eLng, directOsrmUrl);
+              await storeMatchResult(supabase, tripId, directResult);
+              processed++;
+              results.push({
+                trip_id: tripId,
+                status: directResult.match_status,
+                road_distance_km: directResult.road_distance_km,
+                match_confidence: directResult.match_confidence,
+                error: directResult.match_error,
+              });
+              if (directResult.match_status === "matched") matched++;
+              else if (directResult.match_status === "anomalous") anomalous++;
+              else failed++;
+
+              if (i < tripIds.length - 1) await delay(OSRM_DELAY_MS);
+              continue;
+            }
+          }
+
+          // No endpoints available — truly insufficient data
           const result: MatchResult = {
             success: false,
             match_status: "failed",

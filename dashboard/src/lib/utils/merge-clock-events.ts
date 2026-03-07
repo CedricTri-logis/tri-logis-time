@@ -6,7 +6,7 @@
 
 /** Minimal interface required for merging — works with both ActivityItem and ApprovalActivity */
 export interface MergeableActivity {
-  activity_type: 'trip' | 'stop' | 'clock_in' | 'clock_out' | 'gap' | 'lunch_start' | 'lunch_end';
+  activity_type: 'trip' | 'stop' | 'clock_in' | 'clock_out' | 'gap' | 'lunch';
   shift_id: string;
   started_at: string;
   ended_at: string;
@@ -16,8 +16,6 @@ export interface ProcessedActivity<T extends MergeableActivity> {
   item: T;
   hasClockIn?: boolean;
   hasClockOut?: boolean;
-  hasLunchStart?: boolean;
-  hasLunchEnd?: boolean;
 }
 
 /**
@@ -80,12 +78,11 @@ export function mergeClockEvents<T extends MergeableActivity>(items: T[]): Proce
   // and clock-out just after the last cluster point.
   const MERGE_TOLERANCE_MS = 60_000;
   const mergedIndices = new Set<number>();
-  const clockFlags = new Map<number, { clockIn?: boolean; clockOut?: boolean; lunchStart?: boolean; lunchEnd?: boolean }>();
+  const clockFlags = new Map<number, { clockIn?: boolean; clockOut?: boolean }>();
 
   for (let i = 0; i < filtered.length; i++) {
     const item = filtered[i];
-    if (item.activity_type !== 'clock_in' && item.activity_type !== 'clock_out'
-        && item.activity_type !== 'lunch_start' && item.activity_type !== 'lunch_end') continue;
+    if (item.activity_type !== 'clock_in' && item.activity_type !== 'clock_out') continue;
 
     const clockTime = new Date(item.started_at).getTime();
 
@@ -113,8 +110,6 @@ export function mergeClockEvents<T extends MergeableActivity>(items: T[]): Proce
       const existing = clockFlags.get(bestJ) || {};
       if (item.activity_type === 'clock_in') existing.clockIn = true;
       if (item.activity_type === 'clock_out') existing.clockOut = true;
-      if (item.activity_type === 'lunch_start') existing.lunchStart = true;
-      if (item.activity_type === 'lunch_end') existing.lunchEnd = true;
       clockFlags.set(bestJ, existing);
     }
   }
@@ -127,8 +122,6 @@ export function mergeClockEvents<T extends MergeableActivity>(items: T[]): Proce
       item: filtered[i],
       hasClockIn: flags?.clockIn,
       hasClockOut: flags?.clockOut,
-      hasLunchStart: flags?.lunchStart,
-      hasLunchEnd: flags?.lunchEnd,
     });
   }
   return result;
