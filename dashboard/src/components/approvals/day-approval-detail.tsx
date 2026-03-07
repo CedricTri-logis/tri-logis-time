@@ -1572,13 +1572,13 @@ function MergedLocationRow({
                     size="sm"
                     className="text-xs h-7 bg-green-50 text-green-700 border-green-300 hover:bg-green-100"
                     disabled={isSaving}
-                    onClick={() => {
-                      group.gaps.forEach(gap => {
+                    onClick={async () => {
+                      for (const gap of group.gaps) {
                         const final = gap.override_status ?? gap.auto_status;
                         if (final === 'needs_review') {
-                          onOverride(gap, 'approved');
+                          await onOverride(gap, 'approved');
                         }
-                      });
+                      }
                     }}
                   >
                     <CheckCircle2 className="h-3 w-3 mr-1" />
