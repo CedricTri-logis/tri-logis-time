@@ -154,8 +154,12 @@ class DashboardService {
     final response = await _supabase.rpc(
       'get_team_statistics',
       params: {
-        'p_start_date': startDate?.toUtc().toIso8601String(),
-        'p_end_date': endDate?.toUtc().toIso8601String(),
+        'p_start_date': startDate != null
+            ? '${startDate.year}-${startDate.month.toString().padLeft(2, '0')}-${startDate.day.toString().padLeft(2, '0')}'
+            : null,
+        'p_end_date': endDate != null
+            ? '${endDate.year}-${endDate.month.toString().padLeft(2, '0')}-${endDate.day.toString().padLeft(2, '0')}'
+            : null,
       },
     );
 
@@ -173,8 +177,12 @@ class DashboardService {
     final response = await _supabase.rpc(
       'get_team_employee_hours',
       params: {
-        'p_start_date': startDate?.toUtc().toIso8601String(),
-        'p_end_date': endDate?.toUtc().toIso8601String(),
+        'p_start_date': startDate != null
+            ? '${startDate.year}-${startDate.month.toString().padLeft(2, '0')}-${startDate.day.toString().padLeft(2, '0')}'
+            : null,
+        'p_end_date': endDate != null
+            ? '${endDate.year}-${endDate.month.toString().padLeft(2, '0')}-${endDate.day.toString().padLeft(2, '0')}'
+            : null,
       },
     );
 
