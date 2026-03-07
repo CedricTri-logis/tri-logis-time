@@ -148,9 +148,9 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     }
   }
 
-  /// Public health check — call from any user interaction (QR scan, project
-  /// selection, etc.) to restart tracking if iOS killed the service.
-  /// No-op if tracking is already running or there's no active shift.
+  /// Public health check — call from app resume or other system events.
+  /// User-interaction callers should use [ensureGpsAlive] from
+  /// gps_health_guard_provider.dart instead (for structured logging).
   Future<void> verifyTrackingHealth() async {
     if (state.status == TrackingStatus.running ||
         state.status == TrackingStatus.starting) {
@@ -164,7 +164,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
 
     _logger?.lifecycle(
       Severity.warn,
-      'Tracking dead during user interaction — restarting',
+      'Tracking dead on app resume — restarting',
       metadata: {'shift_id': shift.id},
     );
     startTracking();

@@ -18,6 +18,8 @@ import 'shared/services/diagnostic_logger.dart';
 import 'shared/services/realtime_service.dart';
 import 'shared/services/session_backup_service.dart';
 import 'shared/services/fcm_service.dart';
+import 'shared/widgets/gps_health_listener.dart';
+import 'shared/widgets/gps_health_navigator_observer.dart';
 
 /// Grace period for skipping phone registration (7 days).
 const _phoneSkipGraceDays = 7;
@@ -352,6 +354,7 @@ class _GpsTrackerAppState extends ConsumerState<GpsTrackerApp>
       theme: TriLogisTheme.lightTheme,
       darkTheme: TriLogisTheme.darkTheme,
       themeMode: ThemeMode.system,
+      navigatorObservers: [GpsHealthNavigatorObserver(ref)],
       home: authState.when(
         data: (state) {
           if (isRecovering || recoveryPending) {
@@ -402,13 +405,13 @@ class _PhoneCheckGate extends ConsumerWidget {
     return status.when(
       data: (s) {
         if (!s.needsRegistration) {
-          return const HomeScreen();
+          return const GpsHealthListener(child: HomeScreen());
         }
         return _PhoneRegistrationGate(canSkip: s.canSkip);
       },
       loading: () => const _SplashScreen(),
       // Fail-open on error
-      error: (_, __) => const HomeScreen(),
+      error: (_, __) => const GpsHealthListener(child: HomeScreen()),
     );
   }
 }
@@ -435,7 +438,7 @@ class _PhoneRegistrationGateState
   @override
   Widget build(BuildContext context) {
     if (_completed) {
-      return const HomeScreen();
+      return const GpsHealthListener(child: HomeScreen());
     }
 
     return PhoneRegistrationScreen(
