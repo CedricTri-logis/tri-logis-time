@@ -983,30 +983,30 @@ function TripConnectorRow({
 
   const statusColor = {
     approved: {
-      bg: 'bg-green-50/40',
+      bg: hasOverride ? 'bg-green-100/70' : 'bg-green-50/80',
       text: 'text-green-700',
-      subtext: 'text-green-600/60',
-      border: 'border-l-green-400',
+      subtext: 'text-green-600/70',
+      border: hasOverride ? 'border-l-green-600' : 'border-l-green-400',
     },
     rejected: {
-      bg: 'bg-red-50/40',
+      bg: hasOverride ? 'bg-red-100/70' : 'bg-red-50/80',
       text: 'text-red-700',
-      subtext: 'text-red-600/60',
-      border: 'border-l-red-400',
+      subtext: 'text-red-600/70',
+      border: hasOverride ? 'border-l-red-600' : 'border-l-red-400',
     },
     needs_review: {
-      bg: 'bg-amber-50/30',
+      bg: 'bg-amber-50/80',
       text: 'text-amber-700',
-      subtext: 'text-amber-600/60',
-      border: 'border-l-amber-400',
+      subtext: 'text-amber-600/70',
+      border: 'border-l-amber-500',
     },
   }[activity.final_status];
 
   return (
     <>
       <tr
-        className={`${statusColor.bg} border-l-2 ${statusColor.border} cursor-pointer transition-all hover:brightness-95 group`}
-        style={activity.has_gps_gap ? { borderLeftStyle: 'dashed', borderLeftColor: 'rgb(245 158 11)', borderLeftWidth: '3px' } : undefined}
+        className={`${statusColor.bg} border-l-[3px] ${statusColor.border} cursor-pointer transition-all hover:brightness-95 group`}
+        style={activity.has_gps_gap ? { borderLeftStyle: 'dashed', borderLeftColor: 'rgb(245 158 11)' } : undefined}
         onClick={onToggle}
       >
         {/* Empty action column — no buttons */}
@@ -1043,9 +1043,6 @@ function TripConnectorRow({
                 {formatDistance(activity.road_distance_km ?? activity.distance_km)}
               </span>
             ) : null}
-            <span className={`text-[11px] truncate ${statusColor.subtext}`}>
-              {formatDurationMinutes(activity.duration_minutes)}
-            </span>
             {activity.has_gps_gap && (
               <span aria-label="Données GPS incomplètes"><AlertTriangle className="h-3 w-3 text-amber-500 flex-shrink-0" /></span>
             )}
