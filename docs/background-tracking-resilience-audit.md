@@ -1,6 +1,6 @@
 # Background Tracking Resilience - Audit complet
 
-> Dernière mise à jour : 2026-03-07 | Build actuel : v1.0.0+107
+> Dernière mise à jour : 2026-03-07 | Build actuel : v1.0.0+108
 
 ## Table des matières
 
@@ -587,6 +587,7 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +105 | Mar 6 | **Remplacement google_maps_flutter → flutter_map** (OpenStreetMap) — élimine crash shift detail quand clé API Google Maps absente. 5 fichiers convertis : gps_route_map, fullscreen_map_screen, trip_route_map, shift_detail_screen, polyline_decoder | ✅ Fix |
 | +106 | Mar 6 | **Pause dîner** — stopTracking(reason: 'lunch_break') pendant la pause, reprise startTracking() à la fin. Live Activity status 'lunch'. Sync lunch_breaks via sync_service. Pas de changement aux mécanismes de résilience eux-mêmes | ✅ Actif |
 | +107 | Mar 7 | **UI dîner + fix build iOS apostrophe** — Chrono travail = durée - lunch. Chrono dîner temps réel (orange). Fix CocoaPods eval→direct codesign (apostrophe path). Fix com.apple.provenance xattr (build phase sur tous les Pod targets). Aucun changement tracking/résilience | ✅ Actif |
+| +108 | Mar 7 | **Sync lunch break au start** — `notifyPendingData()` appelé dans `startLunchBreak()` (pas seulement `endLunchBreak()`). `getPendingLunchBreaks()` retire filtre `ended_at IS NOT NULL`. `endLunchBreak()` reset `sync_status=pending`. Dashboard : badge orange sidebar (Realtime `lunch_breaks`). Approval timeline : lunch = ligne distincte avec durée | ✅ Actif |
 
 ### Chronologie complète Android Watchdog
 
