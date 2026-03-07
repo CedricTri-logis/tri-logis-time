@@ -108,10 +108,24 @@ class _GpsTrackerAppState extends ConsumerState<GpsTrackerApp>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _lifecycleState = state;
+
+    // Log lifecycle transitions for diagnostics
+    if (DiagnosticLogger.isInitialized) {
+      switch (state) {
+        case AppLifecycleState.paused:
+          DiagnosticLogger.instance.lifecycle(Severity.info, 'app_paused');
+        case AppLifecycleState.resumed:
+          DiagnosticLogger.instance.lifecycle(Severity.info, 'app_resumed');
+        case AppLifecycleState.detached:
+          DiagnosticLogger.instance.lifecycle(Severity.warn, 'app_detached');
+        case AppLifecycleState.inactive:
+          DiagnosticLogger.instance.lifecycle(Severity.debug, 'app_inactive');
+        case AppLifecycleState.hidden:
+          DiagnosticLogger.instance.lifecycle(Severity.debug, 'app_hidden');
+      }
+    }
+
     if (state == AppLifecycleState.resumed) {
-      // Refresh token on resume — covers the gap when no shift is active
-      // (shift_provider only refreshes during active shifts). Do this BEFORE
-      // pending auth recovery so the session stays fresh.
       _refreshTokenOnResume();
       _runPendingAuthRecovery();
     }
