@@ -817,16 +817,44 @@ function getActivityDuration(item: ActivityItem): string {
 // --- Gap expand detail (route map between start/end) ---
 
 function GapExpandDetail({ gap }: { gap: ActivityGap }) {
+  const [routeGeometry, setRouteGeometry] = useState<string | null>(null);
+  const [roadDistanceKm, setRoadDistanceKm] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (gap.start_latitude !== gap.end_latitude || gap.start_longitude !== gap.end_longitude) {
+        try {
+          const { data } = await supabaseClient.functions.invoke('route-between-points', {
+            body: {
+              start_lat: gap.start_latitude,
+              start_lng: gap.start_longitude,
+              end_lat: gap.end_latitude,
+              end_lng: gap.end_longitude,
+            },
+          });
+          if (!cancelled && data?.success) {
+            setRouteGeometry(data.route_geometry);
+            if (data.road_distance_km) setRoadDistanceKm(data.road_distance_km);
+          }
+        } catch { /* OSRM unavailable */ }
+      }
+      if (!cancelled) setIsLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [gap.start_latitude, gap.start_longitude, gap.end_latitude, gap.end_longitude]);
+
   const tripForMap = {
     id: gap.id,
     start_latitude: gap.start_latitude,
     start_longitude: gap.start_longitude,
     end_latitude: gap.end_latitude,
     end_longitude: gap.end_longitude,
-    match_status: 'pending' as const,
-    route_geometry: null,
+    match_status: routeGeometry ? 'matched' as const : 'pending' as const,
+    route_geometry: routeGeometry,
     distance_km: gap.distance_km,
-    road_distance_km: null,
+    road_distance_km: roadDistanceKm,
     duration_minutes: gap.duration_minutes,
     classification: 'business' as const,
     gps_point_count: 0,
@@ -844,11 +872,14 @@ function GapExpandDetail({ gap }: { gap: ActivityGap }) {
           height={300}
           showGpsPoints={false}
         />
+        {isLoading && (
+          <p className="text-xs text-muted-foreground mt-1">Chargement du trajet OSRM...</p>
+        )}
       </div>
       <div className="grid grid-cols-2 gap-y-4 text-sm content-start">
         <div className="col-span-2 flex items-center gap-2 p-2 mb-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700">
           <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-          <span>D&eacute;placement non trac&eacute; &mdash; aucune donn&eacute;e GPS</span>
+          <span>D&eacute;placement non trac&eacute; &mdash; trajet estim&eacute; entre les deux points connus</span>
         </div>
         <div>
           <span className="text-xs text-muted-foreground block">D&eacute;part</span>
@@ -859,23 +890,23 @@ function GapExpandDetail({ gap }: { gap: ActivityGap }) {
           <span className="font-medium">{gap.end_location_name || 'Inconnu'}</span>
         </div>
         <div>
-          <span className="text-xs text-muted-foreground block">Distance</span>
+          <span className="text-xs text-muted-foreground block">Distance vol d'oiseau</span>
           <span className="font-medium">{formatDistance(gap.distance_km)}</span>
+        </div>
+        <div>
+          <span className="text-xs text-muted-foreground block">Distance route (OSRM)</span>
+          <span className="font-medium">
+            {isLoading ? '...' : roadDistanceKm ? formatDistance(roadDistanceKm) : '\u2014'}
+          </span>
         </div>
         <div>
           <span className="text-xs text-muted-foreground block">Dur&eacute;e</span>
           <span className="font-medium">{formatDurationMinutes(gap.duration_minutes)}</span>
         </div>
         <div>
-          <span className="text-xs text-muted-foreground block">Coordonn&eacute;es d&eacute;part</span>
+          <span className="text-xs text-muted-foreground block">Coordonn&eacute;es</span>
           <span className="font-mono text-xs">
-            {gap.start_latitude.toFixed(6)}, {gap.start_longitude.toFixed(6)}
-          </span>
-        </div>
-        <div>
-          <span className="text-xs text-muted-foreground block">Coordonn&eacute;es arriv&eacute;e</span>
-          <span className="font-mono text-xs">
-            {gap.end_latitude.toFixed(6)}, {gap.end_longitude.toFixed(6)}
+            {gap.start_latitude.toFixed(5)}, {gap.start_longitude.toFixed(5)} &rarr; {gap.end_latitude.toFixed(5)}, {gap.end_longitude.toFixed(5)}
           </span>
         </div>
       </div>

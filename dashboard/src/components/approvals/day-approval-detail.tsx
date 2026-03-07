@@ -261,12 +261,17 @@ function TripExpandDetail({ activity }: { activity: ApprovalActivity }) {
 
 function GapExpandDetail({ activity }: { activity: ApprovalActivity }) {
   const [endCoords, setEndCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [routeGeometry, setRouteGeometry] = useState<string | null>(null);
+  const [roadDistanceKm, setRoadDistanceKm] = useState<number | null>(activity.road_distance_km ?? null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      // Try to fetch end location coordinates
+      // Fetch end location coordinates
+      let endLat = activity.latitude ?? 0;
+      let endLng = activity.longitude ?? 0;
+
       if (activity.end_location_id) {
         const { data } = await supabaseClient
           .from('locations')
@@ -274,25 +279,31 @@ function GapExpandDetail({ activity }: { activity: ApprovalActivity }) {
           .eq('id', activity.end_location_id)
           .single();
         if (!cancelled && data) {
-          setEndCoords({ lat: data.latitude, lng: data.longitude });
+          endLat = data.latitude;
+          endLng = data.longitude;
+          setEndCoords({ lat: endLat, lng: endLng });
         }
       }
-      // If no end_location_id, try start location as fallback for the other side
-      if (!activity.end_location_id && activity.start_location_id) {
-        const { data } = await supabaseClient
-          .from('locations')
-          .select('latitude, longitude')
-          .eq('id', activity.start_location_id)
-          .single();
-        if (!cancelled && data) {
-          // Start location is known, use activity.latitude/longitude as end
-          setEndCoords({ lat: activity.latitude ?? 0, lng: activity.longitude ?? 0 });
-        }
+
+      // Call OSRM route-between-points for the road route
+      const startLat = activity.latitude ?? 0;
+      const startLng = activity.longitude ?? 0;
+      if (startLat !== endLat || startLng !== endLng) {
+        try {
+          const { data: routeData } = await supabaseClient.functions.invoke('route-between-points', {
+            body: { start_lat: startLat, start_lng: startLng, end_lat: endLat, end_lng: endLng },
+          });
+          if (!cancelled && routeData?.success) {
+            setRouteGeometry(routeData.route_geometry);
+            if (routeData.road_distance_km) setRoadDistanceKm(routeData.road_distance_km);
+          }
+        } catch { /* OSRM unavailable — show markers only */ }
       }
+
       if (!cancelled) setIsLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [activity.end_location_id, activity.start_location_id, activity.latitude, activity.longitude]);
+  }, [activity.end_location_id, activity.latitude, activity.longitude]);
 
   const startLat = activity.latitude ?? 0;
   const startLng = activity.longitude ?? 0;
@@ -305,10 +316,10 @@ function GapExpandDetail({ activity }: { activity: ApprovalActivity }) {
     start_longitude: startLng,
     end_latitude: endLat,
     end_longitude: endLng,
-    match_status: 'pending' as const,
-    route_geometry: null,
+    match_status: routeGeometry ? 'matched' as const : 'pending' as const,
+    route_geometry: routeGeometry,
     distance_km: activity.distance_km ?? 0,
-    road_distance_km: activity.road_distance_km,
+    road_distance_km: roadDistanceKm,
     duration_minutes: activity.duration_minutes,
     classification: 'business' as const,
     gps_point_count: 0,
@@ -333,7 +344,7 @@ function GapExpandDetail({ activity }: { activity: ApprovalActivity }) {
       <div className="grid grid-cols-2 gap-y-4 text-sm content-start">
         <div className="col-span-2 flex items-center gap-2 p-2 mb-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700">
           <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-          <span>D&eacute;placement non trac&eacute; &mdash; aucune donn&eacute;e GPS</span>
+          <span>D&eacute;placement non trac&eacute; &mdash; trajet estim&eacute; entre les deux points connus</span>
         </div>
         <div>
           <span className="text-xs text-muted-foreground block">D&eacute;part</span>
@@ -344,8 +355,14 @@ function GapExpandDetail({ activity }: { activity: ApprovalActivity }) {
           <span className="font-medium">{activity.end_location_name || 'Inconnu'}</span>
         </div>
         <div>
-          <span className="text-xs text-muted-foreground block">Distance</span>
+          <span className="text-xs text-muted-foreground block">Distance vol d'oiseau</span>
           <span className="font-medium">{formatDistance(activity.distance_km)}</span>
+        </div>
+        <div>
+          <span className="text-xs text-muted-foreground block">Distance route (OSRM)</span>
+          <span className="font-medium">
+            {isLoading ? '...' : roadDistanceKm ? formatDistance(roadDistanceKm) : '—'}
+          </span>
         </div>
         <div>
           <span className="text-xs text-muted-foreground block">Dur&eacute;e</span>
