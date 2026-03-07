@@ -95,6 +95,16 @@ export function useMonitoringBadges(): MonitoringBadgeCounts {
       )
       .subscribe();
 
+    // Subscribe to lunch break changes (start/end)
+    const lunchChannel = supabaseClient
+      .channel('sidebar-lunch')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'lunch_breaks' },
+        () => { fetchData(); }
+      )
+      .subscribe();
+
     // Periodic re-categorization as GPS ages (fresh -> stale -> lost)
     const recatInterval = setInterval(() => {
       if (mountedRef.current) {
@@ -109,6 +119,7 @@ export function useMonitoringBadges(): MonitoringBadgeCounts {
       mountedRef.current = false;
       supabaseClient.removeChannel(shiftsChannel);
       supabaseClient.removeChannel(gpsChannel);
+      supabaseClient.removeChannel(lunchChannel);
       clearInterval(recatInterval);
     };
   }, [fetchData, categorize]);
