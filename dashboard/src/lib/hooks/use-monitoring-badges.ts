@@ -12,6 +12,8 @@ export interface MonitoringBadgeCounts {
   stale: number;
   /** On-shift employees with very stale GPS (>15min) or no GPS */
   veryStale: number;
+  /** On-shift employees currently on lunch break */
+  onLunch: number;
   /** Total on-shift employees */
   total: number;
 }
@@ -25,7 +27,7 @@ const RECATEGORIZE_INTERVAL = 30_000; // Re-evaluate staleness every 30s
  */
 export function useMonitoringBadges(): MonitoringBadgeCounts {
   const [rows, setRows] = useState<MonitoredTeamRow[]>([]);
-  const [counts, setCounts] = useState<MonitoringBadgeCounts>({ fresh: 0, stale: 0, veryStale: 0, total: 0 });
+  const [counts, setCounts] = useState<MonitoringBadgeCounts>({ fresh: 0, stale: 0, veryStale: 0, onLunch: 0, total: 0 });
   const mountedRef = useRef(true);
 
   const categorize = useCallback((data: MonitoredTeamRow[]) => {
@@ -33,9 +35,14 @@ export function useMonitoringBadges(): MonitoringBadgeCounts {
     let fresh = 0;
     let stale = 0;
     let veryStale = 0;
+    let onLunch = 0;
 
     for (const row of data) {
       if (row.shift_status !== 'on-shift') continue;
+      if (row.is_on_lunch) {
+        onLunch++;
+        continue;
+      }
       if (!row.latest_captured_at) {
         veryStale++;
         continue;
@@ -50,7 +57,7 @@ export function useMonitoringBadges(): MonitoringBadgeCounts {
       }
     }
 
-    setCounts({ fresh, stale, veryStale, total: fresh + stale + veryStale });
+    setCounts({ fresh, stale, veryStale, onLunch, total: fresh + stale + veryStale + onLunch });
   }, []);
 
   const fetchData = useCallback(async () => {

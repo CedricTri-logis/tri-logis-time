@@ -157,6 +157,7 @@ export interface MonitoredTeamRow {
   active_session_type: string | null;
   active_session_location: string | null;
   active_session_started_at: string | null;
+  is_on_lunch: boolean | null;
 }
 
 export interface ShiftDetailRow {
