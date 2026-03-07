@@ -12,6 +12,7 @@ import '../../../shared/services/local_database.dart';
 import '../../../shared/services/realtime_service.dart';
 import '../../cleaning/providers/cleaning_session_provider.dart';
 import '../../maintenance/providers/maintenance_provider.dart';
+import 'lunch_break_provider.dart';
 import '../../../shared/services/shift_activity_service.dart';
 import '../models/geo_point.dart';
 import '../models/local_gps_point.dart';
@@ -301,6 +302,19 @@ class ShiftNotifier extends StateNotifier<ShiftState>
 
     // End iOS Live Activity (server-side closures: midnight cleanup, admin, zombie)
     ShiftActivityService.instance.endActivity();
+
+    // Auto-close any open lunch break
+    try {
+      final lunchState = _ref.read(lunchBreakProvider);
+      if (lunchState.isOnLunch) {
+        final lunchBreak = lunchState.activeLunchBreak!;
+        final localDb = _ref.read(localDatabaseProvider);
+        await localDb.endLunchBreak(lunchBreak.id, DateTime.now().toUtc());
+        _ref.read(lunchBreakProvider.notifier).clearOnShiftEnd();
+      }
+    } catch (_) {
+      // Don't fail shift closure if lunch cleanup fails
+    }
 
     // Update SQLite so the closure persists across app restarts
     try {
@@ -621,6 +635,9 @@ class ShiftNotifier extends StateNotifier<ShiftState>
         } catch (_) {
           // Don't fail clock-out if auto-close fails
         }
+
+        // Clear any active lunch break
+        _ref.read(lunchBreakProvider.notifier).clearOnShiftEnd();
 
         _stopTokenRefreshTimer();
 

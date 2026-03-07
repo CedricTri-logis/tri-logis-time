@@ -9,6 +9,7 @@ import '../../tracking/widgets/point_detail_sheet.dart';
 import '../../tracking/widgets/route_map_widget.dart';
 import '../../tracking/widgets/route_stats_card.dart';
 import '../models/shift.dart';
+import '../providers/lunch_break_provider.dart';
 import '../providers/shift_provider.dart';
 import '../widgets/sync_status_indicator.dart';
 
@@ -92,6 +93,13 @@ class ShiftDetailScreen extends ConsumerWidget {
     );
   }
 
+  String _formatLunchDuration(Duration duration) {
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+    if (hours == 0) return '${minutes}m';
+    return '${hours}h ${minutes.toString().padLeft(2, '0')}m';
+  }
+
   Widget _buildShiftDetails(BuildContext context, ThemeData theme, Shift shift) {
     final localClockIn = shift.clockedInAt.toLocal();
     final localClockOut = shift.clockedOutAt?.toLocal();
@@ -102,56 +110,84 @@ class ShiftDetailScreen extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Header card with status and duration
-          Card(
-            elevation: 2,
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Consumer(
+            builder: (context, ref, _) {
+              final lunchAsync = ref.watch(totalLunchDurationProvider(shift.id));
+              final lunchDuration = lunchAsync.valueOrNull ?? Duration.zero;
+
+              return Card(
+                elevation: 2,
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
                     children: [
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Container(
-                            width: 12,
-                            height: 12,
-                            decoration: BoxDecoration(
-                              color: shift.isCompleted ? Colors.blue : Colors.green,
-                              shape: BoxShape.circle,
-                            ),
+                          Row(
+                            children: [
+                              Container(
+                                width: 12,
+                                height: 12,
+                                decoration: BoxDecoration(
+                                  color: shift.isCompleted ? Colors.blue : Colors.green,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                shift.isCompleted ? 'Terminé' : 'Actif',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: shift.isCompleted ? Colors.blue : Colors.green,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            shift.isCompleted ? 'Terminé' : 'Actif',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: shift.isCompleted ? Colors.blue : Colors.green,
-                            ),
-                          ),
+                          SimpleSyncStatusIndicator(syncStatus: shift.syncStatus),
                         ],
                       ),
-                      SimpleSyncStatusIndicator(syncStatus: shift.syncStatus),
+                      const SizedBox(height: 24),
+                      Text(
+                        'Temps de travail',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _formatDuration(shift.duration - lunchDuration),
+                        style: theme.textTheme.displayMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          fontFeatures: [const FontFeature.tabularFigures()],
+                        ),
+                      ),
+                      if (lunchDuration.inMinutes > 0) ...[
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.restaurant,
+                              size: 18,
+                              color: Colors.orange.shade700,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Dîner : ${_formatLunchDuration(lunchDuration)}',
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                color: Colors.orange.shade700,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Durée totale',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _formatDuration(shift.duration),
-                    style: theme.textTheme.displayMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      fontFeatures: [const FontFeature.tabularFigures()],
-                    ),
-                  ),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
           ),
           const SizedBox(height: 16),
 

@@ -43,5 +43,69 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
+
+    # Fix com.apple.provenance xattr breaking codesign on macOS Sequoia/Tahoe.
+    # The OS adds this xattr to copied files during the build, causing codesign
+    # to fail with "resource fork, Finder information, or similar detritus".
+    phase_name = 'Strip xattrs for codesign'
+    next if target.shell_script_build_phases.any? { |p| p.name == phase_name }
+    phase = target.new_shell_script_build_phase(phase_name)
+    phase.shell_script = 'xattr -cr "${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}" 2>/dev/null || true'
   end
+
+  # Fix CocoaPods framework embedding script for paths containing apostrophes.
+  # The generated script uses eval to run codesign, which breaks when the path
+  # contains an apostrophe (e.g. "Cedric's MacBook"). We replace the entire
+  # code_sign_if_enabled function to call codesign directly without eval.
+  frameworks_script = File.join(
+    installer.sandbox.target_support_files_root,
+    'Pods-Runner',
+    'Pods-Runner-frameworks.sh'
+  )
+  if File.exist?(frameworks_script)
+    content = File.read(frameworks_script)
+    # Replace the entire code_sign_if_enabled function with a version that
+    # calls codesign directly instead of using eval (which breaks on apostrophes).
+    old_func = <<~'SHELL'
+# Signs a framework with the provided identity
+code_sign_if_enabled() {
+  if [ -n "${EXPANDED_CODE_SIGN_IDENTITY:-}" -a "${CODE_SIGNING_REQUIRED:-}" != "NO" -a "${CODE_SIGNING_ALLOWED}" != "NO" ]; then
+    # Use the current code_sign_identity
+    echo "Code Signing $1 with Identity ${EXPANDED_CODE_SIGN_IDENTITY_NAME}"
+    local code_sign_cmd="/usr/bin/codesign --force --sign ${EXPANDED_CODE_SIGN_IDENTITY} ${OTHER_CODE_SIGN_FLAGS:-} --preserve-metadata=identifier,entitlements "$1""
+
+    if [ "${COCOAPODS_PARALLEL_CODE_SIGN}" == "true" ]; then
+      code_sign_cmd="$code_sign_cmd &"
+    fi
+    echo "$code_sign_cmd"
+    eval "$code_sign_cmd"
+  fi
+}
+    SHELL
+    new_func = <<~'SHELL'
+# Signs a framework with the provided identity
+# Patched: call codesign directly instead of eval to support apostrophes in paths
+code_sign_if_enabled() {
+  if [ -n "${EXPANDED_CODE_SIGN_IDENTITY:-}" -a "${CODE_SIGNING_REQUIRED:-}" != "NO" -a "${CODE_SIGNING_ALLOWED}" != "NO" ]; then
+    echo "Code Signing $1 with Identity ${EXPANDED_CODE_SIGN_IDENTITY_NAME}"
+    if [ "${COCOAPODS_PARALLEL_CODE_SIGN}" == "true" ]; then
+      /usr/bin/codesign --force --sign ${EXPANDED_CODE_SIGN_IDENTITY} ${OTHER_CODE_SIGN_FLAGS:-} --preserve-metadata=identifier,entitlements "$1" &
+    else
+      /usr/bin/codesign --force --sign ${EXPANDED_CODE_SIGN_IDENTITY} ${OTHER_CODE_SIGN_FLAGS:-} --preserve-metadata=identifier,entitlements "$1"
+    fi
+  fi
+}
+    SHELL
+    patched = content.sub(old_func.strip, new_func.strip)
+    if patched == content
+      # Fallback: if exact match failed (e.g. quoting already changed), use regex
+      patched = content.sub(
+        /^# Signs a framework with the provided identity\ncode_sign_if_enabled\(\) \{.*?^\}/m,
+        new_func.strip
+      )
+    end
+    File.write(frameworks_script, patched) if patched != content
+  end
+
+  # Note: xattr stripping is now applied to ALL Pod targets in the loop above.
 end

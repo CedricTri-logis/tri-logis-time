@@ -23,6 +23,7 @@ import {
   Calendar,
   User,
   WifiOff,
+  UtensilsCrossed,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabaseClient } from '@/lib/supabase/client';
@@ -86,7 +87,17 @@ const STATUS_BADGE: Record<ApprovalAutoStatus, { className: string; icon: typeof
 // --- Icon helper for approval activities ---
 
 function ApprovalActivityIcon({ activity }: { activity: ApprovalActivity }) {
+  if (activity.activity_type === 'lunch_start' || activity.activity_type === 'lunch_end') {
+    return <UtensilsCrossed className="h-4 w-4 text-orange-500" />;
+  }
   if (activity.activity_type === 'gap') {
+    // Clock gaps have start/end location names from the SQL function
+    if (activity.start_location_name || activity.end_location_name) {
+      // Clock-in gap: starts from clock location (no start_location_id), ends at first cluster
+      if (!activity.start_location_id && activity.end_location_id) return <LogIn className="h-4 w-4 text-amber-500" />;
+      // Clock-out gap: starts from last cluster, ends at clock location (no end_location_id)
+      if (activity.start_location_id && !activity.end_location_id) return <LogOut className="h-4 w-4 text-amber-500" />;
+    }
     return <WifiOff className="h-4 w-4 text-purple-500" />;
   }
   if (activity.activity_type === 'trip') {
@@ -620,6 +631,18 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                   </span>
                 </div>
               )}
+
+              {(detail.summary.lunch_minutes ?? 0) > 0 && (
+                <div className="group relative overflow-hidden flex flex-col p-4 bg-orange-50/50 rounded-2xl border border-orange-100 shadow-sm transition-all hover:shadow-md">
+                  <div className="absolute top-0 right-0 p-3 text-orange-200/50 group-hover:scale-110 transition-transform">
+                    <UtensilsCrossed className="h-12 w-12" />
+                  </div>
+                  <span className="text-[10px] uppercase tracking-[0.1em] text-orange-700/60 font-bold mb-1">Dîner</span>
+                  <div className="flex items-baseline gap-1 mt-auto">
+                    <span className="text-2xl font-black text-orange-700 tracking-tight">{formatHours(detail.summary.lunch_minutes)}</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Duration by type badges */}
@@ -863,6 +886,7 @@ function TripConnectorRow({
     <>
       <tr
         className={`${statusColor.bg} border-l-2 ${statusColor.border} cursor-pointer transition-all hover:brightness-95 group`}
+        style={activity.has_gps_gap ? { borderLeftStyle: 'dashed', borderLeftColor: 'rgb(245 158 11)', borderLeftWidth: '3px' } : undefined}
         onClick={onToggle}
       >
         {/* Empty action column — no buttons */}
@@ -999,10 +1023,11 @@ function ActivityRow({
   onToggle: () => void;
   onOverride: (activity: ApprovalActivity, status: 'approved' | 'rejected') => void;
 }) {
-  const { item: activity, hasClockIn, hasClockOut } = pa;
+  const { item: activity, hasClockIn, hasClockOut, hasLunchStart, hasLunchEnd } = pa;
   const isStop = activity.activity_type === 'stop';
   const isClock = activity.activity_type === 'clock_in' || activity.activity_type === 'clock_out';
   const isGap = activity.activity_type === 'gap';
+  const isLunch = activity.activity_type === 'lunch_start' || activity.activity_type === 'lunch_end';
   const canExpand = isStop;
   const hasOverride = activity.override_status !== null;
 
@@ -1046,13 +1071,20 @@ function ActivityRow({
   return (
     <>
       <tr
-        className={`${statusConfig.row} ${canExpand ? 'cursor-pointer' : ''} transition-all duration-200 group border-b border-white/50`}
+        className={`${isLunch ? 'bg-slate-50/80 border-l-4 border-l-slate-300 hover:bg-slate-100/80' : statusConfig.row} ${canExpand ? 'cursor-pointer' : ''} transition-all duration-200 group border-b border-white/50`}
         style={isGap ? { borderLeftStyle: 'dashed' } : undefined}
         onClick={canExpand ? onToggle : undefined}
       >
         {/* Action / Approbation */}
         <td className="px-3 py-3 text-center">
-          {!isApproved ? (
+          {isLunch ? (
+            <div className="flex justify-center">
+              <Badge variant="outline" className="font-bold text-[10px] px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border-slate-200">
+                <UtensilsCrossed className="h-3 w-3 mr-1" />
+                Pause
+              </Badge>
+            </div>
+          ) : !isApproved ? (
             <div className="flex items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
               {/* Approve Button */}
               <div className="relative group/btn">
@@ -1117,8 +1149,12 @@ function ActivityRow({
           <div className="flex items-center justify-center gap-0.5">
             {hasClockIn && <span title="Début de quart"><LogIn className="h-3.5 w-3.5 text-emerald-600" /></span>}
             {hasClockOut && <span title="Fin de quart"><LogOut className="h-3.5 w-3.5 text-red-600" /></span>}
+            {hasLunchStart && <span title="Début pause dîner"><UtensilsCrossed className="h-3.5 w-3.5 text-orange-500" /></span>}
+            {hasLunchEnd && <span title="Fin pause dîner"><UtensilsCrossed className="h-3.5 w-3.5 text-green-600" /></span>}
             {isClock && activity.activity_type === 'clock_in' && <LogIn className="h-3.5 w-3.5 text-emerald-600" />}
             {isClock && activity.activity_type === 'clock_out' && <LogOut className="h-3.5 w-3.5 text-red-600" />}
+            {isLunch && activity.activity_type === 'lunch_start' && <UtensilsCrossed className="h-3.5 w-3.5 text-orange-500" />}
+            {isLunch && activity.activity_type === 'lunch_end' && <UtensilsCrossed className="h-3.5 w-3.5 text-green-600" />}
           </div>
         </td>
 
@@ -1132,7 +1168,7 @@ function ActivityRow({
         {/* Durée */}
         <td className="px-3 py-3 whitespace-nowrap">
           <div className={`flex items-center gap-1.5 tabular-nums text-xs ${statusConfig.text}`}>
-            {isClock ? '—' : formatDurationMinutes(activity.duration_minutes)}
+            {(isClock || (isLunch && activity.activity_type === 'lunch_start')) ? '—' : formatDurationMinutes(activity.duration_minutes)}
             {(activity.gps_gap_seconds ?? 0) > 0 && (
               <AlertTriangle className="h-3.5 w-3.5 text-amber-600 animate-pulse" />
             )}
@@ -1153,12 +1189,38 @@ function ActivityRow({
           {isGap ? (
             <div className="space-y-1">
               <div className={`text-xs flex items-center gap-1.5 ${statusConfig.text}`}>
-                <WifiOff className="h-3 w-3" />
-                <span className="font-bold">Temps non suivi</span>
+                {(activity.start_location_name || activity.end_location_name) ? (
+                  <>
+                    <AlertTriangle className="h-3 w-3 text-amber-500" />
+                    <span className="font-bold">D&eacute;placement non trac&eacute;</span>
+                  </>
+                ) : (
+                  <>
+                    <WifiOff className="h-3 w-3" />
+                    <span className="font-bold">Temps non suivi</span>
+                  </>
+                )}
               </div>
-              <span className={`text-[10px] leading-tight italic ${statusConfig.subtext}`}>
-                Aucune donnee GPS durant cette periode
-              </span>
+              {(activity.start_location_name || activity.end_location_name) ? (
+                <div className={`text-[10px] flex items-center gap-1 ${statusConfig.subtext}`}>
+                  <span>{activity.start_location_name || 'Inconnu'}</span>
+                  <ArrowRight className="h-2.5 w-2.5 flex-shrink-0" />
+                  <span>{activity.end_location_name || 'Inconnu'}</span>
+                </div>
+              ) : (
+                <span className={`text-[10px] leading-tight italic ${statusConfig.subtext}`}>
+                  Aucune donnee GPS durant cette periode
+                </span>
+              )}
+            </div>
+          ) : isLunch ? (
+            <div className="space-y-1">
+              <div className="text-xs flex items-center gap-1.5 text-slate-700 font-medium">
+                <UtensilsCrossed className="h-3 w-3" />
+                <span className="font-bold">
+                  {activity.activity_type === 'lunch_start' ? 'Début pause dîner' : 'Fin pause dîner'}
+                </span>
+              </div>
             </div>
           ) : isStop ? (
             <div className="space-y-1">
@@ -1197,7 +1259,11 @@ function ActivityRow({
 
         {/* Distance */}
         <td className="px-3 py-3 text-right tabular-nums whitespace-nowrap">
-          <span className="opacity-20 text-xs font-bold">—</span>
+          {isGap && activity.distance_km ? (
+            <span className="text-xs text-amber-600">{formatDistance(activity.distance_km)}</span>
+          ) : (
+            <span className="opacity-20 text-xs font-bold">—</span>
+          )}
         </td>
 
         {/* Expand chevron */}

@@ -3,7 +3,9 @@ import {
   createServiceClient,
   fetchTripGpsPoints,
   matchTripToRoad,
+  routeTripDirect,
   selectOsrmUrl,
+  selectOsrmUrlForCoords,
   storeMatchResult,
 } from "../_shared/osrm-matcher.ts";
 
@@ -38,7 +40,7 @@ serve(async (req: Request) => {
     // Fetch trip details
     const { data: trip, error: tripError } = await supabase
       .from("trips")
-      .select("id, distance_km, match_attempts, match_status, transport_mode")
+      .select("id, distance_km, match_attempts, match_status, transport_mode, gps_point_count, has_gps_gap, start_latitude, start_longitude, end_latitude, end_longitude")
       .eq("id", trip_id)
       .single();
 
@@ -84,54 +86,83 @@ serve(async (req: Request) => {
       .update({ match_status: "processing" })
       .eq("id", trip_id);
 
-    // Fetch GPS points
-    const gpsPoints = await fetchTripGpsPoints(supabase, trip_id);
-
-    if (gpsPoints.length < 3) {
-      const result = {
-        success: false,
-        match_status: "failed" as const,
-        route_geometry: null,
-        road_distance_km: null,
-        match_confidence: null,
-        match_error: `Insufficient GPS points: ${gpsPoints.length} (minimum 3)`,
-        geometry_points: 0,
-      };
-      await storeMatchResult(supabase, trip_id, result);
-
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: result.match_error,
-          code: "INSUFFICIENT_POINTS",
-        }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Select OSRM server based on GPS coordinates
-    const osrmBaseUrl = selectOsrmUrl(gpsPoints);
-    if (!osrmBaseUrl) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "No OSRM server configured for this region",
-          code: "OSRM_UNAVAILABLE",
-        }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Match to road network
     const haversineDistanceKm = trip.distance_km as number;
-    const matchResult = await matchTripToRoad(
-      gpsPoints,
-      haversineDistanceKm,
-      osrmBaseUrl
-    );
+    let matchResult;
 
-    // Store results
-    await storeMatchResult(supabase, trip_id, matchResult);
+    // SYNTHETIC TRIP (0 GPS points): use OSRM /route for A→B shortest path
+    if (trip.gps_point_count === 0) {
+      const osrmBaseUrl = selectOsrmUrlForCoords(
+        trip.start_latitude, trip.start_longitude
+      );
+      if (!osrmBaseUrl) {
+        return new Response(
+          JSON.stringify({ success: false, error: "No OSRM server for region", code: "OSRM_UNAVAILABLE" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      matchResult = await routeTripDirect(
+        trip.start_latitude, trip.start_longitude,
+        trip.end_latitude, trip.end_longitude,
+        osrmBaseUrl
+      );
+
+      await storeMatchResult(supabase, trip_id, matchResult);
+
+      // Store estimated distance (entire road distance is estimated for synthetic trips)
+      if (matchResult.road_distance_km) {
+        await supabase
+          .from("trips")
+          .update({ estimated_distance_km: matchResult.road_distance_km })
+          .eq("id", trip_id);
+      }
+    } else {
+      // NORMAL TRIP: use /match with GPS points
+      const gpsPoints = await fetchTripGpsPoints(supabase, trip_id);
+
+      if (gpsPoints.length < 3) {
+        // Not enough GPS points — fall back to /route
+        const osrmBaseUrl = selectOsrmUrlForCoords(
+          trip.start_latitude, trip.start_longitude
+        );
+        if (osrmBaseUrl) {
+          matchResult = await routeTripDirect(
+            trip.start_latitude, trip.start_longitude,
+            trip.end_latitude, trip.end_longitude,
+            osrmBaseUrl
+          );
+          await storeMatchResult(supabase, trip_id, matchResult);
+          if (matchResult.road_distance_km) {
+            await supabase
+              .from("trips")
+              .update({ estimated_distance_km: matchResult.road_distance_km })
+              .eq("id", trip_id);
+          }
+        } else {
+          matchResult = {
+            success: false,
+            match_status: "failed" as const,
+            route_geometry: null,
+            road_distance_km: null,
+            match_confidence: null,
+            match_error: `Insufficient GPS points: ${gpsPoints.length} (minimum 3)`,
+            geometry_points: 0,
+          };
+          await storeMatchResult(supabase, trip_id, matchResult);
+        }
+      } else {
+        const osrmBaseUrl = selectOsrmUrl(gpsPoints);
+        if (!osrmBaseUrl) {
+          return new Response(
+            JSON.stringify({ success: false, error: "No OSRM server for region", code: "OSRM_UNAVAILABLE" }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        matchResult = await matchTripToRoad(gpsPoints, haversineDistanceKm, osrmBaseUrl);
+        await storeMatchResult(supabase, trip_id, matchResult);
+      }
+    }
 
     // Calculate distance change percentage
     const distanceChangePct =

@@ -192,7 +192,23 @@ export function ApprovalGrid() {
     // pending: show total shift minutes as the main number
     return (
       <div className="flex flex-col items-center gap-0.5">
-        <span className="text-xs font-bold">{formatHours(day.total_shift_minutes)}</span>
+        <span className="text-xs font-bold">{formatHours(approved)}</span>
+        {rejected > 0 && (
+          <span className="text-[10px] text-red-600">{formatHours(rejected)} refusé</span>
+        )}
+        {needsReviewMinutes > 0 && day.needs_review_count > 0 && (
+          <Badge variant="secondary" className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100 text-[10px] px-1 py-0">
+            {formatHours(needsReviewMinutes)} à vérifier
+          </Badge>
+        )}
+        {(day.lunch_minutes ?? 0) > 0 && (
+          <span className="text-[10px] text-orange-600">
+            {formatHours(day.lunch_minutes)} dîner
+          </span>
+        )}
+        {day.status === 'approved' && (
+          <CheckCircle2 className="h-3 w-3 text-green-600" />
+        )}
       </div>
     );
   };

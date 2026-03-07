@@ -161,7 +161,7 @@ export interface CarpoolMember {
 
 // Activity timeline types (unified trips + stops + clock events)
 export interface ActivityItemBase {
-  activity_type: 'trip' | 'stop' | 'clock_in' | 'clock_out' | 'gap';
+  activity_type: 'trip' | 'stop' | 'clock_in' | 'clock_out' | 'gap' | 'lunch_start' | 'lunch_end';
   id: string;
   shift_id: string;
   started_at: string;
@@ -217,7 +217,27 @@ export interface ActivityClockEvent extends ActivityItemBase {
   matched_location_name: string | null;
 }
 
-export type ActivityItem = ActivityTrip | ActivityStop | ActivityClockEvent;
+export interface ActivityGap extends ActivityItemBase {
+  activity_type: 'gap';
+  start_latitude: number;
+  start_longitude: number;
+  start_location_id: string | null;
+  start_location_name: string | null;
+  end_latitude: number;
+  end_longitude: number;
+  end_location_id: string | null;
+  end_location_name: string | null;
+  distance_km: number;
+  duration_minutes: number;
+  has_gps_gap: boolean;
+  start_cluster_id: string | null;
+  end_cluster_id: string | null;
+  clock_latitude: number | null;
+  clock_longitude: number | null;
+  clock_accuracy: number | null;
+}
+
+export type ActivityItem = ActivityTrip | ActivityStop | ActivityClockEvent | ActivityGap;
 
 // ============================================================
 // Hours Approval types
@@ -227,7 +247,7 @@ export type ApprovalAutoStatus = 'approved' | 'rejected' | 'needs_review';
 export type DayApprovalStatus = 'no_shift' | 'active' | 'pending' | 'needs_review' | 'approved';
 
 export interface ApprovalActivity {
-  activity_type: 'trip' | 'stop' | 'clock_in' | 'clock_out' | 'gap';
+  activity_type: 'trip' | 'stop' | 'clock_in' | 'clock_out' | 'gap' | 'lunch_start' | 'lunch_end';
   activity_id: string;
   shift_id: string;
   started_at: string;
@@ -271,6 +291,7 @@ export interface DayApprovalDetail {
     approved_minutes: number;
     rejected_minutes: number;
     needs_review_count: number;
+    lunch_minutes: number;
   };
 }
 
@@ -283,6 +304,7 @@ export interface WeeklyDayEntry {
   approved_minutes: number | null;
   rejected_minutes: number | null;
   needs_review_count: number;
+  lunch_minutes: number;
 }
 
 export interface WeeklyEmployeeRow {

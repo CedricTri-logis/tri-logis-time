@@ -1,4 +1,4 @@
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:latlong2/latlong.dart';
 
 /// Decodes a Google encoded polyline string with precision 6 (polyline6).
 /// Returns a list of LatLng points representing the decoded route.

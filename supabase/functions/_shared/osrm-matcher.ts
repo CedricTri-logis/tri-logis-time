@@ -128,6 +128,78 @@ export function selectOsrmUrl(points: GpsPoint[]): string | null {
 }
 
 /**
+ * Select OSRM URL based on a single coordinate pair (for synthetic trips).
+ */
+export function selectOsrmUrlForCoords(lat: number, lon: number): string | null {
+  for (const region of OSRM_REGIONS) {
+    if (
+      lat >= region.bbox.minLat &&
+      lat <= region.bbox.maxLat &&
+      lon >= region.bbox.minLon &&
+      lon <= region.bbox.maxLon
+    ) {
+      const url = Deno.env.get(region.envVar);
+      if (url) return url;
+    }
+  }
+  return Deno.env.get("OSRM_BASE_URL") ?? null;
+}
+
+/**
+ * Route a trip directly from A to B using OSRM /route (no GPS trace needed).
+ * Used for synthetic trips (0 GPS points) and trips with insufficient points.
+ */
+export async function routeTripDirect(
+  startLat: number,
+  startLng: number,
+  endLat: number,
+  endLng: number,
+  osrmBaseUrl: string
+): Promise<MatchResult> {
+  const url = `${osrmBaseUrl}/route/v1/driving/${startLng},${startLat};${endLng},${endLat}?overview=full&geometries=polyline6`;
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    return {
+      success: false,
+      match_status: "failed",
+      route_geometry: null,
+      road_distance_km: null,
+      match_confidence: null,
+      match_error: `OSRM route returned HTTP ${response.status}`,
+      geometry_points: 0,
+    };
+  }
+
+  const data = await response.json();
+  if (data.code !== "Ok" || !data.routes?.length) {
+    return {
+      success: false,
+      match_status: "failed",
+      route_geometry: null,
+      road_distance_km: null,
+      match_confidence: null,
+      match_error: `OSRM route error: ${data.code ?? "no routes"}`,
+      geometry_points: 0,
+    };
+  }
+
+  const route = data.routes[0];
+  const roadDistanceKm = route.distance / 1000;
+  const geometryPoints = countPolylinePoints(route.geometry);
+
+  return {
+    success: true,
+    match_status: "matched",
+    route_geometry: route.geometry,
+    road_distance_km: Math.round(roadDistanceKm * 1000) / 1000,
+    match_confidence: 0.50, // Lower confidence for estimated routes
+    match_error: null,
+    geometry_points: geometryPoints,
+  };
+}
+
+/**
  * Match a trip's GPS points to the road network using OSRM.
  */
 export async function matchTripToRoad(

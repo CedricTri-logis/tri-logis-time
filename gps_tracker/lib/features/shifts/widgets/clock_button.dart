@@ -9,12 +9,14 @@ class ClockButton extends ConsumerWidget {
   final VoidCallback? onClockIn;
   final VoidCallback? onClockOut;
   final bool isExternallyLoading;
+  final bool isDisabled;
 
   const ClockButton({
     super.key,
     this.onClockIn,
     this.onClockOut,
     this.isExternallyLoading = false,
+    this.isDisabled = false,
   });
 
   @override
@@ -25,7 +27,9 @@ class ClockButton extends ConsumerWidget {
         isExternallyLoading || shiftState.isClockingIn || shiftState.isClockingOut;
     final theme = Theme.of(context);
 
-    return Container(
+    return Opacity(
+      opacity: isDisabled ? 0.5 : 1.0,
+      child: Container(
       width: 200,
       height: 200,
       decoration: BoxDecoration(
@@ -40,7 +44,7 @@ class ClockButton extends ConsumerWidget {
         ],
       ),
       child: ElevatedButton(
-        onPressed: isLoading
+        onPressed: isLoading || isDisabled
             ? null
             : () {
                 if (hasActiveShift) {
@@ -97,6 +101,7 @@ class ClockButton extends ConsumerWidget {
                 ],
               ),
       ),
+    ),
     );
   }
 }

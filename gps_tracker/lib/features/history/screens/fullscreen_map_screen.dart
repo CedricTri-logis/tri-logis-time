@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../shared/utils/timezone_formatter.dart';
 import '../services/history_service.dart';
@@ -31,10 +32,9 @@ class FullscreenMapScreen extends StatefulWidget {
 }
 
 class _FullscreenMapScreenState extends State<FullscreenMapScreen> {
-  GoogleMapController? _controller;
-  Set<Marker> _markers = {};
-  Set<Polyline> _polylines = {};
-  MapType _mapType = MapType.normal;
+  final MapController _controller = MapController();
+  List<Marker> _markers = [];
+  List<Polyline> _polylines = [];
   GpsPointData? _selectedPoint;
   bool _showInfo = true;
 
@@ -44,32 +44,32 @@ class _FullscreenMapScreenState extends State<FullscreenMapScreen> {
     // Set to fullscreen immersive mode
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     _buildMapElements();
+    // Fit bounds after the map has been laid out
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(milliseconds: 500), _fitBounds);
+    });
   }
 
   @override
   void dispose() {
     // Restore system UI
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    _controller.dispose();
     super.dispose();
   }
 
   void _buildMapElements() {
-    final markers = <Marker>{};
+    final markers = <Marker>[];
     final polylinePoints = <LatLng>[];
 
     // Add clock-in marker
     if (widget.clockInLocation != null) {
       markers.add(
         Marker(
-          markerId: const MarkerId('clock_in'),
-          position: widget.clockInLocation!,
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-          infoWindow: InfoWindow(
-            title: 'Pointage',
-            snippet: widget.clockedInAt != null
-                ? TimezoneFormatter.formatDateTimeWithTz(widget.clockedInAt!)
-                : null,
-          ),
+          point: widget.clockInLocation!,
+          width: 40,
+          height: 40,
+          child: const Icon(Icons.location_on, color: Colors.green, size: 40),
         ),
       );
       polylinePoints.add(widget.clockInLocation!);
@@ -85,16 +85,15 @@ class _FullscreenMapScreenState extends State<FullscreenMapScreen> {
       if (widget.gpsPoints.length <= 30 || i % (widget.gpsPoints.length ~/ 30) == 0) {
         markers.add(
           Marker(
-            markerId: MarkerId('point_${point.id}'),
-            position: position,
-            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-            infoWindow: InfoWindow(
-              title: 'Point GPS ${i + 1}',
-              snippet: TimezoneFormatter.formatTimeWithSecondsTz(point.capturedAt),
+            point: position,
+            width: 24,
+            height: 24,
+            child: GestureDetector(
+              onTap: () {
+                setState(() => _selectedPoint = point);
+              },
+              child: const Icon(Icons.circle, color: Colors.lightBlue, size: 14),
             ),
-            onTap: () {
-              setState(() => _selectedPoint = point);
-            },
           ),
         );
       }
@@ -104,29 +103,23 @@ class _FullscreenMapScreenState extends State<FullscreenMapScreen> {
     if (widget.clockOutLocation != null) {
       markers.add(
         Marker(
-          markerId: const MarkerId('clock_out'),
-          position: widget.clockOutLocation!,
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-          infoWindow: InfoWindow(
-            title: 'Dépointage',
-            snippet: widget.clockedOutAt != null
-                ? TimezoneFormatter.formatDateTimeWithTz(widget.clockedOutAt!)
-                : null,
-          ),
+          point: widget.clockOutLocation!,
+          width: 40,
+          height: 40,
+          child: const Icon(Icons.location_on, color: Colors.red, size: 40),
         ),
       );
       polylinePoints.add(widget.clockOutLocation!);
     }
 
     // Create polyline for the route
-    final polylines = <Polyline>{};
+    final polylines = <Polyline>[];
     if (polylinePoints.length >= 2) {
       polylines.add(
         Polyline(
-          polylineId: const PolylineId('route'),
           points: polylinePoints,
           color: Colors.blue,
-          width: 4,
+          strokeWidth: 4,
         ),
       );
     }
@@ -175,16 +168,16 @@ class _FullscreenMapScreenState extends State<FullscreenMapScreen> {
     }
 
     return LatLngBounds(
-      southwest: LatLng(minLat, minLng),
-      northeast: LatLng(maxLat, maxLng),
+      LatLng(minLat, minLng),
+      LatLng(maxLat, maxLng),
     );
   }
 
   void _fitBounds() {
     final bounds = _getBounds();
-    if (bounds != null && _controller != null) {
-      _controller!.animateCamera(
-        CameraUpdate.newLatLngBounds(bounds, 80),
+    if (bounds != null) {
+      _controller.fitCamera(
+        CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(80)),
       );
     }
   }
@@ -213,28 +206,23 @@ class _FullscreenMapScreenState extends State<FullscreenMapScreen> {
       body: Stack(
         children: [
           // Full screen map
-          GoogleMap(
-            initialCameraPosition: CameraPosition(
-              target: _getInitialPosition(),
-              zoom: 15,
+          FlutterMap(
+            mapController: _controller,
+            options: MapOptions(
+              initialCenter: _getInitialPosition(),
+              initialZoom: 15,
+              interactionOptions: const InteractionOptions(
+                flags: InteractiveFlag.all,
+              ),
             ),
-            markers: _markers,
-            polylines: _polylines,
-            mapType: _mapType,
-            onMapCreated: (controller) {
-              _controller = controller;
-              Future.delayed(const Duration(milliseconds: 500), _fitBounds);
-            },
-            myLocationEnabled: false,
-            myLocationButtonEnabled: false,
-            zoomControlsEnabled: false,
-            compassEnabled: true,
-            mapToolbarEnabled: false,
-            // Full gesture support
-            scrollGesturesEnabled: true,
-            zoomGesturesEnabled: true,
-            rotateGesturesEnabled: true,
-            tiltGesturesEnabled: true,
+            children: [
+              TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'ca.trilogis.gpstracker',
+              ),
+              PolylineLayer(polylines: _polylines),
+              MarkerLayer(markers: _markers),
+            ],
           ),
 
           // Map controls - right side
@@ -244,27 +232,25 @@ class _FullscreenMapScreenState extends State<FullscreenMapScreen> {
             child: Column(
               children: [
                 _buildControlButton(
-                  icon: _mapType == MapType.satellite ? Icons.map : Icons.satellite_alt,
-                  label: _mapType == MapType.satellite ? 'Carte' : 'Satellite',
-                  onPressed: () {
-                    setState(() {
-                      _mapType = _mapType == MapType.satellite
-                          ? MapType.normal
-                          : MapType.satellite;
-                    });
-                  },
-                ),
-                const SizedBox(height: 12),
-                _buildControlButton(
                   icon: Icons.add,
                   label: 'Agrandir',
-                  onPressed: () => _controller?.animateCamera(CameraUpdate.zoomIn()),
+                  onPressed: () {
+                    _controller.move(
+                      _controller.camera.center,
+                      _controller.camera.zoom + 1,
+                    );
+                  },
                 ),
                 const SizedBox(height: 8),
                 _buildControlButton(
                   icon: Icons.remove,
-                  label: 'Réduire',
-                  onPressed: () => _controller?.animateCamera(CameraUpdate.zoomOut()),
+                  label: 'Reduire',
+                  onPressed: () {
+                    _controller.move(
+                      _controller.camera.center,
+                      _controller.camera.zoom - 1,
+                    );
+                  },
                 ),
                 const SizedBox(height: 12),
                 _buildControlButton(
@@ -361,7 +347,7 @@ class _FullscreenMapScreenState extends State<FullscreenMapScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 _buildLegendItem(Colors.green, 'Pointage'),
-                _buildLegendItem(Colors.red, 'Dépointage'),
+                _buildLegendItem(Colors.red, 'Depointage'),
                 _buildLegendItem(Colors.blue, 'Trajet'),
                 _buildLegendItem(Colors.lightBlue, 'Points GPS'),
               ],
@@ -386,7 +372,7 @@ class _FullscreenMapScreenState extends State<FullscreenMapScreen> {
                   _buildStatItem(
                     Icons.logout,
                     TimezoneFormatter.formatTimeWithTz(widget.clockedOutAt!),
-                    'Dépointage',
+                    'Depointage',
                   ),
               ],
             ),
@@ -486,7 +472,7 @@ class _FullscreenMapScreenState extends State<FullscreenMapScreen> {
                   ),
                   if (point.accuracy != null)
                     Text(
-                      'Précision : ±${point.accuracy!.toStringAsFixed(0)}m',
+                      'Precision : +/-${point.accuracy!.toStringAsFixed(0)}m',
                       style: TextStyle(
                         fontSize: 11,
                         color: Colors.grey[500],
@@ -527,7 +513,7 @@ class _FullscreenMapScreenState extends State<FullscreenMapScreen> {
                 Icon(Icons.touch_app, color: Colors.white, size: 16),
                 SizedBox(width: 8),
                 Text(
-                  'Glisser pour déplacer • Pincer pour zoomer',
+                  'Glisser pour deplacer - Pincer pour zoomer',
                   style: TextStyle(color: Colors.white, fontSize: 12),
                 ),
               ],

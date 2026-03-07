@@ -1,11 +1,13 @@
 import 'dart:ui' show FontFeature;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/shift.dart';
+import '../providers/lunch_break_provider.dart';
 
 /// Card showing shift summary after clock-out.
-class ShiftSummaryCard extends StatelessWidget {
+class ShiftSummaryCard extends ConsumerWidget {
   final Shift shift;
 
   const ShiftSummaryCard({super.key, required this.shift});
@@ -23,11 +25,20 @@ class ShiftSummaryCard extends StatelessWidget {
     return '$hour:$minute';
   }
 
+  String _formatLunchDuration(Duration duration) {
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+    if (hours == 0) return '${minutes}m';
+    return '${hours}h ${minutes.toString().padLeft(2, '0')}m';
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final localClockIn = shift.clockedInAt.toLocal();
     final localClockOut = shift.clockedOutAt?.toLocal();
+    final lunchAsync = ref.watch(totalLunchDurationProvider(shift.id));
+    final lunchDuration = lunchAsync.valueOrNull ?? Duration.zero;
 
     return Card(
       elevation: 2,
@@ -42,7 +53,7 @@ class ShiftSummaryCard extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'Shift Completed',
+              'Quart terminé',
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -57,20 +68,41 @@ class ShiftSummaryCard extends StatelessWidget {
               child: Column(
                 children: [
                   Text(
-                    'Total Duration',
+                    'Temps de travail',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onPrimaryContainer,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _formatDurationLong(shift.duration),
+                    _formatDurationLong(shift.duration - lunchDuration),
                     style: theme.textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: theme.colorScheme.onPrimaryContainer,
                       fontFeatures: [const FontFeature.tabularFigures()],
                     ),
                   ),
+                  if (lunchDuration.inMinutes > 0) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.restaurant,
+                          size: 16,
+                          color: Colors.orange.shade700,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Dîner : ${_formatLunchDuration(lunchDuration)}',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: Colors.orange.shade800,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
