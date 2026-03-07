@@ -623,6 +623,11 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
     return mergeClockEvents(detail.activities);
   }, [detail]);
 
+  // Merge same-location GPS gaps into grouped rows
+  const displayItems = useMemo(() => {
+    return mergeSameLocationGaps(processedActivities);
+  }, [processedActivities]);
+
   // Client-side visible needs_review count (excludes trips — they derive from stops)
   const visibleNeedsReviewCount = useMemo(() =>
     processedActivities.filter(pa =>
@@ -962,14 +967,31 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {processedActivities.length === 0 ? (
+                  {displayItems.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="px-3 py-12 text-center text-sm text-muted-foreground italic">
                         Aucune activité détectée pour cette période
                       </td>
                     </tr>
                   ) : (
-                    processedActivities.map((pa) => {
+                    displayItems.map((item, idx) => {
+                      if (item.type === 'merged') {
+                        const group = item.group;
+                        const key = `merged-${group.primaryStop.item.activity_id}`;
+                        return (
+                          <MergedLocationRow
+                            key={key}
+                            group={group}
+                            isApproved={isApproved}
+                            isSaving={isSaving}
+                            isExpanded={expandedId === key}
+                            onToggle={() => setExpandedId(expandedId === key ? null : key)}
+                            onOverride={handleOverride}
+                          />
+                        );
+                      }
+
+                      const pa = item.pa;
                       const key = `${pa.item.activity_type}-${pa.item.activity_id}`;
                       const isTrip = pa.item.activity_type === 'trip';
 
