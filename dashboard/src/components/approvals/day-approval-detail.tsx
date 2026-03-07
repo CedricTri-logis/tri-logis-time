@@ -43,6 +43,109 @@ import type {
   TripGpsPoint,
 } from '@/types/mileage';
 
+// --- Same-location GPS gap merging ---
+
+interface MergedGroup {
+  /** The primary stop activity (first stop — used for location info, approval actions) */
+  primaryStop: ProcessedActivity<ApprovalActivity>;
+  /** All stop activities folded into this group */
+  stops: ProcessedActivity<ApprovalActivity>[];
+  /** Same-location gap activities nested inside (for expand) */
+  gaps: ApprovalActivity[];
+  /** Earliest started_at across all stops */
+  startedAt: string;
+  /** Latest ended_at across all stops */
+  endedAt: string;
+  /** Full span in minutes (from startedAt to endedAt) */
+  spanMinutes: number;
+  /** Total gap minutes */
+  totalGapMinutes: number;
+}
+
+type DisplayItem =
+  | { type: 'activity'; pa: ProcessedActivity<ApprovalActivity> }
+  | { type: 'merged'; group: MergedGroup };
+
+/**
+ * Detect consecutive same-location stop/gap chains and merge them.
+ * A "same-location gap" is a gap where start_location_id === end_location_id
+ * and both are non-null.
+ */
+function mergeSameLocationGaps(items: ProcessedActivity<ApprovalActivity>[]): DisplayItem[] {
+  const result: DisplayItem[] = [];
+  let i = 0;
+
+  while (i < items.length) {
+    const pa = items[i];
+
+    // Only attempt merge starting from a stop
+    if (pa.item.activity_type !== 'stop') {
+      result.push({ type: 'activity', pa });
+      i++;
+      continue;
+    }
+
+    // Look ahead: collect stop→sameLocationGap→stop→... chains
+    const stops: ProcessedActivity<ApprovalActivity>[] = [pa];
+    const gaps: ApprovalActivity[] = [];
+    let j = i + 1;
+
+    while (j < items.length) {
+      const next = items[j];
+
+      // Next must be a same-location gap
+      if (
+        next.item.activity_type === 'gap' &&
+        next.item.start_location_id &&
+        next.item.end_location_id &&
+        next.item.start_location_id === next.item.end_location_id
+      ) {
+        // And after the gap, there should be a stop at the same location
+        const afterGap = items[j + 1];
+        if (
+          afterGap &&
+          afterGap.item.activity_type === 'stop' &&
+          afterGap.item.matched_location_id === pa.item.matched_location_id
+        ) {
+          gaps.push(next.item);
+          stops.push(afterGap);
+          j += 2; // skip gap + stop
+          continue;
+        }
+      }
+      break;
+    }
+
+    if (gaps.length === 0) {
+      // No merging happened — emit as normal activity
+      result.push({ type: 'activity', pa });
+      i++;
+    } else {
+      // Build merged group
+      const startedAt = stops[0].item.started_at;
+      const endedAt = stops[stops.length - 1].item.ended_at;
+      const spanMs = new Date(endedAt).getTime() - new Date(startedAt).getTime();
+      const totalGapMinutes = gaps.reduce((sum, g) => sum + g.duration_minutes, 0);
+
+      result.push({
+        type: 'merged',
+        group: {
+          primaryStop: pa,
+          stops,
+          gaps,
+          startedAt,
+          endedAt,
+          spanMinutes: Math.round(spanMs / 60000),
+          totalGapMinutes,
+        },
+      });
+      i = j; // skip past all consumed items
+    }
+  }
+
+  return result;
+}
+
 interface DayApprovalDetailProps {
   employeeId: string;
   employeeName: string;
