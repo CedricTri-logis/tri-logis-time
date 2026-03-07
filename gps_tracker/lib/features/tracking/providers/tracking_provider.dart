@@ -22,6 +22,7 @@ import '../models/tracking_config.dart';
 import '../models/tracking_state.dart';
 import '../models/tracking_status.dart';
 import '../../../shared/services/battery_service.dart';
+import '../../../shared/services/diagnostic_native_service.dart';
 import '../services/background_execution_service.dart';
 import '../services/android_battery_health_service.dart';
 import '../services/background_tracking_service.dart';
@@ -668,6 +669,8 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
         }
       });
     }
+    // Start native diagnostic monitoring (GNSS, doze, standby bucket)
+    DiagnosticNativeService.instance.startMonitoring();
     // Subscribe to thermal state changes for GPS frequency adaptation
     _startThermalMonitoring();
     // Start activity recognition for motion state tagging
@@ -898,6 +901,8 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     // Stop lifecycle observer and clear callbacks
     BackgroundTrackingService.onForegroundServiceDied = null;
     BackgroundTrackingService.stopLifecycleObserver();
+    // Stop native diagnostic monitoring
+    DiagnosticNativeService.instance.stopMonitoring();
     // Stop thermal monitoring
     _stopThermalMonitoring();
     // Stop activity recognition

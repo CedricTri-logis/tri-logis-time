@@ -20,6 +20,7 @@ import 'features/tracking/services/tracking_watchdog_service.dart';
 import 'shared/models/diagnostic_event.dart';
 import 'shared/providers/diagnostic_provider.dart';
 import 'shared/services/diagnostic_logger.dart';
+import 'shared/services/diagnostic_native_service.dart';
 import 'shared/services/local_database.dart';
 import 'shared/services/fcm_service.dart';
 import 'shared/services/notification_service.dart';
@@ -169,6 +170,9 @@ Future<void> main() async {
             .lifecycle(Severity.info, 'App started', metadata: {
           'init_duration_ms': stopwatch.elapsedMilliseconds,
         });
+
+        // Start native diagnostic event listener (MetricKit, GNSS, doze, etc.)
+        DiagnosticNativeService.instance.initialize();
 
         // Listen for auth state changes so _employeeId gets set once
         // the session is restored (often null at cold start).
