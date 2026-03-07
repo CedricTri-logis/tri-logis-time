@@ -95,6 +95,11 @@ platform :ios do
 
     build_ipa
 
+    # Upload dSYMs to Crashlytics for crash symbolication
+    upload_symbols_to_crashlytics(
+      gsp_path: "./Runner/GoogleService-Info.plist"
+    )
+
     upload_to_testflight(
       api_key: api_key,
       ipa: "../build/ios/ipa/gps_tracker.ipa",
@@ -128,6 +133,11 @@ platform :ios do
     api_key = load_api_key
 
     build_ipa
+
+    # Upload dSYMs to Crashlytics for crash symbolication
+    upload_symbols_to_crashlytics(
+      gsp_path: "./Runner/GoogleService-Info.plist"
+    )
 
     upload_to_app_store(
       api_key: api_key,
