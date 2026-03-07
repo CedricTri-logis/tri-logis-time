@@ -217,7 +217,27 @@ export interface ActivityClockEvent extends ActivityItemBase {
   matched_location_name: string | null;
 }
 
-export type ActivityItem = ActivityTrip | ActivityStop | ActivityClockEvent;
+export interface ActivityGap extends ActivityItemBase {
+  activity_type: 'gap';
+  start_latitude: number;
+  start_longitude: number;
+  start_location_id: string | null;
+  start_location_name: string | null;
+  end_latitude: number;
+  end_longitude: number;
+  end_location_id: string | null;
+  end_location_name: string | null;
+  distance_km: number;
+  duration_minutes: number;
+  has_gps_gap: boolean;
+  start_cluster_id: string | null;
+  end_cluster_id: string | null;
+  clock_latitude: number | null;
+  clock_longitude: number | null;
+  clock_accuracy: number | null;
+}
+
+export type ActivityItem = ActivityTrip | ActivityStop | ActivityClockEvent | ActivityGap;
 
 // ============================================================
 // Hours Approval types
