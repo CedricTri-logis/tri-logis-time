@@ -1248,6 +1248,113 @@ function TripConnectorRow({
   );
 }
 
+// --- GPS gap sub-row inside merged location row ---
+
+function GapSubRow({
+  gap,
+  isApproved,
+  isSaving,
+  onOverride,
+}: {
+  gap: ApprovalActivity;
+  isApproved: boolean;
+  isSaving: boolean;
+  onOverride: (activity: ApprovalActivity, status: 'approved' | 'rejected') => void;
+}) {
+  const finalStatus = gap.override_status ?? gap.auto_status;
+  const hasOverride = gap.override_status !== null;
+
+  const config = {
+    approved: {
+      bg: 'bg-green-50 border-green-200',
+      text: 'text-green-800',
+      sub: 'text-green-600/70',
+    },
+    rejected: {
+      bg: 'bg-red-50 border-red-200',
+      text: 'text-red-800',
+      sub: 'text-red-600/70',
+    },
+    needs_review: {
+      bg: 'bg-amber-50 border-amber-300',
+      text: 'text-amber-900',
+      sub: 'text-amber-700/80',
+    },
+  }[finalStatus];
+
+  return (
+    <div className={`flex items-center gap-3 px-3 py-2 rounded-lg border ${config.bg} ${hasOverride ? 'ring-1 ring-blue-400/30' : ''}`}>
+      <WifiOff className="h-3.5 w-3.5 text-purple-500 flex-shrink-0" />
+
+      <div className="flex-1 min-w-0">
+        <div className={`text-xs font-medium ${config.text}`}>
+          Signal GPS perdu
+        </div>
+        <div className={`text-[10px] ${config.sub}`}>
+          {formatTime(gap.started_at)} — {formatTime(gap.ended_at)} · {formatDurationMinutes(gap.duration_minutes)}
+        </div>
+      </div>
+
+      {/* Approve / Reject */}
+      {!isApproved ? (
+        <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+          <div className="relative">
+            {gap.override_status === 'approved' && (
+              <div className="absolute -inset-0.5 rounded-full border border-blue-500/40 shadow-[0_0_8px_rgba(59,130,246,0.2)]" />
+            )}
+            <Button
+              variant="outline"
+              size="icon"
+              className={`h-7 w-7 rounded-full transition-all relative z-0 border ${
+                gap.override_status === 'approved'
+                  ? 'border-blue-500 bg-white text-green-600'
+                  : finalStatus === 'approved'
+                    ? 'text-green-600 bg-green-50 border-green-300'
+                    : 'text-gray-400 hover:text-green-600 hover:bg-green-50 border-gray-200'
+              }`}
+              onClick={() => onOverride(gap, 'approved')}
+              disabled={isSaving}
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+          <div className="relative">
+            {gap.override_status === 'rejected' && (
+              <div className="absolute -inset-0.5 rounded-full border border-blue-500/40 shadow-[0_0_8px_rgba(59,130,246,0.2)]" />
+            )}
+            <Button
+              variant="outline"
+              size="icon"
+              className={`h-7 w-7 rounded-full transition-all relative z-0 border ${
+                gap.override_status === 'rejected'
+                  ? 'border-blue-500 bg-white text-red-600'
+                  : finalStatus === 'rejected'
+                    ? 'text-red-600 bg-red-50 border-red-300'
+                    : 'text-gray-400 hover:text-red-600 hover:bg-red-50 border-gray-200'
+              }`}
+              onClick={() => onOverride(gap, 'rejected')}
+              disabled={isSaving}
+            >
+              <XCircle className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Badge
+          variant="outline"
+          className={`text-[10px] px-2 py-0.5 rounded-full ${
+            finalStatus === 'approved' ? 'bg-green-100 text-green-700 border-green-200' :
+            finalStatus === 'rejected' ? 'bg-red-100 text-red-700 border-red-200' :
+            'bg-amber-100 text-amber-700 border-amber-200'
+          }`}
+        >
+          {finalStatus === 'approved' ? 'Approuve' : finalStatus === 'rejected' ? 'Rejete' : 'A verifier'}
+        </Badge>
+      )}
+    </div>
+  );
+}
+
 // --- Merged same-location row (stops + nested GPS gaps) ---
 
 function MergedLocationRow({
