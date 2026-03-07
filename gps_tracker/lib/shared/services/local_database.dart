@@ -1864,4 +1864,14 @@ class LocalDatabase {
       whereArgs: [id],
     );
   }
+
+  /// Get all lunch breaks for a shift.
+  Future<List<Map<String, dynamic>>> getLunchBreaksForShift(String shiftId) async {
+    return _db.query(
+      'local_lunch_breaks',
+      where: 'shift_id = ?',
+      whereArgs: [shiftId],
+      orderBy: 'started_at ASC',
+    );
+  }
 }

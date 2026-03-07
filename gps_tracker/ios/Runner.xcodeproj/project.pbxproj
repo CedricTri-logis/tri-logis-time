@@ -23,8 +23,8 @@
 		B1C2D3E4F5A6B7C8D9E0F1A2 /* BackgroundTaskPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5A6B7C8D9E0F1A3 /* BackgroundTaskPlugin.swift */; };
 		B85AEB0DA312468084A8DC14 /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58C4E67D228D773732656832 /* Pods_RunnerTests.framework */; };
 		C1D2E3F4A5B6C7D8E9F0A1B2 /* LiveActivityPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1D2E3F4A5B6C7D8E9F0A1B3 /* LiveActivityPlugin.swift */; };
-		E1F2A3B4C5D6E7F8A9B0C1D3 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = E1F2A3B4C5D6E7F8A9B0C1D2 /* GoogleService-Info.plist */; };
 		D1E2F3A4B5C6D7E8F9A0B1C2 /* NativeGpsBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E2F3A4B5C6D7E8F9A0B1C3 /* NativeGpsBuffer.swift */; };
+		E1F2A3B4C5D6E7F8A9B0C1D3 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = E1F2A3B4C5D6E7F8A9B0C1D2 /* GoogleService-Info.plist */; };
 		F1A2B3C4D5E6F7A8B9C0D1E2 /* BackgroundAppRefreshPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F7A8B9C0D1E3 /* BackgroundAppRefreshPlugin.swift */; };
 /* End PBXBuildFile section */
 
@@ -102,12 +102,12 @@
 		AE0ADEFB80360823DFE0EAB1 /* Pods-Runner.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.debug.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"; sourceTree = "<group>"; };
 		B1C2D3E4F5A6B7C8D9E0F1A3 /* BackgroundTaskPlugin.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BackgroundTaskPlugin.swift; sourceTree = "<group>"; };
 		C1D2E3F4A5B6C7D8E9F0A1B3 /* LiveActivityPlugin.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LiveActivityPlugin.swift; sourceTree = "<group>"; };
-		D1E2F3A4B5C6D7E8F9A0B1C3 /* NativeGpsBuffer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = NativeGpsBuffer.swift; sourceTree = "<group>"; };
-		F1A2B3C4D5E6F7A8B9C0D1E3 /* BackgroundAppRefreshPlugin.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BackgroundAppRefreshPlugin.swift; sourceTree = "<group>"; };
 		D1C859C82A48AAD0617D02C7 /* Pods-ShiftActivityWidgetExtension.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ShiftActivityWidgetExtension.release.xcconfig"; path = "Target Support Files/Pods-ShiftActivityWidgetExtension/Pods-ShiftActivityWidgetExtension.release.xcconfig"; sourceTree = "<group>"; };
+		D1E2F3A4B5C6D7E8F9A0B1C3 /* NativeGpsBuffer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = NativeGpsBuffer.swift; sourceTree = "<group>"; };
 		D40F8CC905061FA5C4957BF4 /* Pods-Runner.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"; sourceTree = "<group>"; };
-		FBFD05B8D57AF80BA8FC0997 /* Pods-RunnerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release.xcconfig"; sourceTree = "<group>"; };
 		E1F2A3B4C5D6E7F8A9B0C1D2 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		F1A2B3C4D5E6F7A8B9C0D1E3 /* BackgroundAppRefreshPlugin.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BackgroundAppRefreshPlugin.swift; sourceTree = "<group>"; };
+		FBFD05B8D57AF80BA8FC0997 /* Pods-RunnerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -269,6 +269,7 @@
 				331C807D294A63A400263BE5 /* Sources */,
 				331C807F294A63A400263BE5 /* Resources */,
 				165263A61DFA710CE66947D8 /* Frameworks */,
+				D96522F3E612DE782CD3A802 /* Strip com.apple.provenance xattr */,
 			);
 			buildRules = (
 			);
@@ -288,6 +289,7 @@
 				82F1AAD62F4F79DC008B8262 /* Sources */,
 				82F1AAD72F4F79DC008B8262 /* Frameworks */,
 				82F1AAD82F4F79DC008B8262 /* Resources */,
+				F6C02E962F0494BD5F74CC84 /* Strip com.apple.provenance xattr */,
 			);
 			buildRules = (
 			);
@@ -315,6 +317,7 @@
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 				A045AC09ECEA25E5CA7703AF /* [CP] Embed Pods Frameworks */,
 				05B847A68D1422EC39D88629 /* [CP] Copy Pods Resources */,
+				C02BECB88F810CCC0678FBFC /* Strip com.apple.provenance xattr */,
 			);
 			buildRules = (
 			);
@@ -531,6 +534,60 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
+		C02BECB88F810CCC0678FBFC /* Strip com.apple.provenance xattr */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Strip com.apple.provenance xattr";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "xattr -cr \"${BUILT_PRODUCTS_DIR}\" 2>/dev/null || true\nxattr -cr \"${TARGET_BUILD_DIR}\" 2>/dev/null || true";
+		};
+		D96522F3E612DE782CD3A802 /* Strip com.apple.provenance xattr */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Strip com.apple.provenance xattr";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "xattr -cr \"${BUILT_PRODUCTS_DIR}\" 2>/dev/null || true\nxattr -cr \"${TARGET_BUILD_DIR}\" 2>/dev/null || true";
+		};
+		F6C02E962F0494BD5F74CC84 /* Strip com.apple.provenance xattr */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Strip com.apple.provenance xattr";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "xattr -cr \"${BUILT_PRODUCTS_DIR}\" 2>/dev/null || true\nxattr -cr \"${TARGET_BUILD_DIR}\" 2>/dev/null || true";
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -679,8 +736,8 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-					CURRENT_PROJECT_VERSION = 1;
-					GENERATE_INFOPLIST_FILE = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.gpstracker.gpsTracker.RunnerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -697,8 +754,8 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-					CURRENT_PROJECT_VERSION = 1;
-					GENERATE_INFOPLIST_FILE = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.gpstracker.gpsTracker.RunnerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -713,8 +770,8 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-					CURRENT_PROJECT_VERSION = 1;
-					GENERATE_INFOPLIST_FILE = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.gpstracker.gpsTracker.RunnerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -737,14 +794,14 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CODE_SIGN_ENTITLEMENTS = ShiftActivityWidgetExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-					CURRENT_PROJECT_VERSION = 100;
+				CURRENT_PROJECT_VERSION = 100;
 				DEVELOPMENT_TEAM = ZJ7VM5B8CQ;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
-					GENERATE_INFOPLIST_FILE = NO;
-					INFOPLIST_FILE = ShiftActivityWidget/Info.plist;
-					INFOPLIST_KEY_CFBundleVersion = 100;
-					INFOPLIST_KEY_CFBundleDisplayName = ShiftActivityWidget;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ShiftActivityWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ShiftActivityWidget;
+				INFOPLIST_KEY_CFBundleVersion = 100;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -784,14 +841,14 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CODE_SIGN_ENTITLEMENTS = ShiftActivityWidgetExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-					CURRENT_PROJECT_VERSION = 100;
+				CURRENT_PROJECT_VERSION = 100;
 				DEVELOPMENT_TEAM = ZJ7VM5B8CQ;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
-					GENERATE_INFOPLIST_FILE = NO;
-					INFOPLIST_FILE = ShiftActivityWidget/Info.plist;
-					INFOPLIST_KEY_CFBundleVersion = 100;
-					INFOPLIST_KEY_CFBundleDisplayName = ShiftActivityWidget;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ShiftActivityWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ShiftActivityWidget;
+				INFOPLIST_KEY_CFBundleVersion = 100;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -828,14 +885,14 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CODE_SIGN_ENTITLEMENTS = ShiftActivityWidgetExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-					CURRENT_PROJECT_VERSION = 100;
+				CURRENT_PROJECT_VERSION = 100;
 				DEVELOPMENT_TEAM = ZJ7VM5B8CQ;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
-					GENERATE_INFOPLIST_FILE = NO;
-					INFOPLIST_FILE = ShiftActivityWidget/Info.plist;
-					INFOPLIST_KEY_CFBundleVersion = 100;
-					INFOPLIST_KEY_CFBundleDisplayName = ShiftActivityWidget;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ShiftActivityWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ShiftActivityWidget;
+				INFOPLIST_KEY_CFBundleVersion = 100;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
 				LD_RUNPATH_SEARCH_PATHS = (

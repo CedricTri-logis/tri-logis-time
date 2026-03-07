@@ -3,7 +3,7 @@ default_platform(:android)
 platform :android do
   desc "Build and upload to Google Play closed testing (alpha)"
   lane :alpha do
-    sh("cd ../.. && flutter build appbundle --release")
+    sh("cd ../.. && /opt/homebrew/bin/flutter build appbundle --release")
     upload_to_play_store(
       track: "alpha",
       aab: "../build/app/outputs/bundle/release/app-release.aab",
@@ -16,7 +16,7 @@ platform :android do
 
   desc "Build and upload to Google Play open testing (beta)"
   lane :beta do
-    sh("cd ../.. && flutter build appbundle --release")
+    sh("cd ../.. && /opt/homebrew/bin/flutter build appbundle --release")
     upload_to_play_store(
       track: "beta",
       aab: "../build/app/outputs/bundle/release/app-release.aab",
@@ -37,7 +37,7 @@ platform :android do
 
   desc "Build and upload to Google Play production (draft for manual review)"
   lane :production do
-    sh("cd ../.. && flutter build appbundle --release")
+    sh("cd ../.. && /opt/homebrew/bin/flutter build appbundle --release")
     upload_to_play_store(
       track: "production",
       release_status: "draft",

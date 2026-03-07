@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/shift.dart';
+import '../providers/lunch_break_provider.dart';
 import 'sync_status_indicator.dart';
 
 /// Card widget for displaying a shift in the history list.
-class ShiftCard extends StatelessWidget {
+class ShiftCard extends ConsumerWidget {
   final Shift shift;
   final VoidCallback? onTap;
 
@@ -39,10 +41,12 @@ class ShiftCard extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final localClockIn = shift.clockedInAt.toLocal();
     final localClockOut = shift.clockedOutAt?.toLocal();
+    final lunchAsync = ref.watch(totalLunchDurationProvider(shift.id));
+    final lunchDuration = lunchAsync.valueOrNull ?? Duration.zero;
 
     return Card(
       elevation: 1,
@@ -99,23 +103,49 @@ class ShiftCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        'Durée',
+                        'Travail',
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        shift.isCompleted
-                            ? _formatDuration(shift.duration)
-                            : 'En cours',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: shift.isCompleted
-                              ? theme.colorScheme.primary
-                              : Colors.orange,
+                      if (shift.isCompleted) ...[
+                        Text(
+                          _formatDuration(shift.duration - lunchDuration),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.primary,
+                          ),
                         ),
-                      ),
+                      ] else
+                        Text(
+                          'En cours',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange,
+                          ),
+                        ),
+                      if (lunchDuration.inMinutes > 0) ...[
+                        const SizedBox(height: 2),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.restaurant,
+                              size: 12,
+                              color: Colors.orange.shade600,
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              _formatDuration(lunchDuration),
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: Colors.orange.shade600,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ],

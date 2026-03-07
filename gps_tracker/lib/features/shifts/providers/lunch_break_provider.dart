@@ -93,6 +93,9 @@ class LunchBreakNotifier extends StateNotifier<LunchBreakState> {
         isStarting: false,
       );
 
+      // Refresh lunch breaks list so timer picks it up
+      _ref.invalidate(lunchBreaksForShiftProvider(shift.id));
+
       // Stop GPS tracking
       await _ref.read(trackingProvider.notifier).stopTracking(reason: 'lunch_break');
 
@@ -121,6 +124,9 @@ class LunchBreakNotifier extends StateNotifier<LunchBreakState> {
         clearActiveLunchBreak: true,
         isEnding: false,
       );
+
+      // Refresh lunch breaks list so timer shows accumulated time
+      _ref.invalidate(lunchBreaksForShiftProvider(lunchBreak.shiftId));
 
       // Resume GPS tracking
       await _ref.read(trackingProvider.notifier).startTracking();
@@ -151,4 +157,25 @@ final lunchBreakProvider =
 
 final isOnLunchProvider = Provider<bool>((ref) {
   return ref.watch(lunchBreakProvider).isOnLunch;
+});
+
+/// Provider that fetches all lunch breaks for a given shift from local DB.
+final lunchBreaksForShiftProvider =
+    FutureProvider.family<List<LunchBreak>, String>((ref, shiftId) async {
+  final localDb = ref.watch(localDatabaseProvider);
+  final rows = await localDb.getLunchBreaksForShift(shiftId);
+  return rows.map((r) => LunchBreak.fromMap(r)).toList();
+});
+
+/// Total lunch duration for a shift (completed breaks only).
+final totalLunchDurationProvider =
+    FutureProvider.family<Duration, String>((ref, shiftId) async {
+  final breaks = await ref.watch(lunchBreaksForShiftProvider(shiftId).future);
+  var total = Duration.zero;
+  for (final lb in breaks) {
+    if (lb.endedAt != null) {
+      total += lb.endedAt!.difference(lb.startedAt);
+    }
+  }
+  return total;
 });
