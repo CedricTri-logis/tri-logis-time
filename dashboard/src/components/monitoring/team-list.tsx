@@ -106,6 +106,16 @@ function TeamListItem({ employee }: TeamListItemProps) {
                   className="text-slate-600"
                 />
               )}
+              {isOnShift && employee.isOnLunch && employee.lunchStartedAt && (
+                <span className="flex items-center gap-1 text-orange-600">
+                  <UtensilsCrossed className="h-3 w-3" />
+                  <DurationCounter
+                    startTime={employee.lunchStartedAt}
+                    format="hm"
+                    className="text-orange-600"
+                  />
+                </span>
+              )}
             </div>
             {/* Active session info (cleaning or maintenance) */}
             {isOnShift && employee.activeSessionLocation && (

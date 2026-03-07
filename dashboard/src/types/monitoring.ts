@@ -47,6 +47,7 @@ export interface MonitoredEmployee {
   activeSessionLocation: string | null;
   activeSessionStartedAt: Date | null;
   isOnLunch: boolean;
+  lunchStartedAt: Date | null;
 }
 
 // GPS trail point for path rendering
@@ -159,6 +160,7 @@ export interface MonitoredTeamRow {
   active_session_location: string | null;
   active_session_started_at: string | null;
   is_on_lunch: boolean | null;
+  lunch_started_at: string | null;
 }
 
 export interface ShiftDetailRow {
@@ -276,6 +278,7 @@ export function transformMonitoredTeamRow(row: MonitoredTeamRow): MonitoredEmplo
       ? new Date(row.active_session_started_at)
       : null,
     isOnLunch: row.is_on_lunch === true,
+    lunchStartedAt: row.lunch_started_at ? new Date(row.lunch_started_at) : null,
   };
 }
 
