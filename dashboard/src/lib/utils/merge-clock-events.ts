@@ -89,20 +89,33 @@ export function mergeClockEvents<T extends MergeableActivity>(items: T[]): Proce
 
     const clockTime = new Date(item.started_at).getTime();
 
+    // Find the CLOSEST matching stop, not the first — avoids merging both
+    // clock_in and clock_out into the same stop when two consecutive stops
+    // have overlapping tolerance windows.
+    let bestJ = -1;
+    let bestDistance = Infinity;
     for (let j = 0; j < filtered.length; j++) {
       if (filtered[j].activity_type !== 'stop' && filtered[j].activity_type !== 'gap') continue;
       const stopStart = new Date(filtered[j].started_at).getTime();
       const stopEnd = new Date(filtered[j].ended_at).getTime();
       if (clockTime >= (stopStart - MERGE_TOLERANCE_MS) && clockTime <= (stopEnd + MERGE_TOLERANCE_MS)) {
-        mergedIndices.add(i);
-        const existing = clockFlags.get(j) || {};
-        if (item.activity_type === 'clock_in') existing.clockIn = true;
-        if (item.activity_type === 'clock_out') existing.clockOut = true;
-        if (item.activity_type === 'lunch_start') existing.lunchStart = true;
-        if (item.activity_type === 'lunch_end') existing.lunchEnd = true;
-        clockFlags.set(j, existing);
-        break;
+        // Distance: 0 if clock time is inside the stop, otherwise how far outside
+        const distance = clockTime < stopStart ? stopStart - clockTime :
+                         clockTime > stopEnd ? clockTime - stopEnd : 0;
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          bestJ = j;
+        }
       }
+    }
+    if (bestJ >= 0) {
+      mergedIndices.add(i);
+      const existing = clockFlags.get(bestJ) || {};
+      if (item.activity_type === 'clock_in') existing.clockIn = true;
+      if (item.activity_type === 'clock_out') existing.clockOut = true;
+      if (item.activity_type === 'lunch_start') existing.lunchStart = true;
+      if (item.activity_type === 'lunch_end') existing.lunchEnd = true;
+      clockFlags.set(bestJ, existing);
     }
   }
 
