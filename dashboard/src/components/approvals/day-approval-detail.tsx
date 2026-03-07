@@ -87,7 +87,7 @@ const STATUS_BADGE: Record<ApprovalAutoStatus, { className: string; icon: typeof
 // --- Icon helper for approval activities ---
 
 function ApprovalActivityIcon({ activity }: { activity: ApprovalActivity }) {
-  if (activity.activity_type === 'lunch_start' || activity.activity_type === 'lunch_end') {
+  if (activity.activity_type === 'lunch') {
     return <UtensilsCrossed className="h-4 w-4 text-orange-500" />;
   }
   if (activity.activity_type === 'gap') {
@@ -1143,11 +1143,11 @@ function ActivityRow({
   onToggle: () => void;
   onOverride: (activity: ApprovalActivity, status: 'approved' | 'rejected') => void;
 }) {
-  const { item: activity, hasClockIn, hasClockOut, hasLunchStart, hasLunchEnd } = pa;
+  const { item: activity, hasClockIn, hasClockOut } = pa;
   const isStop = activity.activity_type === 'stop';
   const isClock = activity.activity_type === 'clock_in' || activity.activity_type === 'clock_out';
   const isGap = activity.activity_type === 'gap';
-  const isLunch = activity.activity_type === 'lunch_start' || activity.activity_type === 'lunch_end';
+  const isLunch = activity.activity_type === 'lunch';
   const canExpand = isStop || isGap;
   const hasOverride = activity.override_status !== null;
 
@@ -1269,12 +1269,9 @@ function ActivityRow({
           <div className="flex items-center justify-center gap-0.5">
             {hasClockIn && <span title="Début de quart"><LogIn className="h-3.5 w-3.5 text-emerald-600" /></span>}
             {hasClockOut && <span title="Fin de quart"><LogOut className="h-3.5 w-3.5 text-red-600" /></span>}
-            {hasLunchStart && <span title="Début pause dîner"><UtensilsCrossed className="h-3.5 w-3.5 text-orange-500" /></span>}
-            {hasLunchEnd && <span title="Fin pause dîner"><UtensilsCrossed className="h-3.5 w-3.5 text-green-600" /></span>}
             {isClock && activity.activity_type === 'clock_in' && <LogIn className="h-3.5 w-3.5 text-emerald-600" />}
             {isClock && activity.activity_type === 'clock_out' && <LogOut className="h-3.5 w-3.5 text-red-600" />}
-            {isLunch && activity.activity_type === 'lunch_start' && <UtensilsCrossed className="h-3.5 w-3.5 text-orange-500" />}
-            {isLunch && activity.activity_type === 'lunch_end' && <UtensilsCrossed className="h-3.5 w-3.5 text-green-600" />}
+            {isLunch && <UtensilsCrossed className="h-3.5 w-3.5 text-orange-500" />}
           </div>
         </td>
 
@@ -1288,7 +1285,7 @@ function ActivityRow({
         {/* Durée */}
         <td className="px-3 py-3 whitespace-nowrap">
           <div className={`flex items-center gap-1.5 tabular-nums text-xs ${statusConfig.text}`}>
-            {(isClock || (isLunch && activity.activity_type === 'lunch_start')) ? '—' : formatDurationMinutes(activity.duration_minutes)}
+            {isClock ? '—' : formatDurationMinutes(activity.duration_minutes)}
             {(activity.gps_gap_seconds ?? 0) > 0 && (
               <AlertTriangle className="h-3.5 w-3.5 text-amber-600 animate-pulse" />
             )}
@@ -1335,12 +1332,13 @@ function ActivityRow({
             </div>
           ) : isLunch ? (
             <div className="space-y-1">
-              <div className="text-xs flex items-center gap-1.5 text-slate-700 font-medium">
+              <div className="text-xs flex items-center gap-1.5 text-orange-700 font-medium">
                 <UtensilsCrossed className="h-3 w-3" />
-                <span className="font-bold">
-                  {activity.activity_type === 'lunch_start' ? 'Début pause dîner' : 'Fin pause dîner'}
-                </span>
+                <span className="font-bold">Pause dîner</span>
               </div>
+              <span className="text-[10px] leading-tight text-orange-600/70">
+                {formatTime(activity.started_at)} — {formatTime(activity.ended_at)}
+              </span>
             </div>
           ) : isStop ? (
             <div className="space-y-1">
