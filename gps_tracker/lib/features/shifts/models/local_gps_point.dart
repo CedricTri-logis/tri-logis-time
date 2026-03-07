@@ -20,6 +20,7 @@ class LocalGpsPoint {
   final double? altitudeAccuracy;
   final bool? isMocked;
   final String? activityType;
+  final int? batteryLevel;
 
   LocalGpsPoint({
     required this.id,
@@ -40,6 +41,7 @@ class LocalGpsPoint {
     this.altitudeAccuracy,
     this.isMocked,
     this.activityType,
+    this.batteryLevel,
   });
 
   /// Convert to SQLite map format.
@@ -62,6 +64,7 @@ class LocalGpsPoint {
         'altitude_accuracy': altitudeAccuracy,
         'is_mocked': isMocked == true ? 1 : (isMocked == false ? 0 : null),
         'activity_type': activityType,
+        'battery_level': batteryLevel,
       };
 
   /// Create from SQLite map format.
@@ -86,6 +89,7 @@ class LocalGpsPoint {
             ? null
             : (map['is_mocked'] == 1 || map['is_mocked'] == true),
         activityType: map['activity_type'] as String?,
+        batteryLevel: map['battery_level'] as int?,
       );
 
   /// Convert to JSON for Supabase RPC.
@@ -105,6 +109,7 @@ class LocalGpsPoint {
         if (altitudeAccuracy != null) 'altitude_accuracy': altitudeAccuracy,
         if (isMocked != null) 'is_mocked': isMocked,
         if (activityType != null) 'activity_type': activityType,
+        if (batteryLevel != null) 'battery_level': batteryLevel,
       };
 
   LocalGpsPoint copyWith({
@@ -126,6 +131,7 @@ class LocalGpsPoint {
     double? altitudeAccuracy,
     bool? isMocked,
     String? activityType,
+    int? batteryLevel,
   }) =>
       LocalGpsPoint(
         id: id ?? this.id,
@@ -146,5 +152,6 @@ class LocalGpsPoint {
         altitudeAccuracy: altitudeAccuracy ?? this.altitudeAccuracy,
         isMocked: isMocked ?? this.isMocked,
         activityType: activityType ?? this.activityType,
+        batteryLevel: batteryLevel ?? this.batteryLevel,
       );
 }

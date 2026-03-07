@@ -24,7 +24,7 @@ import 'session_backup_service.dart';
 /// Local SQLite database service with encrypted storage.
 class LocalDatabase {
   static const String _databaseName = 'gps_tracker.db';
-  static const int _databaseVersion = 7;
+  static const int _databaseVersion = 8;
   static const String _encryptionKeyKey = 'local_db_encryption_key';
 
   static LocalDatabase? _instance;
@@ -240,6 +240,7 @@ class LocalDatabase {
         altitude_accuracy REAL,
         is_mocked INTEGER,
         activity_type TEXT,
+        battery_level INTEGER,
         FOREIGN KEY (shift_id) REFERENCES local_shifts(id) ON DELETE CASCADE
       )
     ''');
@@ -480,6 +481,10 @@ class LocalDatabase {
     // Migration from v6 to v7: Add lunch breaks table
     if (oldVersion < 7) {
       await _createLunchBreaksTable(db);
+    }
+    // Migration from v7 to v8: Add battery_level column
+    if (oldVersion < 8) {
+      await db.execute('ALTER TABLE local_gps_points ADD COLUMN battery_level INTEGER');
     }
   }
 

@@ -21,6 +21,7 @@ import '../../shifts/providers/sync_provider.dart';
 import '../models/tracking_config.dart';
 import '../models/tracking_state.dart';
 import '../models/tracking_status.dart';
+import '../../../shared/services/battery_service.dart';
 import '../services/background_execution_service.dart';
 import '../services/android_battery_health_service.dart';
 import '../services/background_tracking_service.dart';
@@ -306,6 +307,11 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
   }
 
   Future<void> _handlePositionUpdate(Map<String, dynamic> pointData) async {
+    // Read battery level in main isolate (battery_plus uses platform channels)
+    final batteryLevel = await BatteryService.getLevel();
+    if (batteryLevel != null) {
+      pointData['battery_level'] = batteryLevel;
+    }
     final point = LocalGpsPoint.fromMap(pointData);
 
     try {
