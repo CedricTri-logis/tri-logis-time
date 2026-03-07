@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   createServiceClient,
   fetchTripGpsPoints,
@@ -22,6 +23,43 @@ const OSRM_DELAY_MS = 200;
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function computeExpectedRoute(
+  supabase: SupabaseClient,
+  tripId: string,
+  startLocationId: string,
+  endLocationId: string
+): Promise<void> {
+  const { data: locations, error } = await supabase
+    .from("locations")
+    .select("id, latitude, longitude")
+    .in("id", [startLocationId, endLocationId]);
+
+  if (error || !locations || locations.length < 2) return;
+
+  const startLoc = locations.find((l: { id: string }) => l.id === startLocationId);
+  const endLoc = locations.find((l: { id: string }) => l.id === endLocationId);
+  if (!startLoc || !endLoc) return;
+
+  const osrmUrl = selectOsrmUrlForCoords(startLoc.latitude, startLoc.longitude);
+  if (!osrmUrl) return;
+
+  const result = await routeTripDirect(
+    startLoc.latitude, startLoc.longitude,
+    endLoc.latitude, endLoc.longitude,
+    osrmUrl
+  );
+
+  if (result.success && result.road_distance_km != null && result.duration_seconds != null) {
+    await supabase
+      .from("trips")
+      .update({
+        expected_distance_km: result.road_distance_km,
+        expected_duration_seconds: result.duration_seconds,
+      })
+      .eq("id", tripId);
+  }
 }
 
 serve(async (req: Request) => {
@@ -147,7 +185,7 @@ serve(async (req: Request) => {
         // Fetch trip details
         const { data: trip, error: tripError } = await supabase
           .from("trips")
-          .select("id, distance_km, match_attempts, match_status, transport_mode, gps_point_count, start_latitude, start_longitude, end_latitude, end_longitude, started_at, ended_at")
+          .select("id, distance_km, match_attempts, match_status, transport_mode, gps_point_count, start_latitude, start_longitude, end_latitude, end_longitude, started_at, ended_at, start_location_id, end_location_id")
           .eq("id", tripId)
           .single();
 
@@ -271,6 +309,16 @@ serve(async (req: Request) => {
                 .eq("id", tripId);
               const directResult = await routeTripDirect(sLat, sLng, eLat, eLng, directOsrmUrl);
               await storeMatchResult(supabase, tripId, directResult);
+
+              // Compute expected route for known-to-known trips
+              if (trip.start_location_id && trip.end_location_id) {
+                try {
+                  await computeExpectedRoute(supabase, tripId, trip.start_location_id, trip.end_location_id);
+                } catch (e) {
+                  console.error(`Expected route computation failed for trip ${tripId}:`, e);
+                }
+              }
+
               processed++;
               results.push({
                 trip_id: tripId,
@@ -294,6 +342,7 @@ serve(async (req: Request) => {
             match_status: "failed",
             route_geometry: null,
             road_distance_km: null,
+            duration_seconds: null,
             match_confidence: null,
             match_error: `Insufficient GPS points: ${gpsPoints.length}`,
             geometry_points: 0,
@@ -332,6 +381,16 @@ serve(async (req: Request) => {
         );
 
         await storeMatchResult(supabase, tripId, matchResult);
+
+        // Compute expected route for known-to-known trips
+        if (trip.start_location_id && trip.end_location_id) {
+          try {
+            await computeExpectedRoute(supabase, tripId, trip.start_location_id, trip.end_location_id);
+          } catch (e) {
+            console.error(`Expected route computation failed for trip ${tripId}:`, e);
+          }
+        }
+
         processed++;
 
         results.push({

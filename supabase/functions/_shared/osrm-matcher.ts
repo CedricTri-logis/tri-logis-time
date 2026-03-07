@@ -12,6 +12,7 @@ export interface MatchResult {
   match_status: "matched" | "failed" | "anomalous";
   route_geometry: string | null;
   road_distance_km: number | null;
+  duration_seconds: number | null;
   match_confidence: number | null;
   match_error: string | null;
   geometry_points: number;
@@ -165,6 +166,7 @@ export async function routeTripDirect(
       match_status: "failed",
       route_geometry: null,
       road_distance_km: null,
+      duration_seconds: null,
       match_confidence: null,
       match_error: `OSRM route returned HTTP ${response.status}`,
       geometry_points: 0,
@@ -178,6 +180,7 @@ export async function routeTripDirect(
       match_status: "failed",
       route_geometry: null,
       road_distance_km: null,
+      duration_seconds: null,
       match_confidence: null,
       match_error: `OSRM route error: ${data.code ?? "no routes"}`,
       geometry_points: 0,
@@ -186,6 +189,7 @@ export async function routeTripDirect(
 
   const route = data.routes[0];
   const roadDistanceKm = route.distance / 1000;
+  const durationSeconds = Math.round(route.duration);
   const geometryPoints = countPolylinePoints(route.geometry);
 
   return {
@@ -193,6 +197,7 @@ export async function routeTripDirect(
     match_status: "matched",
     route_geometry: route.geometry,
     road_distance_km: Math.round(roadDistanceKm * 1000) / 1000,
+    duration_seconds: durationSeconds,
     match_confidence: 0.50, // Lower confidence for estimated routes
     match_error: null,
     geometry_points: geometryPoints,
@@ -240,6 +245,7 @@ export async function matchTripToRoad(
       match_status: "failed",
       route_geometry: null,
       road_distance_km: null,
+      duration_seconds: null,
       match_confidence: null,
       match_error: `OSRM returned HTTP ${osrmResponse.status}`,
       geometry_points: 0,
@@ -254,6 +260,7 @@ export async function matchTripToRoad(
       match_status: "failed",
       route_geometry: null,
       road_distance_km: null,
+      duration_seconds: null,
       match_confidence: null,
       match_error: `OSRM error: ${osrmData.code ?? "no matchings"}`,
       geometry_points: 0,
@@ -303,6 +310,7 @@ export async function matchTripToRoad(
       match_status: "failed",
       route_geometry: null,
       road_distance_km: null,
+      duration_seconds: null,
       match_confidence: avgConfidence,
       match_error: `Only ${Math.round(matchedPct * 100)}% of GPS points matched to roads`,
       geometry_points: 0,
@@ -318,6 +326,7 @@ export async function matchTripToRoad(
       match_status: "failed",
       route_geometry: null,
       road_distance_km: null,
+      duration_seconds: null,
       match_confidence: avgConfidence,
       match_error: `Match confidence too low: ${avgConfidence.toFixed(2)} with only ${Math.round(matchedPct * 100)}% points matched`,
       geometry_points: 0,
@@ -331,6 +340,7 @@ export async function matchTripToRoad(
       match_status: "anomalous",
       route_geometry: routeGeometry,
       road_distance_km: roadDistanceKm,
+      duration_seconds: null,
       match_confidence: avgConfidence,
       match_error: `Road distance ${roadDistanceKm.toFixed(1)}km exceeds 3× haversine ${haversineDistanceKm.toFixed(1)}km`,
       geometry_points: geometryPoints,
@@ -342,6 +352,7 @@ export async function matchTripToRoad(
     match_status: "matched",
     route_geometry: routeGeometry,
     road_distance_km: Math.round(roadDistanceKm * 1000) / 1000, // 3 decimal places
+    duration_seconds: null,
     match_confidence: Math.round(avgConfidence * 100) / 100, // 2 decimal places
     match_error: null,
     geometry_points: geometryPoints,
