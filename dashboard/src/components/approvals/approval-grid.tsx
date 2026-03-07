@@ -10,19 +10,7 @@ import { Loader2, ChevronLeft, ChevronRight, CheckCircle2, XCircle, AlertTriangl
 import { supabaseClient } from '@/lib/supabase/client';
 import type { WeeklyEmployeeRow, DayApprovalStatus } from '@/types/mileage';
 import { DayApprovalDetail } from './day-approval-detail';
-
-function getMonday(date: Date): Date {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  d.setDate(diff);
-  d.setHours(12, 0, 0, 0);
-  return d;
-}
-
-function formatDateISO(date: Date): string {
-  return date.toISOString().split('T')[0];
-}
+import { getMonday, toLocalDateString, parseLocalDate, addDays } from '@/lib/utils/date-utils';
 
 function formatShortDate(dateStr: string): string {
   const d = new Date(dateStr + 'T12:00:00');
@@ -47,7 +35,7 @@ const STATUS_COLORS: Record<DayApprovalStatus, string> = {
 const DAY_HEADERS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
 export function ApprovalGrid() {
-  const [weekStart, setWeekStart] = useState(() => formatDateISO(getMonday(new Date())));
+  const [weekStart, setWeekStart] = useState(() => getMonday());
   const [data, setData] = useState<WeeklyEmployeeRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,9 +72,7 @@ export function ApprovalGrid() {
   }, [fetchData]);
 
   const navigateWeek = (direction: -1 | 1) => {
-    const d = new Date(weekStart + 'T12:00:00');
-    d.setDate(d.getDate() + direction * 7);
-    setWeekStart(formatDateISO(d));
+    setWeekStart(addDays(weekStart, direction * 7));
   };
 
   // Filter data
@@ -118,20 +104,16 @@ export function ApprovalGrid() {
   };
 
   const weekLabel = useMemo(() => {
-    const start = new Date(weekStart + 'T12:00:00');
-    const end = new Date(start);
-    end.setDate(end.getDate() + 6);
+    const start = parseLocalDate(weekStart);
+    const end = parseLocalDate(addDays(weekStart, 6));
     return `${start.toLocaleDateString('fr-CA', { day: 'numeric', month: 'short' })} — ${end.toLocaleDateString('fr-CA', { day: 'numeric', month: 'short', year: 'numeric' })}`;
   }, [weekStart]);
 
   // Dates for column headers
   const weekDates = useMemo(() => {
     const dates: string[] = [];
-    const start = new Date(weekStart + 'T12:00:00');
     for (let i = 0; i < 7; i++) {
-      const d = new Date(start);
-      d.setDate(d.getDate() + i);
-      dates.push(formatDateISO(d));
+      dates.push(addDays(weekStart, i));
     }
     return dates;
   }, [weekStart]);
