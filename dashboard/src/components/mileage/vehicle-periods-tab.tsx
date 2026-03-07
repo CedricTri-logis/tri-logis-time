@@ -43,6 +43,7 @@ import { Label } from '@/components/ui/label';
 import { Plus, Pencil, Trash2, Car, Building2, Loader2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabaseClient } from '@/lib/supabase/client';
+import { toLocalDateString } from '@/lib/utils/date-utils';
 import type { EmployeeVehiclePeriod } from '@/types/mileage';
 
 interface Employee {
@@ -187,7 +188,7 @@ export function VehiclePeriodsTab() {
     setEditingPeriod(null);
     setFormEmployeeId('');
     setFormVehicleType('personal');
-    setFormStartedAt(new Date().toISOString().split('T')[0]);
+    setFormStartedAt(toLocalDateString(new Date()));
     setFormEndedAt('');
     setFormNotes('');
     setShowDialog(true);

@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabaseClient } from '@/lib/supabase/client';
+import { toLocalDateString, addDays } from '@/lib/utils/date-utils';
 import type { CarpoolGroup, CarpoolMember, Trip } from '@/types/mileage';
 
 type StatusFilter = 'all' | 'auto_detected' | 'confirmed' | 'dismissed';
@@ -42,13 +43,11 @@ interface EmployeeProfile {
 }
 
 function getDefaultDateFrom(): string {
-  const d = new Date();
-  d.setDate(d.getDate() - 30);
-  return d.toISOString().split('T')[0];
+  return addDays(toLocalDateString(new Date()), -30);
 }
 
 function getDefaultDateTo(): string {
-  return new Date().toISOString().split('T')[0];
+  return toLocalDateString(new Date());
 }
 
 function formatDate(dateStr: string): string {
@@ -342,19 +341,17 @@ export function CarpoolingTab() {
     setIsDetecting(true);
     setDetectProgress(null);
 
-    const start = new Date(detectDateFrom);
-    const end = new Date(detectDateTo);
-    if (start > end) {
+    if (detectDateFrom > detectDateTo) {
       toast.error('La date de d\u00e9but doit \u00eatre avant la date de fin');
       setIsDetecting(false);
       return;
     }
 
     const dates: string[] = [];
-    const current = new Date(start);
-    while (current <= end) {
-      dates.push(current.toISOString().split('T')[0]);
-      current.setDate(current.getDate() + 1);
+    let current = detectDateFrom;
+    while (current <= detectDateTo) {
+      dates.push(current);
+      current = addDays(current, 1);
     }
 
     let successCount = 0;

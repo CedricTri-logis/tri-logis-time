@@ -22,6 +22,7 @@ import {
 import type { LocationType } from '@/types/location';
 import { LOCATION_TYPE_LABELS } from '@/lib/validations/location';
 import { supabaseClient } from '@/lib/supabase/client';
+import { toLocalDateString } from '@/lib/utils/date-utils';
 import { MatchStatusBadge } from '@/components/trips/match-status-badge';
 import { GoogleTripRouteMap } from '@/components/trips/google-trip-route-map';
 import { detectTripStops, detectGpsClusters } from '@/lib/utils/detect-trip-stops';
@@ -42,10 +43,7 @@ interface Employee {
 }
 
 function formatDateISO(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+  return toLocalDateString(date);
 }
 
 export function ActivityTab() {

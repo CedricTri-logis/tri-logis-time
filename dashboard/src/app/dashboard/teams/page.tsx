@@ -26,8 +26,8 @@ export default function TeamsPage() {
     method: 'get',
     config: {
       payload: {
-        p_start_date: start.toISOString(),
-        p_end_date: end.toISOString(),
+        p_start_date: start,
+        p_end_date: end,
       },
     },
     meta: { rpc: 'get_manager_team_summaries' },

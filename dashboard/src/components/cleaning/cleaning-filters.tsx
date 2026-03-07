@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { CleaningSessionStatus } from '@/types/cleaning';
 import { CLEANING_STATUS_LABELS } from '@/types/cleaning';
+import { toLocalDateString } from '@/lib/utils/date-utils';
 
 export interface CleaningFilterValues {
   buildingId?: string;
@@ -46,9 +47,7 @@ export function CleaningFilters({
     });
   };
 
-  const formatDateInput = (date: Date) => {
-    return date.toISOString().split('T')[0];
-  };
+  const formatDateInput = (date: Date) => toLocalDateString(date);
 
   const hasFilters =
     filters.buildingId || filters.employeeId || filters.status;

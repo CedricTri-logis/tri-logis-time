@@ -79,34 +79,32 @@ export interface DataFreshnessInfo {
 }
 
 // Utility functions for date ranges
-export function getDateRangeDates(range: DateRange): { start: Date; end: Date } {
-  const now = new Date();
-  const end = new Date(now);
-  let start: Date;
+import { toLocalDateString, addDays, getMonday } from '@/lib/utils/date-utils';
+
+export function getDateRangeDates(range: DateRange): { start: string; end: string } {
+  const today = toLocalDateString(new Date());
 
   switch (range.preset) {
     case 'today':
-      start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      break;
+      return { start: today, end: today };
     case 'this_week':
-      const dayOfWeek = now.getDay();
-      const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-      start = new Date(now.getFullYear(), now.getMonth(), diff);
-      break;
-    case 'this_month':
-      start = new Date(now.getFullYear(), now.getMonth(), 1);
-      break;
+      return { start: getMonday(today), end: addDays(getMonday(today), 6) };
+    case 'this_month': {
+      const now = new Date();
+      const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      return { start: toLocalDateString(firstOfMonth), end: toLocalDateString(lastOfMonth) };
+    }
     case 'custom':
-      start = range.start_date ? new Date(range.start_date) : new Date(now.getFullYear(), now.getMonth(), 1);
-      if (range.end_date) {
-        return { start, end: new Date(range.end_date) };
-      }
-      break;
-    default:
-      start = new Date(now.getFullYear(), now.getMonth(), 1);
+      return {
+        start: range.start_date ?? toLocalDateString(new Date(new Date().getFullYear(), new Date().getMonth(), 1)),
+        end: range.end_date ?? today,
+      };
+    default: {
+      const now = new Date();
+      return { start: toLocalDateString(new Date(now.getFullYear(), now.getMonth(), 1)), end: today };
+    }
   }
-
-  return { start, end };
 }
 
 // Format seconds to hours and minutes
