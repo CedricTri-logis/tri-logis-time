@@ -1248,6 +1248,258 @@ function TripConnectorRow({
   );
 }
 
+// --- Merged same-location row (stops + nested GPS gaps) ---
+
+function MergedLocationRow({
+  group,
+  isApproved,
+  isSaving,
+  isExpanded,
+  onToggle,
+  onOverride,
+}: {
+  group: MergedGroup;
+  isApproved: boolean;
+  isSaving: boolean;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onOverride: (activity: ApprovalActivity, status: 'approved' | 'rejected') => void;
+}) {
+  const activity = group.primaryStop.item;
+  const { hasClockIn } = group.primaryStop;
+  // Also check if last stop has clock-out merged
+  const lastStopHasClockOut = group.stops[group.stops.length - 1].hasClockOut;
+  const hasOverride = activity.override_status !== null;
+  const hasUnreviewedGaps = group.gaps.some(g => {
+    const final = g.override_status ?? g.auto_status;
+    return final === 'needs_review';
+  });
+
+  const statusConfig = {
+    approved: {
+      row: hasOverride
+        ? 'bg-green-100 border-l-[6px] border-l-green-600 hover:bg-green-200/70'
+        : 'bg-green-50 border-l-4 border-l-green-500 hover:bg-green-100/80',
+      badge: 'bg-green-100 text-green-700 border-green-200 ring-1 ring-green-600/10',
+      icon: CheckCircle2,
+      label: 'Approuve',
+      btnApprove: 'text-green-700 bg-green-100 border-green-300 shadow-sm',
+      btnReject: 'text-gray-400 hover:text-red-600 hover:bg-red-50 border-transparent',
+      text: hasOverride ? 'text-green-950 font-bold' : 'text-green-900 font-medium',
+      subtext: 'text-green-700/70',
+    },
+    rejected: {
+      row: hasOverride
+        ? 'bg-red-100 border-l-[6px] border-l-red-600 hover:bg-red-200/70'
+        : 'bg-red-50 border-l-4 border-l-red-500 hover:bg-red-100/80',
+      badge: 'bg-red-100 text-red-700 border-red-200 ring-1 ring-red-600/10',
+      icon: XCircle,
+      label: 'Rejete',
+      btnApprove: 'text-gray-400 hover:text-green-600 hover:bg-green-50 border-transparent',
+      btnReject: 'text-red-700 bg-red-100 border-red-300 shadow-sm',
+      text: hasOverride ? 'text-red-950 font-bold' : 'text-red-900 font-medium',
+      subtext: 'text-red-700/70',
+    },
+    needs_review: {
+      row: 'bg-amber-50 border-l-4 border-l-amber-500 hover:bg-amber-100/80 shadow-[inset_0_0_0_1px_rgba(251,191,36,0.1)]',
+      badge: 'bg-amber-100 text-amber-800 border-amber-200 ring-2 ring-amber-500/20',
+      icon: AlertTriangle,
+      label: 'A verifier',
+      btnApprove: 'text-gray-500 hover:text-green-600 hover:bg-green-50 border-gray-200',
+      btnReject: 'text-gray-500 hover:text-red-600 hover:bg-red-50 border-gray-200',
+      text: 'text-amber-950 font-bold',
+      subtext: 'text-amber-800/80',
+    }
+  }[activity.final_status];
+
+  // Yellow tint override when unreviewed gaps exist
+  const rowClassName = hasUnreviewedGaps
+    ? `${statusConfig.row} ring-2 ring-amber-400/40 bg-gradient-to-r from-amber-50/80 to-transparent`
+    : statusConfig.row;
+
+  return (
+    <>
+      <tr
+        className={`${rowClassName} cursor-pointer transition-all duration-200 group border-b border-white/50`}
+        onClick={onToggle}
+      >
+        {/* Action / Approbation — applies to stop only */}
+        <td className="px-3 py-3 text-center">
+          {!isApproved ? (
+            <div className="flex items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
+              <div className="relative group/btn">
+                {activity.override_status === 'approved' && (
+                  <>
+                    <div className="absolute -inset-1 rounded-full border border-blue-500/40 shadow-[0_0_12px_rgba(59,130,246,0.3)]" />
+                    <div className="absolute -inset-[3px] rounded-full border border-blue-500/10" />
+                  </>
+                )}
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className={`h-9 w-9 rounded-full transition-all relative z-0 hover:scale-105 active:scale-95 border-2 ${
+                    activity.override_status === 'approved'
+                      ? 'border-blue-600 bg-white text-green-600 shadow-sm'
+                      : statusConfig.btnApprove + ' border-transparent shadow-none'
+                  }`}
+                  onClick={() => onOverride(activity, 'approved')}
+                  disabled={isSaving}
+                >
+                  <CheckCircle2 className={`h-4.5 w-4.5 ${activity.override_status === 'approved' ? 'stroke-[2.5px]' : ''}`} />
+                </Button>
+              </div>
+              <div className="relative group/btn">
+                {activity.override_status === 'rejected' && (
+                  <>
+                    <div className="absolute -inset-1 rounded-full border border-blue-500/40 shadow-[0_0_12px_rgba(59,130,246,0.3)]" />
+                    <div className="absolute -inset-[3px] rounded-full border border-blue-500/10" />
+                  </>
+                )}
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className={`h-9 w-9 rounded-full transition-all relative z-0 hover:scale-105 active:scale-95 border-2 ${
+                    activity.override_status === 'rejected'
+                      ? 'border-blue-600 bg-white text-red-600 shadow-sm'
+                      : statusConfig.btnReject + ' border-transparent shadow-none'
+                  }`}
+                  onClick={() => onOverride(activity, 'rejected')}
+                  disabled={isSaving}
+                >
+                  <XCircle className={`h-4.5 w-4.5 ${activity.override_status === 'rejected' ? 'stroke-[2.5px]' : ''}`} />
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex justify-center">
+              <Badge variant="outline" className={`font-bold text-[10px] px-2.5 py-0.5 rounded-full shadow-sm ${statusConfig.badge}`}>
+                {(() => { const StatusIcon = statusConfig.icon; return <StatusIcon className="h-3 w-3 mr-1" />; })()}
+                {statusConfig.label}
+              </Badge>
+            </div>
+          )}
+        </td>
+
+        {/* Clock-in/out indicator */}
+        <td className="px-2 py-3 text-center">
+          <div className="flex items-center justify-center gap-0.5">
+            {hasClockIn && <span title="Debut de quart"><LogIn className="h-3.5 w-3.5 text-emerald-600" /></span>}
+            {lastStopHasClockOut && <span title="Fin de quart"><LogOut className="h-3.5 w-3.5 text-red-600" /></span>}
+          </div>
+        </td>
+
+        {/* Type icon */}
+        <td className="px-2 py-3 text-center">
+          <div className="flex justify-center bg-white/80 rounded-lg p-1.5 shadow-sm border border-black/5 group-hover:scale-110 transition-transform">
+            <ApprovalActivityIcon activity={activity} />
+          </div>
+        </td>
+
+        {/* Duree — full span */}
+        <td className="px-3 py-3 whitespace-nowrap">
+          <div className={`flex items-center gap-1.5 tabular-nums text-xs ${statusConfig.text}`}>
+            {formatDurationMinutes(group.spanMinutes)}
+          </div>
+          {/* GPS gap badge */}
+          {group.totalGapMinutes > 0 && (
+            <div className={`text-[10px] mt-0.5 flex items-center gap-1 ${hasUnreviewedGaps ? 'text-amber-600 font-semibold' : 'text-amber-600/70'}`}>
+              <WifiOff className="h-3 w-3" />
+              <span>
+                {group.gaps.length > 1 ? `${group.gaps.length} gaps · ` : ''}
+                {formatDurationMinutes(group.totalGapMinutes)} GPS perdu
+              </span>
+            </div>
+          )}
+        </td>
+
+        {/* Details */}
+        <td className="px-3 py-3 max-w-[300px]">
+          <div className="space-y-1">
+            <div className={`text-xs flex items-center gap-1.5 ${statusConfig.text}`}>
+              <span className={activity.location_name ? 'font-bold underline decoration-current/20' : ''}>
+                {activity.location_name || 'Arret non associe'}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className={`text-[10px] leading-tight italic ${statusConfig.subtext}`}>
+                {activity.auto_reason}
+              </span>
+            </div>
+          </div>
+        </td>
+
+        {/* Horaire — full span */}
+        <td className="px-3 py-3 whitespace-nowrap">
+          <div className="flex flex-col">
+            <span className={`text-xs font-black ${statusConfig.text}`}>{formatTime(group.startedAt)}</span>
+            <span className={`text-[10px] font-medium ${statusConfig.subtext}`}>{formatTime(group.endedAt)}</span>
+          </div>
+        </td>
+
+        {/* Distance — dash for merged location rows */}
+        <td className="px-3 py-3 text-right tabular-nums whitespace-nowrap">
+          <span className="opacity-20 text-xs font-bold">&mdash;</span>
+        </td>
+
+        {/* Expand chevron */}
+        <td className="px-3 py-3 text-center">
+          <div className={`rounded-full p-1 transition-colors ${isExpanded ? 'bg-muted' : 'group-hover:bg-muted'}`}>
+            {isExpanded
+              ? <ChevronUp className="h-4 w-4 text-primary" />
+              : <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            }
+          </div>
+        </td>
+      </tr>
+
+      {/* Expanded: nested GPS gap sub-rows */}
+      {isExpanded && (
+        <tr>
+          <td colSpan={8} className="p-0 border-b">
+            <div className="px-6 py-4 bg-amber-50/30 border-t border-amber-200/50">
+              {/* Bulk approve button */}
+              {!isApproved && hasUnreviewedGaps && (
+                <div className="flex items-center gap-2 mb-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-7 bg-green-50 text-green-700 border-green-300 hover:bg-green-100"
+                    disabled={isSaving}
+                    onClick={() => {
+                      group.gaps.forEach(gap => {
+                        const final = gap.override_status ?? gap.auto_status;
+                        if (final === 'needs_review') {
+                          onOverride(gap, 'approved');
+                        }
+                      });
+                    }}
+                  >
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                    Tout approuver ({group.gaps.filter(g => (g.override_status ?? g.auto_status) === 'needs_review').length})
+                  </Button>
+                </div>
+              )}
+
+              {/* Individual gap rows */}
+              <div className="space-y-2">
+                {group.gaps.map((gap) => (
+                  <GapSubRow
+                    key={gap.activity_id}
+                    gap={gap}
+                    isApproved={isApproved}
+                    isSaving={isSaving}
+                    onOverride={onOverride}
+                  />
+                ))}
+              </div>
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
 // --- Individual activity row (stops, clocks, gaps) ---
 
 function ActivityRow({
