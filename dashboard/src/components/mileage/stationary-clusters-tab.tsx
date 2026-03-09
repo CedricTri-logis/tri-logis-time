@@ -6,6 +6,7 @@ import { Loader2, MapPin } from 'lucide-react';
 import { supabaseClient } from '@/lib/supabase/client';
 import { StationaryClustersMap } from './stationary-clusters-map';
 import type { StationaryCluster } from './stationary-clusters-map';
+import { toLocalDateString, addDays } from '@/lib/utils/date-utils';
 
 interface Employee {
   id: string;
@@ -29,13 +30,11 @@ function formatDateTime(dateStr: string): string {
 }
 
 function getDefaultDateFrom(): string {
-  const d = new Date();
-  d.setDate(d.getDate() - 30);
-  return d.toISOString().split('T')[0];
+  return addDays(toLocalDateString(new Date()), -30);
 }
 
 function getDefaultDateTo(): string {
-  return new Date().toISOString().split('T')[0];
+  return toLocalDateString(new Date());
 }
 
 export function StationaryClustersTab() {
@@ -247,7 +246,7 @@ export function StationaryClustersTab() {
                       <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
                         {cluster.centroid_accuracy != null
                           ? `${Math.round(cluster.centroid_accuracy)} m`
-                          : '\u2014'}
+                          : '—'}
                       </td>
                     </tr>
                   ))}

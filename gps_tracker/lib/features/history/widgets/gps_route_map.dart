@@ -408,7 +408,7 @@ class _GpsRouteMapState extends State<GpsRouteMap> {
                 ),
                 if (point.accuracy != null)
                   Text(
-                    'Precision : \u00b1${point.accuracy!.toStringAsFixed(0)}m',
+                    'Precision : ±${point.accuracy!.toStringAsFixed(0)}m',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onPrimaryContainer,
                     ),

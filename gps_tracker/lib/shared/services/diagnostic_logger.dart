@@ -172,4 +172,22 @@ class DiagnosticLogger {
   Future<void> permission(Severity severity, String message, {
     Map<String, dynamic>? metadata,
   }) => log(category: EventCategory.permission, severity: severity, message: message, metadata: metadata);
+
+  Future<void> battery(Severity severity, String message, {
+    String? shiftId,
+    Map<String, dynamic>? metadata,
+  }) => log(category: EventCategory.battery, severity: severity, message: message, shiftId: shiftId, metadata: metadata);
+
+  Future<void> crash(Severity severity, String message, {
+    Map<String, dynamic>? metadata,
+  }) => log(category: EventCategory.crash, severity: severity, message: message, metadata: metadata);
+
+  Future<void> memory(Severity severity, String message, {
+    Map<String, dynamic>? metadata,
+  }) => log(category: EventCategory.memory, severity: severity, message: message, metadata: metadata);
+
+  Future<void> service(Severity severity, String message, {
+    String? shiftId,
+    Map<String, dynamic>? metadata,
+  }) => log(category: EventCategory.service, severity: severity, message: message, shiftId: shiftId, metadata: metadata);
 }

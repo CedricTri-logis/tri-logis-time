@@ -1,6 +1,6 @@
 # Background Tracking Resilience - Audit complet
 
-> Dernière mise à jour : 2026-03-07 | Build actuel : v1.0.0+107
+> Dernière mise à jour : 2026-03-09 | Build actuel : v1.0.0+112
 
 ## Table des matières
 
@@ -30,7 +30,7 @@ L'architecture de résilience utilise une approche **multi-couches** (defense in
 │  GPS self-healing (2min nudge),             │
 │  connectivity monitor, server heartbeat,     │
 │  tracking verification, thermal adaptation,  │
-│  verifyTrackingHealth (user interaction)     │
+│  GpsHealthGuard (hard gate + soft nudge)    │
 ├─────────────────────────────────────────────┤
 │       COUCHE FLUTTER (Background Isolate)    │
 │  GPS stream + exponential backoff recovery,  │
@@ -579,7 +579,7 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +103 | Mar 6 | **BGAppRefreshTask iOS** (Swift native + Dart bridge) — relance l'app quand employé stationnaire, schedule ~5min, breadcrumbs UserDefaults | ✅ Actif |
 | +103 | Mar 6 | **Firebase init différé** — attend 3s + foreground avant init Firebase ; background launches (SLC) skip Firebase pour éviter Jetsam kills iOS | ✅ Actif |
 | +103 | Mar 6 | **FCM background handler amélioré** — vérifie shift actif, relance app via `FlutterForegroundTask.launchApp()` si service mort | ✅ Actif |
-| +103 | Mar 6 | **verifyTrackingHealth()** sur interactions utilisateur (QR scan in/out, maintenance) — redémarre tracking si iOS l'a tué | ✅ Actif |
+| +103 | Mar 6 | **verifyTrackingHealth()** sur interactions utilisateur (QR scan in/out, maintenance) — redémarre tracking si iOS l'a tué. Remplacé par GpsHealthGuard en +109 | ✅ → Upgraded +109 |
 | +103 | Mar 6 | **FCM foreground listener** — log diagnostic quand wake reçu en foreground (no-op, déjà en marche) | ✅ Actif |
 | +103 | Mar 6 | **Orphan GPS log batching** — logs quarantaine groupés par shift au lieu d'un par point (réduit spam diagnostic) | ✅ Actif |
 | +103 | Mar 6 | Dashboard : satellite/roadmap toggle sur toutes les cartes location | Dashboard |
@@ -587,6 +587,11 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +105 | Mar 6 | **Remplacement google_maps_flutter → flutter_map** (OpenStreetMap) — élimine crash shift detail quand clé API Google Maps absente. 5 fichiers convertis : gps_route_map, fullscreen_map_screen, trip_route_map, shift_detail_screen, polyline_decoder | ✅ Fix |
 | +106 | Mar 6 | **Pause dîner** — stopTracking(reason: 'lunch_break') pendant la pause, reprise startTracking() à la fin. Live Activity status 'lunch'. Sync lunch_breaks via sync_service. Pas de changement aux mécanismes de résilience eux-mêmes | ✅ Actif |
 | +107 | Mar 7 | **UI dîner + fix build iOS apostrophe** — Chrono travail = durée - lunch. Chrono dîner temps réel (orange). Fix CocoaPods eval→direct codesign (apostrophe path). Fix com.apple.provenance xattr (build phase sur tous les Pod targets). Aucun changement tracking/résilience | ✅ Actif |
+| +108 | Mar 7 | **Sync lunch break au start** — `notifyPendingData()` appelé dans `startLunchBreak()` (pas seulement `endLunchBreak()`). `getPendingLunchBreaks()` retire filtre `ended_at IS NOT NULL`. `endLunchBreak()` reset `sync_status=pending`. Dashboard : badge orange sidebar (Realtime `lunch_breaks`). Approval timeline : lunch = ligne distincte avec durée | ✅ Actif |
+| +109 | Mar 7 | **GPS Health Guard** — remplace `verifyTrackingHealth()` fire-and-forget par système 2 tiers : **hard gate** (awaited, timeout 5s) sur clock-out, QR scan in/out, maintenance start/complete, lunch end ; **soft nudge** (fire-and-forget, debounce 30s) via `NavigatorObserver` + `Listener` sur toutes navigations et taps. Logs structurés DiagnosticLogger (source, tier, durée, shift_id). Dashboard : timezone fixes, GPS gap approval grouping | ✅ Actif |
+| +110 | Mar 9 | **Telemetry Phase 1-3** — Firebase Crashlytics (double-write DiagnosticLogger), battery_level sur gps_points, app lifecycle logging. **iOS DiagnosticNativePlugin** (MetricKit, CLLocationManager pause/resume, memory pressure). **Android DiagnosticNativePlugin** (GNSS satellite 60s, doze mode BroadcastReceiver, standby bucket 5min). Fix : DiagnosticNativePlugin.swift ajouté au Xcode project + `pausesLocationUpdatesAutomatically` corrigé. Migration 142 (battery_level + 17 catégories diagnostiques) | ✅ Actif |
+| +111 | Mar 9 | Dashboard/mileage UI updates only — aucun changement tracking/résilience | ✅ Actif |
+| +112 | Mar 9 | **Fix FCM token race condition** — `registerToken()` + `listenForTokenRefresh()` appelés dans `_initializeFirebase()` après succès Firebase init. Avant : token uniquement tenté au widget build (~200ms), toujours avant Firebase init (3s) → échec silencieux, token jamais enregistré, push wake impossibles | ✅ Fix |
 
 ### Chronologie complète Android Watchdog
 

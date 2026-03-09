@@ -168,44 +168,33 @@ export type ReportHistoryFilterInput = z.infer<typeof reportHistoryFilterSchema>
 /**
  * Helper function to resolve date range to actual dates
  */
+import { toLocalDateString, addDays, getMonday } from '@/lib/utils/date-utils';
+
 export function resolveDateRange(dateRange: DateRangeInput): { start: string; end: string } {
   if (dateRange.start && dateRange.end) {
     return { start: dateRange.start, end: dateRange.end };
   }
 
   const now = new Date();
-  let start: Date;
-  let end: Date = new Date(now);
+  const today = toLocalDateString(now);
 
   switch (dateRange.preset) {
-    case 'this_week': {
-      const dayOfWeek = now.getDay();
-      const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-      start = new Date(now.getFullYear(), now.getMonth(), diff);
-      break;
-    }
+    case 'this_week':
+      return { start: getMonday(today), end: today };
     case 'last_week': {
-      const dayOfWeek = now.getDay();
-      const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-      start = new Date(now.getFullYear(), now.getMonth(), diff - 7);
-      end = new Date(now.getFullYear(), now.getMonth(), diff - 1);
-      break;
+      const lastMonday = addDays(getMonday(today), -7);
+      return { start: lastMonday, end: addDays(lastMonday, 6) };
     }
     case 'this_month':
-      start = new Date(now.getFullYear(), now.getMonth(), 1);
-      break;
-    case 'last_month':
-      start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      end = new Date(now.getFullYear(), now.getMonth(), 0);
-      break;
+      return { start: toLocalDateString(new Date(now.getFullYear(), now.getMonth(), 1)), end: today };
+    case 'last_month': {
+      const firstLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const lastLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+      return { start: toLocalDateString(firstLastMonth), end: toLocalDateString(lastLastMonth) };
+    }
     default:
-      start = new Date(now.getFullYear(), now.getMonth(), 1);
+      return { start: toLocalDateString(new Date(now.getFullYear(), now.getMonth(), 1)), end: today };
   }
-
-  return {
-    start: start.toISOString().split('T')[0],
-    end: end.toISOString().split('T')[0],
-  };
 }
 
 /**

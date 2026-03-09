@@ -155,7 +155,7 @@ function RoleSummaryCard({
   }
 
   const roles = [
-    { name: 'Employ\u00e9s', count: data?.employee_counts?.by_role?.employee ?? 0, color: 'bg-blue-500' },
+    { name: 'Employés', count: data?.employee_counts?.by_role?.employee ?? 0, color: 'bg-blue-500' },
     { name: 'Gestionnaires', count: data?.employee_counts?.by_role?.manager ?? 0, color: 'bg-green-500' },
     { name: 'Admins', count: data?.employee_counts?.by_role?.admin ?? 0, color: 'bg-purple-500' },
     { name: 'Super admins', count: data?.employee_counts?.by_role?.super_admin ?? 0, color: 'bg-orange-500' },

@@ -5,7 +5,10 @@ import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'dart:ui';
+
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -17,6 +20,7 @@ import 'features/tracking/services/tracking_watchdog_service.dart';
 import 'shared/models/diagnostic_event.dart';
 import 'shared/providers/diagnostic_provider.dart';
 import 'shared/services/diagnostic_logger.dart';
+import 'shared/services/diagnostic_native_service.dart';
 import 'shared/services/local_database.dart';
 import 'shared/services/fcm_service.dart';
 import 'shared/services/notification_service.dart';
@@ -167,6 +171,9 @@ Future<void> main() async {
           'init_duration_ms': stopwatch.elapsedMilliseconds,
         });
 
+        // Start native diagnostic event listener (MetricKit, GNSS, doze, etc.)
+        DiagnosticNativeService.instance.initialize();
+
         // Listen for auth state changes so _employeeId gets set once
         // the session is restored (often null at cold start).
         Supabase.instance.client.auth.onAuthStateChange.listen((data) {
@@ -310,13 +317,64 @@ Future<void> _initializeFirebase() async {
   _firebaseInitialized = true;
   try {
     await Firebase.initializeApp();
+
+    // --- Crashlytics setup ---
+    // Pass all uncaught Flutter framework errors to Crashlytics
+    FlutterError.onError = (details) {
+      FirebaseCrashlytics.instance.recordFlutterFatalError(details);
+      if (DiagnosticLogger.isInitialized) {
+        DiagnosticLogger.instance.crash(
+          Severity.critical,
+          'Flutter error: ${details.exceptionAsString()}',
+          metadata: {
+            'stack': _safeTake(details.stack?.toString(), 500),
+            'library': details.library,
+          },
+        );
+      }
+    };
+
+    // Pass uncaught async errors to Crashlytics
+    PlatformDispatcher.instance.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      if (DiagnosticLogger.isInitialized) {
+        DiagnosticLogger.instance.crash(
+          Severity.critical,
+          'Platform error: $error',
+          metadata: {'stack': _safeTake(stack.toString(), 500)},
+        );
+      }
+      return true;
+    };
+
+    // Set user identifier for Crashlytics (if logged in)
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId != null) {
+      FirebaseCrashlytics.instance.setUserIdentifier(userId);
+    }
+
+    // Update Crashlytics user on auth changes
+    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      final uid = data.session?.user.id;
+      FirebaseCrashlytics.instance.setUserIdentifier(uid ?? '');
+    });
+
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-    // Set up foreground message listener (logs wake messages, no-op for tracking)
     FcmService().initialize();
-    debugPrint('[Main] Firebase initialized successfully');
+
+    // Register FCM token now that Firebase is ready.
+    // The initial attempt in app.dart fires before Firebase init (deferred 3s)
+    // and always fails. This retry ensures the token gets registered.
+    FcmService().registerToken();
+    FcmService().listenForTokenRefresh();
+
+    debugPrint('[Main] Firebase + Crashlytics initialized successfully');
   } catch (e) {
     _firebaseInitialized = false; // Allow retry on next foreground
-    // Non-fatal: app works without Firebase, just no silent push wake
     debugPrint('[Main] Firebase init failed (non-critical): $e');
   }
 }
+
+/// Safely truncate a string to [n] characters.
+String? _safeTake(String? s, int n) =>
+    s == null ? null : (s.length <= n ? s : s.substring(0, n));

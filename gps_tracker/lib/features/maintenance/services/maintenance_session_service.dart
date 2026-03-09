@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../cleaning/models/cleaning_session.dart';
 import '../../cleaning/services/cleaning_local_db.dart';
 import '../../shifts/models/shift_enums.dart';
 import '../models/maintenance_session.dart';
@@ -32,22 +33,38 @@ class MaintenanceSessionService {
     double? longitude,
     double? accuracy,
   }) async {
-    // 1. Check for active cleaning session (cross-feature)
+    // 1. Auto-close any active cleaning session
     final activeCleaning =
         await _cleaningLocalDb.getActiveSessionForEmployee(employeeId);
     if (activeCleaning != null) {
-      return MaintenanceSessionResult.error(
-        'Terminez votre session de ménage avant de commencer un entretien',
-      );
+      final now = DateTime.now().toUtc();
+      final duration = now.difference(activeCleaning.startedAt).inSeconds / 60.0;
+      await _cleaningLocalDb.updateCleaningSession(activeCleaning.copyWith(
+        status: CleaningSessionStatus.manuallyClosed,
+        completedAt: now,
+        durationMinutes: double.parse(duration.toStringAsFixed(2)),
+        syncStatus: SyncStatus.pending,
+      ));
     }
 
-    // 2. Check for active maintenance session (one at a time)
+    // 2. Auto-close any active maintenance session
     final activeMaintenance =
         await _localDb.getActiveSessionForEmployee(employeeId);
     if (activeMaintenance != null) {
-      return MaintenanceSessionResult.error(
-        'Une session d\'entretien est déjà en cours',
-      );
+      // Same building+apartment — double-tap, return existing session
+      if (activeMaintenance.buildingId == buildingId &&
+          activeMaintenance.apartmentId == apartmentId) {
+        return MaintenanceSessionResult.success(activeMaintenance);
+      }
+      // Different building/apartment — auto-close
+      final now = DateTime.now().toUtc();
+      final duration = now.difference(activeMaintenance.startedAt).inSeconds / 60.0;
+      await _localDb.updateMaintenanceSession(activeMaintenance.copyWith(
+        status: MaintenanceSessionStatus.manuallyClosed,
+        completedAt: now,
+        durationMinutes: double.parse(duration.toStringAsFixed(2)),
+        syncStatus: SyncStatus.pending,
+      ));
     }
 
     // 3. Create local maintenance session

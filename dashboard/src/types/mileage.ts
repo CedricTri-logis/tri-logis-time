@@ -277,6 +277,19 @@ export interface ApprovalActivity {
   gps_gap_count: number | null;
 }
 
+export interface ProjectSession {
+  session_type: 'cleaning' | 'maintenance';
+  session_id: string;
+  started_at: string;
+  ended_at: string;
+  duration_minutes: number;
+  building_name: string;
+  unit_label: string | null;
+  unit_type: string;
+  session_status: string;
+  location_id: string | null;
+}
+
 export interface DayApprovalDetail {
   employee_id: string;
   date: string;
@@ -286,6 +299,7 @@ export interface DayApprovalDetail {
   approved_at: string | null;
   notes: string | null;
   activities: ApprovalActivity[];
+  project_sessions: ProjectSession[];
   summary: {
     total_shift_minutes: number;
     approved_minutes: number;

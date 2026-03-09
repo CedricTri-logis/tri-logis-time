@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,438 +10,44 @@ import {
   CheckCircle2,
   XCircle,
   AlertTriangle,
-  MapPin,
-  MapPinOff,
   Car,
-  Footprints,
   Clock,
-  LogIn,
-  LogOut,
-  ChevronDown,
-  ChevronUp,
-  ArrowRight,
   Calendar,
   User,
   WifiOff,
   UtensilsCrossed,
+  MapPin,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabaseClient } from '@/lib/supabase/client';
-import { GoogleTripRouteMap } from '@/components/trips/google-trip-route-map';
-import { StationaryClustersMap } from '@/components/mileage/stationary-clusters-map';
-import type { StationaryCluster } from '@/components/mileage/stationary-clusters-map';
-import { detectTripStops, detectGpsClusters } from '@/lib/utils/detect-trip-stops';
 import { LOCATION_TYPE_ICON_MAP } from '@/lib/constants/location-icons';
 import { LOCATION_TYPE_LABELS } from '@/lib/validations/location';
-import { mergeClockEvents, type ProcessedActivity } from '@/lib/utils/merge-clock-events';
-import { formatTime, formatDuration, formatDurationMinutes, formatDistance } from '@/lib/utils/activity-display';
+import { mergeClockEvents } from '@/lib/utils/merge-clock-events';
+import { formatDuration } from '@/lib/utils/activity-display';
 import type { LocationType } from '@/types/location';
 import type {
   DayApprovalDetail as DayApprovalDetailType,
   ApprovalActivity,
-  ApprovalAutoStatus,
-  TripGpsPoint,
 } from '@/types/mileage';
+import {
+  mergeSameLocationGaps,
+  formatHours,
+  formatDate,
+} from './approval-utils';
+import {
+  ProjectCell,
+  ApprovalActivityIcon,
+  TripConnectorRow,
+  GapSubRow,
+  MergedLocationRow,
+  ActivityRow,
+} from './approval-rows';
 
 interface DayApprovalDetailProps {
   employeeId: string;
   employeeName: string;
   date: string;
-  onClose: () => void;
-}
-
-function formatHours(minutes: number): string {
-  if (minutes === 0) return '0h';
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return m > 0 ? `${h}h${m.toString().padStart(2, '0')}` : `${h}h`;
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr + 'T12:00:00').toLocaleDateString('fr-CA', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
-}
-
-const STATUS_BADGE: Record<ApprovalAutoStatus, { className: string; icon: typeof CheckCircle2; label: string }> = {
-  approved: {
-    className: 'bg-green-100 text-green-700 hover:bg-green-100',
-    icon: CheckCircle2,
-    label: 'Approuvé',
-  },
-  rejected: {
-    className: 'bg-red-100 text-red-700 hover:bg-red-100',
-    icon: XCircle,
-    label: 'Rejeté',
-  },
-  needs_review: {
-    className: 'bg-yellow-100 text-yellow-700 hover:bg-yellow-100',
-    icon: AlertTriangle,
-    label: 'À vérifier',
-  },
-};
-
-// --- Icon helper for approval activities ---
-
-function ApprovalActivityIcon({ activity }: { activity: ApprovalActivity }) {
-  if (activity.activity_type === 'lunch') {
-    return <UtensilsCrossed className="h-4 w-4 text-orange-500" />;
-  }
-  if (activity.activity_type === 'gap') {
-    // Clock gaps have start/end location names from the SQL function
-    if (activity.start_location_name || activity.end_location_name) {
-      // Clock-in gap: starts from clock location (no start_location_id), ends at first cluster
-      if (!activity.start_location_id && activity.end_location_id) return <LogIn className="h-4 w-4 text-amber-500" />;
-      // Clock-out gap: starts from last cluster, ends at clock location (no end_location_id)
-      if (activity.start_location_id && !activity.end_location_id) return <LogOut className="h-4 w-4 text-amber-500" />;
-    }
-    return <WifiOff className="h-4 w-4 text-purple-500" />;
-  }
-  if (activity.activity_type === 'trip') {
-    if (activity.transport_mode === 'walking') return <Footprints className="h-4 w-4 text-orange-500" />;
-    if (activity.transport_mode === 'driving') return <Car className="h-4 w-4 text-blue-500" />;
-    return <Car className="h-4 w-4 text-gray-300" />;
-  }
-  // Stop or standalone clock — use location type icon if available
-  if (activity.location_name && activity.location_type) {
-    const entry = LOCATION_TYPE_ICON_MAP[activity.location_type as LocationType];
-    if (entry) {
-      const Icon = entry.icon;
-      return <Icon className={entry.className} />;
-    }
-  }
-  if (activity.location_name) return <MapPin className="h-4 w-4 text-green-500" />;
-  // Unknown location — MapPinOff for clocks, amber MapPin for stops
-  if (activity.activity_type === 'clock_in' || activity.activity_type === 'clock_out') {
-    return <MapPinOff className="h-4 w-4 text-amber-500" />;
-  }
-  return <MapPin className="h-4 w-4 text-amber-500" />;
-}
-
-// --- Trip expand detail (fetch GPS points, show map) ---
-
-function TripExpandDetail({ activity }: { activity: ApprovalActivity }) {
-  const [gpsPoints, setGpsPoints] = useState<TripGpsPoint[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  const stops = useMemo(() => detectTripStops(gpsPoints), [gpsPoints]);
-  const gpsClusters = useMemo(() => detectGpsClusters(gpsPoints), [gpsPoints]);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabaseClient
-        .from('trip_gps_points')
-        .select(`
-          sequence_order,
-          gps_point:gps_points(latitude, longitude, accuracy, speed, heading, altitude, captured_at)
-        `)
-        .eq('trip_id', activity.activity_id)
-        .order('sequence_order', { ascending: true });
-
-      if (cancelled) return;
-
-      if (data) {
-        const points: TripGpsPoint[] = data
-          .filter((d: any) => d.gps_point)
-          .map((d: any) => ({
-            sequence_order: d.sequence_order,
-            latitude: d.gps_point.latitude,
-            longitude: d.gps_point.longitude,
-            accuracy: d.gps_point.accuracy,
-            speed: d.gps_point.speed,
-            heading: d.gps_point.heading,
-            altitude: d.gps_point.altitude,
-            captured_at: d.gps_point.captured_at,
-          }));
-        setGpsPoints(points);
-      }
-      setIsLoading(false);
-    })();
-    return () => { cancelled = true; };
-  }, [activity.activity_id]);
-
-  const tripForMap = {
-    id: activity.activity_id,
-    start_latitude: activity.latitude ?? 0,
-    start_longitude: activity.longitude ?? 0,
-    end_latitude: activity.latitude ?? 0,
-    end_longitude: activity.longitude ?? 0,
-    match_status: 'pending' as const,
-    route_geometry: null,
-    distance_km: activity.distance_km ?? 0,
-    road_distance_km: activity.road_distance_km,
-    duration_minutes: activity.duration_minutes,
-    classification: 'business' as const,
-    gps_point_count: 0,
-    transport_mode: (activity.transport_mode ?? 'driving') as 'driving' | 'walking' | 'unknown',
-  } as any;
-
-  // Use GPS points for start/end if available
-  if (gpsPoints.length > 0) {
-    tripForMap.start_latitude = gpsPoints[0].latitude;
-    tripForMap.start_longitude = gpsPoints[0].longitude;
-    tripForMap.end_latitude = gpsPoints[gpsPoints.length - 1].latitude;
-    tripForMap.end_longitude = gpsPoints[gpsPoints.length - 1].longitude;
-    tripForMap.gps_point_count = gpsPoints.length;
-  }
-
-  const from = activity.start_location_name || 'Inconnu';
-  const to = activity.end_location_name || 'Inconnu';
-
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-4 bg-muted/30 rounded-lg">
-      <div className="lg:col-span-2">
-        <GoogleTripRouteMap
-          trips={[tripForMap]}
-          gpsPoints={gpsPoints}
-          stops={stops}
-          clusters={gpsClusters}
-          height={300}
-          showGpsPoints={gpsPoints.length > 0}
-        />
-        {isLoading && (
-          <p className="text-xs text-muted-foreground mt-1">Chargement des points GPS...</p>
-        )}
-      </div>
-      <div className="grid grid-cols-2 gap-y-4 text-sm content-start">
-        {(activity.has_gps_gap || (activity.gps_gap_seconds ?? 0) > 0) && (
-          <div className="col-span-2 flex items-center gap-2 p-2 mb-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700">
-            <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-            <span>
-              {activity.has_gps_gap && (activity.gps_gap_seconds ?? 0) === 0
-                ? 'Trajet sans trace GPS — aucune donnée de parcours disponible'
-                : `Signal GPS perdu — ${Math.round((activity.gps_gap_seconds ?? 0) / 60)} min (${activity.gps_gap_count ?? 0})`
-              }
-            </span>
-          </div>
-        )}
-        <div>
-          <span className="text-xs text-muted-foreground block">D&eacute;part</span>
-          <span className="font-medium">{from}</span>
-        </div>
-        <div>
-          <span className="text-xs text-muted-foreground block">Arriv&eacute;e</span>
-          <span className="font-medium">{to}</span>
-        </div>
-        <div>
-          <span className="text-xs text-muted-foreground block">Distance GPS</span>
-          <span className="font-medium">{formatDistance(activity.distance_km)}</span>
-        </div>
-        <div>
-          <span className="text-xs text-muted-foreground block">Distance route</span>
-          <span className="font-medium">{formatDistance(activity.road_distance_km)}</span>
-        </div>
-        <div>
-          <span className="text-xs text-muted-foreground block">Dur&eacute;e</span>
-          <span className="font-medium">{formatDurationMinutes(activity.duration_minutes)}</span>
-        </div>
-        <div>
-          <span className="text-xs text-muted-foreground block">Mode</span>
-          <span className="font-medium">
-            {activity.transport_mode === 'walking' ? 'À pied' : activity.transport_mode === 'driving' ? 'Auto' : 'Inconnu'}
-          </span>
-        </div>
-        <div className="col-span-2">
-          <span className="text-xs text-muted-foreground block">Classification auto</span>
-          <span className="text-xs">{activity.auto_reason}</span>
-          {activity.override_status && (
-            <span className="text-xs text-blue-600 ml-1">(modifié manuellement)</span>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// --- Gap expand detail (show route map between start/end) ---
-
-function GapExpandDetail({ activity }: { activity: ApprovalActivity }) {
-  const [endCoords, setEndCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [routeGeometry, setRouteGeometry] = useState<string | null>(null);
-  const [roadDistanceKm, setRoadDistanceKm] = useState<number | null>(activity.road_distance_km ?? null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      // Fetch end location coordinates
-      let endLat = activity.latitude ?? 0;
-      let endLng = activity.longitude ?? 0;
-
-      if (activity.end_location_id) {
-        const { data } = await supabaseClient
-          .from('locations')
-          .select('latitude, longitude')
-          .eq('id', activity.end_location_id)
-          .single();
-        if (!cancelled && data) {
-          endLat = data.latitude;
-          endLng = data.longitude;
-          setEndCoords({ lat: endLat, lng: endLng });
-        }
-      }
-
-      // Call OSRM route-between-points for the road route
-      const startLat = activity.latitude ?? 0;
-      const startLng = activity.longitude ?? 0;
-      if (startLat !== endLat || startLng !== endLng) {
-        try {
-          const { data: routeData } = await supabaseClient.functions.invoke('route-between-points', {
-            body: { start_lat: startLat, start_lng: startLng, end_lat: endLat, end_lng: endLng },
-          });
-          if (!cancelled && routeData?.success) {
-            setRouteGeometry(routeData.route_geometry);
-            if (routeData.road_distance_km) setRoadDistanceKm(routeData.road_distance_km);
-          }
-        } catch { /* OSRM unavailable — show markers only */ }
-      }
-
-      if (!cancelled) setIsLoading(false);
-    })();
-    return () => { cancelled = true; };
-  }, [activity.end_location_id, activity.latitude, activity.longitude]);
-
-  const startLat = activity.latitude ?? 0;
-  const startLng = activity.longitude ?? 0;
-  const endLat = endCoords?.lat ?? startLat;
-  const endLng = endCoords?.lng ?? startLng;
-
-  const tripForMap = {
-    id: activity.activity_id,
-    start_latitude: startLat,
-    start_longitude: startLng,
-    end_latitude: endLat,
-    end_longitude: endLng,
-    match_status: routeGeometry ? 'matched' as const : 'pending' as const,
-    route_geometry: routeGeometry,
-    distance_km: activity.distance_km ?? 0,
-    road_distance_km: roadDistanceKm,
-    duration_minutes: activity.duration_minutes,
-    classification: 'business' as const,
-    gps_point_count: 0,
-    transport_mode: 'driving' as 'driving' | 'walking' | 'unknown',
-  } as any;
-
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-4 bg-amber-50/30 rounded-lg border border-amber-200">
-      <div className="lg:col-span-2">
-        <GoogleTripRouteMap
-          trips={[tripForMap]}
-          gpsPoints={[]}
-          stops={[]}
-          clusters={[]}
-          height={300}
-          showGpsPoints={false}
-        />
-        {isLoading && (
-          <p className="text-xs text-muted-foreground mt-1">Chargement...</p>
-        )}
-      </div>
-      <div className="grid grid-cols-2 gap-y-4 text-sm content-start">
-        <div className="col-span-2 flex items-center gap-2 p-2 mb-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700">
-          <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-          <span>D&eacute;placement non trac&eacute; &mdash; trajet estim&eacute; entre les deux points connus</span>
-        </div>
-        <div>
-          <span className="text-xs text-muted-foreground block">D&eacute;part</span>
-          <span className="font-medium">{activity.start_location_name || 'Inconnu'}</span>
-        </div>
-        <div>
-          <span className="text-xs text-muted-foreground block">Arriv&eacute;e</span>
-          <span className="font-medium">{activity.end_location_name || 'Inconnu'}</span>
-        </div>
-        <div>
-          <span className="text-xs text-muted-foreground block">Distance vol d'oiseau</span>
-          <span className="font-medium">{formatDistance(activity.distance_km)}</span>
-        </div>
-        <div>
-          <span className="text-xs text-muted-foreground block">Distance route (OSRM)</span>
-          <span className="font-medium">
-            {isLoading ? '...' : roadDistanceKm ? formatDistance(roadDistanceKm) : '—'}
-          </span>
-        </div>
-        <div>
-          <span className="text-xs text-muted-foreground block">Dur&eacute;e</span>
-          <span className="font-medium">{formatDurationMinutes(activity.duration_minutes)}</span>
-        </div>
-        <div className="col-span-2">
-          <span className="text-xs text-muted-foreground block">Classification auto</span>
-          <span className="text-xs">{activity.auto_reason}</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// --- Stop expand detail (show cluster map) ---
-
-function StopExpandDetail({ activity }: { activity: ApprovalActivity }) {
-  const cluster: StationaryCluster = {
-    id: activity.activity_id,
-    shift_id: activity.shift_id,
-    employee_id: '',
-    employee_name: '',
-    centroid_latitude: activity.latitude ?? 0,
-    centroid_longitude: activity.longitude ?? 0,
-    centroid_accuracy: null,
-    started_at: activity.started_at,
-    ended_at: activity.ended_at,
-    duration_seconds: activity.duration_minutes * 60,
-    gps_point_count: 0,
-    matched_location_id: activity.matched_location_id,
-    matched_location_name: activity.location_name,
-    created_at: activity.started_at,
-  };
-
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-4 bg-muted/30 rounded-lg">
-      <div className="lg:col-span-2">
-        <StationaryClustersMap
-          clusters={[cluster]}
-          height={300}
-          selectedClusterId={activity.activity_id}
-        />
-      </div>
-      <div className="grid grid-cols-2 gap-y-4 text-sm content-start">
-        {(activity.gps_gap_seconds ?? 0) > 0 && (
-          <div className="col-span-2 flex items-center gap-2 p-2 mb-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700">
-            <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-            <span>
-              Signal GPS perdu pendant {Math.round((activity.gps_gap_seconds ?? 0) / 60)} min
-              ({activity.gps_gap_count ?? 0} interruption{(activity.gps_gap_count ?? 0) > 1 ? 's' : ''})
-            </span>
-          </div>
-        )}
-        <div className="col-span-2">
-          <span className="text-xs text-muted-foreground block">Emplacement</span>
-          <span className={`font-medium ${activity.location_name ? 'text-green-600' : 'text-amber-600'}`}>
-            {activity.location_name || 'Non associé'}
-          </span>
-        </div>
-        <div>
-          <span className="text-xs text-muted-foreground block">Durée</span>
-          <span className="font-medium">{formatDurationMinutes(activity.duration_minutes)}</span>
-        </div>
-        <div>
-          <span className="text-xs text-muted-foreground block">Coordonnées</span>
-          <span className="font-mono text-xs">
-            {activity.latitude?.toFixed(6)}, {activity.longitude?.toFixed(6)}
-          </span>
-        </div>
-        <div className="col-span-2">
-          <span className="text-xs text-muted-foreground block">Classification auto</span>
-          <span className="text-xs">{activity.auto_reason}</span>
-          {activity.override_status && (
-            <span className="text-xs text-blue-600 ml-1">(modifié manuellement)</span>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+  onClose: (hasChanges: boolean) => void;
 }
 
 // --- Main component ---
@@ -453,6 +59,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
   const [notes, setNotes] = useState('');
   const [showNotes, setShowNotes] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const hasChanges = useRef(false);
 
   // Resizable panel
   const [panelWidth, setPanelWidth] = useState(50); // vw
@@ -520,6 +127,11 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
     return mergeClockEvents(detail.activities);
   }, [detail]);
 
+  // Merge same-location GPS gaps into grouped rows
+  const displayItems = useMemo(() => {
+    return mergeSameLocationGaps(processedActivities);
+  }, [processedActivities]);
+
   // Client-side visible needs_review count (excludes trips — they derive from stops)
   const visibleNeedsReviewCount = useMemo(() =>
     processedActivities.filter(pa =>
@@ -569,6 +181,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
           toast.error('Erreur: ' + error.message);
           return;
         }
+        hasChanges.current = true;
         setDetail(data as DayApprovalDetailType);
       } finally {
         setIsSaving(false);
@@ -589,6 +202,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
         toast.error('Erreur: ' + error.message);
         return;
       }
+      hasChanges.current = true;
       setDetail(data as DayApprovalDetailType);
     } finally {
       setIsSaving(false);
@@ -607,6 +221,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
         toast.error('Erreur: ' + error.message);
         return;
       }
+      hasChanges.current = true;
       setDetail(data as DayApprovalDetailType);
       toast.success('Journée approuvée');
     } finally {
@@ -625,6 +240,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
         toast.error('Erreur: ' + error.message);
         return;
       }
+      hasChanges.current = true;
       setDetail(data as DayApprovalDetailType);
       toast.success('Journée rouverte');
     } finally {
@@ -636,7 +252,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
   const canApprove = detail && !isApproved && visibleNeedsReviewCount === 0 && !detail.has_active_shift;
 
   return (
-    <Sheet open onOpenChange={() => onClose()}>
+    <Sheet open onOpenChange={() => onClose(hasChanges.current)}>
       <SheetContent
         className="overflow-y-auto !max-w-none"
         style={{ width: `${panelWidth}vw` }}
@@ -855,18 +471,38 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                     <th className="px-3 py-3 text-left font-semibold text-muted-foreground uppercase text-[10px] tracking-wider border-b">Détails de l'activité</th>
                     <th className="px-3 py-3 text-left font-semibold text-muted-foreground uppercase text-[10px] tracking-wider border-b">Horaire</th>
                     <th className="px-3 py-3 text-right font-semibold text-muted-foreground uppercase text-[10px] tracking-wider border-b">Distance</th>
+                    <th className="px-3 py-3 text-left font-semibold text-muted-foreground uppercase text-[10px] tracking-wider border-b min-w-[180px]">Projet(s)</th>
                     <th className="px-3 py-3 w-8 border-b"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {processedActivities.length === 0 ? (
+                  {displayItems.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-3 py-12 text-center text-sm text-muted-foreground italic">
+                      <td colSpan={9} className="px-3 py-12 text-center text-sm text-muted-foreground italic">
                         Aucune activité détectée pour cette période
                       </td>
                     </tr>
                   ) : (
-                    processedActivities.map((pa) => {
+                    displayItems.map((item, idx) => {
+                      const ps = detail?.project_sessions ?? [];
+                      if (item.type === 'merged') {
+                        const group = item.group;
+                        const key = `merged-${group.primaryStop.item.activity_id}`;
+                        return (
+                          <MergedLocationRow
+                            key={key}
+                            group={group}
+                            isApproved={isApproved}
+                            isSaving={isSaving}
+                            isExpanded={expandedId === key}
+                            onToggle={() => setExpandedId(expandedId === key ? null : key)}
+                            onOverride={handleOverride}
+                            projectSessions={ps}
+                          />
+                        );
+                      }
+
+                      const pa = item.pa;
                       const key = `${pa.item.activity_type}-${pa.item.activity_id}`;
                       const isTrip = pa.item.activity_type === 'trip';
 
@@ -879,6 +515,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                           isExpanded={expandedId === key}
                           onToggle={() => setExpandedId(expandedId === key ? null : key)}
                           onOverride={handleOverride}
+                          projectSessions={ps}
                         />
                       ) : (
                         <ActivityRow
@@ -889,6 +526,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                           isExpanded={expandedId === key}
                           onToggle={() => setExpandedId(expandedId === key ? null : key)}
                           onOverride={handleOverride}
+                          projectSessions={ps}
                         />
                       );
                     })
@@ -960,455 +598,3 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
     </Sheet>
   );
 }
-
-// --- Compact trip connector row ---
-
-function TripConnectorRow({
-  pa,
-  isApproved,
-  isSaving,
-  isExpanded,
-  onToggle,
-  onOverride,
-}: {
-  pa: ProcessedActivity<ApprovalActivity>;
-  isApproved: boolean;
-  isSaving: boolean;
-  isExpanded: boolean;
-  onToggle: () => void;
-  onOverride: (activity: ApprovalActivity, status: 'approved' | 'rejected') => void;
-}) {
-  const { item: activity } = pa;
-  const hasOverride = activity.override_status !== null;
-
-  const statusColor = {
-    approved: {
-      bg: hasOverride ? 'bg-green-100/70' : 'bg-green-50/80',
-      text: 'text-green-700',
-      subtext: 'text-green-600/70',
-      border: hasOverride ? 'border-l-green-600' : 'border-l-green-400',
-    },
-    rejected: {
-      bg: hasOverride ? 'bg-red-100/70' : 'bg-red-50/80',
-      text: 'text-red-700',
-      subtext: 'text-red-600/70',
-      border: hasOverride ? 'border-l-red-600' : 'border-l-red-400',
-    },
-    needs_review: {
-      bg: 'bg-amber-50/80',
-      text: 'text-amber-700',
-      subtext: 'text-amber-600/70',
-      border: 'border-l-amber-500',
-    },
-  }[activity.final_status];
-
-  return (
-    <>
-      <tr
-        className={`${statusColor.bg} border-l-[3px] ${statusColor.border} cursor-pointer transition-all hover:brightness-95 group`}
-        style={activity.has_gps_gap ? { borderLeftStyle: 'dashed', borderLeftColor: 'rgb(245 158 11)' } : undefined}
-        onClick={onToggle}
-      >
-        {/* Empty action column — no buttons */}
-        <td className="px-3 py-1.5">
-          {hasOverride && (
-            <div className="flex justify-center">
-              <div className="h-2 w-2 rounded-full bg-blue-500" title="Override manuel" />
-            </div>
-          )}
-        </td>
-
-        {/* Empty clock column */}
-        <td className="py-1.5" />
-
-        {/* Arrow connector icon */}
-        <td className="px-2 py-1.5 text-center">
-          <div className="flex justify-center">
-            {activity.transport_mode === 'walking'
-              ? <Footprints className="h-3 w-3 text-orange-400" />
-              : <Car className="h-3 w-3 text-blue-400" />
-            }
-          </div>
-        </td>
-
-        {/* Duration + distance inline */}
-        <td colSpan={3} className="px-3 py-1.5">
-          <div className="flex items-center gap-2 ml-2">
-            <ArrowRight className="h-3 w-3 text-muted-foreground/40 flex-shrink-0" />
-            <span className={`text-[11px] font-medium tabular-nums ${statusColor.text}`}>
-              {formatDurationMinutes(activity.duration_minutes)}
-            </span>
-            {(activity.road_distance_km ?? activity.distance_km) ? (
-              <span className={`text-[11px] tabular-nums ${statusColor.subtext}`}>
-                {formatDistance(activity.road_distance_km ?? activity.distance_km)}
-              </span>
-            ) : null}
-            {activity.has_gps_gap && (
-              <span aria-label="Données GPS incomplètes"><AlertTriangle className="h-3 w-3 text-amber-500 flex-shrink-0" /></span>
-            )}
-            {activity.duration_minutes > 60 && (
-              <span aria-label={`Trajet long: ${activity.duration_minutes} min`}><Clock className="h-3 w-3 text-amber-500 flex-shrink-0" /></span>
-            )}
-          </div>
-        </td>
-
-        {/* Distance column */}
-        <td className="py-1.5" />
-
-        {/* Expand chevron */}
-        <td className="px-3 py-1.5 text-center">
-          <div className={`rounded-full p-0.5 transition-colors ${isExpanded ? 'bg-muted' : 'group-hover:bg-muted'}`}>
-            {isExpanded
-              ? <ChevronUp className="h-3 w-3 text-primary" />
-              : <ChevronDown className="h-3 w-3 text-muted-foreground" />
-            }
-          </div>
-        </td>
-      </tr>
-
-      {/* Expanded: route map + override toggle */}
-      {isExpanded && (
-        <tr>
-          <td colSpan={8} className="p-0 border-b">
-            <div className="px-4 py-4 bg-muted/10 border-t border-b space-y-4">
-              {/* Override controls (only when day not approved) */}
-              {!isApproved && (
-                <div className="flex items-center gap-3 px-2 py-2 bg-background rounded-lg border">
-                  <span className="text-xs font-medium text-muted-foreground">Forcer le statut:</span>
-                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className={`h-7 text-xs rounded-full ${
-                        activity.override_status === 'approved'
-                          ? 'border-green-500 bg-green-50 text-green-700'
-                          : 'text-muted-foreground hover:text-green-600 hover:bg-green-50'
-                      }`}
-                      onClick={() => onOverride(activity, 'approved')}
-                      disabled={isSaving}
-                    >
-                      <CheckCircle2 className="h-3 w-3 mr-1" />
-                      Approuver
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className={`h-7 text-xs rounded-full ${
-                        activity.override_status === 'rejected'
-                          ? 'border-red-500 bg-red-50 text-red-700'
-                          : 'text-muted-foreground hover:text-red-600 hover:bg-red-50'
-                      }`}
-                      onClick={() => onOverride(activity, 'rejected')}
-                      disabled={isSaving}
-                    >
-                      <XCircle className="h-3 w-3 mr-1" />
-                      Rejeter
-                    </Button>
-                  </div>
-                  {hasOverride && (
-                    <Badge variant="outline" className="text-[10px] border-blue-300 text-blue-600">
-                      Override actif
-                    </Badge>
-                  )}
-                </div>
-              )}
-
-              {/* Route map */}
-              <TripExpandDetail activity={activity} />
-            </div>
-          </td>
-        </tr>
-      )}
-    </>
-  );
-}
-
-// --- Individual activity row (stops, clocks, gaps) ---
-
-function ActivityRow({
-  pa,
-  isApproved,
-  isSaving,
-  isExpanded,
-  onToggle,
-  onOverride,
-}: {
-  pa: ProcessedActivity<ApprovalActivity>;
-  isApproved: boolean;
-  isSaving: boolean;
-  isExpanded: boolean;
-  onToggle: () => void;
-  onOverride: (activity: ApprovalActivity, status: 'approved' | 'rejected') => void;
-}) {
-  const { item: activity, hasClockIn, hasClockOut } = pa;
-  const isStop = activity.activity_type === 'stop';
-  const isClock = activity.activity_type === 'clock_in' || activity.activity_type === 'clock_out';
-  const isGap = activity.activity_type === 'gap';
-  const isLunch = activity.activity_type === 'lunch';
-  const canExpand = isStop || isGap;
-  const hasOverride = activity.override_status !== null;
-
-  const statusConfig = {
-    approved: {
-      row: hasOverride 
-        ? 'bg-green-100 border-l-[6px] border-l-green-600 hover:bg-green-200/70' 
-        : 'bg-green-50 border-l-4 border-l-green-500 hover:bg-green-100/80',
-      badge: 'bg-green-100 text-green-700 border-green-200 ring-1 ring-green-600/10',
-      icon: CheckCircle2,
-      label: 'Approuvé',
-      btnApprove: 'text-green-700 bg-green-100 border-green-300 shadow-sm',
-      btnReject: 'text-gray-400 hover:text-red-600 hover:bg-red-50 border-transparent',
-      text: hasOverride ? 'text-green-950 font-bold' : 'text-green-900 font-medium',
-      subtext: 'text-green-700/70',
-    },
-    rejected: {
-      row: hasOverride 
-        ? 'bg-red-100 border-l-[6px] border-l-red-600 hover:bg-red-200/70' 
-        : 'bg-red-50 border-l-4 border-l-red-500 hover:bg-red-100/80',
-      badge: 'bg-red-100 text-red-700 border-red-200 ring-1 ring-red-600/10',
-      icon: XCircle,
-      label: 'Rejeté',
-      btnApprove: 'text-gray-400 hover:text-green-600 hover:bg-green-50 border-transparent',
-      btnReject: 'text-red-700 bg-red-100 border-red-300 shadow-sm',
-      text: hasOverride ? 'text-red-950 font-bold' : 'text-red-900 font-medium',
-      subtext: 'text-red-700/70',
-    },
-    needs_review: {
-      row: 'bg-amber-50 border-l-4 border-l-amber-500 hover:bg-amber-100/80 shadow-[inset_0_0_0_1px_rgba(251,191,36,0.1)]',
-      badge: 'bg-amber-100 text-amber-800 border-amber-200 ring-2 ring-amber-500/20',
-      icon: AlertTriangle,
-      label: 'À vérifier',
-      btnApprove: 'text-gray-500 hover:text-green-600 hover:bg-green-50 border-gray-200',
-      btnReject: 'text-gray-500 hover:text-red-600 hover:bg-red-50 border-gray-200',
-      text: 'text-amber-950 font-bold',
-      subtext: 'text-amber-800/80',
-    }
-  }[activity.final_status];
-
-  return (
-    <>
-      <tr
-        className={`${isLunch ? 'bg-slate-50/80 border-l-4 border-l-slate-300 hover:bg-slate-100/80' : statusConfig.row} ${canExpand ? 'cursor-pointer' : ''} transition-all duration-200 group border-b border-white/50`}
-        style={isGap ? { borderLeftStyle: 'dashed' } : undefined}
-        onClick={canExpand ? onToggle : undefined}
-      >
-        {/* Action / Approbation */}
-        <td className="px-3 py-3 text-center">
-          {isLunch ? (
-            <div className="flex justify-center">
-              <Badge variant="outline" className="font-bold text-[10px] px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border-slate-200">
-                <UtensilsCrossed className="h-3 w-3 mr-1" />
-                Pause
-              </Badge>
-            </div>
-          ) : !isApproved ? (
-            <div className="flex items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
-              {/* Approve Button */}
-              <div className="relative group/btn">
-                {activity.override_status === 'approved' && (
-                  <>
-                    {/* Double Electric Border - Static */}
-                    <div className="absolute -inset-1 rounded-full border border-blue-500/40 shadow-[0_0_12px_rgba(59,130,246,0.3)]" />
-                    <div className="absolute -inset-[3px] rounded-full border border-blue-500/10" />
-                  </>
-                )}
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className={`h-9 w-9 rounded-full transition-all relative z-0 hover:scale-105 active:scale-95 border-2 ${
-                    activity.override_status === 'approved' 
-                      ? 'border-blue-600 bg-white text-green-600 shadow-sm' 
-                      : statusConfig.btnApprove + ' border-transparent shadow-none'
-                  }`}
-                  onClick={() => onOverride(activity, 'approved')}
-                  disabled={isSaving}
-                >
-                  <CheckCircle2 className={`h-4.5 w-4.5 ${activity.override_status === 'approved' ? 'stroke-[2.5px]' : ''}`} />
-                </Button>
-              </div>
-
-              {/* Reject Button */}
-              <div className="relative group/btn">
-                {activity.override_status === 'rejected' && (
-                  <>
-                    {/* Double Electric Border - Static */}
-                    <div className="absolute -inset-1 rounded-full border border-blue-500/40 shadow-[0_0_12px_rgba(59,130,246,0.3)]" />
-                    <div className="absolute -inset-[3px] rounded-full border border-blue-500/10" />
-                  </>
-                )}
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className={`h-9 w-9 rounded-full transition-all relative z-0 hover:scale-105 active:scale-95 border-2 ${
-                    activity.override_status === 'rejected' 
-                      ? 'border-blue-600 bg-white text-red-600 shadow-sm' 
-                      : statusConfig.btnReject + ' border-transparent shadow-none'
-                  }`}
-                  onClick={() => onOverride(activity, 'rejected')}
-                  disabled={isSaving}
-                >
-                  <XCircle className={`h-4.5 w-4.5 ${activity.override_status === 'rejected' ? 'stroke-[2.5px]' : ''}`} />
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex justify-center">
-              <Badge variant="outline" className={`font-bold text-[10px] px-2.5 py-0.5 rounded-full shadow-sm ${statusConfig.badge}`}>
-                {(() => { const StatusIcon = statusConfig.icon; return <StatusIcon className="h-3 w-3 mr-1" />; })()}
-                {statusConfig.label}
-              </Badge>
-            </div>
-          )}
-        </td>
-
-        {/* Clock-in/out indicator */}
-        <td className="px-2 py-3 text-center">
-          <div className="flex items-center justify-center gap-0.5">
-            {hasClockIn && <span title="Début de quart"><LogIn className="h-3.5 w-3.5 text-emerald-600" /></span>}
-            {hasClockOut && <span title="Fin de quart"><LogOut className="h-3.5 w-3.5 text-red-600" /></span>}
-            {isClock && activity.activity_type === 'clock_in' && <LogIn className="h-3.5 w-3.5 text-emerald-600" />}
-            {isClock && activity.activity_type === 'clock_out' && <LogOut className="h-3.5 w-3.5 text-red-600" />}
-            {isLunch && <UtensilsCrossed className="h-3.5 w-3.5 text-orange-500" />}
-          </div>
-        </td>
-
-        {/* Type icon */}
-        <td className="px-2 py-3 text-center">
-          <div className="flex justify-center bg-white/80 rounded-lg p-1.5 shadow-sm border border-black/5 group-hover:scale-110 transition-transform">
-            <ApprovalActivityIcon activity={activity} />
-          </div>
-        </td>
-
-        {/* Durée */}
-        <td className="px-3 py-3 whitespace-nowrap">
-          <div className={`flex items-center gap-1.5 tabular-nums text-xs ${statusConfig.text}`}>
-            {isClock ? '—' : formatDurationMinutes(activity.duration_minutes)}
-            {(activity.gps_gap_seconds ?? 0) > 0 && (
-              <AlertTriangle className="h-3.5 w-3.5 text-amber-600 animate-pulse" />
-            )}
-          </div>
-          {(activity.gps_gap_seconds ?? 0) > 0 && (
-            <div className={`text-[10px] mt-0.5 ${
-              (activity.gps_gap_seconds ?? 0) >= 300
-                ? 'text-amber-600 font-medium'
-                : 'text-muted-foreground'
-            }`}>
-              −{Math.round((activity.gps_gap_seconds ?? 0) / 60)} min GPS{(activity.gps_gap_count ?? 0) > 1 ? ` (${activity.gps_gap_count})` : ''}
-            </div>
-          )}
-        </td>
-
-        {/* Détails */}
-        <td className="px-3 py-3 max-w-[300px]">
-          {isGap ? (
-            <div className="space-y-1">
-              <div className={`text-xs flex items-center gap-1.5 ${statusConfig.text}`}>
-                {(activity.start_location_name || activity.end_location_name) ? (
-                  <>
-                    <AlertTriangle className="h-3 w-3 text-amber-500" />
-                    <span className="font-bold">D&eacute;placement non trac&eacute;</span>
-                  </>
-                ) : (
-                  <>
-                    <WifiOff className="h-3 w-3" />
-                    <span className="font-bold">Temps non suivi</span>
-                  </>
-                )}
-              </div>
-              {(activity.start_location_name || activity.end_location_name) ? (
-                <div className={`text-[10px] flex items-center gap-1 ${statusConfig.subtext}`}>
-                  <span>{activity.start_location_name || 'Inconnu'}</span>
-                  <ArrowRight className="h-2.5 w-2.5 flex-shrink-0" />
-                  <span>{activity.end_location_name || 'Inconnu'}</span>
-                </div>
-              ) : (
-                <span className={`text-[10px] leading-tight italic ${statusConfig.subtext}`}>
-                  Aucune donnee GPS durant cette periode
-                </span>
-              )}
-            </div>
-          ) : isLunch ? (
-            <div className="space-y-1">
-              <div className="text-xs flex items-center gap-1.5 text-orange-700 font-medium">
-                <UtensilsCrossed className="h-3 w-3" />
-                <span className="font-bold">Pause dîner</span>
-              </div>
-              <span className="text-[10px] leading-tight text-orange-600/70">
-                {formatTime(activity.started_at)} — {formatTime(activity.ended_at)}
-              </span>
-            </div>
-          ) : isStop ? (
-            <div className="space-y-1">
-              <div className={`text-xs flex items-center gap-1.5 ${statusConfig.text}`}>
-                <span className={activity.location_name ? 'font-bold underline decoration-current/20' : ''}>
-                  {activity.location_name || 'Arrêt non associé'}
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className={`text-[10px] leading-tight italic ${statusConfig.subtext}`}>
-                  {activity.auto_reason}
-                </span>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-1">
-              <span className={`text-xs font-bold ${statusConfig.text}`}>
-                {activity.activity_type === 'clock_in' ? 'POINTAGE ENTRÉE' : 'POINTAGE SORTIE'}
-              </span>
-              <div className={`text-[10px] italic ${statusConfig.subtext}`}>
-                {activity.location_name || 'Lieu inconnu'}
-              </div>
-            </div>
-          )}
-        </td>
-
-        {/* Horaire */}
-        <td className="px-3 py-3 whitespace-nowrap">
-          <div className="flex flex-col">
-            <span className={`text-xs font-black ${statusConfig.text}`}>{formatTime(activity.started_at)}</span>
-            {!isClock && (
-              <span className={`text-[10px] font-medium ${statusConfig.subtext}`}>{formatTime(activity.ended_at)}</span>
-            )}
-          </div>
-        </td>
-
-        {/* Distance */}
-        <td className="px-3 py-3 text-right tabular-nums whitespace-nowrap">
-          {isGap && activity.distance_km ? (
-            <span className="text-xs text-amber-600">{formatDistance(activity.distance_km)}</span>
-          ) : (
-            <span className="opacity-20 text-xs font-bold">—</span>
-          )}
-        </td>
-
-        {/* Expand chevron */}
-        <td className="px-3 py-3 text-center">
-          {canExpand && (
-            <div className={`rounded-full p-1 transition-colors ${isExpanded ? 'bg-muted' : 'group-hover:bg-muted'}`}>
-              {isExpanded
-                ? <ChevronUp className="h-4 w-4 text-primary" />
-                : <ChevronDown className="h-4 w-4 text-muted-foreground" />
-              }
-            </div>
-          )}
-        </td>
-      </tr>
-
-      {/* Expanded detail row (stops + gaps — trips use TripConnectorRow) */}
-      {isExpanded && canExpand && (
-        <tr>
-          <td colSpan={8} className="p-0 border-b">
-            <div className="px-4 py-6 bg-muted/10 border-t border-b">
-              {isGap ? (
-                <GapExpandDetail activity={activity} />
-              ) : (
-                <StopExpandDetail activity={activity} />
-              )}
-            </div>
-          </td>
-        </tr>
-      )}
-    </>
-  );
-}
-

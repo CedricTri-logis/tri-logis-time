@@ -60,7 +60,7 @@ function generateMetadataHeader(metadata: ExportMetadata): string[] {
  */
 function downloadFile(content: string, filename: string): void {
   // Add BOM for Excel UTF-8 compatibility
-  const bom = '\uFEFF';
+  const bom = '﻿';
   const blob = new Blob([bom + content], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
 

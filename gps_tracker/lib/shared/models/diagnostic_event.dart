@@ -12,7 +12,15 @@ enum EventCategory {
   lifecycle,
   thermal,
   error,
-  network;
+  network,
+  battery,
+  crash,
+  memory,
+  service,
+  satellite,
+  doze,
+  motion,
+  metrickit;
 
   String get value => name;
 }

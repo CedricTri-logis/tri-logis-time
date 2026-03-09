@@ -21,6 +21,8 @@ import '../../shifts/providers/sync_provider.dart';
 import '../models/tracking_config.dart';
 import '../models/tracking_state.dart';
 import '../models/tracking_status.dart';
+import '../../../shared/services/battery_service.dart';
+import '../../../shared/services/diagnostic_native_service.dart';
 import '../services/background_execution_service.dart';
 import '../services/android_battery_health_service.dart';
 import '../services/background_tracking_service.dart';
@@ -148,9 +150,9 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     }
   }
 
-  /// Public health check — call from any user interaction (QR scan, project
-  /// selection, etc.) to restart tracking if iOS killed the service.
-  /// No-op if tracking is already running or there's no active shift.
+  /// Public health check — call from app resume or other system events.
+  /// User-interaction callers should use [ensureGpsAlive] from
+  /// gps_health_guard_provider.dart instead (for structured logging).
   Future<void> verifyTrackingHealth() async {
     if (state.status == TrackingStatus.running ||
         state.status == TrackingStatus.starting) {
@@ -164,7 +166,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
 
     _logger?.lifecycle(
       Severity.warn,
-      'Tracking dead during user interaction — restarting',
+      'Tracking dead on app resume — restarting',
       metadata: {'shift_id': shift.id},
     );
     startTracking();
@@ -306,6 +308,11 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
   }
 
   Future<void> _handlePositionUpdate(Map<String, dynamic> pointData) async {
+    // Read battery level in main isolate (battery_plus uses platform channels)
+    final batteryLevel = await BatteryService.getLevel();
+    if (batteryLevel != null) {
+      pointData['battery_level'] = batteryLevel;
+    }
     final point = LocalGpsPoint.fromMap(pointData);
 
     try {
@@ -662,6 +669,8 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
         }
       });
     }
+    // Start native diagnostic monitoring (GNSS, doze, standby bucket)
+    DiagnosticNativeService.instance.startMonitoring();
     // Subscribe to thermal state changes for GPS frequency adaptation
     _startThermalMonitoring();
     // Start activity recognition for motion state tagging
@@ -892,6 +901,8 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     // Stop lifecycle observer and clear callbacks
     BackgroundTrackingService.onForegroundServiceDied = null;
     BackgroundTrackingService.stopLifecycleObserver();
+    // Stop native diagnostic monitoring
+    DiagnosticNativeService.instance.stopMonitoring();
     // Stop thermal monitoring
     _stopThermalMonitoring();
     // Stop activity recognition

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ChevronRight, Clock, LogIn, MonitorSmartphone, PaintBucket, Smartphone, User, Wrench } from 'lucide-react';
+import { ChevronRight, Clock, LogIn, MonitorSmartphone, PaintBucket, Smartphone, User, UtensilsCrossed, Wrench } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -93,7 +93,7 @@ function TeamListItem({ employee }: TeamListItemProps) {
               <span className="font-medium text-slate-900 truncate">
                 {employee.displayName}
               </span>
-              <ShiftStatusBadge status={employee.shiftStatus} />
+              <ShiftStatusBadge status={employee.shiftStatus} isOnLunch={employee.isOnLunch} />
             </div>
             <div className="flex items-center gap-3 text-sm text-slate-500">
               {employee.employeeId && (
@@ -105,6 +105,16 @@ function TeamListItem({ employee }: TeamListItemProps) {
                   format="hm"
                   className="text-slate-600"
                 />
+              )}
+              {isOnShift && employee.isOnLunch && employee.lunchStartedAt && (
+                <span className="flex items-center gap-1 text-orange-600">
+                  <UtensilsCrossed className="h-3 w-3" />
+                  <DurationCounter
+                    startTime={employee.lunchStartedAt}
+                    format="hm"
+                    className="text-orange-600"
+                  />
+                </span>
               )}
             </div>
             {/* Active session info (cleaning or maintenance) */}
@@ -184,9 +194,19 @@ function SessionBadge({ sessionType, location, startedAt }: SessionBadgeProps) {
 
 interface ShiftStatusBadgeProps {
   status: 'on-shift' | 'off-shift' | 'never-installed';
+  isOnLunch?: boolean;
 }
 
-function ShiftStatusBadge({ status }: ShiftStatusBadgeProps) {
+function ShiftStatusBadge({ status, isOnLunch }: ShiftStatusBadgeProps) {
+  if (status === 'on-shift' && isOnLunch) {
+    return (
+      <Badge className="bg-orange-100 text-orange-700 border-orange-200">
+        <UtensilsCrossed className="mr-1 h-3 w-3" />
+        Pause dîner
+      </Badge>
+    );
+  }
+
   if (status === 'on-shift') {
     return (
       <Badge className="bg-green-100 text-green-700 border-green-200">

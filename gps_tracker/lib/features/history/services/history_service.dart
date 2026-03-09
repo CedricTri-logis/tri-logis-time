@@ -129,10 +129,10 @@ class HistoryService {
         'p_employee_id': employeeId,
       };
       if (startDate != null) {
-        params['p_start_date'] = startDate.toUtc().toIso8601String();
+        params['p_start_date'] = '${startDate.year}-${startDate.month.toString().padLeft(2, '0')}-${startDate.day.toString().padLeft(2, '0')}';
       }
       if (endDate != null) {
-        params['p_end_date'] = endDate.toUtc().toIso8601String();
+        params['p_end_date'] = '${endDate.year}-${endDate.month.toString().padLeft(2, '0')}-${endDate.day.toString().padLeft(2, '0')}';
       }
 
       final response = await _supabase.rpc(
@@ -172,10 +172,10 @@ class HistoryService {
     try {
       final params = <String, dynamic>{};
       if (startDate != null) {
-        params['p_start_date'] = startDate.toUtc().toIso8601String();
+        params['p_start_date'] = '${startDate.year}-${startDate.month.toString().padLeft(2, '0')}-${startDate.day.toString().padLeft(2, '0')}';
       }
       if (endDate != null) {
-        params['p_end_date'] = endDate.toUtc().toIso8601String();
+        params['p_end_date'] = '${endDate.year}-${endDate.month.toString().padLeft(2, '0')}-${endDate.day.toString().padLeft(2, '0')}';
       }
 
       final response = await _supabase.rpc(

@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabaseClient } from '@/lib/supabase/client';
+import { toLocalDateString, addDays } from '@/lib/utils/date-utils';
 import type { CarpoolGroup, CarpoolMember, Trip } from '@/types/mileage';
 
 type StatusFilter = 'all' | 'auto_detected' | 'confirmed' | 'dismissed';
@@ -42,13 +43,11 @@ interface EmployeeProfile {
 }
 
 function getDefaultDateFrom(): string {
-  const d = new Date();
-  d.setDate(d.getDate() - 30);
-  return d.toISOString().split('T')[0];
+  return addDays(toLocalDateString(new Date()), -30);
 }
 
 function getDefaultDateTo(): string {
-  return new Date().toISOString().split('T')[0];
+  return toLocalDateString(new Date());
 }
 
 function formatDate(dateStr: string): string {
@@ -62,18 +61,18 @@ function formatTime(dateStr: string): string {
 }
 
 function formatDistance(km: number | null): string {
-  if (km == null) return '\u2014';
+  if (km == null) return '—';
   return `${km.toFixed(1)} km`;
 }
 
 function statusLabel(status: CarpoolGroup['status']): string {
   switch (status) {
     case 'auto_detected':
-      return 'D\u00e9tect\u00e9';
+      return 'Détecté';
     case 'confirmed':
-      return 'Confirm\u00e9';
+      return 'Confirmé';
     case 'dismissed':
-      return 'Rejet\u00e9';
+      return 'Rejeté';
   }
 }
 
@@ -106,7 +105,7 @@ function roleLabel(role: CarpoolMember['role']): string {
     case 'passenger':
       return 'Passager';
     case 'unassigned':
-      return 'Non assign\u00e9';
+      return 'Non assigné';
   }
 }
 
@@ -299,13 +298,13 @@ export function CarpoolingTab() {
         if (rpcError) throw rpcError;
         toast.success(
           newStatus === 'confirmed'
-            ? 'Covoiturage confirm\u00e9'
-            : 'Covoiturage rejet\u00e9'
+            ? 'Covoiturage confirmé'
+            : 'Covoiturage rejeté'
         );
         fetchGroups();
       } catch (err) {
         toast.error(
-          err instanceof Error ? err.message : 'Erreur lors de la mise \u00e0 jour'
+          err instanceof Error ? err.message : 'Erreur lors de la mise à jour'
         );
       } finally {
         setActionLoadingGroupId(null);
@@ -323,7 +322,7 @@ export function CarpoolingTab() {
           p_driver_employee_id: newDriverEmployeeId,
         });
         if (rpcError) throw rpcError;
-        toast.success('Conducteur modifi\u00e9');
+        toast.success('Conducteur modifié');
         setChangingDriverGroupId(null);
         fetchGroups();
       } catch (err) {
@@ -342,19 +341,17 @@ export function CarpoolingTab() {
     setIsDetecting(true);
     setDetectProgress(null);
 
-    const start = new Date(detectDateFrom);
-    const end = new Date(detectDateTo);
-    if (start > end) {
-      toast.error('La date de d\u00e9but doit \u00eatre avant la date de fin');
+    if (detectDateFrom > detectDateTo) {
+      toast.error('La date de début doit être avant la date de fin');
       setIsDetecting(false);
       return;
     }
 
     const dates: string[] = [];
-    const current = new Date(start);
-    while (current <= end) {
-      dates.push(current.toISOString().split('T')[0]);
-      current.setDate(current.getDate() + 1);
+    let current = detectDateFrom;
+    while (current <= detectDateTo) {
+      dates.push(current);
+      current = addDays(current, 1);
     }
 
     let successCount = 0;
@@ -390,11 +387,11 @@ export function CarpoolingTab() {
 
     if (errorCount === 0) {
       toast.success(
-        `D\u00e9tection termin\u00e9e: ${totalDetected} groupe(s) cr\u00e9\u00e9(s) sur ${successCount} jour(s)`
+        `Détection terminée: ${totalDetected} groupe(s) créé(s) sur ${successCount} jour(s)`
       );
     } else {
       toast.warning(
-        `D\u00e9tection partielle: ${totalDetected} groupe(s), ${errorCount} jour(s) en erreur`
+        `Détection partielle: ${totalDetected} groupe(s), ${errorCount} jour(s) en erreur`
       );
     }
 
@@ -736,7 +733,7 @@ export function CarpoolingTab() {
                                           </span>
                                         </div>
                                       ) : (
-                                        <span className="text-gray-400">\u2014</span>
+                                        <span className="text-gray-400">—</span>
                                       )}
                                     </td>
                                     <td className="px-3 py-2 text-right tabular-nums">
@@ -745,7 +742,7 @@ export function CarpoolingTab() {
                                             member.trip.road_distance_km ??
                                               member.trip.distance_km
                                           )
-                                        : '\u2014'}
+                                        : '—'}
                                     </td>
                                   </tr>
                                 ))}

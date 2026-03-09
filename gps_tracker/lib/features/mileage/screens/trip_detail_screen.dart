@@ -372,8 +372,8 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
                         const SizedBox(height: 12),
                         Text(
                           carpoolInfo.isPassenger
-                              ? 'Vous \u00e9tiez passager'
-                              : 'Vous \u00eates le conducteur',
+                              ? 'Vous étiez passager'
+                              : 'Vous êtes le conducteur',
                           style: theme.textTheme.bodyMedium,
                         ),
                         if (carpoolInfo.isPassenger &&
@@ -389,7 +389,7 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
                         if (carpoolInfo.isPassenger) ...[
                           const SizedBox(height: 4),
                           Text(
-                            '0 km rembours\u00e9',
+                            '0 km remboursé',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: Colors.orange.shade700,
                               fontWeight: FontWeight.w600,
@@ -463,21 +463,21 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
                                 color: Colors.purple.shade700),
                             const SizedBox(width: 12),
                             Text(
-                              'V\u00e9hicule d\u2019entreprise',
+                              'Véhicule d’entreprise',
                               style: theme.textTheme.titleSmall,
                             ),
                           ],
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Ce trajet a \u00e9t\u00e9 effectu\u00e9 avec un v\u00e9hicule de l\u2019entreprise',
+                          'Ce trajet a été effectué avec un véhicule de l’entreprise',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: Colors.grey.shade600,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '0 km rembours\u00e9',
+                          '0 km remboursé',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: Colors.purple.shade700,
                             fontWeight: FontWeight.w600,

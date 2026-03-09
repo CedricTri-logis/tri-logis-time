@@ -120,6 +120,9 @@ class MainActivity : FlutterActivity() {
                 }
             }
 
+        // --- Diagnostic Native Plugin (GNSS, doze, standby bucket) ---
+        DiagnosticNativePlugin.register(flutterEngine.dartExecutor.binaryMessenger, this)
+
         // --- Thermal State Method Channel ---
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "gps_tracker/thermal")
             .setMethodCallHandler { call, result ->

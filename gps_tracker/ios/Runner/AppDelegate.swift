@@ -32,6 +32,9 @@ import GoogleMaps
     // Register BGAppRefresh MethodChannel (Dart-side schedule/cancel)
     BackgroundAppRefreshPlugin.register(with: self.registrar(forPlugin: "BackgroundAppRefreshPlugin")!)
 
+    // Register Diagnostic Native plugin (MetricKit, location pause, memory pressure)
+    DiagnosticNativePlugin.register(with: self.registrar(forPlugin: "DiagnosticNativePlugin")!)
+
     // Register native GPS buffer MethodChannel
     let controller = window?.rootViewController as! FlutterViewController
     let nativeGpsChannel = FlutterMethodChannel(

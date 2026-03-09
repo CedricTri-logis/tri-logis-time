@@ -2,6 +2,7 @@
 
 import { useCustom, useCustomMutation } from '@refinedev/core';
 import { useMemo, useCallback, useState } from 'react';
+import { toLocalDateString } from '@/lib/utils/date-utils';
 import type {
   CleaningSession,
   CleaningSessionRow,
@@ -58,8 +59,8 @@ export function useCleaningSessions(filters: CleaningSessionFilters) {
       payload: {
         p_building_id: buildingId || null,
         p_employee_id: employeeId || null,
-        p_date_from: dateFrom.toISOString().split('T')[0],
-        p_date_to: dateTo.toISOString().split('T')[0],
+        p_date_from: toLocalDateString(dateFrom),
+        p_date_to: toLocalDateString(dateTo),
         p_limit: limit,
         p_offset: offset,
       } as Record<string, unknown>,
@@ -136,8 +137,8 @@ export function useCleaningStatsByBuilding(dateFrom: Date, dateTo: Date) {
     },
     config: {
       payload: {
-        p_date_from: dateFrom.toISOString().split('T')[0],
-        p_date_to: dateTo.toISOString().split('T')[0],
+        p_date_from: toLocalDateString(dateFrom),
+        p_date_to: toLocalDateString(dateTo),
       } as Record<string, unknown>,
     },
     queryOptions: {
@@ -184,8 +185,8 @@ export function useEmployeeCleaningStats(
     config: {
       payload: {
         p_employee_id: employeeId || null,
-        p_date_from: dateFrom.toISOString().split('T')[0],
-        p_date_to: dateTo.toISOString().split('T')[0],
+        p_date_from: toLocalDateString(dateFrom),
+        p_date_to: toLocalDateString(dateTo),
       } as Record<string, unknown>,
     },
     queryOptions: {

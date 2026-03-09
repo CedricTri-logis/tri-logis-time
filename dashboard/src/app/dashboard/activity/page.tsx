@@ -75,7 +75,7 @@ export default function MileagePage() {
       if (error) throw error;
       const result = Array.isArray(data) ? data[0] : data;
       toast.success(
-        `Re-match termin\u00e9: ${result.matched_count} associ\u00e9s, ${result.skipped_manual} manuels ignor\u00e9s`
+        `Re-match terminé: ${result.matched_count} associés, ${result.skipped_manual} manuels ignorés`
       );
     } catch (err) {
       toast.error('Erreur lors du re-match des emplacements');
@@ -162,10 +162,10 @@ export default function MileagePage() {
 
       const s = response.summary;
       if (s.total_requested === 0) {
-        toast.info('Aucun trajet en attente \u00e0 traiter.', { id: toastId });
+        toast.info('Aucun trajet en attente à traiter.', { id: toastId });
       } else {
         toast.success(
-          `${s.matched} appari\u00e9(s), ${s.failed} \u00e9chou\u00e9(s), ${s.skipped} ignor\u00e9(s) \u2014 ${s.duration_seconds}s`,
+          `${s.matched} apparié(s), ${s.failed} échoué(s), ${s.skipped} ignoré(s) — ${s.duration_seconds}s`,
           { id: toastId }
         );
       }
@@ -251,13 +251,13 @@ export default function MileagePage() {
           <DialogHeader>
             <DialogTitle>
               {dialogMode === 'failed'
-                ? 'Retraiter les trajets \u00e9chou\u00e9s'
+                ? 'Retraiter les trajets échoués'
                 : 'Retraiter tous les trajets'}
             </DialogTitle>
             <DialogDescription>
               {dialogMode === 'failed'
-                ? 'Cela va retenter l\'appariement des itin\u00e9raires pour tous les trajets en attente et \u00e9chou\u00e9s (jusqu\'\u00e0 500).'
-                : 'Cela va retraiter TOUS les trajets, y compris ceux d\u00e9j\u00e0 appari\u00e9s (jusqu\'\u00e0 500). Les appariements existants seront \u00e9cras\u00e9s.'}
+                ? 'Cela va retenter l\'appariement des itinéraires pour tous les trajets en attente et échoués (jusqu\'à 500).'
+                : 'Cela va retraiter TOUS les trajets, y compris ceux déjà appariés (jusqu\'à 500). Les appariements existants seront écrasés.'}
             </DialogDescription>
           </DialogHeader>
 

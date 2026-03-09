@@ -304,7 +304,7 @@ class _MileageReportScreenState extends ConsumerState<MileageReportScreen> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              '${trip.startDisplayName} \u2192 ${trip.endDisplayName}',
+              '${trip.startDisplayName} → ${trip.endDisplayName}',
               style: theme.textTheme.bodySmall,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

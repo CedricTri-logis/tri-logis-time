@@ -40,8 +40,8 @@ export function formatDateHeader(dateStr: string): string {
 
 /** Format distance in km or return em-dash */
 export function formatDistance(km: number | string | null): string {
-  if (km == null) return '\u2014';
+  if (km == null) return '—';
   const n = Number(km);
-  if (isNaN(n)) return '\u2014';
+  if (isNaN(n)) return '—';
   return `${n.toFixed(1)} km`;
 }

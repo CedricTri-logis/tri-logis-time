@@ -18,6 +18,7 @@ import '../models/geo_point.dart';
 import '../models/local_gps_point.dart';
 import '../models/shift.dart';
 import '../../auth/services/device_info_service.dart';
+import '../../tracking/providers/gps_health_guard_provider.dart';
 import '../../tracking/providers/tracking_provider.dart';
 import '../../tracking/services/background_tracking_service.dart';
 import '../providers/sync_provider.dart';
@@ -584,6 +585,9 @@ class ShiftNotifier extends StateNotifier<ShiftState>
     },);
 
     state = state.copyWith(isClockingOut: true, clearError: true);
+
+    // Ensure GPS is alive for final position capture
+    await ensureGpsAlive(_ref, source: 'shift_clock_out');
 
     try {
       final result = await _shiftService.clockOut(

@@ -65,19 +65,19 @@ function FreshnessIndicator({
       icon: CheckCircle,
       color: 'text-green-500',
       bgColor: 'bg-green-500',
-      label: 'Donn\u00e9es \u00e0 jour',
+      label: 'Données à jour',
     },
     stale: {
       icon: AlertCircle,
       color: 'text-yellow-500',
       bgColor: 'bg-yellow-500',
-      label: 'Donn\u00e9es possiblement p\u00e9rim\u00e9es',
+      label: 'Données possiblement périmées',
     },
     very_stale: {
       icon: AlertCircle,
       color: 'text-red-500',
       bgColor: 'bg-red-500',
-      label: 'Donn\u00e9es p\u00e9rim\u00e9es',
+      label: 'Données périmées',
     },
     error: {
       icon: XCircle,
@@ -113,7 +113,7 @@ function FreshnessIndicator({
 function formatTimeAgo(date: Date): string {
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
 
-  if (seconds < 5) return '\u00e0 l\u2019instant';
+  if (seconds < 5) return 'à l’instant';
   if (seconds < 60) return `il y a ${seconds}s`;
 
   const minutes = Math.floor(seconds / 60);
