@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../maintenance/models/maintenance_session.dart';
 import '../../maintenance/services/maintenance_local_db.dart';
 import '../../shifts/models/shift_enums.dart';
 import '../models/cleaning_session.dart';
@@ -83,32 +84,45 @@ class CleaningSessionService {
       return ScanResult.error(ScanErrorType.studioInactive);
     }
 
-    // 5. Check for active maintenance session (cross-feature)
+    // 5. Auto-close any active maintenance session
     if (_maintenanceLocalDb != null) {
       final activeMaintenance =
           await _maintenanceLocalDb!.getActiveSessionForEmployee(employeeId);
       if (activeMaintenance != null) {
-        return ScanResult.error(
-          ScanErrorType.sessionExists,
-          message:
-              'Terminez votre session d\'entretien avant de commencer un ménage',
+        final now = DateTime.now().toUtc();
+        final duration = now.difference(activeMaintenance.startedAt).inSeconds / 60.0;
+        await _maintenanceLocalDb!.updateMaintenanceSession(
+          activeMaintenance.copyWith(
+            status: MaintenanceSessionStatus.manuallyClosed,
+            completedAt: now,
+            durationMinutes: double.parse(duration.toStringAsFixed(2)),
+            syncStatus: SyncStatus.pending,
+          ),
         );
       }
     }
 
-    // 6. Check for existing active session for this employee + studio
+    // 6. Auto-close any active cleaning session (different studio)
     final existingSession = await _localDb.getActiveSessionForEmployee(
       employeeId,
-      studioId: studio.id,
     );
     if (existingSession != null) {
-      return ScanResult.error(
-        ScanErrorType.sessionExists,
-        existingSessionId: existingSession.id,
-      );
+      if (existingSession.studioId == studio.id) {
+        // Same studio — double-tap, return existing session
+        return ScanResult.success(existingSession);
+      }
+      // Different studio — auto-close previous
+      final now = DateTime.now().toUtc();
+      final duration = now.difference(existingSession.startedAt).inSeconds / 60.0;
+      await _localDb.updateCleaningSession(existingSession.copyWith(
+        status: CleaningSessionStatus.manuallyClosed,
+        completedAt: now,
+        durationMinutes: double.parse(duration.toStringAsFixed(2)),
+        syncStatus: SyncStatus.pending,
+      ));
     }
 
-    // 6. Create local cleaning session
+    // 7. Create local cleaning session
     final sessionId = _uuid.v4();
     final now = DateTime.now().toUtc();
 

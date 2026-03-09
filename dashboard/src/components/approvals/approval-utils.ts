@@ -22,24 +22,33 @@ export interface ProjectSlice {
 }
 
 /**
- * Given an activity's time range and all project sessions for the day,
+ * Given an activity's time range, location, and all project sessions for the day,
  * return the overlapping sessions + gaps within that range.
+ * Filters by location_id match when provided (stops/merged groups have a location).
  */
 export function getProjectSlices(
   activityStart: string,
   activityEnd: string,
   projectSessions: ProjectSession[],
+  activityLocationId?: string | null,
 ): ProjectSlice[] {
   const aStart = new Date(activityStart).getTime();
   const aEnd = new Date(activityEnd).getTime();
   if (aEnd <= aStart) return [];
 
-  // Find sessions that overlap with this activity, deduplicated
+  // Find sessions that overlap with this activity
   const overlappingRaw = projectSessions
     .filter(ps => {
       const psStart = new Date(ps.started_at).getTime();
       const psEnd = new Date(ps.ended_at).getTime();
-      return psStart < aEnd && psEnd > aStart;
+      const timeOverlap = psStart < aEnd && psEnd > aStart;
+      if (!timeOverlap) return false;
+      // If we have a location to match against, only show sessions at this location
+      if (activityLocationId && ps.location_id) {
+        return ps.location_id === activityLocationId;
+      }
+      // No location filter — include all time-overlapping sessions
+      return true;
     })
     .sort((a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime());
 

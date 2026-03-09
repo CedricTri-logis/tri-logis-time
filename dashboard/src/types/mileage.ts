@@ -287,6 +287,7 @@ export interface ProjectSession {
   unit_label: string | null;
   unit_type: string;
   session_status: string;
+  location_id: string | null;
 }
 
 export interface DayApprovalDetail {
