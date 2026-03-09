@@ -361,6 +361,13 @@ Future<void> _initializeFirebase() async {
 
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
     FcmService().initialize();
+
+    // Register FCM token now that Firebase is ready.
+    // The initial attempt in app.dart fires before Firebase init (deferred 3s)
+    // and always fails. This retry ensures the token gets registered.
+    FcmService().registerToken();
+    FcmService().listenForTokenRefresh();
+
     debugPrint('[Main] Firebase + Crashlytics initialized successfully');
   } catch (e) {
     _firebaseInitialized = false; // Allow retry on next foreground

@@ -1,6 +1,6 @@
 # Background Tracking Resilience - Audit complet
 
-> Dernière mise à jour : 2026-03-09 | Build actuel : v1.0.0+111
+> Dernière mise à jour : 2026-03-09 | Build actuel : v1.0.0+112
 
 ## Table des matières
 
@@ -591,6 +591,7 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +109 | Mar 7 | **GPS Health Guard** — remplace `verifyTrackingHealth()` fire-and-forget par système 2 tiers : **hard gate** (awaited, timeout 5s) sur clock-out, QR scan in/out, maintenance start/complete, lunch end ; **soft nudge** (fire-and-forget, debounce 30s) via `NavigatorObserver` + `Listener` sur toutes navigations et taps. Logs structurés DiagnosticLogger (source, tier, durée, shift_id). Dashboard : timezone fixes, GPS gap approval grouping | ✅ Actif |
 | +110 | Mar 9 | **Telemetry Phase 1-3** — Firebase Crashlytics (double-write DiagnosticLogger), battery_level sur gps_points, app lifecycle logging. **iOS DiagnosticNativePlugin** (MetricKit, CLLocationManager pause/resume, memory pressure). **Android DiagnosticNativePlugin** (GNSS satellite 60s, doze mode BroadcastReceiver, standby bucket 5min). Fix : DiagnosticNativePlugin.swift ajouté au Xcode project + `pausesLocationUpdatesAutomatically` corrigé. Migration 142 (battery_level + 17 catégories diagnostiques) | ✅ Actif |
 | +111 | Mar 9 | Dashboard/mileage UI updates only — aucun changement tracking/résilience | ✅ Actif |
+| +112 | Mar 9 | **Fix FCM token race condition** — `registerToken()` + `listenForTokenRefresh()` appelés dans `_initializeFirebase()` après succès Firebase init. Avant : token uniquement tenté au widget build (~200ms), toujours avant Firebase init (3s) → échec silencieux, token jamais enregistré, push wake impossibles | ✅ Fix |
 
 ### Chronologie complète Android Watchdog
 
