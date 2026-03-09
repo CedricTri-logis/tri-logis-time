@@ -40,111 +40,60 @@ import type { LocationType } from '@/types/location';
 import type {
   DayApprovalDetail as DayApprovalDetailType,
   ApprovalActivity,
-  ApprovalAutoStatus,
   TripGpsPoint,
+  ProjectSession,
 } from '@/types/mileage';
+import {
+  type ProjectSlice,
+  getProjectSlices,
+  type MergedGroup,
+  type DisplayItem,
+  mergeSameLocationGaps,
+  formatHours,
+  formatDate,
+  STATUS_BADGE,
+} from './approval-utils';
 
-// --- Same-location GPS gap merging ---
+// --- Project cell component ---
 
-interface MergedGroup {
-  /** The primary stop activity (first stop — used for location info, approval actions) */
-  primaryStop: ProcessedActivity<ApprovalActivity>;
-  /** All stop activities folded into this group */
-  stops: ProcessedActivity<ApprovalActivity>[];
-  /** Same-location gap activities nested inside (for expand) */
-  gaps: ApprovalActivity[];
-  /** Earliest started_at across all stops */
-  startedAt: string;
-  /** Latest ended_at across all stops */
-  endedAt: string;
-  /** Full span in minutes (from startedAt to endedAt) */
-  spanMinutes: number;
-  /** Total gap minutes */
-  totalGapMinutes: number;
-}
+function ProjectCell({ slices }: { slices: ProjectSlice[] }) {
+  if (slices.length === 0) return <td className="px-3 py-3"><span className="text-[10px] text-muted-foreground/40">—</span></td>;
 
-type DisplayItem =
-  | { type: 'activity'; pa: ProcessedActivity<ApprovalActivity> }
-  | { type: 'merged'; group: MergedGroup };
+  return (
+    <td className="px-3 py-3">
+      <div className="flex flex-col gap-0.5">
+        {slices.map((slice, i) => {
+          if (slice.type === 'gap') {
+            return (
+              <div key={`gap-${i}`} className="flex items-center gap-1.5 text-[11px] text-amber-600">
+                <span className="flex-shrink-0">⚠️</span>
+                <span className="truncate">Aucun projet</span>
+                <span className="text-[10px] tabular-nums text-amber-500 ml-auto whitespace-nowrap">
+                  {formatDurationMinutes(slice.duration_minutes)}
+                </span>
+              </div>
+            );
+          }
 
-/**
- * Detect consecutive same-location stop/gap chains and merge them.
- * A "same-location gap" is a trip or gap where start_location_id === end_location_id
- * and both are non-null (GPS signal lost while stationary — RPC classifies these as trips).
- */
-function mergeSameLocationGaps(items: ProcessedActivity<ApprovalActivity>[]): DisplayItem[] {
-  const result: DisplayItem[] = [];
-  let i = 0;
+          const ps = slice.session!;
+          const icon = ps.session_type === 'cleaning' ? '🧹' : '🔧';
+          const label = ps.unit_label
+            ? `${ps.building_name} #${ps.unit_label}`
+            : ps.building_name;
 
-  while (i < items.length) {
-    const pa = items[i];
-
-    // Only attempt merge starting from a stop
-    if (pa.item.activity_type !== 'stop') {
-      result.push({ type: 'activity', pa });
-      i++;
-      continue;
-    }
-
-    // Look ahead: collect stop→sameLocationGap→stop→... chains
-    const stops: ProcessedActivity<ApprovalActivity>[] = [pa];
-    const gaps: ApprovalActivity[] = [];
-    let j = i + 1;
-
-    while (j < items.length) {
-      const next = items[j];
-
-      // Next must be a same-location gap (trip or gap with identical start/end location)
-      if (
-        (next.item.activity_type === 'trip' || next.item.activity_type === 'gap') &&
-        next.item.start_location_id &&
-        next.item.end_location_id &&
-        next.item.start_location_id === next.item.end_location_id
-      ) {
-        // And after the gap, there should be a stop at the same location
-        const afterGap = items[j + 1];
-        if (
-          afterGap &&
-          afterGap.item.activity_type === 'stop' &&
-          afterGap.item.matched_location_id === pa.item.matched_location_id
-        ) {
-          gaps.push(next.item);
-          stops.push(afterGap);
-          j += 2; // skip gap + stop
-          continue;
-        }
-      }
-      break;
-    }
-
-    if (gaps.length === 0) {
-      // No merging happened — emit as normal activity
-      result.push({ type: 'activity', pa });
-      i++;
-    } else {
-      // Build merged group
-      const startedAt = stops[0].item.started_at;
-      const endedAt = stops[stops.length - 1].item.ended_at;
-      const spanMs = new Date(endedAt).getTime() - new Date(startedAt).getTime();
-      const totalGapMinutes = gaps.reduce((sum, g) => sum + g.duration_minutes, 0);
-
-      result.push({
-        type: 'merged',
-        group: {
-          primaryStop: pa,
-          stops,
-          gaps,
-          startedAt,
-          endedAt,
-          spanMinutes: Math.round(spanMs / 60000),
-          totalGapMinutes,
-        },
-      });
-      i = j; // skip past all consumed items
-    }
-  }
-
-  return result;
+          return (
+            <div key={ps.session_id} className="flex items-center gap-1.5 text-[11px] text-foreground">
+              <span className="flex-shrink-0">{icon}</span>
+              <span className="truncate" title={label}>{label}</span>
+              <span className="text-[10px] tabular-nums text-muted-foreground ml-auto whitespace-nowrap">
+                {formatDurationMinutes(slice.duration_minutes)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </td>
+  );
 }
 
 interface DayApprovalDetailProps {
@@ -153,40 +102,6 @@ interface DayApprovalDetailProps {
   date: string;
   onClose: () => void;
 }
-
-function formatHours(minutes: number): string {
-  if (minutes === 0) return '0h';
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return m > 0 ? `${h}h${m.toString().padStart(2, '0')}` : `${h}h`;
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr + 'T12:00:00').toLocaleDateString('fr-CA', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
-}
-
-const STATUS_BADGE: Record<ApprovalAutoStatus, { className: string; icon: typeof CheckCircle2; label: string }> = {
-  approved: {
-    className: 'bg-green-100 text-green-700 hover:bg-green-100',
-    icon: CheckCircle2,
-    label: 'Approuvé',
-  },
-  rejected: {
-    className: 'bg-red-100 text-red-700 hover:bg-red-100',
-    icon: XCircle,
-    label: 'Rejeté',
-  },
-  needs_review: {
-    className: 'bg-yellow-100 text-yellow-700 hover:bg-yellow-100',
-    icon: AlertTriangle,
-    label: 'À vérifier',
-  },
-};
 
 // --- Icon helper for approval activities ---
 
@@ -964,18 +879,20 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                     <th className="px-3 py-3 text-left font-semibold text-muted-foreground uppercase text-[10px] tracking-wider border-b">Détails de l'activité</th>
                     <th className="px-3 py-3 text-left font-semibold text-muted-foreground uppercase text-[10px] tracking-wider border-b">Horaire</th>
                     <th className="px-3 py-3 text-right font-semibold text-muted-foreground uppercase text-[10px] tracking-wider border-b">Distance</th>
+                    <th className="px-3 py-3 text-left font-semibold text-muted-foreground uppercase text-[10px] tracking-wider border-b min-w-[180px]">Projet(s)</th>
                     <th className="px-3 py-3 w-8 border-b"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {displayItems.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-3 py-12 text-center text-sm text-muted-foreground italic">
+                      <td colSpan={9} className="px-3 py-12 text-center text-sm text-muted-foreground italic">
                         Aucune activité détectée pour cette période
                       </td>
                     </tr>
                   ) : (
                     displayItems.map((item, idx) => {
+                      const ps = detail?.project_sessions ?? [];
                       if (item.type === 'merged') {
                         const group = item.group;
                         const key = `merged-${group.primaryStop.item.activity_id}`;
@@ -988,6 +905,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                             isExpanded={expandedId === key}
                             onToggle={() => setExpandedId(expandedId === key ? null : key)}
                             onOverride={handleOverride}
+                            projectSessions={ps}
                           />
                         );
                       }
@@ -1005,6 +923,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                           isExpanded={expandedId === key}
                           onToggle={() => setExpandedId(expandedId === key ? null : key)}
                           onOverride={handleOverride}
+                          projectSessions={ps}
                         />
                       ) : (
                         <ActivityRow
@@ -1015,6 +934,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                           isExpanded={expandedId === key}
                           onToggle={() => setExpandedId(expandedId === key ? null : key)}
                           onOverride={handleOverride}
+                          projectSessions={ps}
                         />
                       );
                     })
@@ -1096,6 +1016,7 @@ function TripConnectorRow({
   isExpanded,
   onToggle,
   onOverride,
+  projectSessions,
 }: {
   pa: ProcessedActivity<ApprovalActivity>;
   isApproved: boolean;
@@ -1103,6 +1024,7 @@ function TripConnectorRow({
   isExpanded: boolean;
   onToggle: () => void;
   onOverride: (activity: ApprovalActivity, status: 'approved' | 'rejected') => void;
+  projectSessions: ProjectSession[];
 }) {
   const { item: activity } = pa;
   const hasOverride = activity.override_status !== null;
@@ -1183,6 +1105,27 @@ function TripConnectorRow({
         {/* Distance column */}
         <td className="py-1.5" />
 
+        {/* Projet(s) — show sessions overlapping this trip */}
+        {(() => {
+          const slices = getProjectSlices(activity.started_at, activity.ended_at, projectSessions);
+          return slices.length > 0 ? (
+            <td className="px-3 py-1.5">
+              <div className="flex flex-col gap-0.5">
+                {slices.map((slice, i) => {
+                  if (slice.type === 'gap') return null; // Don't show gaps for short trips
+                  const ps = slice.session!;
+                  const icon = ps.session_type === 'cleaning' ? '🧹' : '🔧';
+                  return (
+                    <span key={ps.session_id} className="text-[10px] text-muted-foreground truncate">
+                      {icon} {ps.building_name}{ps.unit_label ? ` #${ps.unit_label}` : ''}
+                    </span>
+                  );
+                })}
+              </div>
+            </td>
+          ) : <td className="py-1.5" />;
+        })()}
+
         {/* Expand chevron */}
         <td className="px-3 py-1.5 text-center">
           <div className={`rounded-full p-0.5 transition-colors ${isExpanded ? 'bg-muted' : 'group-hover:bg-muted'}`}>
@@ -1197,7 +1140,7 @@ function TripConnectorRow({
       {/* Expanded: route map + override toggle */}
       {isExpanded && (
         <tr>
-          <td colSpan={8} className="p-0 border-b">
+          <td colSpan={9} className="p-0 border-b">
             <div className="px-4 py-4 bg-muted/10 border-t border-b space-y-4">
               {/* Override controls (only when day not approved) */}
               {!isApproved && (
@@ -1367,6 +1310,7 @@ function MergedLocationRow({
   isExpanded,
   onToggle,
   onOverride,
+  projectSessions,
 }: {
   group: MergedGroup;
   isApproved: boolean;
@@ -1374,6 +1318,7 @@ function MergedLocationRow({
   isExpanded: boolean;
   onToggle: () => void;
   onOverride: (activity: ApprovalActivity, status: 'approved' | 'rejected') => void;
+  projectSessions: ProjectSession[];
 }) {
   const activity = group.primaryStop.item;
   const { hasClockIn } = group.primaryStop;
@@ -1551,6 +1496,9 @@ function MergedLocationRow({
           <span className="opacity-20 text-xs font-bold">&mdash;</span>
         </td>
 
+        {/* Projet(s) */}
+        <ProjectCell slices={getProjectSlices(group.startedAt, group.endedAt, projectSessions)} />
+
         {/* Expand chevron */}
         <td className="px-3 py-3 text-center">
           <div className={`rounded-full p-1 transition-colors ${isExpanded ? 'bg-muted' : 'group-hover:bg-muted'}`}>
@@ -1565,7 +1513,7 @@ function MergedLocationRow({
       {/* Expanded: nested GPS gap sub-rows */}
       {isExpanded && (
         <tr>
-          <td colSpan={8} className="p-0 border-b">
+          <td colSpan={9} className="p-0 border-b">
             <div className="px-6 py-4 bg-amber-50/30 border-t border-amber-200/50">
               {/* Bulk approve button */}
               {!isApproved && hasUnreviewedGaps && (
@@ -1619,6 +1567,7 @@ function ActivityRow({
   isExpanded,
   onToggle,
   onOverride,
+  projectSessions,
 }: {
   pa: ProcessedActivity<ApprovalActivity>;
   isApproved: boolean;
@@ -1626,6 +1575,7 @@ function ActivityRow({
   isExpanded: boolean;
   onToggle: () => void;
   onOverride: (activity: ApprovalActivity, status: 'approved' | 'rejected') => void;
+  projectSessions: ProjectSession[];
 }) {
   const { item: activity, hasClockIn, hasClockOut } = pa;
   const isStop = activity.activity_type === 'stop';
@@ -1868,6 +1818,13 @@ function ActivityRow({
           )}
         </td>
 
+        {/* Projet(s) */}
+        {(isClock || isLunch) ? (
+          <td className="px-3 py-3"><span className="text-[10px] text-muted-foreground/40">—</span></td>
+        ) : (
+          <ProjectCell slices={getProjectSlices(activity.started_at, activity.ended_at, projectSessions)} />
+        )}
+
         {/* Expand chevron */}
         <td className="px-3 py-3 text-center">
           {canExpand && (
@@ -1884,7 +1841,7 @@ function ActivityRow({
       {/* Expanded detail row (stops + gaps — trips use TripConnectorRow) */}
       {isExpanded && canExpand && (
         <tr>
-          <td colSpan={8} className="p-0 border-b">
+          <td colSpan={9} className="p-0 border-b">
             <div className="px-4 py-6 bg-muted/10 border-t border-b">
               {isGap ? (
                 <GapExpandDetail activity={activity} />
