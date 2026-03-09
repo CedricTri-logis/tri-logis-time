@@ -4,8 +4,8 @@ const nextConfig: NextConfig = {
   // Production build optimizations
   reactStrictMode: true,
 
-  // Output configuration for Vercel
-  output: 'standalone',
+  // Output configuration for Vercel (standalone only in production)
+  ...(process.env.NODE_ENV === 'production' ? { output: 'standalone' as const } : {}),
 
   // Image optimization
   images: {
