@@ -18,7 +18,7 @@ export function StatsCards({ data, isLoading }: StatsCardsProps) {
 
   const stats = [
     {
-      title: 'Total employ\u00e9s',
+      title: 'Total employés',
       value: data?.employee_counts?.total ?? 0,
       subtitle: `${data?.employee_counts?.by_role?.manager ?? 0} gestionnaires, ${data?.employee_counts?.by_role?.admin ?? 0} admins`,
       icon: Users,
@@ -28,13 +28,13 @@ export function StatsCards({ data, isLoading }: StatsCardsProps) {
     {
       title: 'Quarts actifs',
       value: data?.shift_stats?.active_shifts ?? 0,
-      subtitle: `${data?.shift_stats?.completed_today ?? 0} termin\u00e9s aujourd\u2019hui`,
+      subtitle: `${data?.shift_stats?.completed_today ?? 0} terminés aujourd’hui`,
       icon: Briefcase,
       color: 'text-green-600',
       bgColor: 'bg-green-50',
     },
     {
-      title: 'Heures aujourd\u2019hui',
+      title: 'Heures aujourd’hui',
       value: formatHours(data?.shift_stats?.total_hours_today ?? 0),
       subtitle: `${formatHours(data?.shift_stats?.total_hours_this_week ?? 0)} cette semaine`,
       icon: Clock,
@@ -44,7 +44,7 @@ export function StatsCards({ data, isLoading }: StatsCardsProps) {
     {
       title: 'Heures ce mois-ci',
       value: formatHours(data?.shift_stats?.total_hours_this_month ?? 0),
-      subtitle: `Actifs\u00a0: ${data?.employee_counts?.active_status?.active ?? 0}`,
+      subtitle: `Actifs : ${data?.employee_counts?.active_status?.active ?? 0}`,
       icon: CheckCircle,
       color: 'text-orange-600',
       bgColor: 'bg-orange-50',

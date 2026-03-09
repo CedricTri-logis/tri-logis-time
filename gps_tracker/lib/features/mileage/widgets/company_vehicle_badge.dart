@@ -8,7 +8,7 @@ class CompanyVehicleBadge extends StatelessWidget {
     return Chip(
       avatar: const Icon(Icons.business, size: 14, color: Colors.white),
       label: const Text(
-        'V\u00e9h. entreprise',
+        'Véh. entreprise',
         style: TextStyle(fontSize: 11, color: Colors.white),
       ),
       backgroundColor: Colors.purple,

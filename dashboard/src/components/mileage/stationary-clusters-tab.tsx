@@ -246,7 +246,7 @@ export function StationaryClustersTab() {
                       <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
                         {cluster.centroid_accuracy != null
                           ? `${Math.round(cluster.centroid_accuracy)} m`
-                          : '\u2014'}
+                          : '—'}
                       </td>
                     </tr>
                   ))}

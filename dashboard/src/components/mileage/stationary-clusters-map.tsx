@@ -254,7 +254,7 @@ export function StationaryClustersMap({
             {infoCluster.employee_name}
           </h4>
           <p className="text-xs mb-1" style={{ color: infoCluster.matched_location_id ? '#16a34a' : '#d97706' }}>
-            {infoCluster.matched_location_name || 'Non associ\u00e9'}
+            {infoCluster.matched_location_name || 'Non associé'}
           </p>
           <p className="text-[11px] text-slate-600 mb-0.5">
             Dur&eacute;e: <strong>{formatDuration(infoCluster.duration_seconds)}</strong>

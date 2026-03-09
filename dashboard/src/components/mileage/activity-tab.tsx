@@ -351,7 +351,7 @@ export function ActivityTab() {
                     size="sm"
                     onClick={() => setTypeFilter(t)}
                   >
-                    {t === 'all' ? 'Tout' : t === 'trips' ? 'Trajets' : 'Arr\u00eats'}
+                    {t === 'all' ? 'Tout' : t === 'trips' ? 'Trajets' : 'Arrêts'}
                   </Button>
                 ))}
               </div>
@@ -702,7 +702,7 @@ function StopExpandDetail({ stop }: { stop: ActivityStop }) {
         <div className="col-span-2">
           <span className="text-xs text-muted-foreground block">Emplacement</span>
           <span className={`font-medium ${stop.matched_location_name ? 'text-green-600' : 'text-amber-600'}`}>
-            {stop.matched_location_name || 'Non associ\u00e9'}
+            {stop.matched_location_name || 'Non associé'}
           </span>
         </div>
         <div>
@@ -716,7 +716,7 @@ function StopExpandDetail({ stop }: { stop: ActivityStop }) {
         <div>
           <span className="text-xs text-muted-foreground block">Pr&eacute;cision</span>
           <span className="font-medium">
-            {stop.centroid_accuracy != null ? `\u00b1${Math.round(stop.centroid_accuracy)}m` : '\u2014'}
+            {stop.centroid_accuracy != null ? `±${Math.round(stop.centroid_accuracy)}m` : '—'}
           </span>
         </div>
         <div>
@@ -789,20 +789,20 @@ function getActivityDetail(item: ActivityItem, geocodedAddresses: Record<string,
     const gap = item as ActivityGap;
     const from = gap.start_location_name || 'Inconnu';
     const to = gap.end_location_name || 'Inconnu';
-    return `${from} \u2192 ${to}`;
+    return `${from} → ${to}`;
   }
   if (item.activity_type === 'trip') {
     const trip = item as ActivityTrip;
     const from = resolveLocation(trip.start_location_name, trip.start_address, trip.start_latitude, trip.start_longitude, geocodedAddresses);
     const to = resolveLocation(trip.end_location_name, trip.end_address, trip.end_latitude, trip.end_longitude, geocodedAddresses);
-    return `${from} \u2192 ${to}`;
+    return `${from} → ${to}`;
   }
   const stop = item as ActivityStop;
-  return stop.matched_location_name || 'Non associ\u00e9';
+  return stop.matched_location_name || 'Non associé';
 }
 
 function getActivityDuration(item: ActivityItem): string {
-  if (item.activity_type === 'clock_in' || item.activity_type === 'clock_out') return '\u2014';
+  if (item.activity_type === 'clock_in' || item.activity_type === 'clock_out') return '—';
   if (item.activity_type === 'gap') {
     return formatDurationMinutes((item as ActivityGap).duration_minutes);
   }
@@ -894,7 +894,7 @@ function GapExpandDetail({ gap }: { gap: ActivityGap }) {
         <div>
           <span className="text-xs text-muted-foreground block">Distance route (OSRM)</span>
           <span className="font-medium">
-            {isLoading ? '...' : roadDistanceKm ? formatDistance(roadDistanceKm) : '\u2014'}
+            {isLoading ? '...' : roadDistanceKm ? formatDistance(roadDistanceKm) : '—'}
           </span>
         </div>
         <div>
@@ -1032,7 +1032,7 @@ function ActivityTableRow({
           {formatTime(item.started_at)}
         </td>
         <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">
-          {isClock ? '\u2014' : formatTime(item.ended_at)}
+          {isClock ? '—' : formatTime(item.ended_at)}
         </td>
         <td className="px-4 py-3 whitespace-nowrap tabular-nums">
           <div className="flex items-center gap-1">
@@ -1067,18 +1067,18 @@ function ActivityTableRow({
             </span>
           ) : stop ? (
             <span className={`text-xs ${stop.matched_location_name ? 'text-green-600 font-medium' : 'text-amber-600'}`}>
-              {stop.matched_location_name || 'Non associ\u00e9'}
+              {stop.matched_location_name || 'Non associé'}
             </span>
           ) : null}
         </td>
         <td className="px-4 py-3 text-right tabular-nums">
           {isTrip && trip ? formatDistance(trip.road_distance_km ?? trip.distance_km)
            : isGap && gap ? formatDistance(gap.distance_km)
-           : '\u2014'}
+           : '—'}
         </td>
         <td className="px-4 py-3 text-center">
           {isClock ? (
-            '\u2014'
+            '—'
           ) : isGap ? (
             <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700">
               Non trac&eacute;
@@ -1091,7 +1091,7 @@ function ActivityTableRow({
                 ? 'bg-green-100 text-green-700'
                 : 'bg-amber-100 text-amber-700'
             }`}>
-              {stop?.matched_location_name ? 'Associ\u00e9' : 'Non associ\u00e9'}
+              {stop?.matched_location_name ? 'Associé' : 'Non associé'}
             </span>
           )}
         </td>

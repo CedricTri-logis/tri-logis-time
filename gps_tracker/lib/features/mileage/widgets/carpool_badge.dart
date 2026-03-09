@@ -17,7 +17,7 @@ class CarpoolBadge extends StatelessWidget {
       ),
       label: Text(
         isPassenger
-            ? 'Passager${carpoolInfo.driverName != null ? ' \u00b7 ${carpoolInfo.driverName}' : ''}'
+            ? 'Passager${carpoolInfo.driverName != null ? ' · ${carpoolInfo.driverName}' : ''}'
             : 'Conducteur',
         style: TextStyle(
           fontSize: 11,
