@@ -1,8 +1,20 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
+// Cache role checks per user for 5 minutes to avoid repeated DB queries
+const roleCache = new Map<string, { role: string; ts: number }>();
+const ROLE_CACHE_TTL = 5 * 60 * 1000;
+
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next({ request });
+
+  const isProtected = request.nextUrl.pathname.startsWith('/dashboard');
+  const isLoginPage = request.nextUrl.pathname === '/login';
+
+  // Skip Supabase calls entirely for non-protected, non-login routes
+  if (!isProtected && !isLoginPage) {
+    return response;
+  }
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!.trim(),
@@ -20,11 +32,10 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // Refresh session if needed
-  const { data: { user } } = await supabase.auth.getUser();
-
-  const isProtected = request.nextUrl.pathname.startsWith('/dashboard');
-  const isLoginPage = request.nextUrl.pathname === '/login';
+  // Use getSession (local JWT decode) instead of getUser (network call to Supabase)
+  // This is safe for routing decisions — actual data access is protected by RLS
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user ?? null;
 
   // Redirect to login if accessing protected route without auth
   if (isProtected && !user) {
@@ -39,7 +50,6 @@ export async function middleware(request: NextRequest) {
     }
     // User is logged in but has an error param (e.g. unauthorized) — sign them out so they can re-login
     await supabase.auth.signOut();
-    // Clear auth cookies from the response to prevent redirect loop
     const loginResponse = NextResponse.redirect(new URL('/login', request.url));
     response.cookies.getAll().forEach((cookie) => {
       if (cookie.name.startsWith('sb-')) {
@@ -49,17 +59,26 @@ export async function middleware(request: NextRequest) {
     return loginResponse;
   }
 
-  // Check role for dashboard access
+  // Check role for dashboard access (cached)
   if (isProtected && user) {
-    const { data: profile } = await supabase
-      .from('employee_profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
+    const cached = roleCache.get(user.id);
+    let userRole: string | undefined;
 
-    const userRole = profile?.role;
+    if (cached && Date.now() - cached.ts < ROLE_CACHE_TTL) {
+      userRole = cached.role;
+    } else {
+      const { data: profile } = await supabase
+        .from('employee_profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
 
-    // Only admin and super_admin can access dashboard
+      userRole = profile?.role;
+      if (userRole) {
+        roleCache.set(user.id, { role: userRole, ts: Date.now() });
+      }
+    }
+
     if (!userRole || !['admin', 'super_admin'].includes(userRole)) {
       return NextResponse.redirect(new URL('/login?error=unauthorized', request.url));
     }
@@ -69,5 +88,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)'],
+  // Only run middleware on page navigations, not on static assets, images, or API routes
+  matcher: ['/dashboard/:path*', '/login'],
 };
