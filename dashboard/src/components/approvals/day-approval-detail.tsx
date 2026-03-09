@@ -14,6 +14,7 @@ import {
   MapPinOff,
   Car,
   Footprints,
+  MoveRight,
   Clock,
   LogIn,
   LogOut,
@@ -206,7 +207,7 @@ function ApprovalActivityIcon({ activity }: { activity: ApprovalActivity }) {
   if (activity.activity_type === 'trip') {
     if (activity.transport_mode === 'walking') return <Footprints className="h-4 w-4 text-orange-500" />;
     if (activity.transport_mode === 'driving') return <Car className="h-4 w-4 text-blue-500" />;
-    return <Car className="h-4 w-4 text-gray-300" />;
+    return <MoveRight className="h-4 w-4 text-gray-400" />;
   }
   // Stop or standalone clock — use location type icon if available
   if (activity.location_name && activity.location_type) {
@@ -1151,7 +1152,9 @@ function TripConnectorRow({
           <div className="flex justify-center">
             {activity.transport_mode === 'walking'
               ? <Footprints className="h-3 w-3 text-orange-400" />
-              : <Car className="h-3 w-3 text-blue-400" />
+              : activity.transport_mode === 'driving'
+                ? <Car className="h-3 w-3 text-blue-400" />
+                : <MoveRight className="h-3 w-3 text-gray-400" />
             }
           </div>
         </td>
