@@ -1096,14 +1096,24 @@ BEGIN
             t.gps_gap_seconds,
             t.gps_gap_count,
             CASE
-                WHEN t.has_gps_gap = TRUE THEN 'needs_review'
+                WHEN t.has_gps_gap = TRUE THEN
+                    CASE
+                        WHEN dep_stop.final_status = 'rejected' OR arr_stop.final_status = 'rejected' THEN 'rejected'
+                        WHEN dep_stop.final_status = 'approved' AND arr_stop.final_status = 'approved' THEN 'approved'
+                        ELSE 'needs_review'
+                    END
                 WHEN t.duration_minutes > 60 THEN 'needs_review'
                 WHEN dep_stop.final_status = 'rejected' OR arr_stop.final_status = 'rejected' THEN 'rejected'
                 WHEN dep_stop.final_status = 'approved' AND arr_stop.final_status = 'approved' THEN 'approved'
                 ELSE 'needs_review'
             END AS auto_status,
             CASE
-                WHEN t.has_gps_gap = TRUE THEN 'Données GPS incomplètes'
+                WHEN t.has_gps_gap = TRUE THEN
+                    CASE
+                        WHEN dep_stop.final_status = 'rejected' OR arr_stop.final_status = 'rejected' THEN 'Trajet vers/depuis lieu non autorisé'
+                        WHEN dep_stop.final_status = 'approved' AND arr_stop.final_status = 'approved' THEN 'Déplacement professionnel'
+                        ELSE 'Données GPS incomplètes'
+                    END
                 WHEN t.duration_minutes > 60 THEN 'Trajet anormalement long (>' || t.duration_minutes || ' min)'
                 WHEN dep_stop.final_status = 'rejected' OR arr_stop.final_status = 'rejected' THEN 'Trajet vers/depuis lieu non autorisé'
                 WHEN dep_stop.final_status = 'approved' AND arr_stop.final_status = 'approved' THEN 'Déplacement professionnel'
@@ -1512,7 +1522,12 @@ BEGIN
             t.duration_minutes,
             COALESCE(ao.override_status,
                 CASE
-                    WHEN t.has_gps_gap = TRUE THEN 'needs_review'
+                    WHEN t.has_gps_gap = TRUE THEN
+                        CASE
+                            WHEN dep_stop.final_status = 'rejected' OR arr_stop.final_status = 'rejected' THEN 'rejected'
+                            WHEN dep_stop.final_status = 'approved' AND arr_stop.final_status = 'approved' THEN 'approved'
+                            ELSE 'needs_review'
+                        END
                     WHEN t.duration_minutes > 60 THEN 'needs_review'
                     WHEN dep_stop.final_status = 'rejected' OR arr_stop.final_status = 'rejected' THEN 'rejected'
                     WHEN dep_stop.final_status = 'approved' AND arr_stop.final_status = 'approved' THEN 'approved'
