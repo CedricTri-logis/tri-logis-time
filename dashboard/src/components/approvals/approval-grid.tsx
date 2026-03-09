@@ -170,10 +170,29 @@ export function ApprovalGrid() {
     });
   };
 
-  const handleDetailClose = () => {
+  const handleDetailClose = (hasChanges: boolean) => {
     setSelectedCell(null);
-    // Refresh grid data after closing detail (in case of changes)
-    fetchData();
+    // Only refresh grid data if changes were made in the detail panel
+    if (hasChanges) {
+      // Background refresh — no loading spinner so the grid stays visible
+      const refreshInBackground = async () => {
+        try {
+          const [summaryRes, breakdownRes] = await Promise.all([
+            supabaseClient.rpc('get_weekly_approval_summary', { p_week_start: weekStart }),
+            supabaseClient.rpc('get_weekly_breakdown_totals', { p_week_start: weekStart }),
+          ]);
+          if (!summaryRes.error) {
+            setData((summaryRes.data as WeeklyEmployeeRow[]) || []);
+          }
+          if (!breakdownRes.error) {
+            setBreakdown(breakdownRes.data as WeeklyBreakdown | null);
+          }
+        } catch {
+          // Silent fail — grid keeps showing stale data rather than breaking
+        }
+      };
+      refreshInBackground();
+    }
   };
 
   const renderCell = (day: WeeklyEmployeeRow['days'][0]) => {

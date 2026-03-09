@@ -47,7 +47,7 @@ interface DayApprovalDetailProps {
   employeeId: string;
   employeeName: string;
   date: string;
-  onClose: () => void;
+  onClose: (hasChanges: boolean) => void;
 }
 
 // --- Main component ---
@@ -59,6 +59,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
   const [notes, setNotes] = useState('');
   const [showNotes, setShowNotes] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const hasChanges = useRef(false);
 
   // Resizable panel
   const [panelWidth, setPanelWidth] = useState(50); // vw
@@ -180,6 +181,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
           toast.error('Erreur: ' + error.message);
           return;
         }
+        hasChanges.current = true;
         setDetail(data as DayApprovalDetailType);
       } finally {
         setIsSaving(false);
@@ -200,6 +202,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
         toast.error('Erreur: ' + error.message);
         return;
       }
+      hasChanges.current = true;
       setDetail(data as DayApprovalDetailType);
     } finally {
       setIsSaving(false);
@@ -218,6 +221,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
         toast.error('Erreur: ' + error.message);
         return;
       }
+      hasChanges.current = true;
       setDetail(data as DayApprovalDetailType);
       toast.success('Journée approuvée');
     } finally {
@@ -236,6 +240,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
         toast.error('Erreur: ' + error.message);
         return;
       }
+      hasChanges.current = true;
       setDetail(data as DayApprovalDetailType);
       toast.success('Journée rouverte');
     } finally {
@@ -247,7 +252,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
   const canApprove = detail && !isApproved && visibleNeedsReviewCount === 0 && !detail.has_active_shift;
 
   return (
-    <Sheet open onOpenChange={() => onClose()}>
+    <Sheet open onOpenChange={() => onClose(hasChanges.current)}>
       <SheetContent
         className="overflow-y-auto !max-w-none"
         style={{ width: `${panelWidth}vw` }}
