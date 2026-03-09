@@ -54,7 +54,10 @@ DECLARE
     v_min_distance_km      CONSTANT DECIMAL := 0.2;
     v_min_distance_driving CONSTANT DECIMAL := 0.2;
     v_min_displacement_walking CONSTANT DECIMAL := 0.1; -- 100m
-    v_gps_gap_minutes      CONSTANT INTEGER := 15;
+    -- WARNING: Do NOT re-add v_gps_gap_minutes or any GPS-gap-based cluster reset.
+    -- GPS gaps must NOT break clusters. Gap metrics are computed post-hoc by
+    -- compute_gps_gaps(). See migration 088 + regression fix in 20260309_remove_gps_gap_cluster_reset.
+    -- Regression history: 088 removed gap reset, 113 accidentally re-introduced it.
 
     -- Current cluster state
     v_cluster_lats DECIMAL[] := '{}';
@@ -1100,11 +1103,15 @@ BEGIN
                     CASE
                         WHEN dep_stop.final_status = 'rejected' OR arr_stop.final_status = 'rejected' THEN 'rejected'
                         WHEN dep_stop.final_status = 'approved' AND arr_stop.final_status = 'approved' THEN 'approved'
+                        WHEN dep_stop.final_status IS NOT NULL AND arr_stop.final_status IS NULL THEN dep_stop.final_status
+                        WHEN arr_stop.final_status IS NOT NULL AND dep_stop.final_status IS NULL THEN arr_stop.final_status
                         ELSE 'needs_review'
                     END
                 WHEN t.duration_minutes > 60 THEN 'needs_review'
                 WHEN dep_stop.final_status = 'rejected' OR arr_stop.final_status = 'rejected' THEN 'rejected'
                 WHEN dep_stop.final_status = 'approved' AND arr_stop.final_status = 'approved' THEN 'approved'
+                WHEN dep_stop.final_status IS NOT NULL AND arr_stop.final_status IS NULL THEN dep_stop.final_status
+                WHEN arr_stop.final_status IS NOT NULL AND dep_stop.final_status IS NULL THEN arr_stop.final_status
                 ELSE 'needs_review'
             END AS auto_status,
             CASE
@@ -1112,11 +1119,19 @@ BEGIN
                     CASE
                         WHEN dep_stop.final_status = 'rejected' OR arr_stop.final_status = 'rejected' THEN 'Trajet vers/depuis lieu non autorisé'
                         WHEN dep_stop.final_status = 'approved' AND arr_stop.final_status = 'approved' THEN 'Déplacement professionnel'
+                        WHEN dep_stop.final_status IS NOT NULL AND arr_stop.final_status IS NULL THEN
+                            CASE WHEN dep_stop.final_status = 'approved' THEN 'Déplacement professionnel' ELSE 'Trajet vers/depuis lieu non autorisé' END
+                        WHEN arr_stop.final_status IS NOT NULL AND dep_stop.final_status IS NULL THEN
+                            CASE WHEN arr_stop.final_status = 'approved' THEN 'Déplacement professionnel' ELSE 'Trajet vers/depuis lieu non autorisé' END
                         ELSE 'Données GPS incomplètes'
                     END
                 WHEN t.duration_minutes > 60 THEN 'Trajet anormalement long (>' || t.duration_minutes || ' min)'
                 WHEN dep_stop.final_status = 'rejected' OR arr_stop.final_status = 'rejected' THEN 'Trajet vers/depuis lieu non autorisé'
                 WHEN dep_stop.final_status = 'approved' AND arr_stop.final_status = 'approved' THEN 'Déplacement professionnel'
+                WHEN dep_stop.final_status IS NOT NULL AND arr_stop.final_status IS NULL THEN
+                    CASE WHEN dep_stop.final_status = 'approved' THEN 'Déplacement professionnel' ELSE 'Trajet vers/depuis lieu non autorisé' END
+                WHEN arr_stop.final_status IS NOT NULL AND dep_stop.final_status IS NULL THEN
+                    CASE WHEN arr_stop.final_status = 'approved' THEN 'Déplacement professionnel' ELSE 'Trajet vers/depuis lieu non autorisé' END
                 ELSE 'À vérifier'
             END AS auto_reason,
             t.distance_km,
@@ -1526,11 +1541,15 @@ BEGIN
                         CASE
                             WHEN dep_stop.final_status = 'rejected' OR arr_stop.final_status = 'rejected' THEN 'rejected'
                             WHEN dep_stop.final_status = 'approved' AND arr_stop.final_status = 'approved' THEN 'approved'
+                            WHEN dep_stop.final_status IS NOT NULL AND arr_stop.final_status IS NULL THEN dep_stop.final_status
+                            WHEN arr_stop.final_status IS NOT NULL AND dep_stop.final_status IS NULL THEN arr_stop.final_status
                             ELSE 'needs_review'
                         END
                     WHEN t.duration_minutes > 60 THEN 'needs_review'
                     WHEN dep_stop.final_status = 'rejected' OR arr_stop.final_status = 'rejected' THEN 'rejected'
                     WHEN dep_stop.final_status = 'approved' AND arr_stop.final_status = 'approved' THEN 'approved'
+                    WHEN dep_stop.final_status IS NOT NULL AND arr_stop.final_status IS NULL THEN dep_stop.final_status
+                    WHEN arr_stop.final_status IS NOT NULL AND dep_stop.final_status IS NULL THEN arr_stop.final_status
                     ELSE 'needs_review'
                 END
             ) AS final_status
