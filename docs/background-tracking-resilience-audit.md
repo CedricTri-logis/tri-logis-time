@@ -1,6 +1,6 @@
 # Background Tracking Resilience - Audit complet
 
-> Dernière mise à jour : 2026-03-07 | Build actuel : v1.0.0+109
+> Dernière mise à jour : 2026-03-09 | Build actuel : v1.0.0+110
 
 ## Table des matières
 
@@ -589,6 +589,7 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +107 | Mar 7 | **UI dîner + fix build iOS apostrophe** — Chrono travail = durée - lunch. Chrono dîner temps réel (orange). Fix CocoaPods eval→direct codesign (apostrophe path). Fix com.apple.provenance xattr (build phase sur tous les Pod targets). Aucun changement tracking/résilience | ✅ Actif |
 | +108 | Mar 7 | **Sync lunch break au start** — `notifyPendingData()` appelé dans `startLunchBreak()` (pas seulement `endLunchBreak()`). `getPendingLunchBreaks()` retire filtre `ended_at IS NOT NULL`. `endLunchBreak()` reset `sync_status=pending`. Dashboard : badge orange sidebar (Realtime `lunch_breaks`). Approval timeline : lunch = ligne distincte avec durée | ✅ Actif |
 | +109 | Mar 7 | **GPS Health Guard** — remplace `verifyTrackingHealth()` fire-and-forget par système 2 tiers : **hard gate** (awaited, timeout 5s) sur clock-out, QR scan in/out, maintenance start/complete, lunch end ; **soft nudge** (fire-and-forget, debounce 30s) via `NavigatorObserver` + `Listener` sur toutes navigations et taps. Logs structurés DiagnosticLogger (source, tier, durée, shift_id). Dashboard : timezone fixes, GPS gap approval grouping | ✅ Actif |
+| +110 | Mar 9 | **Telemetry Phase 1-3** — Firebase Crashlytics (double-write DiagnosticLogger), battery_level sur gps_points, app lifecycle logging. **iOS DiagnosticNativePlugin** (MetricKit, CLLocationManager pause/resume, memory pressure). **Android DiagnosticNativePlugin** (GNSS satellite 60s, doze mode BroadcastReceiver, standby bucket 5min). Fix : DiagnosticNativePlugin.swift ajouté au Xcode project + `pausesLocationUpdatesAutomatically` corrigé. Migration 142 (battery_level + 17 catégories diagnostiques) | ✅ Actif |
 
 ### Chronologie complète Android Watchdog
 

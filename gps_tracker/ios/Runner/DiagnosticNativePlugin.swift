@@ -73,7 +73,7 @@ public class DiagnosticNativePlugin: NSObject, FlutterPlugin, FlutterStreamHandl
     private func startLocationMonitoring() {
         locationManager = CLLocationManager()
         locationManager?.delegate = self
-        locationManager?.pausesLocationAutomatically = true
+        locationManager?.pausesLocationUpdatesAutomatically = true
     }
 
     public func locationManagerDidPauseLocationUpdates(_ manager: CLLocationManager) {
