@@ -213,7 +213,10 @@ export function ApprovalGrid() {
 
     return (
       <div className="flex flex-col items-center gap-0.5">
-        <span className="text-xs font-bold">{formatHours(approved)}</span>
+        <span className="text-xs font-bold">{formatHours(approved + bonus)}</span>
+        {bonus > 0 && (
+          <span className="text-[10px] text-orange-600 font-medium">+{formatHours(bonus)} rappel</span>
+        )}
         {rejected > 0 && (
           <span className="text-[10px] text-red-600">{formatHours(rejected)} refusé</span>
         )}
@@ -227,7 +230,7 @@ export function ApprovalGrid() {
             {formatHours(day.lunch_minutes)} dîner
           </span>
         )}
-        {(day.call_count ?? 0) > 0 && (
+        {(day.call_count ?? 0) > 0 && !bonus && (
           <div className="flex items-center gap-1 mt-0.5">
             <Phone className="h-3 w-3 text-orange-500" />
             <span className="text-[10px] text-orange-600 font-medium">
