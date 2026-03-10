@@ -117,6 +117,9 @@ class MaintenanceSessionService {
       if (apartmentId != null) {
         params['p_apartment_id'] = apartmentId;
       }
+      if (latitude != null) params['p_latitude'] = latitude;
+      if (longitude != null) params['p_longitude'] = longitude;
+      if (accuracy != null) params['p_accuracy'] = accuracy;
 
       final response =
           await _supabase.rpc<Map<String, dynamic>>('start_maintenance',
@@ -132,10 +135,13 @@ class MaintenanceSessionService {
           session.copyWith(syncStatus: SyncStatus.synced),
         );
       } else {
-        // Server rejected — return the error but keep local session
+        // Server rejected — propagate error so user knows
+        final errorCode = response['error'] as String? ?? 'UNKNOWN';
         final errorMsg =
             response['message'] as String? ?? 'Erreur serveur';
-        return MaintenanceSessionResult.success(session, warning: errorMsg);
+        // ignore: avoid_print
+        print('MaintenanceSessionService.startSession RPC rejected: $errorCode — $errorMsg');
+        return MaintenanceSessionResult.error(errorMsg);
       }
     } catch (e) {
       // ignore: avoid_print
@@ -301,7 +307,7 @@ class MaintenanceSessionService {
         }
 
         if (session.status == MaintenanceSessionStatus.inProgress) {
-          // Sync start with correct server shift ID
+          // Sync start with correct server shift ID + GPS coords
           final params = <String, dynamic>{
             'p_employee_id': session.employeeId,
             'p_shift_id': serverShiftId,
@@ -309,6 +315,15 @@ class MaintenanceSessionService {
           };
           if (session.apartmentId != null) {
             params['p_apartment_id'] = session.apartmentId;
+          }
+          if (session.startLatitude != null) {
+            params['p_latitude'] = session.startLatitude;
+          }
+          if (session.startLongitude != null) {
+            params['p_longitude'] = session.startLongitude;
+          }
+          if (session.startAccuracy != null) {
+            params['p_accuracy'] = session.startAccuracy;
           }
 
           final response = await _supabase
