@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, ChevronLeft, ChevronRight, CheckCircle2, XCircle, AlertTriangle, Clock, Minus, Car, WifiOff, MapPin, UtensilsCrossed } from 'lucide-react';
+import { Loader2, ChevronLeft, ChevronRight, CheckCircle2, XCircle, AlertTriangle, Clock, Minus, Car, WifiOff, MapPin, UtensilsCrossed, Phone } from 'lucide-react';
 import { supabaseClient } from '@/lib/supabase/client';
 import type { WeeklyEmployeeRow, DayApprovalStatus } from '@/types/mileage';
 import { DayApprovalDetail } from './day-approval-detail';
@@ -221,6 +221,19 @@ export function ApprovalGrid() {
         {(day.lunch_minutes ?? 0) > 0 && (
           <span className="text-[10px] text-orange-600">
             {formatHours(day.lunch_minutes)} dîner
+          </span>
+        )}
+        {(day.call_count ?? 0) > 0 && (
+          <div className="flex items-center gap-1 mt-0.5">
+            <Phone className="h-3 w-3 text-orange-500" />
+            <span className="text-[10px] text-orange-600 font-medium">
+              {day.call_count} rappel{day.call_count > 1 ? 's' : ''}
+            </span>
+          </div>
+        )}
+        {(day.call_billed_minutes ?? 0) > 0 && (
+          <span className="text-[10px] text-orange-600">
+            ({formatHours(day.call_billed_minutes)} facturées)
           </span>
         )}
         {day.status === 'approved' && (

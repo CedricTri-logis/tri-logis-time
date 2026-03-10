@@ -17,6 +17,7 @@ import {
   WifiOff,
   UtensilsCrossed,
   MapPin,
+  Phone,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabaseClient } from '@/lib/supabase/client';
@@ -248,6 +249,26 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
     }
   };
 
+  const handleShiftTypeToggle = async (shiftId: string, newType: 'regular' | 'call') => {
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabaseClient.rpc('update_shift_type', {
+      p_shift_id: shiftId,
+      p_shift_type: newType,
+      p_changed_by: user.id,
+    });
+
+    if (error) {
+      toast.error(`Erreur: ${error.message}`);
+      return;
+    }
+
+    toast.success(newType === 'call' ? 'Marqué comme rappel' : 'Rappel retiré');
+    hasChanges.current = true;
+    fetchDetail();
+  };
+
   const isApproved = detail?.approval_status === 'approved';
   const canApprove = detail && !isApproved && visibleNeedsReviewCount === 0 && !detail.has_active_shift;
 
@@ -380,6 +401,21 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                 </div>
               )}
             </div>
+
+            {/* Call shifts summary banner */}
+            {(detail.summary.call_count ?? 0) > 0 && (
+              <div className="rounded-md bg-orange-50 border border-orange-200 p-3 mb-4">
+                <div className="flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-orange-600" />
+                  <span className="font-medium text-orange-800">
+                    {detail.summary.call_count} rappel{detail.summary.call_count > 1 ? 's' : ''} au travail
+                  </span>
+                </div>
+                <p className="text-sm text-orange-700 mt-1">
+                  Heures facturées (min. 3h/rappel) : {formatHours(detail.summary.call_billed_minutes)}
+                </p>
+              </div>
+            )}
 
             {/* Duration by type badges */}
             {(durationStats.totalTravelSeconds > 0 || Object.keys(durationStats.stopByType).length > 0 || durationStats.totalGapSeconds > 0) && (
@@ -534,6 +570,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                           onToggle={() => setExpandedId(expandedId === key ? null : key)}
                           onOverride={handleOverride}
                           projectSessions={ps}
+                          onShiftTypeToggle={handleShiftTypeToggle}
                         />
                       );
                     })

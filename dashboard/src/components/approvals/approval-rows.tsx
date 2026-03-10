@@ -19,6 +19,7 @@ import {
   ArrowRight,
   WifiOff,
   UtensilsCrossed,
+  Phone,
 } from 'lucide-react';
 import { TripExpandDetail } from './trip-expand-detail';
 import { GapExpandDetail } from './gap-expand-detail';
@@ -678,6 +679,7 @@ export function ActivityRow({
   onToggle,
   onOverride,
   projectSessions,
+  onShiftTypeToggle,
 }: {
   pa: ProcessedActivity<ApprovalActivity>;
   isApproved: boolean;
@@ -686,6 +688,7 @@ export function ActivityRow({
   onToggle: () => void;
   onOverride: (activity: ApprovalActivity, status: 'approved' | 'rejected') => void;
   projectSessions: ProjectSession[];
+  onShiftTypeToggle?: (shiftId: string, newType: 'regular' | 'call') => void;
 }) {
   const { item: activity, hasClockIn, hasClockOut } = pa;
   const isStop = activity.activity_type === 'stop';
@@ -735,7 +738,7 @@ export function ActivityRow({
   return (
     <>
       <tr
-        className={`${isLunch ? 'bg-slate-50/80 border-l-4 border-l-slate-300 hover:bg-slate-100/80' : statusConfig.row} ${canExpand ? 'cursor-pointer' : ''} transition-all duration-200 group border-b border-white/50`}
+        className={`${isLunch ? 'bg-slate-50/80 border-l-4 border-l-slate-300 hover:bg-slate-100/80' : statusConfig.row} ${canExpand ? 'cursor-pointer' : ''} ${activity.shift_type === 'call' ? 'border-l-2 border-l-orange-400 bg-orange-50/30' : ''} transition-all duration-200 group border-b border-white/50`}
         style={isGap ? { borderLeftStyle: 'dashed' } : undefined}
         onClick={canExpand ? onToggle : undefined}
       >
@@ -905,6 +908,36 @@ export function ActivityRow({
               <div className={`text-[10px] italic ${statusConfig.subtext}`}>
                 {activity.location_name || 'Lieu inconnu'}
               </div>
+              {activity.activity_type === 'clock_in' && activity.shift_type !== null && onShiftTypeToggle && (
+                <div className="flex items-center gap-1 ml-2">
+                  {activity.shift_type === 'call' ? (
+                    <>
+                      <Badge className="bg-orange-100 text-orange-700 text-[10px]">
+                        <Phone className="h-3 w-3 mr-0.5" />
+                        Rappel {activity.shift_type_source === 'auto' ? '(auto)' : '(manuel)'}
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-[10px] text-muted-foreground"
+                        onClick={(e) => { e.stopPropagation(); onShiftTypeToggle(activity.activity_id, 'regular'); }}
+                      >
+                        Retirer rappel
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-[10px] text-orange-600"
+                      onClick={(e) => { e.stopPropagation(); onShiftTypeToggle(activity.activity_id, 'call'); }}
+                    >
+                      <Phone className="h-3 w-3 mr-0.5" />
+                      Marquer comme rappel
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </td>
