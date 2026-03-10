@@ -75,15 +75,37 @@ export function useSupervisedTeam({
   const rawTeam = result?.data;
   const prevRawTeamRef = useRef<string | null>(null);
 
-  // Update local team when query data changes
+  // Update local team when query data changes — merge with realtime GPS to avoid overwriting newer data
   useEffect(() => {
     if (rawTeam && Array.isArray(rawTeam)) {
-      // Only update if data actually changed (compare full payload including GPS)
       const dataKey = JSON.stringify(rawTeam);
       if (prevRawTeamRef.current !== dataKey) {
         prevRawTeamRef.current = dataKey;
         const transformed = (rawTeam as MonitoredTeamRow[]).map(transformMonitoredTeamRow);
-        setLocalTeam(transformed);
+        setLocalTeam((current) => {
+          if (current.length === 0) return transformed;
+
+          // Build a map of current realtime GPS data
+          const realtimeLocations = new Map<string, LocationPoint>();
+          for (const emp of current) {
+            if (emp.currentLocation) {
+              realtimeLocations.set(emp.id, emp.currentLocation);
+            }
+          }
+
+          // Merge: keep the newer GPS point between RPC and realtime
+          return transformed.map((emp) => {
+            const realtimeLoc = realtimeLocations.get(emp.id);
+            if (
+              realtimeLoc &&
+              emp.currentLocation &&
+              realtimeLoc.capturedAt > emp.currentLocation.capturedAt
+            ) {
+              return { ...emp, currentLocation: realtimeLoc };
+            }
+            return emp;
+          });
+        });
         setLastUpdated(new Date());
       }
     }
