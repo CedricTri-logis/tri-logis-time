@@ -89,11 +89,29 @@ class MaintenanceSessionService {
 
     await _localDb.insertMaintenanceSession(session);
 
-    // 4. Attempt Supabase RPC
+    // 4. Resolve server shift ID (may need retry if shift sync is in-flight)
+    var resolvedShiftId = serverShiftId;
+    if (resolvedShiftId == null) {
+      // Shift sync may still be in-flight — retry a few times
+      for (var attempt = 0; attempt < 5; attempt++) {
+        resolvedShiftId = await _localDb.resolveServerShiftId(shiftId);
+        if (resolvedShiftId != null) break;
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+      }
+    }
+
+    if (resolvedShiftId == null) {
+      // Still no server shift ID — session stays pending, will sync later
+      // ignore: avoid_print
+      print('MaintenanceSessionService.startSession: serverShiftId not yet available, will sync later');
+      return MaintenanceSessionResult.success(session);
+    }
+
+    // 5. Attempt Supabase RPC
     try {
       final params = <String, dynamic>{
         'p_employee_id': employeeId,
-        'p_shift_id': serverShiftId ?? shiftId,
+        'p_shift_id': resolvedShiftId,
         'p_building_id': buildingId,
       };
       if (apartmentId != null) {

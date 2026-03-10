@@ -90,6 +90,7 @@ class MaintenanceSessionNotifier
     await loadActiveSession();
     _listenToConnectivity();
     _syncPropertyCacheQuietly();
+    _syncPendingQuietly();
     state = state.copyWith(isInitialized: true);
   }
 

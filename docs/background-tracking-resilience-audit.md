@@ -1,6 +1,6 @@
 # Background Tracking Resilience - Audit complet
 
-> Dernière mise à jour : 2026-03-09 | Build actuel : v1.0.0+112
+> Dernière mise à jour : 2026-03-10 | Build actuel : v1.0.0+113
 
 ## Table des matières
 
@@ -592,6 +592,7 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +110 | Mar 9 | **Telemetry Phase 1-3** — Firebase Crashlytics (double-write DiagnosticLogger), battery_level sur gps_points, app lifecycle logging. **iOS DiagnosticNativePlugin** (MetricKit, CLLocationManager pause/resume, memory pressure). **Android DiagnosticNativePlugin** (GNSS satellite 60s, doze mode BroadcastReceiver, standby bucket 5min). Fix : DiagnosticNativePlugin.swift ajouté au Xcode project + `pausesLocationUpdatesAutomatically` corrigé. Migration 142 (battery_level + 17 catégories diagnostiques) | ✅ Actif |
 | +111 | Mar 9 | Dashboard/mileage UI updates only — aucun changement tracking/résilience | ✅ Actif |
 | +112 | Mar 9 | **Fix FCM token race condition** — `registerToken()` + `listenForTokenRefresh()` appelés dans `_initializeFirebase()` après succès Firebase init. Avant : token uniquement tenté au widget build (~200ms), toujours avant Firebase init (3s) → échec silencieux, token jamais enregistré, push wake impossibles | ✅ Fix |
+| +113 | Mar 10 | **Fix sync race condition sessions ménage/entretien** — `startSession()` et `scanIn()` attendaient `serverShiftId` du shift, mais si shift sync encore en vol → UUID local envoyé au RPC → `NO_ACTIVE_SHIFT` silencieux. Fix : retry `resolveServerShiftId()` 5×500ms. Ajout `_syncPendingQuietly()` dans `_initialize()` des providers cleaning + maintenance (avant : sync uniquement sur changement connectivité). Dashboard : refactors approval, weekly summary, transport mode sensor speed, project sessions | ✅ Fix |
 
 ### Chronologie complète Android Watchdog
 
