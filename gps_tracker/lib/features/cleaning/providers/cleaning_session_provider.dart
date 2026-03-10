@@ -110,6 +110,9 @@ class CleaningSessionNotifier extends StateNotifier<CleaningSessionState> {
     // Listen for connectivity changes to trigger pending session sync
     _listenToConnectivity();
 
+    // Sync any pending sessions from previous runs
+    _syncPendingQuietly();
+
     state = state.copyWith(isInitialized: true);
   }
 
