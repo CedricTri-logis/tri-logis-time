@@ -78,7 +78,9 @@ const CATEGORY_BADGE_CLASSES: Record<CategoryType, string> = {
 };
 
 function formatDate(dateStr: string): string {
-  const d = new Date(dateStr);
+  // Parse YYYY-MM-DD as local date (not UTC) by splitting the string
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const d = new Date(year, month - 1, day);
   return d.toLocaleDateString('fr-CA', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 

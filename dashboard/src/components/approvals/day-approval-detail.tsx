@@ -412,7 +412,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                   </span>
                 </div>
                 <p className="text-sm text-orange-700 mt-1">
-                  Heures facturées (min. 3h/rappel) : {formatHours(detail.summary.call_billed_minutes)}
+                  Heures facturées (min. 3h) : {formatHours(detail.summary.call_billed_minutes)}
                 </p>
               </div>
             )}

@@ -219,7 +219,7 @@ export function ApprovalGrid() {
           </Badge>
         )}
         {(day.lunch_minutes ?? 0) > 0 && (
-          <span className="text-[10px] text-orange-600">
+          <span className="text-[10px] text-slate-500">
             {formatHours(day.lunch_minutes)} dîner
           </span>
         )}
