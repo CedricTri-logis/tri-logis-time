@@ -45,6 +45,25 @@ class ShiftHistoryCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
+                  if (shift.isCallback) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: Colors.orange.shade200),
+                      ),
+                      child: Text(
+                        'Rappel',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: Colors.orange.shade700,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
                   // Date
                   if (showDate)
                     Text(
