@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, Fragment } from 'react';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,7 +24,7 @@ import { supabaseClient } from '@/lib/supabase/client';
 import { LOCATION_TYPE_ICON_MAP } from '@/lib/constants/location-icons';
 import { LOCATION_TYPE_LABELS } from '@/lib/validations/location';
 import { mergeClockEvents } from '@/lib/utils/merge-clock-events';
-import { formatDuration } from '@/lib/utils/activity-display';
+import { formatDuration, formatTime } from '@/lib/utils/activity-display';
 import type { LocationType } from '@/types/location';
 import type {
   DayApprovalDetail as DayApprovalDetailType,
@@ -32,6 +32,7 @@ import type {
 } from '@/types/mileage';
 import {
   mergeSameLocationGaps,
+  groupDisplayItemsByShift,
   formatHours,
   formatDate,
 } from './approval-utils';
@@ -132,6 +133,11 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
   const displayItems = useMemo(() => {
     return mergeSameLocationGaps(processedActivities);
   }, [processedActivities]);
+
+  // Group display items by shift for visual containers
+  const shiftGroups = useMemo(() => {
+    return groupDisplayItemsByShift(displayItems);
+  }, [displayItems]);
 
   // Client-side visible needs_review count (excludes trips — they derive from stops)
   const visibleNeedsReviewCount = useMemo(() =>
@@ -519,59 +525,124 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {displayItems.length === 0 ? (
+                  {shiftGroups.length === 0 ? (
                     <tr>
                       <td colSpan={9} className="px-3 py-12 text-center text-sm text-muted-foreground italic">
                         Aucune activité détectée pour cette période
                       </td>
                     </tr>
                   ) : (
-                    displayItems.map((item, idx) => {
+                    shiftGroups.map((shift) => {
+                      const isCall = shift.shiftType === 'call';
                       const ps = detail?.project_sessions ?? [];
-                      if (item.type === 'merged') {
-                        const group = item.group;
-                        const key = `merged-${group.primaryStop.item.activity_id}`;
-                        return (
-                          <MergedLocationRow
-                            key={key}
-                            group={group}
-                            isApproved={isApproved}
-                            isSaving={isSaving}
-                            isExpanded={expandedId === key}
-                            onToggle={() => setExpandedId(expandedId === key ? null : key)}
-                            onOverride={handleOverride}
-                            projectSessions={ps}
-                          />
-                        );
-                      }
+                      return (
+                        <Fragment key={shift.shiftId}>
+                          {/* Shift header row */}
+                          <tr className={`border-b-2 ${
+                            isCall
+                              ? 'bg-orange-100/80 border-b-orange-300'
+                              : 'bg-slate-100/80 border-b-slate-200'
+                          }`}>
+                            <td colSpan={9} className="px-4 py-2.5">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <span className={`text-xs font-bold uppercase tracking-wider ${
+                                    isCall ? 'text-orange-800' : 'text-slate-600'
+                                  }`}>
+                                    Quart {shift.shiftNumber}
+                                  </span>
+                                  <span className={`text-xs tabular-nums ${
+                                    isCall ? 'text-orange-700' : 'text-slate-500'
+                                  }`}>
+                                    {formatTime(shift.startedAt)} → {formatTime(shift.endedAt)}
+                                  </span>
+                                  <span className={`text-xs font-semibold ${
+                                    isCall ? 'text-orange-800' : 'text-slate-700'
+                                  }`}>
+                                    ({formatHours(shift.durationMinutes)})
+                                  </span>
+                                  {isCall && (
+                                    <Badge className="bg-orange-200 text-orange-800 border-orange-300 text-[10px]">
+                                      <Phone className="h-3 w-3 mr-0.5" />
+                                      Rappel {shift.shiftTypeSource === 'auto' ? '(auto)' : '(manuel)'}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div onClick={(e) => e.stopPropagation()}>
+                                  {isCall ? (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 text-xs text-orange-600 hover:text-orange-800 hover:bg-orange-200/50"
+                                      onClick={() => handleShiftTypeToggle(shift.shiftId, 'regular')}
+                                      disabled={isSaving || isApproved}
+                                    >
+                                      Retirer rappel
+                                    </Button>
+                                  ) : (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 text-xs text-orange-600 hover:text-orange-800 hover:bg-orange-100"
+                                      onClick={() => handleShiftTypeToggle(shift.shiftId, 'call')}
+                                      disabled={isSaving || isApproved}
+                                    >
+                                      <Phone className="h-3 w-3 mr-1" />
+                                      Marquer comme rappel
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                          {/* Shift activities */}
+                          {shift.items.map((item) => {
+                            if (item.type === 'merged') {
+                              const group = item.group;
+                              const key = `merged-${group.primaryStop.item.activity_id}`;
+                              return (
+                                <MergedLocationRow
+                                  key={key}
+                                  group={group}
+                                  isApproved={isApproved}
+                                  isSaving={isSaving}
+                                  isExpanded={expandedId === key}
+                                  onToggle={() => setExpandedId(expandedId === key ? null : key)}
+                                  onOverride={handleOverride}
+                                  projectSessions={ps}
+                                />
+                              );
+                            }
 
-                      const pa = item.pa;
-                      const key = `${pa.item.activity_type}-${pa.item.activity_id}`;
-                      const isTrip = pa.item.activity_type === 'trip';
+                            const pa = item.pa;
+                            const key = `${pa.item.activity_type}-${pa.item.activity_id}`;
+                            const isTrip = pa.item.activity_type === 'trip';
 
-                      return isTrip ? (
-                        <TripConnectorRow
-                          key={key}
-                          pa={pa}
-                          isApproved={isApproved}
-                          isSaving={isSaving}
-                          isExpanded={expandedId === key}
-                          onToggle={() => setExpandedId(expandedId === key ? null : key)}
-                          onOverride={handleOverride}
-                          projectSessions={ps}
-                        />
-                      ) : (
-                        <ActivityRow
-                          key={key}
-                          pa={pa}
-                          isApproved={isApproved}
-                          isSaving={isSaving}
-                          isExpanded={expandedId === key}
-                          onToggle={() => setExpandedId(expandedId === key ? null : key)}
-                          onOverride={handleOverride}
-                          projectSessions={ps}
-                          onShiftTypeToggle={handleShiftTypeToggle}
-                        />
+                            return isTrip ? (
+                              <TripConnectorRow
+                                key={key}
+                                pa={pa}
+                                isApproved={isApproved}
+                                isSaving={isSaving}
+                                isExpanded={expandedId === key}
+                                onToggle={() => setExpandedId(expandedId === key ? null : key)}
+                                onOverride={handleOverride}
+                                projectSessions={ps}
+                              />
+                            ) : (
+                              <ActivityRow
+                                key={key}
+                                pa={pa}
+                                isApproved={isApproved}
+                                isSaving={isSaving}
+                                isExpanded={expandedId === key}
+                                onToggle={() => setExpandedId(expandedId === key ? null : key)}
+                                onOverride={handleOverride}
+                                projectSessions={ps}
+                              />
+                            );
+                          })}
+                        </Fragment>
                       );
                     })
                   )}

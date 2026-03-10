@@ -250,6 +250,74 @@ export function formatDate(dateStr: string): string {
   });
 }
 
+// --- Shift grouping for day detail view ---
+
+export interface ShiftGroup {
+  shiftId: string;
+  shiftNumber: number;
+  startedAt: string;
+  endedAt: string;
+  durationMinutes: number;
+  shiftType: 'regular' | 'call' | null;
+  shiftTypeSource: 'auto' | 'manual' | null;
+  items: DisplayItem[];
+}
+
+/**
+ * Group display items by shift_id, preserving display order.
+ * Each group gets a computed time range and shift metadata.
+ */
+export function groupDisplayItemsByShift(displayItems: DisplayItem[]): ShiftGroup[] {
+  if (!displayItems.length) return [];
+
+  const groupMap = new Map<string, {
+    items: DisplayItem[];
+    shiftType: 'regular' | 'call' | null;
+    shiftTypeSource: 'auto' | 'manual' | null;
+  }>();
+
+  for (const item of displayItems) {
+    const activity = item.type === 'merged'
+      ? item.group.primaryStop.item
+      : item.pa.item;
+    const shiftId = activity.shift_id;
+
+    if (!groupMap.has(shiftId)) {
+      groupMap.set(shiftId, {
+        items: [],
+        shiftType: activity.shift_type,
+        shiftTypeSource: activity.shift_type_source,
+      });
+    }
+    groupMap.get(shiftId)!.items.push(item);
+  }
+
+  return Array.from(groupMap.entries()).map(([shiftId, group], idx) => {
+    let earliest = '';
+    let latest = '';
+
+    for (const item of group.items) {
+      const startedAt = item.type === 'merged' ? item.group.startedAt : item.pa.item.started_at;
+      const endedAt = item.type === 'merged' ? item.group.endedAt : item.pa.item.ended_at;
+      if (!earliest || startedAt < earliest) earliest = startedAt;
+      if (!latest || endedAt > latest) latest = endedAt;
+    }
+
+    return {
+      shiftId,
+      shiftNumber: idx + 1,
+      startedAt: earliest,
+      endedAt: latest,
+      durationMinutes: Math.round(
+        (new Date(latest).getTime() - new Date(earliest).getTime()) / 60000,
+      ),
+      shiftType: group.shiftType,
+      shiftTypeSource: group.shiftTypeSource,
+      items: group.items,
+    };
+  });
+}
+
 // --- Status badge configuration ---
 
 export const STATUS_BADGE: Record<ApprovalAutoStatus, { className: string; icon: LucideIcon; label: string }> = {
