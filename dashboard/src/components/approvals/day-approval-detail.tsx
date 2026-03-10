@@ -370,8 +370,11 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                 </div>
                 <span className="text-[10px] uppercase tracking-[0.1em] text-slate-500 font-bold mb-1">Total</span>
                 <div className="flex items-baseline gap-1 mt-auto">
-                  <span className="text-2xl font-black text-slate-800 tracking-tight">{formatHours(detail.summary.total_shift_minutes)}</span>
+                  <span className="text-2xl font-black text-slate-800 tracking-tight">{formatHours(detail.summary.total_shift_minutes + (detail.summary.call_bonus_minutes ?? 0))}</span>
                 </div>
+                {(detail.summary.call_bonus_minutes ?? 0) > 0 && (
+                  <span className="text-[10px] text-orange-600 font-medium mt-0.5">+{formatHours(detail.summary.call_bonus_minutes)} rappel</span>
+                )}
               </div>
 
               {gpsGapTotals.seconds > 0 && (
@@ -407,21 +410,6 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                 </div>
               )}
             </div>
-
-            {/* Call shifts summary banner */}
-            {(detail.summary.call_count ?? 0) > 0 && (
-              <div className="rounded-md bg-orange-50 border border-orange-200 p-3 mb-4">
-                <div className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-orange-600" />
-                  <span className="font-medium text-orange-800">
-                    {detail.summary.call_count} rappel{detail.summary.call_count > 1 ? 's' : ''} au travail
-                  </span>
-                </div>
-                <p className="text-sm text-orange-700 mt-1">
-                  Heures facturées (min. 3h) : {formatHours(detail.summary.call_billed_minutes)}
-                </p>
-              </div>
-            )}
 
             {/* Duration by type badges */}
             {(durationStats.totalTravelSeconds > 0 || Object.keys(durationStats.stopByType).length > 0 || durationStats.totalGapSeconds > 0) && (
@@ -469,6 +457,15 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                       </span>
                     );
                   })}
+                {(detail.summary.call_bonus_minutes ?? 0) > 0 && (
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 text-xs font-medium text-orange-700 border border-orange-200"
+                    title="Bonus rappel (min. 3h)"
+                  >
+                    <Phone className="h-3 w-3" />
+                    +{formatHours(detail.summary.call_bonus_minutes)}
+                  </span>
+                )}
               </div>
             )}
 

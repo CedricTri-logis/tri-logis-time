@@ -311,6 +311,7 @@ export interface DayApprovalDetail {
     lunch_minutes: number;
     call_count: number;
     call_billed_minutes: number;
+    call_bonus_minutes: number;
   };
 }
 
@@ -326,6 +327,7 @@ export interface WeeklyDayEntry {
   lunch_minutes: number;
   call_count: number;
   call_billed_minutes: number;
+  call_bonus_minutes: number;
 }
 
 export interface WeeklyEmployeeRow {

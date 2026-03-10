@@ -125,6 +125,7 @@ export function ApprovalGrid() {
       needsReview: 0,
       total: 0,
       lunch: 0,
+      callBonus: 0,
     };
     for (const row of data) {
       for (const day of row.days) {
@@ -133,6 +134,7 @@ export function ApprovalGrid() {
         totals.needsReview += day.needs_review_count ?? 0;
         totals.total += day.total_shift_minutes ?? 0;
         totals.lunch += day.lunch_minutes ?? 0;
+        totals.callBonus += day.call_bonus_minutes ?? 0;
       }
     }
     return totals;
@@ -206,8 +208,11 @@ export function ApprovalGrid() {
       return <Clock className="h-4 w-4 text-gray-400 mx-auto" />;
     }
 
+    const bonus = day.call_bonus_minutes ?? 0;
+    const billedTotal = day.total_shift_minutes + bonus;
     const approved = day.approved_minutes ?? 0;
     const rejected = day.rejected_minutes ?? 0;
+    const needsReviewMinutes = billedTotal - approved - rejected;
 
     if (day.status === 'approved') {
       return (
@@ -256,11 +261,6 @@ export function ApprovalGrid() {
               {day.call_count} rappel{day.call_count > 1 ? 's' : ''}
             </span>
           </div>
-        )}
-        {(day.call_billed_minutes ?? 0) > 0 && (
-          <span className="text-[10px] text-orange-600">
-            ({formatHours(day.call_billed_minutes)} facturées)
-          </span>
         )}
         {day.status === 'approved' && (
           <CheckCircle2 className="h-3 w-3 text-green-600" />
@@ -332,7 +332,12 @@ export function ApprovalGrid() {
                 </div>
                 <div className="flex flex-col p-3 bg-slate-50 rounded-xl border border-slate-200">
                   <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Total</span>
-                  <span className="text-xl font-black text-slate-800 tracking-tight">{formatHours(weekTotals.total)}</span>
+                  <span className="text-xl font-black text-slate-800 tracking-tight">{formatHours(weekTotals.total + weekTotals.callBonus)}</span>
+                  {weekTotals.callBonus > 0 && (
+                    <span className="text-[10px] text-orange-600 font-medium flex items-center gap-0.5">
+                      <Phone className="h-2.5 w-2.5" /> +{formatHours(weekTotals.callBonus)} rappel
+                    </span>
+                  )}
                 </div>
                 {weekTotals.lunch > 0 && (
                   <div className="flex flex-col p-3 bg-orange-50/50 rounded-xl border border-orange-100">
