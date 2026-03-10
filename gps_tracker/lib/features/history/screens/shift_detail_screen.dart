@@ -100,6 +100,10 @@ class _ShiftDetailScreenState extends ConsumerState<ShiftDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildStatusCard(theme),
+                  if (_shift!.isCallback) ...[
+                    const SizedBox(height: 8),
+                    _buildCallbackCard(theme),
+                  ],
                   const SizedBox(height: 16),
                   _buildTimeCard(theme),
                   const SizedBox(height: 16),
@@ -109,6 +113,43 @@ class _ShiftDetailScreenState extends ConsumerState<ShiftDetailScreen> {
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildCallbackCard(ThemeData theme) {
+    final shift = _shift!;
+    return Card(
+      color: Colors.orange.shade50,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Icon(Icons.phone_callback, color: Colors.orange.shade700, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Rappel au travail',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: Colors.orange.shade800,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (shift.duration.inMinutes < 180)
+                    Text(
+                      'Minimum 3h facturées (Art. 58 LNT)',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.orange.shade700,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
