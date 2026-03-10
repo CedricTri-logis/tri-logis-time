@@ -1,6 +1,6 @@
 # Background Tracking Resilience - Audit complet
 
-> Dernière mise à jour : 2026-03-10 | Build actuel : v1.0.0+116
+> Dernière mise à jour : 2026-03-10 | Build actuel : v1.0.0+117
 
 ## Table des matières
 
@@ -596,6 +596,7 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +114 | Mar 10 | **Fix lunch break duplicates + approvals** — Race condition `startLunchBreak()` : ajout vérification DB avant insert (si `_init()` async pas terminé → état mémoire faux). Migration SQL : restaure `lunch_minutes` dans `get_weekly_approval_summary` et `_get_day_approval_detail_base`, remplace `get_day_approval_detail` monolithique par thin wrapper. Nettoyage 10 micro-breaks (<60s) Supabase. Aucun changement tracking/résilience | ✅ Fix |
 | +115 | Mar 10 | **Fix maintenance sessions non sync** — Deux surcharges `start_maintenance` RPC (4 et 7 params) causaient ambiguïté PostgREST : l'ancienne version bloquait si cleaning session active au lieu de l'auto-closer. Erreurs RPC avalées silencieusement (retournaient success). Fix : supprimé l'ancienne surcharge 4 params, ajouté coords GPS au RPC call Dart, propagé erreurs serveur au lieu de les masquer. Dashboard : fix monitoring GPS stale data merge, approval dashboard fixes | ✅ Fix |
 | +116 | Mar 10 | **Server-side session cleanup** — `server_close_all_sessions()` ferme atomiquement cleaning+maintenance+lunch+shift côté serveur. `register_device_login()` appelle cette fonction si device change (plus besoin que l'ancien téléphone coopère). Nouveau RPC `sign_out_cleanup()` appelé avant signOut. Flutter : retiré client-side clockOut du force-logout, ajouté warning shift actif dans dialogue déconnexion. Aucun changement tracking/résilience directement — améliore la fermeture propre des sessions | ✅ Fix |
+| +117 | Mar 10 | **3 fixes résilience GPS Android** — (1) **Fix Firebase init race** : `FcmService.registerToken()` guardé par `isFirebaseInitialized` — élimine erreur `[core/no-app]` qui affectait 100% des employés, wake push FCM maintenant fonctionnel. (2) **Native GPS sync direct** : `NativeGpsSyncer.kt` (OkHttp) POST les points GPS natifs directement à Supabase depuis `TrackingRescueReceiver` — GPS arrive en temps réel même quand Dart engine mort. `NativeGpsBuffer` génère `client_id` déterministe pour dedup. (3) **Télémétrie device health au clock-in** : log battery_optimization_exempt, standby_bucket, manufacturer, api_level au démarrage de chaque quart Android — identification proactive des appareils à risque | ✅ Résilience |
 
 ### Chronologie complète Android Watchdog
 

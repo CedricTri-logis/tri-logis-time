@@ -230,6 +230,15 @@ class TrackingRescueReceiver : BroadcastReceiver() {
                     // If employee moves 200m, GeofenceWakeReceiver restarts tracking
                     GeofenceWakeReceiver.register(context, location.latitude, location.longitude)
                     writeLog(context, "native_gps_captured", shiftId)
+                    // Try to sync buffered points directly to Supabase
+                    Thread {
+                        try {
+                            val synced = NativeGpsSyncer.syncBufferedPoints(context)
+                            if (synced > 0) {
+                                writeLog(context, "native_sync_$synced", shiftId)
+                            }
+                        } catch (_: Exception) {}
+                    }.start()
                 }
             }.addOnFailureListener {
                 // Fail silently — rescue alarm continues regardless
@@ -244,6 +253,13 @@ class TrackingRescueReceiver : BroadcastReceiver() {
         } catch (_: Exception) {
             // Any other error — skip native capture
         }
+
+        // Attempt to sync any buffered points even if GPS capture failed/timed out
+        Thread {
+            try {
+                NativeGpsSyncer.syncBufferedPoints(context)
+            } catch (_: Exception) {}
+        }.start()
 
         // Schedule the next alarm — continue the chain
         startAlarmChain(context)
