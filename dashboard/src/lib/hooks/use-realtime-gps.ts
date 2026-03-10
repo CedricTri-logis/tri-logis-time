@@ -124,7 +124,12 @@ export function useRealtimeGps({
       };
 
       if (batchUpdates) {
-        pendingUpdatesRef.current.set(employeeId, location);
+        // Only keep the newest point per employee in the batch
+        // (offline sync can insert old points that fire realtime events)
+        const existing = pendingUpdatesRef.current.get(employeeId);
+        if (!existing || location.capturedAt > existing.capturedAt) {
+          pendingUpdatesRef.current.set(employeeId, location);
+        }
       } else {
         setLastEventAt(new Date());
         onGpsPoint(employeeId, location);

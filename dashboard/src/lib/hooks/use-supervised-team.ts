@@ -171,15 +171,16 @@ export function useSupervisedTeam({
   }, []);
 
   // Handle individual GPS point events (fallback for non-batched mode)
+  // Only update if the incoming point is newer than what we already have
+  // (offline sync can insert old points that fire realtime events)
   const handleGpsPoint = useCallback((employeeId: string, location: LocationPoint) => {
     setLocalTeam((current) =>
       current.map((employee) => {
         if (employee.id !== employeeId) return employee;
-
-        return {
-          ...employee,
-          currentLocation: location,
-        };
+        if (employee.currentLocation && employee.currentLocation.capturedAt >= location.capturedAt) {
+          return employee;
+        }
+        return { ...employee, currentLocation: location };
       })
     );
 
@@ -187,16 +188,16 @@ export function useSupervisedTeam({
   }, []);
 
   // Handle batched GPS updates - apply all updates in a single state update
+  // Only update if the incoming point is newer than what we already have
   const handleBatchGpsPoints = useCallback((updates: Map<string, LocationPoint>) => {
     setLocalTeam((current) =>
       current.map((employee) => {
         const newLocation = updates.get(employee.id);
         if (!newLocation) return employee;
-
-        return {
-          ...employee,
-          currentLocation: newLocation,
-        };
+        if (employee.currentLocation && employee.currentLocation.capturedAt >= newLocation.capturedAt) {
+          return employee;
+        }
+        return { ...employee, currentLocation: newLocation };
       })
     );
 
