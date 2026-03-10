@@ -294,6 +294,7 @@ export interface DayApprovalDetail {
   employee_id: string;
   date: string;
   has_active_shift: boolean;
+  has_stale_gps?: boolean;
   approval_status: 'pending' | 'approved';
   approved_by: string | null;
   approved_at: string | null;
