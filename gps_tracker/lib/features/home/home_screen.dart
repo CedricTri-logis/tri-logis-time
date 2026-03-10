@@ -23,12 +23,19 @@ class HomeScreen extends ConsumerWidget {
     final bio = ref.read(biometricServiceProvider);
     final biometricEnabled = await bio.isEnabled();
 
-    // Show confirmation dialog
+    // Check for active shift to show appropriate warning
+    final shiftState = ref.read(shiftProvider);
+    final hasActiveShift = shiftState.activeShift != null;
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Déconnexion'),
-        content: const Text('Voulez-vous vraiment vous déconnecter ?'),
+        content: Text(hasActiveShift
+            ? 'Vous avez un quart de travail en cours. '
+              'Tout sera fermé automatiquement. '
+              'Voulez-vous vous déconnecter ?'
+            : 'Voulez-vous vraiment vous déconnecter ?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -42,36 +49,39 @@ class HomeScreen extends ConsumerWidget {
       ),
     );
 
-    if (confirmed == true) {
-      // Clock out first (auto-closes cleaning + maintenance sessions)
-      final shiftState = ref.read(shiftProvider);
-      if (shiftState.activeShift != null) {
-        await ref.read(shiftProvider.notifier).clockOut();
-      }
+    if (confirmed != true) return;
 
-      if (biometricEnabled) {
-        // App-lock pattern: save fresh tokens, then lock the app
-        // WITHOUT calling signOut() (which would revoke the refresh token).
-        final session = ref.read(supabaseClientProvider).auth.currentSession;
-        if (session != null) {
-          final phone =
-              ref.read(supabaseClientProvider).auth.currentUser?.phone;
-          await bio.saveSessionTokens(
-            accessToken: session.accessToken,
-            refreshToken: session.refreshToken!,
-            phone: (phone != null && phone.isNotEmpty) ? phone : null,
-          );
-        }
-
-        // Lock the app → app.dart shows SignInScreen, session stays alive
-        ref.read(appLockProvider.notifier).state = true;
-      } else {
-        // No biometric → regular sign-out (revokes session)
-        final authService = ref.read(authServiceProvider);
-        await authService.signOut();
-      }
-      // Navigation handled automatically by auth/lock state in app.dart
+    // Server-side cleanup: close shift + all sessions atomically
+    try {
+      final client = ref.read(supabaseClientProvider);
+      await client.rpc('sign_out_cleanup');
+    } catch (e) {
+      // Best effort — don't block sign-out if RPC fails (e.g. offline)
+      debugPrint('sign_out_cleanup failed (best effort): $e');
     }
+
+    if (biometricEnabled) {
+      // App-lock pattern: save fresh tokens, then lock the app
+      // WITHOUT calling signOut() (which would revoke the refresh token).
+      final client = ref.read(supabaseClientProvider);
+      final session = client.auth.currentSession;
+      if (session != null) {
+        final phone = client.auth.currentUser?.phone;
+        await bio.saveSessionTokens(
+          accessToken: session.accessToken,
+          refreshToken: session.refreshToken!,
+          phone: (phone != null && phone.isNotEmpty) ? phone : null,
+        );
+      }
+
+      // Lock the app → app.dart shows SignInScreen, session stays alive
+      ref.read(appLockProvider.notifier).state = true;
+    } else {
+      // No biometric → regular sign-out (revokes session)
+      final authService = ref.read(authServiceProvider);
+      await authService.signOut();
+    }
+    // Navigation handled automatically by auth/lock state in app.dart
   }
 
   void _navigateToProfile(BuildContext context) {
