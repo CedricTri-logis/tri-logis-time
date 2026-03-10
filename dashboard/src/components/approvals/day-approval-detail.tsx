@@ -457,6 +457,13 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
               </div>
             )}
 
+            {detail?.has_stale_gps && (
+              <div className="flex items-center gap-2 rounded-md bg-orange-50 border border-orange-200 px-3 py-2 text-sm text-orange-700">
+                <AlertTriangle className="h-4 w-4" />
+                <span>GPS manquant — un ou plusieurs quarts n&apos;ont pas reçu de signal GPS</span>
+              </div>
+            )}
+
             {/* Activity table */}
             <div className="overflow-hidden border rounded-xl shadow-sm bg-background">
               <table className="w-full text-sm">

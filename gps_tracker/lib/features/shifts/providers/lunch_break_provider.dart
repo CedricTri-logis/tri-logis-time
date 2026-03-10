@@ -71,6 +71,18 @@ class LunchBreakNotifier extends StateNotifier<LunchBreakState> {
     state = state.copyWith(isStarting: true, clearError: true);
 
     try {
+      // DB-level check: if _init() hasn't completed yet, there may be an
+      // active lunch in the local DB that isn't reflected in memory state.
+      final existingOpen = await _localDb.getActiveLunchBreak(shift.id);
+      if (existingOpen != null) {
+        // Restore the existing lunch break instead of creating a new one
+        state = state.copyWith(
+          activeLunchBreak: LunchBreak.fromMap(existingOpen),
+          isStarting: false,
+        );
+        return;
+      }
+
       final id = const Uuid().v4();
       final now = DateTime.now().toUtc();
 
