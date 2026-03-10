@@ -607,7 +607,7 @@ export function MergedLocationRow({
         </td>
 
         {/* Projet(s) */}
-        <ProjectCell slices={getProjectSlices(group.startedAt, group.endedAt, projectSessions, activity.matched_location_id)} />
+        <ProjectCell slices={getProjectSlices(group.startedAt, group.endedAt, projectSessions)} />
 
         {/* Expand chevron */}
         <td className="px-3 py-3 text-center">
@@ -932,7 +932,7 @@ export function ActivityRow({
         {(isClock || isLunch) ? (
           <td className="px-3 py-3"><span className="text-[10px] text-muted-foreground/40">—</span></td>
         ) : (
-          <ProjectCell slices={getProjectSlices(activity.started_at, activity.ended_at, projectSessions, activity.matched_location_id)} />
+          <ProjectCell slices={getProjectSlices(activity.started_at, activity.ended_at, projectSessions)} />
         )}
 
         {/* Expand chevron */}
