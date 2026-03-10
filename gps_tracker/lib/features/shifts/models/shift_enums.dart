@@ -31,3 +31,30 @@ enum ClockEventType {
   clockIn,
   clockOut;
 }
+
+/// Type of shift: regular work or callback (rappel au travail)
+enum ShiftType {
+  regular,
+  call;
+
+  factory ShiftType.fromJson(String value) {
+    switch (value) {
+      case 'call':
+        return ShiftType.call;
+      case 'regular':
+      default:
+        return ShiftType.regular;
+    }
+  }
+
+  String toJson() => name;
+
+  String get displayLabel {
+    switch (this) {
+      case ShiftType.regular:
+        return 'Régulier';
+      case ShiftType.call:
+        return 'Rappel';
+    }
+  }
+}

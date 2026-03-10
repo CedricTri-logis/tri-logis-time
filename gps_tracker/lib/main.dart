@@ -282,6 +282,10 @@ Future<void> _initializeTracking() async {
 /// foreground deferral observer firing.
 bool _firebaseInitialized = false;
 
+/// Whether Firebase has been initialized. Used by FcmService to avoid
+/// calling FirebaseMessaging.instance before init completes.
+bool get isFirebaseInitialized => _firebaseInitialized;
+
 /// Schedule Firebase init based on whether the app is in foreground or background.
 /// Waits 3 seconds for the lifecycle state to settle (on a cold start,
 /// `lifecycleState` is null until the first frame renders).

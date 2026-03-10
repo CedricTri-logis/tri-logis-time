@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -20,6 +21,7 @@ import '../models/shift.dart';
 import '../../auth/services/device_info_service.dart';
 import '../../tracking/providers/gps_health_guard_provider.dart';
 import '../../tracking/providers/tracking_provider.dart';
+import '../../tracking/services/android_battery_health_service.dart';
 import '../../tracking/services/background_tracking_service.dart';
 import '../providers/sync_provider.dart';
 import '../services/shift_service.dart';
@@ -525,6 +527,30 @@ class ShiftNotifier extends StateNotifier<ShiftState>
           'tracking_shift_id': trackingState.activeShiftId,
           'foreground_service_running': fgsRunning,
         },);
+
+        // Log device health for proactive at-risk device detection (Android only)
+        if (defaultTargetPlatform == TargetPlatform.android) {
+          try {
+            final isExempt = await AndroidBatteryHealthService.isBatteryOptimizationDisabled;
+            final bucketInfo = await AndroidBatteryHealthService.getAppStandbyBucket();
+            final manufacturer = await AndroidBatteryHealthService.getManufacturer();
+            final apiLevel = await AndroidBatteryHealthService.getApiLevel();
+
+            _logger?.battery(Severity.info,
+              'Device health at shift start',
+              shiftId: shift?.serverId ?? shift?.id,
+              metadata: {
+                'battery_optimization_exempt': isExempt,
+                'standby_bucket': bucketInfo.bucketName,
+                'standby_bucket_code': bucketInfo.bucket,
+                'manufacturer': manufacturer,
+                'api_level': apiLevel,
+              },
+            );
+          } catch (e) {
+            // Best-effort — never block clock-in for diagnostics
+          }
+        }
 
         // Trigger immediate sync to flush diagnostic logs to server.
         // Normally sync is triggered by GPS points, but if tracking fails

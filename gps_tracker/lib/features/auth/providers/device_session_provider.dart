@@ -7,7 +7,6 @@ import '../../../shared/models/diagnostic_event.dart';
 import '../../../shared/providers/supabase_provider.dart';
 import '../../../shared/services/diagnostic_logger.dart';
 import '../../../shared/services/realtime_service.dart';
-import '../../shifts/providers/shift_provider.dart';
 import '../services/device_id_service.dart';
 import '../services/device_session_service.dart';
 
@@ -120,17 +119,8 @@ class DeviceSessionNotifier extends StateNotifier<DeviceSessionStatus>
     state = DeviceSessionStatus.forcedOut;
     wasForceLoggedOut = true;
 
-    // Clock out active shift (which auto-closes cleaning + maintenance)
-    try {
-      final shiftState = _ref.read(shiftProvider);
-      if (shiftState.activeShift != null) {
-        await _ref.read(shiftProvider.notifier).clockOut();
-      }
-    } catch (e) {
-      _logger?.auth(Severity.error, 'Clock-out during force logout failed', metadata: {'error': e.toString()});
-    }
-
-    // Sign out — navigation happens via authStateChangesProvider
+    // Server already closed shift + sessions in register_device_login().
+    // Just sign out locally — navigation via authStateChangesProvider.
     try {
       final authService = _ref.read(authServiceProvider);
       await authService.signOut(revokeSession: true);

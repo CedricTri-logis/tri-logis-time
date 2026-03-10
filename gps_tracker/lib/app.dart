@@ -386,14 +386,10 @@ class _GpsTrackerAppState extends ConsumerState<GpsTrackerApp>
                 realtimeService.subscribe(userId);
                 DeviceInfoService(Supabase.instance.client).syncDeviceInfo();
                 // Register FCM token for silent push wake (no-op if disabled).
-                // Wrapped in try/catch: Firebase init is deferred 3s (build 103+),
-                // so FirebaseMessaging.instance throws if session restores first.
-                try {
-                  FcmService().registerToken();
-                  FcmService().listenForTokenRefresh();
-                } catch (_) {
-                  // Firebase not ready yet — will register on next build cycle
-                }
+                // Safe to call before Firebase init — FcmService guards internally
+                // and the retry in _initializeFirebase() handles the real registration.
+                FcmService().registerToken();
+                FcmService().listenForTokenRefresh();
               }
               return const _PhoneCheckGate();
             }

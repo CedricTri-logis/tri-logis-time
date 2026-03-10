@@ -24,6 +24,8 @@ class Shift {
   /// Number of GPS points recorded during this shift (from history queries)
   final int? gpsPointCount;
 
+  final ShiftType shiftType;
+
   const Shift({
     required this.id,
     required this.employeeId,
@@ -40,6 +42,7 @@ class Shift {
     required this.createdAt,
     required this.updatedAt,
     this.gpsPointCount,
+    this.shiftType = ShiftType.regular,
   });
 
   /// Computed duration of the shift.
@@ -55,6 +58,9 @@ class Shift {
 
   /// Whether the shift has been completed.
   bool get isCompleted => status == ShiftStatus.completed;
+
+  /// Whether this is a callback shift (rappel au travail)
+  bool get isCallback => shiftType == ShiftType.call;
 
   factory Shift.fromJson(Map<String, dynamic> json) => Shift(
         id: json['id'] as String,
@@ -80,6 +86,9 @@ class Shift {
         createdAt: DateTime.parse(json['created_at'] as String),
         updatedAt: DateTime.parse(json['updated_at'] as String),
         gpsPointCount: json['gps_point_count'] as int?,
+        shiftType: json['shift_type'] != null
+            ? ShiftType.fromJson(json['shift_type'] as String)
+            : ShiftType.regular,
       );
 
   Map<String, dynamic> toJson() => {
@@ -97,6 +106,7 @@ class Shift {
         'server_id': serverId,
         'created_at': createdAt.toUtc().toIso8601String(),
         'updated_at': updatedAt.toUtc().toIso8601String(),
+        'shift_type': shiftType.toJson(),
       };
 
   Shift copyWith({
@@ -115,6 +125,7 @@ class Shift {
     DateTime? createdAt,
     DateTime? updatedAt,
     int? gpsPointCount,
+    ShiftType? shiftType,
   }) =>
       Shift(
         id: id ?? this.id,
@@ -132,6 +143,7 @@ class Shift {
         createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
         gpsPointCount: gpsPointCount ?? this.gpsPointCount,
+        shiftType: shiftType ?? this.shiftType,
       );
 
   @override

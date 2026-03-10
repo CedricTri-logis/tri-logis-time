@@ -2,6 +2,8 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:gps_tracker/main.dart' show isFirebaseInitialized;
+
 import '../models/diagnostic_event.dart';
 import '../services/diagnostic_logger.dart';
 
@@ -30,6 +32,7 @@ class FcmService {
   /// tracking should already be running.
   void initialize() {
     if (_foregroundListenerActive) return;
+    if (!isFirebaseInitialized) return;
     _foregroundListenerActive = true;
 
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
@@ -82,6 +85,7 @@ class FcmService {
   /// Register the current FCM token to employee_profiles.
   /// Call after successful authentication. No-op if FCM disabled.
   Future<void> registerToken() async {
+    if (!isFirebaseInitialized) return;
     try {
       if (!await _isEnabled()) return;
 
@@ -125,6 +129,7 @@ class FcmService {
   /// Catches FirebaseException if Firebase isn't initialized yet (deferred init).
   void listenForTokenRefresh() {
     if (_tokenRefreshListening) return;
+    if (!isFirebaseInitialized) return;
     _tokenRefreshListening = true;
 
     try {

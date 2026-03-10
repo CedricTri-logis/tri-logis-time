@@ -4,6 +4,7 @@ import android.content.Context
 import android.location.Location
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.UUID
 
 /**
  * Stores GPS points captured natively (outside Flutter) in SharedPreferences.
@@ -28,6 +29,10 @@ object NativeGpsBuffer {
             put("heading", location.bearing.toDouble())
             put("captured_at", System.currentTimeMillis())
             put("source", "native_rescue")
+            val clientId = UUID.nameUUIDFromBytes(
+                "$shiftId:${location.time}".toByteArray()
+            ).toString()
+            put("client_id", clientId)
         }
 
         points.put(point)

@@ -4,6 +4,8 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../../../core/config/env_config.dart';
+
 import '../../../shared/models/diagnostic_event.dart';
 import '../../../shared/services/diagnostic_logger.dart';
 import '../models/location_permission_state.dart';
@@ -158,6 +160,16 @@ class BackgroundTrackingService with WidgetsBindingObserver {
           value: clockedInAt.millisecondsSinceEpoch,
         );
       }
+
+      // Save Supabase credentials for native direct sync (Android rescue receiver)
+      await FlutterForegroundTask.saveData(
+        key: 'supabase_url',
+        value: EnvConfig.supabaseUrl,
+      );
+      await FlutterForegroundTask.saveData(
+        key: 'supabase_anon_key',
+        value: EnvConfig.supabaseAnonKey,
+      );
 
       // Start the foreground service with retry (up to 3 attempts).
       // Transient failures on Android (resource exhaustion, timing) are common

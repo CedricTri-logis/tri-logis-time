@@ -275,6 +275,8 @@ export interface ApprovalActivity {
   end_location_type: string | null;
   gps_gap_seconds: number | null;
   gps_gap_count: number | null;
+  shift_type: 'regular' | 'call' | null;
+  shift_type_source: 'auto' | 'manual' | null;
 }
 
 export interface ProjectSession {
@@ -307,6 +309,8 @@ export interface DayApprovalDetail {
     rejected_minutes: number;
     needs_review_count: number;
     lunch_minutes: number;
+    call_count: number;
+    call_billed_minutes: number;
   };
 }
 
@@ -320,6 +324,8 @@ export interface WeeklyDayEntry {
   rejected_minutes: number | null;
   needs_review_count: number;
   lunch_minutes: number;
+  call_count: number;
+  call_billed_minutes: number;
 }
 
 export interface WeeklyEmployeeRow {
