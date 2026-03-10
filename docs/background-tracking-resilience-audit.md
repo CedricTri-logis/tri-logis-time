@@ -1,6 +1,6 @@
 # Background Tracking Resilience - Audit complet
 
-> Dernière mise à jour : 2026-03-10 | Build actuel : v1.0.0+113
+> Dernière mise à jour : 2026-03-10 | Build actuel : v1.0.0+114
 
 ## Table des matières
 
@@ -593,6 +593,7 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +111 | Mar 9 | Dashboard/mileage UI updates only — aucun changement tracking/résilience | ✅ Actif |
 | +112 | Mar 9 | **Fix FCM token race condition** — `registerToken()` + `listenForTokenRefresh()` appelés dans `_initializeFirebase()` après succès Firebase init. Avant : token uniquement tenté au widget build (~200ms), toujours avant Firebase init (3s) → échec silencieux, token jamais enregistré, push wake impossibles | ✅ Fix |
 | +113 | Mar 10 | **Fix sync race condition sessions ménage/entretien** — `startSession()` et `scanIn()` attendaient `serverShiftId` du shift, mais si shift sync encore en vol → UUID local envoyé au RPC → `NO_ACTIVE_SHIFT` silencieux. Fix : retry `resolveServerShiftId()` 5×500ms. Ajout `_syncPendingQuietly()` dans `_initialize()` des providers cleaning + maintenance (avant : sync uniquement sur changement connectivité). Dashboard : refactors approval, weekly summary, transport mode sensor speed, project sessions | ✅ Fix |
+| +114 | Mar 10 | **Fix lunch break duplicates + approvals** — Race condition `startLunchBreak()` : ajout vérification DB avant insert (si `_init()` async pas terminé → état mémoire faux). Migration SQL : restaure `lunch_minutes` dans `get_weekly_approval_summary` et `_get_day_approval_detail_base`, remplace `get_day_approval_detail` monolithique par thin wrapper. Nettoyage 10 micro-breaks (<60s) Supabase. Aucun changement tracking/résilience | ✅ Fix |
 
 ### Chronologie complète Android Watchdog
 
