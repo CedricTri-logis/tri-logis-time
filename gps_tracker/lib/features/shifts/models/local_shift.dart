@@ -21,6 +21,7 @@ class LocalShift {
   final String? syncError;
   final String? serverId;
   final String? clockOutReason;
+  final String shiftType; // 'regular' or 'call'
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -42,6 +43,7 @@ class LocalShift {
     this.syncError,
     this.serverId,
     this.clockOutReason,
+    this.shiftType = 'regular',
     required this.createdAt,
     required this.updatedAt,
   });
@@ -65,6 +67,7 @@ class LocalShift {
         'sync_error': syncError,
         'server_id': serverId,
         'clock_out_reason': clockOutReason,
+        'shift_type': shiftType,
         'created_at': createdAt.toUtc().toIso8601String(),
         'updated_at': updatedAt.toUtc().toIso8601String(),
       };
@@ -92,6 +95,7 @@ class LocalShift {
         syncError: map['sync_error'] as String?,
         serverId: map['server_id'] as String?,
         clockOutReason: map['clock_out_reason'] as String?,
+        shiftType: map['shift_type'] as String? ?? 'regular',
         createdAt: DateTime.parse(map['created_at'] as String),
         updatedAt: DateTime.parse(map['updated_at'] as String),
       );
@@ -115,6 +119,7 @@ class LocalShift {
         clockOutAccuracy: clockOutAccuracy,
         syncStatus: SyncStatus.fromJson(syncStatus),
         serverId: serverId,
+        shiftType: ShiftType.fromJson(shiftType),
         createdAt: createdAt,
         updatedAt: updatedAt,
       );
@@ -134,6 +139,7 @@ class LocalShift {
         clockOutLongitude: shift.clockOutLocation?.longitude,
         clockOutAccuracy: shift.clockOutAccuracy,
         syncStatus: shift.syncStatus.toJson(),
+        shiftType: shift.shiftType.toJson(),
         createdAt: shift.createdAt,
         updatedAt: shift.updatedAt,
       );
@@ -156,6 +162,7 @@ class LocalShift {
     String? syncError,
     String? serverId,
     String? clockOutReason,
+    String? shiftType,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) =>
@@ -177,6 +184,7 @@ class LocalShift {
         syncError: syncError ?? this.syncError,
         serverId: serverId ?? this.serverId,
         clockOutReason: clockOutReason ?? this.clockOutReason,
+        shiftType: shiftType ?? this.shiftType,
         createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
       );
