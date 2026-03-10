@@ -16,6 +16,7 @@ import { StatusSelector } from '@/components/dashboard/employees/status-selector
 import { SupervisorAssignment } from '@/components/dashboard/employees/supervisor-assignment';
 import { DeactivationWarningDialog } from '@/components/dashboard/employees/deactivation-warning-dialog';
 import { supabaseClient } from '@/lib/supabase/client';
+import { EmployeeCategoriesCard } from '@/components/employees/employee-categories-card';
 import type { EmployeeDetail, UpdateEmployeeResponse, UpdateStatusResponse } from '@/types/employee';
 import type { EmployeeEditExtendedInput, EmployeeStatusType } from '@/lib/validations/employee';
 
@@ -389,6 +390,9 @@ export default function EmployeeDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Employee Categories */}
+      <EmployeeCategoriesCard employeeId={employeeId} isDisabled={!canEdit} />
 
       {/* Account Information */}
       <Card>
