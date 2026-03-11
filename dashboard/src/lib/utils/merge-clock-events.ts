@@ -43,33 +43,12 @@ export function mergeClockEvents<T extends MergeableActivity>(items: T[]): Proce
     }
   }
 
-  // Step 1b: Detect rapid clock-out -> clock-in transitions across shifts (< 30s gap)
-  const rapidTransitionIndices = new Set<number>();
-  const clockEventsByTime = items
-    .map((item, idx) => ({ item, idx }))
-    .filter(({ item }) => item.activity_type === 'clock_in' || item.activity_type === 'clock_out')
-    .sort((a, b) => new Date(a.item.started_at).getTime() - new Date(b.item.started_at).getTime());
-  for (let k = 0; k < clockEventsByTime.length - 1; k++) {
-    const curr = clockEventsByTime[k];
-    const next = clockEventsByTime[k + 1];
-    if (
-      curr.item.activity_type === 'clock_out' &&
-      next.item.activity_type === 'clock_in' &&
-      curr.item.shift_id !== next.item.shift_id
-    ) {
-      const gap = new Date(next.item.started_at).getTime() - new Date(curr.item.started_at).getTime();
-      if (gap >= 0 && gap < 30_000) {
-        rapidTransitionIndices.add(curr.idx);
-        rapidTransitionIndices.add(next.idx);
-      }
-    }
-  }
-
-  // Step 2: Filter out clock events from micro-shifts and rapid transitions
-  const filtered = items.filter((item, idx) => {
+  // Step 2: Filter out clock events from micro-shifts only
+  // Note: rapid clock-out -> clock-in transitions across shifts are kept visible
+  // so that each shift's clock events appear in the timeline and shift headers render correctly.
+  const filtered = items.filter((item) => {
     if (item.activity_type !== 'clock_in' && item.activity_type !== 'clock_out') return true;
     if (microShiftIds.has(item.shift_id)) return false;
-    if (rapidTransitionIndices.has(idx)) return false;
     return true;
   });
 
