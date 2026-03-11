@@ -70,7 +70,14 @@ class ActivityMapSheet extends StatelessWidget {
   }
 
   /// Show a trip route on the map.
-  static void showTrip(BuildContext context, {required Trip trip}) {
+  static void showTrip(
+    BuildContext context, {
+    required Trip trip,
+    String? startName,
+    String? endName,
+  }) {
+    final from = startName ?? trip.startDisplayName;
+    final to = endName ?? trip.endDisplayName;
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -78,9 +85,9 @@ class ActivityMapSheet extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (_) => ActivityMapSheet._(
-        title: '${trip.startDisplayName} → ${trip.endDisplayName}',
+        title: '$from \u2192 $to',
         subtitle:
-            '${trip.effectiveDistanceKm.toStringAsFixed(1)} km · ${trip.durationMinutes} min',
+            '${trip.effectiveDistanceKm.toStringAsFixed(1)} km \u00b7 ${trip.durationMinutes} min',
         trip: trip,
       ),
     );
@@ -203,8 +210,15 @@ class _TripMap extends StatelessWidget {
     final start = LatLng(trip.startLatitude, trip.startLongitude);
     final end = LatLng(trip.endLatitude, trip.endLongitude);
     final hasRoute = trip.isRouteMatched && trip.routeGeometry != null;
-    final routePoints =
-        hasRoute ? _decodePolyline6(trip.routeGeometry!) : [start, end];
+    final decodedPoints =
+        hasRoute ? _decodePolyline6(trip.routeGeometry!) : <LatLng>[];
+
+    // Connect GPS start/end to OSRM route (which snaps to roads)
+    final routePoints = <LatLng>[
+      start,
+      ...decodedPoints,
+      end,
+    ];
 
     // Calculate bounds
     double minLat = start.latitude, maxLat = start.latitude;
@@ -239,7 +253,7 @@ class _TripMap extends StatelessWidget {
               points: routePoints,
               color: const Color(0xFF8b5cf6),
               strokeWidth: 5,
-              isDotted: !hasRoute,
+              isDotted: !hasRoute && decodedPoints.isEmpty,
             ),
           ],
         ),

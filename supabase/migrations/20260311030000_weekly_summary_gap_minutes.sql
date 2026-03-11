@@ -208,34 +208,36 @@ BEGIN
           AND s.clocked_out_at IS NOT NULL
     ),
     activity_events AS (
-        -- Stops within shift boundaries
+        -- Stops within shift boundaries (1-min tolerance for clusters starting just before clock-in)
         SELECT
             sb.shift_id,
             sb.employee_id,
             sb.shift_date,
-            sc.started_at AS evt_start,
-            sc.ended_at AS evt_end
+            GREATEST(sc.started_at, sb.clocked_in_at) AS evt_start,
+            LEAST(sc.ended_at, sb.clocked_out_at) AS evt_end
         FROM shift_boundaries sb
         JOIN stationary_clusters sc
             ON sc.employee_id = sb.employee_id
-           AND sc.started_at >= sb.clocked_in_at
+           AND sc.started_at >= sb.clocked_in_at - INTERVAL '1 minute'
            AND sc.started_at < sb.clocked_out_at
+           AND sc.ended_at > sb.clocked_in_at
            AND sc.duration_seconds >= 180
 
         UNION ALL
 
-        -- Trips within shift boundaries
+        -- Trips within shift boundaries (1-min tolerance)
         SELECT
             sb.shift_id,
             sb.employee_id,
             sb.shift_date,
-            t.started_at AS evt_start,
-            t.ended_at AS evt_end
+            GREATEST(t.started_at, sb.clocked_in_at) AS evt_start,
+            LEAST(t.ended_at, sb.clocked_out_at) AS evt_end
         FROM shift_boundaries sb
         JOIN trips t
             ON t.employee_id = sb.employee_id
-           AND t.started_at >= sb.clocked_in_at
+           AND t.started_at >= sb.clocked_in_at - INTERVAL '1 minute'
            AND t.started_at < sb.clocked_out_at
+           AND t.ended_at > sb.clocked_in_at
 
         UNION ALL
 
@@ -244,8 +246,8 @@ BEGIN
             sb.shift_id,
             sb.employee_id,
             sb.shift_date,
-            lb.started_at AS evt_start,
-            lb.ended_at AS evt_end
+            GREATEST(lb.started_at, sb.clocked_in_at) AS evt_start,
+            LEAST(lb.ended_at, sb.clocked_out_at) AS evt_end
         FROM shift_boundaries sb
         JOIN lunch_breaks lb
             ON lb.employee_id = sb.employee_id

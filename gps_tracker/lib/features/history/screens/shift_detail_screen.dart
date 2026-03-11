@@ -466,7 +466,12 @@ class _ShiftDetailScreenState extends ConsumerState<ShiftDetailScreen> {
     } else if (activity.isTrip) {
       final trip = trips.where((t) => t.id == activity.activityId).firstOrNull;
       if (trip != null) {
-        ActivityMapSheet.showTrip(context, trip: trip);
+        ActivityMapSheet.showTrip(
+          context,
+          trip: trip,
+          startName: activity.startLocationName,
+          endName: activity.endLocationName,
+        );
       }
     }
   }
