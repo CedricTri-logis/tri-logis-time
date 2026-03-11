@@ -8,10 +8,16 @@ import '../../tracking/providers/route_provider.dart';
 import '../../tracking/widgets/point_detail_sheet.dart';
 import '../../tracking/widgets/route_map_widget.dart';
 import '../../tracking/widgets/route_stats_card.dart';
+import '../models/day_approval.dart';
 import '../models/shift.dart';
+import '../providers/approval_provider.dart';
 import '../providers/lunch_break_provider.dart';
 import '../providers/shift_provider.dart';
+import '../widgets/activity_timeline.dart';
+import '../widgets/approval_summary_card.dart';
+import '../widgets/location_breakdown_card.dart';
 import '../widgets/sync_status_indicator.dart';
+import '../widgets/trip_routes_map.dart';
 
 /// Screen showing detailed information about a specific shift.
 class ShiftDetailScreen extends ConsumerWidget {
@@ -301,6 +307,18 @@ class ShiftDetailScreen extends ConsumerWidget {
             ),
           const SizedBox(height: 16),
 
+          // Approval Section (only for completed shifts)
+          if (shift.isCompleted)
+            _buildApprovalSection(context, shift),
+          if (shift.isCompleted)
+            const SizedBox(height: 16),
+
+          // OSRM Trip Routes Map (interactive, tap-to-popup)
+          if (shift.isCompleted)
+            _buildTripRoutesSection(context, shift.id),
+          if (shift.isCompleted)
+            const SizedBox(height: 16),
+
           // Route Map Section
           _buildRouteSection(context, shift.id),
           const SizedBox(height: 16),
@@ -310,6 +328,65 @@ class ShiftDetailScreen extends ConsumerWidget {
             _buildMileageSection(context, shift.id),
         ],
       ),
+    );
+  }
+
+  Widget _buildApprovalSection(BuildContext context, Shift shift) {
+    final date = DateTime(
+      shift.clockedInAt.toLocal().year,
+      shift.clockedInAt.toLocal().month,
+      shift.clockedInAt.toLocal().day,
+    );
+
+    return Consumer(
+      builder: (context, ref, _) {
+        final detailAsync = ref.watch(dayApprovalDetailProvider(date));
+
+        return detailAsync.when(
+          data: (detail) {
+            if (detail == null) return const SizedBox.shrink();
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ApprovalSummaryCard(detail: detail),
+                const SizedBox(height: 12),
+                LocationBreakdownCard(detail: detail),
+                const SizedBox(height: 12),
+                ActivityTimeline(activities: detail.activities),
+              ],
+            );
+          },
+          loading: () => const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            ),
+          ),
+          error: (_, __) => const SizedBox.shrink(),
+        );
+      },
+    );
+  }
+
+  Widget _buildTripRoutesSection(BuildContext context, String shiftId) {
+    return Consumer(
+      builder: (context, ref, _) {
+        final tripsAsync = ref.watch(tripsForShiftProvider(shiftId));
+        return tripsAsync.when(
+          data: (trips) {
+            if (trips.isEmpty) return const SizedBox.shrink();
+            return TripRoutesMap(trips: trips);
+          },
+          loading: () => const SizedBox.shrink(),
+          error: (_, __) => const SizedBox.shrink(),
+        );
+      },
     );
   }
 

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/day_approval.dart';
+import '../models/shift.dart';
+import '../providers/approval_provider.dart';
 import '../providers/shift_history_provider.dart';
 import '../widgets/shift_card.dart';
 import 'shift_detail_screen.dart';
@@ -105,7 +108,38 @@ class _ShiftHistoryScreenState extends ConsumerState<ShiftHistoryScreen> {
     );
   }
 
+  ({DateTime from, DateTime to})? _getDateRange(List<Shift> shifts) {
+    if (shifts.isEmpty) return null;
+    final dates = shifts.map((s) => s.clockedInAt.toLocal()).toList();
+    final earliest = dates.reduce((a, b) => a.isBefore(b) ? a : b);
+    final latest = dates.reduce((a, b) => a.isAfter(b) ? a : b);
+    return (
+      from: DateTime(earliest.year, earliest.month, earliest.day),
+      to: DateTime(latest.year, latest.month, latest.day),
+    );
+  }
+
+  Map<String, DayApprovalSummary> _buildApprovalMap(
+      List<DayApprovalSummary> approvals) {
+    return {
+      for (final a in approvals)
+        '${a.date.year}-${a.date.month.toString().padLeft(2, '0')}-${a.date.day.toString().padLeft(2, '0')}':
+            a,
+    };
+  }
+
+  String _dateKey(DateTime dt) {
+    final local = dt.toLocal();
+    return '${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')}';
+  }
+
   Widget _buildShiftList(ShiftHistoryState historyState, ThemeData theme) {
+    final approvalRange = _getDateRange(historyState.shifts);
+    final approvalsAsync = approvalRange != null
+        ? ref.watch(dayApprovalSummariesProvider(approvalRange))
+        : const AsyncValue<List<DayApprovalSummary>>.data([]);
+    final approvalMap = _buildApprovalMap(approvalsAsync.valueOrNull ?? []);
+
     return ListView.builder(
       controller: _scrollController,
       physics: const AlwaysScrollableScrollPhysics(),
@@ -145,6 +179,7 @@ class _ShiftHistoryScreenState extends ConsumerState<ShiftHistoryScreen> {
             if (dateHeader != null) dateHeader,
             ShiftCard(
               shift: shift,
+              approval: approvalMap[_dateKey(shift.clockedInAt)],
               onTap: () => _navigateToDetail(shift.id),
             ),
           ],
