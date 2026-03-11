@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../mileage/providers/trip_provider.dart';
 import '../../mileage/screens/trip_detail_screen.dart';
@@ -337,10 +338,13 @@ class ShiftDetailScreen extends ConsumerWidget {
       shift.clockedInAt.toLocal().month,
       shift.clockedInAt.toLocal().day,
     );
+    final userId = Supabase.instance.client.auth.currentUser?.id;
 
     return Consumer(
       builder: (context, ref, _) {
-        final detailAsync = ref.watch(dayApprovalDetailProvider(date));
+        if (userId == null) return const SizedBox.shrink();
+        final detailAsync = ref.watch(dayApprovalDetailProvider(
+            (employeeId: userId, date: date)));
 
         return detailAsync.when(
           data: (detail) {

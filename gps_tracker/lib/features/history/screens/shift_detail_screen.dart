@@ -462,7 +462,8 @@ class _ShiftDetailScreenState extends ConsumerState<ShiftDetailScreen> {
 
     return Consumer(
       builder: (context, ref, _) {
-        final detailAsync = ref.watch(dayApprovalDetailProvider(date));
+        final detailAsync = ref.watch(dayApprovalDetailProvider(
+            (employeeId: widget.employeeId, date: date)));
 
         return detailAsync.when(
           data: (detail) {

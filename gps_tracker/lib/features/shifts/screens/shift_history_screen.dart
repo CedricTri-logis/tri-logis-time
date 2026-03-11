@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/day_approval.dart';
 import '../models/shift.dart';
@@ -135,8 +136,10 @@ class _ShiftHistoryScreenState extends ConsumerState<ShiftHistoryScreen> {
 
   Widget _buildShiftList(ShiftHistoryState historyState, ThemeData theme) {
     final approvalRange = _getDateRange(historyState.shifts);
-    final approvalsAsync = approvalRange != null
-        ? ref.watch(dayApprovalSummariesProvider(approvalRange))
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    final approvalsAsync = approvalRange != null && userId != null
+        ? ref.watch(dayApprovalSummariesProvider(
+            (employeeId: userId, from: approvalRange.from, to: approvalRange.to)))
         : const AsyncValue<List<DayApprovalSummary>>.data([]);
     final approvalMap = _buildApprovalMap(approvalsAsync.valueOrNull ?? []);
 

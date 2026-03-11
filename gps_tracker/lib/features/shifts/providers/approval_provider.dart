@@ -3,25 +3,24 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/day_approval.dart';
 
-/// Fetch day approval summaries for a date range (employee's own data).
-/// Uses direct table query — RLS policy allows employee SELECT own.
+/// Fetch day approval summaries for an employee + date range.
+/// Accepts explicit employeeId so supervisors can view subordinates' data.
 final dayApprovalSummariesProvider = FutureProvider.family<
-    List<DayApprovalSummary>, ({DateTime from, DateTime to})>(
-  (ref, range) async {
+    List<DayApprovalSummary>,
+    ({String employeeId, DateTime from, DateTime to})>(
+  (ref, params) async {
     final supabase = Supabase.instance.client;
-    final userId = supabase.auth.currentUser?.id;
-    if (userId == null) return [];
 
     final fromStr =
-        '${range.from.year}-${range.from.month.toString().padLeft(2, '0')}-${range.from.day.toString().padLeft(2, '0')}';
+        '${params.from.year}-${params.from.month.toString().padLeft(2, '0')}-${params.from.day.toString().padLeft(2, '0')}';
     final toStr =
-        '${range.to.year}-${range.to.month.toString().padLeft(2, '0')}-${range.to.day.toString().padLeft(2, '0')}';
+        '${params.to.year}-${params.to.month.toString().padLeft(2, '0')}-${params.to.day.toString().padLeft(2, '0')}';
 
     final response = await supabase
         .from('day_approvals')
         .select(
             'employee_id, date, status, approved_minutes, rejected_minutes, total_shift_minutes')
-        .eq('employee_id', userId)
+        .eq('employee_id', params.employeeId)
         .gte('date', fromStr)
         .lte('date', toStr)
         .order('date', ascending: false);
@@ -33,21 +32,19 @@ final dayApprovalSummariesProvider = FutureProvider.family<
   },
 );
 
-/// Fetch full day approval detail for a specific date.
-/// Uses get_day_approval_detail RPC with p_employee_id = userId.
-final dayApprovalDetailProvider =
-    FutureProvider.family<DayApprovalDetail?, DateTime>(
-  (ref, date) async {
+/// Fetch full day approval detail for a specific employee + date.
+/// Accepts explicit employeeId so supervisors can view subordinates' data.
+final dayApprovalDetailProvider = FutureProvider.family<DayApprovalDetail?,
+    ({String employeeId, DateTime date})>(
+  (ref, params) async {
     final supabase = Supabase.instance.client;
-    final userId = supabase.auth.currentUser?.id;
-    if (userId == null) return null;
 
     final dateStr =
-        '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+        '${params.date.year}-${params.date.month.toString().padLeft(2, '0')}-${params.date.day.toString().padLeft(2, '0')}';
 
     try {
       final response = await supabase.rpc('get_day_approval_detail', params: {
-        'p_employee_id': userId,
+        'p_employee_id': params.employeeId,
         'p_date': dateStr,
       });
 

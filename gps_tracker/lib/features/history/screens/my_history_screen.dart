@@ -239,8 +239,9 @@ class _MyHistoryScreenState extends ConsumerState<MyHistoryScreen> {
     }
 
     final approvalRange = _getDateRange(state.shifts);
-    final approvalsAsync = approvalRange != null
-        ? ref.watch(dayApprovalSummariesProvider(approvalRange))
+    final approvalsAsync = approvalRange != null && _userId != null
+        ? ref.watch(dayApprovalSummariesProvider(
+            (employeeId: _userId!, from: approvalRange.from, to: approvalRange.to)))
         : const AsyncValue<List<DayApprovalSummary>>.data([]);
     final approvalMap = _buildApprovalMap(approvalsAsync.valueOrNull ?? []);
 
