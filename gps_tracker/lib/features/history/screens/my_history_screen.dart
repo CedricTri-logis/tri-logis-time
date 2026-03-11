@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../shifts/models/day_approval.dart';
+import '../../shifts/models/shift.dart';
+import '../../shifts/providers/approval_provider.dart';
 import '../providers/employee_history_provider.dart';
 import '../providers/history_filter_provider.dart';
 import '../providers/supervised_employees_provider.dart';
@@ -235,6 +238,13 @@ class _MyHistoryScreenState extends ConsumerState<MyHistoryScreen> {
       );
     }
 
+    final approvalRange = _getDateRange(state.shifts);
+    final approvalsAsync = approvalRange != null && _userId != null
+        ? ref.watch(dayApprovalSummariesProvider(
+            (employeeId: _userId!, from: approvalRange.from, to: approvalRange.to)))
+        : const AsyncValue<List<DayApprovalSummary>>.data([]);
+    final approvalMap = _buildApprovalMap(approvalsAsync.valueOrNull ?? []);
+
     return RefreshIndicator(
       onRefresh: () async => _refresh(),
       child: ListView.builder(
@@ -252,11 +262,37 @@ class _MyHistoryScreenState extends ConsumerState<MyHistoryScreen> {
           final shift = state.shifts[index];
           return ShiftHistoryCard(
             shift: shift,
+            approval: approvalMap[_dateKey(shift.clockedInAt)],
             onTap: () => _navigateToDetail(shift.id),
           );
         },
       ),
     );
+  }
+
+  ({DateTime from, DateTime to})? _getDateRange(List<Shift> shifts) {
+    if (shifts.isEmpty) return null;
+    final dates = shifts.map((s) => s.clockedInAt.toLocal()).toList();
+    final earliest = dates.reduce((a, b) => a.isBefore(b) ? a : b);
+    final latest = dates.reduce((a, b) => a.isAfter(b) ? a : b);
+    return (
+      from: DateTime(earliest.year, earliest.month, earliest.day),
+      to: DateTime(latest.year, latest.month, latest.day),
+    );
+  }
+
+  Map<String, DayApprovalSummary> _buildApprovalMap(
+      List<DayApprovalSummary> approvals) {
+    return {
+      for (final a in approvals)
+        '${a.date.year}-${a.date.month.toString().padLeft(2, '0')}-${a.date.day.toString().padLeft(2, '0')}':
+            a,
+    };
+  }
+
+  String _dateKey(DateTime dt) {
+    final local = dt.toLocal();
+    return '${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')}';
   }
 
   void _refresh() {

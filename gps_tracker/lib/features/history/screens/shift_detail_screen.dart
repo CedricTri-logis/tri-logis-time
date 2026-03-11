@@ -4,7 +4,14 @@ import 'package:latlong2/latlong.dart';
 import 'package:intl/intl.dart';
 
 import '../../../shared/utils/timezone_formatter.dart';
+import '../../mileage/providers/trip_provider.dart';
+import '../../shifts/models/day_approval.dart';
 import '../../shifts/models/shift.dart';
+import '../../shifts/providers/approval_provider.dart';
+import '../../shifts/widgets/activity_timeline.dart';
+import '../../shifts/widgets/approval_summary_card.dart';
+import '../../shifts/widgets/location_breakdown_card.dart';
+import '../../shifts/widgets/trip_routes_map.dart';
 import '../providers/employee_history_provider.dart';
 import '../providers/supervised_employees_provider.dart';
 import '../services/history_service.dart';
@@ -108,6 +115,12 @@ class _ShiftDetailScreenState extends ConsumerState<ShiftDetailScreen> {
                   _buildTimeCard(theme),
                   const SizedBox(height: 16),
                   _buildLocationCard(theme),
+                  if (_shift!.isCompleted) ...[
+                    const SizedBox(height: 16),
+                    _buildApprovalSection(),
+                    const SizedBox(height: 16),
+                    _buildTripRoutesSection(),
+                  ],
                   const SizedBox(height: 16),
                   _buildGpsCard(theme),
                 ],
@@ -436,6 +449,67 @@ class _ShiftDetailScreenState extends ConsumerState<ShiftDetailScreen> {
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildApprovalSection() {
+    final shift = _shift!;
+    final date = DateTime(
+      shift.clockedInAt.toLocal().year,
+      shift.clockedInAt.toLocal().month,
+      shift.clockedInAt.toLocal().day,
+    );
+
+    return Consumer(
+      builder: (context, ref, _) {
+        final detailAsync = ref.watch(dayApprovalDetailProvider(
+            (employeeId: widget.employeeId, date: date)));
+
+        return detailAsync.when(
+          data: (detail) {
+            if (detail == null) return const SizedBox.shrink();
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ApprovalSummaryCard(detail: detail),
+                const SizedBox(height: 12),
+                LocationBreakdownCard(detail: detail),
+                const SizedBox(height: 12),
+                ActivityTimeline(activities: detail.activities),
+              ],
+            );
+          },
+          loading: () => const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            ),
+          ),
+          error: (_, __) => const SizedBox.shrink(),
+        );
+      },
+    );
+  }
+
+  Widget _buildTripRoutesSection() {
+    return Consumer(
+      builder: (context, ref, _) {
+        final tripsAsync = ref.watch(tripsForShiftProvider(widget.shiftId));
+        return tripsAsync.when(
+          data: (trips) {
+            if (trips.isEmpty) return const SizedBox.shrink();
+            return TripRoutesMap(trips: trips);
+          },
+          loading: () => const SizedBox.shrink(),
+          error: (_, __) => const SizedBox.shrink(),
+        );
+      },
     );
   }
 

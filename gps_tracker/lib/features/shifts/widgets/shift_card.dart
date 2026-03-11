@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/day_approval.dart';
 import '../models/shift.dart';
 import '../providers/lunch_break_provider.dart';
 import 'sync_status_indicator.dart';
@@ -9,11 +10,13 @@ import 'sync_status_indicator.dart';
 class ShiftCard extends ConsumerWidget {
   final Shift shift;
   final VoidCallback? onTap;
+  final DayApprovalSummary? approval;
 
   const ShiftCard({
     super.key,
     required this.shift,
     this.onTap,
+    this.approval,
   });
 
   String _formatTime(DateTime dateTime) {
@@ -169,6 +172,11 @@ class ShiftCard extends ConsumerWidget {
                   ],
                 ),
               ],
+              // Show approval badge for completed shifts
+              if (shift.isCompleted) ...[
+                const SizedBox(height: 8),
+                _ApprovalBadge(approval: approval),
+              ],
             ],
           ),
         ),
@@ -216,6 +224,86 @@ class _TimeBlock extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
+      ],
+    );
+  }
+}
+
+class _ApprovalBadge extends StatelessWidget {
+  final DayApprovalSummary? approval;
+  const _ApprovalBadge({this.approval});
+
+  String _formatMinutes(int minutes) {
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    if (h == 0) return '${m}m';
+    return '${h}h${m.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isApproved = approval?.status == ApprovalStatus.approved;
+    final hasRejections = approval?.hasRejections ?? false;
+
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: isApproved
+                ? Colors.green.withValues(alpha: 0.1)
+                : Colors.grey.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isApproved ? Icons.check_circle : Icons.schedule,
+                size: 14,
+                color: isApproved ? Colors.green : Colors.grey,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                isApproved
+                    ? '${_formatMinutes(approval!.approvedMinutes ?? 0)} approuv\u00e9'
+                    : 'En attente',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: isApproved
+                      ? Colors.green.shade700
+                      : Colors.grey.shade600,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (hasRejections) ...[
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: Colors.red.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.cancel, size: 14, color: Colors.red),
+                const SizedBox(width: 4),
+                Text(
+                  '${_formatMinutes(approval!.rejectedMinutes ?? 0)} rejet\u00e9',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.red.shade700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }

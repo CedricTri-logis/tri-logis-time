@@ -116,6 +116,9 @@ export function ApprovalGrid() {
   const getWeekTotal = (row: WeeklyEmployeeRow): number => {
     return row.days.reduce((sum, d) => sum + (d.total_shift_minutes ?? 0), 0);
   };
+  const getWeekGap = (row: WeeklyEmployeeRow): number => {
+    return row.days.reduce((sum, d) => sum + (d.gap_minutes ?? 0), 0);
+  };
 
   // Global week totals across all employees
   const weekTotals = useMemo(() => {
@@ -126,6 +129,7 @@ export function ApprovalGrid() {
       total: 0,
       lunch: 0,
       callBonus: 0,
+      gap: 0,
     };
     for (const row of data) {
       for (const day of row.days) {
@@ -135,20 +139,14 @@ export function ApprovalGrid() {
         totals.total += day.total_shift_minutes ?? 0;
         totals.lunch += day.lunch_minutes ?? 0;
         totals.callBonus += day.call_bonus_minutes ?? 0;
+        totals.gap += day.gap_minutes ?? 0;
       }
     }
     return totals;
   }, [data]);
 
-  // Compute gap seconds: total - travel - stops - lunch (remainder = untracked)
-  const gapSeconds = useMemo(() => {
-    if (!breakdown) return 0;
-    const totalSeconds = weekTotals.total * 60;
-    const travelSeconds = breakdown.travel_seconds;
-    const stopSeconds = Object.values(breakdown.stop_by_type).reduce((s, v) => s + v, 0);
-    const lunchSeconds = weekTotals.lunch * 60;
-    return Math.max(0, totalSeconds - travelSeconds - stopSeconds - lunchSeconds);
-  }, [weekTotals, breakdown]);
+  // Gap minutes from actual >5min GPS gap detection (per day, summed)
+  const gapSeconds = weekTotals.gap * 60;
 
   const weekLabel = useMemo(() => {
     const start = parseLocalDate(weekStart);
@@ -221,6 +219,12 @@ export function ApprovalGrid() {
           {rejected > 0 && (
             <span className="text-[10px] text-red-600">{formatHours(rejected)} refusé</span>
           )}
+          {(day.gap_minutes ?? 0) > 0 && (
+            <span className="text-[10px] text-purple-600 flex items-center gap-0.5 justify-center">
+              <WifiOff className="h-2.5 w-2.5" />
+              {formatHours(day.gap_minutes)} non suivi
+            </span>
+          )}
           <CheckCircle2 className="h-3 w-3 text-green-600" />
         </div>
       );
@@ -233,6 +237,12 @@ export function ApprovalGrid() {
           <Badge variant="secondary" className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100 text-[10px] px-1 py-0">
             {formatHours(day.total_shift_minutes - approved - rejected)} à vérifier
           </Badge>
+          {(day.gap_minutes ?? 0) > 0 && (
+            <span className="text-[10px] text-purple-600 flex items-center gap-0.5 justify-center">
+              <WifiOff className="h-2.5 w-2.5" />
+              {formatHours(day.gap_minutes)} non suivi
+            </span>
+          )}
         </div>
       );
     }
@@ -265,8 +275,11 @@ export function ApprovalGrid() {
             </span>
           </div>
         )}
-        {day.status === 'approved' && (
-          <CheckCircle2 className="h-3 w-3 text-green-600" />
+        {(day.gap_minutes ?? 0) > 0 && (
+          <span className="text-[10px] text-purple-600 flex items-center gap-0.5 justify-center">
+            <WifiOff className="h-2.5 w-2.5" />
+            {formatHours(day.gap_minutes)} non suivi
+          </span>
         )}
       </div>
     );
@@ -458,6 +471,12 @@ export function ApprovalGrid() {
                             )}
                             {getWeekRejected(row) > 0 && (
                               <span className="text-[10px] text-red-600">{formatHours(getWeekRejected(row))} refusé</span>
+                            )}
+                            {getWeekGap(row) > 0 && (
+                              <span className="text-[10px] text-purple-600 flex items-center gap-0.5 justify-center">
+                                <WifiOff className="h-2.5 w-2.5" />
+                                {formatHours(getWeekGap(row))} non suivi
+                              </span>
                             )}
                           </div>
                         ) : '—'}
