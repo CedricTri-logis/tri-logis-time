@@ -646,6 +646,8 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
         _onForegroundServiceDied;
     // Start CLBackgroundActivitySession (iOS 17+, no-op on Android/older iOS)
     BackgroundExecutionService.startBackgroundSession();
+    // Start CLServiceSession (iOS 18+, belt-and-suspenders with CLBackgroundActivitySession)
+    BackgroundExecutionService.startServiceSession();
     // Schedule BGAppRefreshTask (iOS only) — safety net for stationary employees
     // when iOS kills the app and SLC can't trigger (no movement).
     BgAppRefreshService.schedule();
@@ -679,17 +681,34 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     _startTrackingVerification();
   }
 
-  /// Start a 30-second timer to verify that background tracking is producing GPS points.
+  /// Start a timer to verify that background tracking is producing GPS points.
   /// If no point is received within the timeout, auto clock-out and notify UI.
+  ///
+  /// iOS gets 90s (vs 30s on Android) because flutter_foreground_task on iOS
+  /// only runs ~30s every ~15min, making GPS acquisition significantly slower.
+  /// A 30s timer caused false auto-clock-outs on iOS (root cause of build 117 GPS gaps).
   void _startTrackingVerification() {
     _verificationTimer?.cancel();
-    _verificationTimer = Timer(const Duration(seconds: 30), () async {
+    final timeoutSeconds = Platform.isIOS ? 90 : 30;
+    _verificationTimer = Timer(Duration(seconds: timeoutSeconds), () async {
       if (state.status == TrackingStatus.running && !state.trackingVerified) {
         final shiftId = state.activeShiftId;
+
+        // Gather diagnostic context for root cause analysis
+        bool? fgsRunning;
+        try {
+          fgsRunning = await BackgroundTrackingService.isTracking;
+        } catch (_) {}
+
         _logger?.gps(
           Severity.error,
-          'Tracking verification failed: no GPS point within 30s — auto clock-out',
-          metadata: {'shift_id': shiftId},
+          'Tracking verification failed: no GPS point within ${timeoutSeconds}s — auto clock-out',
+          metadata: {
+            'shift_id': shiftId,
+            'platform': Platform.isIOS ? 'ios' : 'android',
+            'timeout_seconds': timeoutSeconds,
+            'foreground_service_running': fgsRunning,
+          },
         );
 
         // Stop tracking first
@@ -871,6 +890,25 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     }
   }
 
+  /// Pause GPS tracking for lunch break while keeping resilience mechanisms alive.
+  ///
+  /// Unlike [stopTracking], this keeps SLC, CLBackgroundActivitySession, and
+  /// BGAppRefreshTask running so iOS can relaunch the app if it gets killed
+  /// during the lunch break. Without these, the app cannot resume tracking
+  /// after lunch if iOS terminated it.
+  Future<void> pauseForLunch() async {
+    _verificationTimer?.cancel();
+    _verificationTimer = null;
+    _logger?.gps(Severity.info, 'Tracking paused for lunch (resilience mechanisms kept active)');
+    await BackgroundTrackingService.stopTracking();
+    // Do NOT stop: SLC, CLBackgroundActivitySession, BGAppRefreshTask, lifecycle observer
+    // Do NOT end iOS Live Activity — lunch_break_provider updates its status to 'lunch'
+    // Stop thermal/activity monitoring (no GPS to adapt)
+    _stopThermalMonitoring();
+    _stopActivityRecognition();
+    state = state.stopTracking();
+  }
+
   /// Stop background tracking.
   ///
   /// [reason] indicates why tracking stopped:
@@ -896,6 +934,8 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     }
     // Stop CLBackgroundActivitySession
     BackgroundExecutionService.stopBackgroundSession();
+    // Stop CLServiceSession (iOS 18+)
+    BackgroundExecutionService.stopServiceSession();
     // Cancel BGAppRefreshTask — no active shift, no need to wake
     BgAppRefreshService.cancel();
     // Stop lifecycle observer and clear callbacks
@@ -950,8 +990,9 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
       }
 
       _logger?.gps(Severity.info, 'Restarting GPS tracking after iOS relaunch');
-      // Re-create CLBackgroundActivitySession before restarting tracking
+      // Re-create CLBackgroundActivitySession + CLServiceSession before restarting tracking
       BackgroundExecutionService.startBackgroundSession();
+      BackgroundExecutionService.startServiceSession();
       startTracking();
     }
   }

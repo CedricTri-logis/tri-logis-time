@@ -34,7 +34,7 @@ final dayApprovalSummariesProvider = FutureProvider.family<
 
 /// Fetch full day approval detail for a specific employee + date.
 /// Accepts explicit employeeId so supervisors can view subordinates' data.
-final dayApprovalDetailProvider = FutureProvider.family<DayApprovalDetail?,
+final dayApprovalDetailProvider = FutureProvider.autoDispose.family<DayApprovalDetail?,
     ({String employeeId, DateTime date})>(
   (ref, params) async {
     final supabase = Supabase.instance.client;

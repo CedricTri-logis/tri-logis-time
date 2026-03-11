@@ -504,7 +504,11 @@ class _ShiftDetailScreenState extends ConsumerState<ShiftDetailScreen> {
       builder: (context, ref, _) {
         final detailAsync = ref.watch(dayApprovalDetailProvider(
             (employeeId: widget.employeeId, date: date)));
-        final tripsAsync = ref.watch(tripsForShiftProvider(widget.shiftId));
+        final tripsAsync = ref.watch(tripsForPeriodProvider(TripPeriodParams(
+          employeeId: widget.employeeId,
+          start: date,
+          end: date.add(const Duration(days: 1)),
+        )));
         final trips = tripsAsync.valueOrNull ?? [];
 
         return detailAsync.when(

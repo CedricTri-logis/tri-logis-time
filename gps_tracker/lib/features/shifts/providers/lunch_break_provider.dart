@@ -109,8 +109,9 @@ class LunchBreakNotifier extends StateNotifier<LunchBreakState> {
       // Refresh lunch breaks list so timer picks it up
       _ref.invalidate(lunchBreaksForShiftProvider(shift.id));
 
-      // Stop GPS tracking
-      await _ref.read(trackingProvider.notifier).stopTracking(reason: 'lunch_break');
+      // Pause GPS tracking but keep resilience mechanisms (SLC, BAS, BGAppRefresh)
+      // alive so iOS can relaunch the app if it gets killed during lunch
+      await _ref.read(trackingProvider.notifier).pauseForLunch();
 
       // Update iOS Live Activity
       ShiftActivityService.instance.updateStatus('lunch');

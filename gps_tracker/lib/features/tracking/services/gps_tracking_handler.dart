@@ -137,16 +137,21 @@ class GPSTrackingHandler extends TaskHandler {
       return;
     }
 
-    // Capture initial position immediately (don't rely on stream's first event)
+    // Capture initial position from OS cache (don't rely on stream's first event).
+    // IMPORTANT: Uses getLastKnownPosition() instead of getCurrentPosition()
+    // because getCurrentPosition() kills the active position stream on iOS
+    // (geolocator Issue #1122). The stream is already running at this point,
+    // so getLastKnownPosition() is safe and non-destructive.
     try {
-      final initialPosition = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 10),
-      );
-      _onPosition(initialPosition);
+      final initialPosition = await Geolocator.getLastKnownPosition();
+      if (initialPosition != null) {
+        _onPosition(initialPosition);
+      } else {
+        _sendDiagnostic('info', 'No cached position available, waiting for stream');
+      }
     } catch (_) {
       // Stream will deliver the first position shortly
-      _sendDiagnostic('warn', 'Initial position capture timeout');
+      _sendDiagnostic('warn', 'Initial position lookup failed');
     }
 
     // Notify main isolate that tracking has started

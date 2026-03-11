@@ -385,7 +385,11 @@ class ShiftDetailScreen extends ConsumerWidget {
         if (userId == null) return const SizedBox.shrink();
         final detailAsync = ref.watch(dayApprovalDetailProvider(
             (employeeId: userId, date: date)));
-        final tripsAsync = ref.watch(tripsForShiftProvider(shift.id));
+        final tripsAsync = ref.watch(tripsForPeriodProvider(TripPeriodParams(
+          employeeId: userId!,
+          start: date,
+          end: date.add(const Duration(days: 1)),
+        )));
         final trips = tripsAsync.valueOrNull ?? [];
 
         return detailAsync.when(

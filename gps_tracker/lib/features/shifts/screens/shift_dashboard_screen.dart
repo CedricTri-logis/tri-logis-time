@@ -49,6 +49,7 @@ import '../providers/location_provider.dart';
 import '../providers/shift_provider.dart';
 import '../providers/sync_provider.dart';
 import '../services/version_check_service.dart';
+import '../../tracking/services/ios_device_checks_service.dart';
 import '../providers/lunch_break_provider.dart';
 import '../widgets/clock_button.dart';
 import '../widgets/lunch_break_button.dart';
@@ -511,6 +512,38 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
         await OemBatteryGuideDialog.showIfNeeded(context);
         if (!mounted) return;
       }
+
+      // iOS: warn about settings that kill background GPS tracking
+      if (Platform.isIOS && mounted) {
+        final warnings = <String>[];
+        if (await IosDeviceChecksService.isLowPowerModeEnabled()) {
+          warnings.add('Le mode économie d\'énergie est activé. Le suivi GPS sera fortement limité en arrière-plan.');
+        }
+        if (!await IosDeviceChecksService.isBackgroundAppRefreshEnabled()) {
+          warnings.add('L\'actualisation en arrière-plan est désactivée pour cette app. Le suivi GPS ne fonctionnera pas correctement.');
+        }
+        if (warnings.isNotEmpty && mounted) {
+          final proceed = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Attention'),
+              content: Text(warnings.join('\n\n')),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Annuler'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('Continuer quand même'),
+                ),
+              ],
+            ),
+          );
+          if (proceed != true || !mounted) return;
+        }
+      }
+
       // Clock in (location is guaranteed non-null after validation above)
       final success = await shiftNotifier.clockIn(
         location: gpsResult.location!,
