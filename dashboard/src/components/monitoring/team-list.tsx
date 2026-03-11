@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { ChevronRight, Clock, LogIn, MonitorSmartphone, PaintBucket, Smartphone, User, UtensilsCrossed, Wrench } from 'lucide-react';
+import { Briefcase, ChevronRight, Clock, LogIn, MonitorSmartphone, Smartphone, SprayCan, User, UtensilsCrossed, Wrench } from 'lucide-react';
+import { ACTIVITY_TYPE_CONFIG, type ActivityType } from '@/types/work-session';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -167,25 +168,35 @@ function TeamListItem({ employee }: TeamListItemProps) {
   );
 }
 
+const ACTIVITY_TYPE_ICONS: Record<ActivityType, typeof SprayCan> = {
+  cleaning: SprayCan,
+  maintenance: Wrench,
+  admin: Briefcase,
+};
+
 interface SessionBadgeProps {
-  sessionType: 'cleaning' | 'maintenance' | null;
+  sessionType: 'cleaning' | 'maintenance' | 'admin' | null;
   location: string;
   startedAt: Date | null;
 }
 
 function SessionBadge({ sessionType, location, startedAt }: SessionBadgeProps) {
-  const isCleaning = sessionType === 'cleaning';
-  const Icon = isCleaning ? PaintBucket : Wrench;
+  const activityType: ActivityType = sessionType ?? 'cleaning';
+  const config = ACTIVITY_TYPE_CONFIG[activityType];
+  const Icon = ACTIVITY_TYPE_ICONS[activityType];
 
   return (
-    <div className="flex items-center gap-1.5 text-xs text-blue-600 mt-0.5">
+    <div
+      className="flex items-center gap-1.5 text-xs mt-0.5"
+      style={{ color: config.color }}
+    >
       <Icon className="h-3 w-3 flex-shrink-0" />
       <span className="truncate">{location}</span>
       {startedAt && (
         <DurationCounter
           startTime={startedAt}
           format="hm"
-          className="text-blue-400 ml-1 flex-shrink-0"
+          className="ml-1 flex-shrink-0 opacity-60"
         />
       )}
     </div>

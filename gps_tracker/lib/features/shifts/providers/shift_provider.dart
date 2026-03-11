@@ -13,6 +13,7 @@ import '../../../shared/services/local_database.dart';
 import '../../../shared/services/realtime_service.dart';
 import '../../cleaning/providers/cleaning_session_provider.dart';
 import '../../maintenance/providers/maintenance_provider.dart';
+import '../../work_sessions/providers/work_session_provider.dart';
 import 'lunch_break_provider.dart';
 import '../../../shared/services/shift_activity_service.dart';
 import '../models/geo_point.dart';
@@ -657,6 +658,22 @@ class ShiftNotifier extends StateNotifier<ShiftState>
           final userId = _ref.read(supabaseClientProvider).auth.currentUser?.id;
           if (userId != null) {
             await maintenanceService.autoCloseSessions(
+              shiftId: activeShift.id,
+              employeeId: userId,
+              closedAt: DateTime.now().toUtc(),
+            );
+          }
+        } catch (_) {
+          // Don't fail clock-out if auto-close fails
+        }
+
+        // Auto-close any open work sessions for this shift (unified sessions)
+        try {
+          final workSessionService =
+              _ref.read(workSessionServiceProvider);
+          final userId = _ref.read(supabaseClientProvider).auth.currentUser?.id;
+          if (userId != null) {
+            await workSessionService.autoCloseSessions(
               shiftId: activeShift.id,
               employeeId: userId,
               closedAt: DateTime.now().toUtc(),

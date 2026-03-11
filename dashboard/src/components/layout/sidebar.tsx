@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, MapPin, MapPinned, UserCog, Radio, History, FileBarChart, SprayCan, Car, ClipboardCheck, UtensilsCrossed } from 'lucide-react';
+import { LayoutDashboard, Users, MapPin, MapPinned, UserCog, Radio, History, FileBarChart, ClipboardList, Car, ClipboardCheck, UtensilsCrossed } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMonitoringBadges } from '@/lib/hooks/use-monitoring-badges';
 
@@ -38,9 +38,9 @@ const navigation = [
     icon: MapPinned,
   },
   {
-    name: 'Ménage',
-    href: '/dashboard/cleaning',
-    icon: SprayCan,
+    name: 'Sessions de travail',
+    href: '/dashboard/work-sessions',
+    icon: ClipboardList,
   },
   {
     name: 'Activités',
