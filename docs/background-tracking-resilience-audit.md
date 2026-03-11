@@ -1,6 +1,6 @@
 # Background Tracking Resilience - Audit complet
 
-> Dernière mise à jour : 2026-03-11 | Build actuel : v1.0.0+120
+> Dernière mise à jour : 2026-03-11 | Build actuel : v1.0.0+121
 
 ## Table des matières
 
@@ -600,6 +600,7 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +118 | Mar 11 | **Fix GPS hors shift** — nettoyage 3532 points GPS orphelins hors fenêtre de shift (migration 147 : `approval_detail_shift_window_filter`). Callback shifts (rappels) : `shift_type` colonne, auto-détection trigger, catégories employé. Dashboard : callback toggle, bonus 3h minimum. App Flutter : badges rappel, visibilité approbation employé (summary, breakdown par lieu, timeline activités, carte trajets OSRM). Aucun changement aux mécanismes de résilience tracking | ✅ Stable |
 | +119 | Mar 11 | **Fix approbation sur mauvais écrans** — Les widgets d'approbation (badge, summary, breakdown, timeline, carte trajets) étaient sur `features/shifts/` mais la navigation principale utilise `features/history/`. Portage vers `my_history_screen`, `shift_history_card`, `shift_detail_screen` (historique). Aucun changement tracking/résilience | ✅ UI Fix |
 | +120 | Mar 11 | **Fix approbation mauvais employé** — `dayApprovalDetailProvider` et `dayApprovalSummariesProvider` utilisaient `currentUser.id` au lieu de l'`employeeId` du quart consulté → superviseur voyait ses propres données d'approbation en regardant un subordonné. Fix : paramètre `employeeId` explicite. Migration RLS : `supervisor_view_subordinate_day_approvals` sur `day_approvals`. Aucun changement tracking/résilience | ✅ Data Fix |
+| +121 | Mar 11 | **Carte interactive activités/lieux** — Tap sur un arrêt ou déplacement dans la timeline/répartition par lieu ouvre un bottom sheet avec carte flutter_map (marker pour stops, polyline OSRM pour trips). Nouveau widget `ActivityMapSheet` + callbacks `onActivityTap`/`onLocationTap`. Aucun changement tracking/résilience | ✅ UI |
 
 ### Chronologie complète Android Watchdog
 

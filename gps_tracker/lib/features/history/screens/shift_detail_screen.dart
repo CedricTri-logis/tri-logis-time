@@ -11,7 +11,9 @@ import '../../shifts/providers/approval_provider.dart';
 import '../../shifts/widgets/activity_timeline.dart';
 import '../../shifts/widgets/approval_summary_card.dart';
 import '../../shifts/widgets/location_breakdown_card.dart';
+import '../../shifts/widgets/activity_map_sheet.dart';
 import '../../shifts/widgets/trip_routes_map.dart';
+import '../../mileage/models/trip.dart';
 import '../providers/employee_history_provider.dart';
 import '../providers/supervised_employees_provider.dart';
 import '../services/history_service.dart';
@@ -452,6 +454,39 @@ class _ShiftDetailScreenState extends ConsumerState<ShiftDetailScreen> {
     );
   }
 
+  void _onActivityTap(ApprovalActivity activity, List<Trip> trips) {
+    if (activity.isStop && activity.latitude != null && activity.longitude != null) {
+      ActivityMapSheet.showStop(
+        context,
+        locationName: activity.locationName ?? 'Lieu inconnu',
+        latitude: activity.latitude!,
+        longitude: activity.longitude!,
+        locationType: activity.locationType,
+      );
+    } else if (activity.isTrip) {
+      final trip = trips.where((t) => t.id == activity.activityId).firstOrNull;
+      if (trip != null) {
+        ActivityMapSheet.showTrip(context, trip: trip);
+      }
+    }
+  }
+
+  void _onLocationTap(String locationName, List<ApprovalActivity> stops) {
+    final stop = stops.firstWhere(
+      (s) => s.latitude != null && s.longitude != null,
+      orElse: () => stops.first,
+    );
+    if (stop.latitude != null && stop.longitude != null) {
+      ActivityMapSheet.showStop(
+        context,
+        locationName: locationName,
+        latitude: stop.latitude!,
+        longitude: stop.longitude!,
+        locationType: stop.locationType,
+      );
+    }
+  }
+
   Widget _buildApprovalSection() {
     final shift = _shift!;
     final date = DateTime(
@@ -464,6 +499,8 @@ class _ShiftDetailScreenState extends ConsumerState<ShiftDetailScreen> {
       builder: (context, ref, _) {
         final detailAsync = ref.watch(dayApprovalDetailProvider(
             (employeeId: widget.employeeId, date: date)));
+        final tripsAsync = ref.watch(tripsForShiftProvider(widget.shiftId));
+        final trips = tripsAsync.valueOrNull ?? [];
 
         return detailAsync.when(
           data: (detail) {
@@ -473,9 +510,15 @@ class _ShiftDetailScreenState extends ConsumerState<ShiftDetailScreen> {
               children: [
                 ApprovalSummaryCard(detail: detail),
                 const SizedBox(height: 12),
-                LocationBreakdownCard(detail: detail),
+                LocationBreakdownCard(
+                  detail: detail,
+                  onLocationTap: _onLocationTap,
+                ),
                 const SizedBox(height: 12),
-                ActivityTimeline(activities: detail.activities),
+                ActivityTimeline(
+                  activities: detail.activities,
+                  onActivityTap: (activity) => _onActivityTap(activity, trips),
+                ),
               ],
             );
           },

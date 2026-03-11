@@ -14,6 +14,8 @@ import '../models/shift.dart';
 import '../providers/approval_provider.dart';
 import '../providers/lunch_break_provider.dart';
 import '../providers/shift_provider.dart';
+import '../../mileage/models/trip.dart';
+import '../widgets/activity_map_sheet.dart';
 import '../widgets/activity_timeline.dart';
 import '../widgets/approval_summary_card.dart';
 import '../widgets/location_breakdown_card.dart';
@@ -340,11 +342,46 @@ class ShiftDetailScreen extends ConsumerWidget {
     );
     final userId = Supabase.instance.client.auth.currentUser?.id;
 
+    void onActivityTap(ApprovalActivity activity, List<Trip> trips) {
+      if (activity.isStop && activity.latitude != null && activity.longitude != null) {
+        ActivityMapSheet.showStop(
+          context,
+          locationName: activity.locationName ?? 'Lieu inconnu',
+          latitude: activity.latitude!,
+          longitude: activity.longitude!,
+          locationType: activity.locationType,
+        );
+      } else if (activity.isTrip) {
+        final trip = trips.where((t) => t.id == activity.activityId).firstOrNull;
+        if (trip != null) {
+          ActivityMapSheet.showTrip(context, trip: trip);
+        }
+      }
+    }
+
+    void onLocationTap(String locationName, List<ApprovalActivity> stops) {
+      final stop = stops.firstWhere(
+        (s) => s.latitude != null && s.longitude != null,
+        orElse: () => stops.first,
+      );
+      if (stop.latitude != null && stop.longitude != null) {
+        ActivityMapSheet.showStop(
+          context,
+          locationName: locationName,
+          latitude: stop.latitude!,
+          longitude: stop.longitude!,
+          locationType: stop.locationType,
+        );
+      }
+    }
+
     return Consumer(
       builder: (context, ref, _) {
         if (userId == null) return const SizedBox.shrink();
         final detailAsync = ref.watch(dayApprovalDetailProvider(
             (employeeId: userId, date: date)));
+        final tripsAsync = ref.watch(tripsForShiftProvider(shift.id));
+        final trips = tripsAsync.valueOrNull ?? [];
 
         return detailAsync.when(
           data: (detail) {
@@ -354,9 +391,15 @@ class ShiftDetailScreen extends ConsumerWidget {
               children: [
                 ApprovalSummaryCard(detail: detail),
                 const SizedBox(height: 12),
-                LocationBreakdownCard(detail: detail),
+                LocationBreakdownCard(
+                  detail: detail,
+                  onLocationTap: onLocationTap,
+                ),
                 const SizedBox(height: 12),
-                ActivityTimeline(activities: detail.activities),
+                ActivityTimeline(
+                  activities: detail.activities,
+                  onActivityTap: (activity) => onActivityTap(activity, trips),
+                ),
               ],
             );
           },
