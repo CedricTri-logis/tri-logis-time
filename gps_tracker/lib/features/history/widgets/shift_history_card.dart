@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../shared/utils/timezone_formatter.dart';
+import '../../shifts/models/day_approval.dart';
 import '../../shifts/models/shift.dart';
 
 /// A card displaying shift summary information
@@ -9,12 +10,14 @@ import '../../shifts/models/shift.dart';
 /// Shows clock in/out times, duration, status, and location info.
 class ShiftHistoryCard extends StatelessWidget {
   final Shift shift;
+  final DayApprovalSummary? approval;
   final VoidCallback? onTap;
   final bool showDate;
 
   const ShiftHistoryCard({
     super.key,
     required this.shift,
+    this.approval,
     this.onTap,
     this.showDate = true,
   });
@@ -133,6 +136,11 @@ class ShiftHistoryCard extends StatelessWidget {
                   ),
                 ],
               ),
+              // Approval badge (for completed shifts)
+              if (shift.isCompleted && approval != null) ...[
+                const SizedBox(height: 8),
+                _ApprovalBadge(approval: approval!),
+              ],
               // GPS point count (if available)
               if (shift.gpsPointCount != null && shift.gpsPointCount! > 0) ...[
                 const SizedBox(height: 8),
@@ -256,5 +264,56 @@ class ShiftHistoryCard extends StatelessWidget {
     } else {
       return '${hours}h ${minutes}m';
     }
+  }
+}
+
+class _ApprovalBadge extends StatelessWidget {
+  final DayApprovalSummary approval;
+  const _ApprovalBadge({required this.approval});
+
+  String _formatMinutes(int minutes) {
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    if (h == 0) return '${m}m';
+    return '${h}h${m.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isApproved = approval.status == ApprovalStatus.approved;
+    final hasRejections = approval.hasRejections;
+
+    final Color color;
+    final IconData icon;
+    final String text;
+
+    if (hasRejections) {
+      color = Colors.red;
+      icon = Icons.cancel_outlined;
+      text = '${_formatMinutes(approval.rejectedMinutes ?? 0)} rejeté';
+    } else if (isApproved) {
+      color = Colors.green;
+      icon = Icons.check_circle_outline;
+      text = '${_formatMinutes(approval.approvedMinutes ?? 0)} approuvé';
+    } else {
+      color = Colors.grey;
+      icon = Icons.schedule;
+      text = 'En attente';
+    }
+
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: 4),
+        Text(
+          text,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: color,
+          ),
+        ),
+      ],
+    );
   }
 }
