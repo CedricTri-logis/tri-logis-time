@@ -72,6 +72,7 @@ export function mergeClockEvents<T extends MergeableActivity>(items: T[]): Proce
     let bestDistance = Infinity;
     for (let j = 0; j < filtered.length; j++) {
       if (filtered[j].activity_type !== 'stop' && filtered[j].activity_type !== 'gap') continue;
+      if (filtered[j].shift_id !== item.shift_id) continue;
       const stopStart = new Date(filtered[j].started_at).getTime();
       const stopEnd = new Date(filtered[j].ended_at).getTime();
       if (clockTime >= (stopStart - MERGE_TOLERANCE_MS) && clockTime <= (stopEnd + MERGE_TOLERANCE_MS)) {
