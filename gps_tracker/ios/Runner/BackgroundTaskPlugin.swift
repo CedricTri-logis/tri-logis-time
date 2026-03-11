@@ -18,6 +18,9 @@ class BackgroundTaskPlugin: NSObject, FlutterPlugin {
     // CLBackgroundActivitySession (iOS 17+) — must hold strong reference
     private var backgroundSession: Any?
 
+    // CLServiceSession (iOS 18+) — belt-and-suspenders for continuous location
+    private var serviceSession: Any?
+
     // Background task for foreground-to-background transition protection
     private var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
 
@@ -63,6 +66,18 @@ class BackgroundTaskPlugin: NSObject, FlutterPlugin {
             beginBackgroundTask(name: name, result: result)
         case "endBackgroundTask":
             endBackgroundTask(result: result)
+
+        // --- Device Checks ---
+        case "isLowPowerModeEnabled":
+            result(ProcessInfo.processInfo.isLowPowerModeEnabled)
+        case "isBackgroundAppRefreshEnabled":
+            result(UIApplication.shared.backgroundRefreshStatus == .available)
+
+        // --- CLServiceSession (iOS 18+) ---
+        case "startServiceSession":
+            startServiceSession(result: result)
+        case "stopServiceSession":
+            stopServiceSession(result: result)
 
         // --- Thermal State ---
         case "getThermalState":
@@ -158,6 +173,34 @@ class BackgroundTaskPlugin: NSObject, FlutterPlugin {
                 "task_id": taskID.rawValue
             ])
         }
+        result(true)
+    }
+
+    // MARK: - CLServiceSession (iOS 18+)
+
+    private func startServiceSession(result: @escaping FlutterResult) {
+        if serviceSession != nil {
+            result(true)
+            return
+        }
+
+        if #available(iOS 18.0, *) {
+            serviceSession = CLServiceSession(authorization: .always)
+            NSLog("[BackgroundTaskPlugin] CLServiceSession started (iOS 18+)")
+        } else {
+            NSLog("[BackgroundTaskPlugin] CLServiceSession not available (iOS < 18), no-op")
+        }
+        result(true)
+    }
+
+    private func stopServiceSession(result: @escaping FlutterResult) {
+        if #available(iOS 18.0, *) {
+            if let session = serviceSession as? CLServiceSession {
+                session.invalidate()
+                NSLog("[BackgroundTaskPlugin] CLServiceSession invalidated")
+            }
+        }
+        serviceSession = nil
         result(true)
     }
 

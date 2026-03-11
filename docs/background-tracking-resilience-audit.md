@@ -1,6 +1,6 @@
 # Background Tracking Resilience - Audit complet
 
-> Dernière mise à jour : 2026-03-11 | Build actuel : v1.0.0+122
+> Dernière mise à jour : 2026-03-11 | Build actuel : v1.0.0+123
 
 ## Table des matières
 
@@ -602,6 +602,7 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +120 | Mar 11 | **Fix approbation mauvais employé** — `dayApprovalDetailProvider` et `dayApprovalSummariesProvider` utilisaient `currentUser.id` au lieu de l'`employeeId` du quart consulté → superviseur voyait ses propres données d'approbation en regardant un subordonné. Fix : paramètre `employeeId` explicite. Migration RLS : `supervisor_view_subordinate_day_approvals` sur `day_approvals`. Aucun changement tracking/résilience | ✅ Data Fix |
 | +121 | Mar 11 | **Carte interactive activités/lieux** — Tap sur un arrêt ou déplacement dans la timeline/répartition par lieu ouvre un bottom sheet avec carte flutter_map (marker pour stops, polyline OSRM pour trips). Nouveau widget `ActivityMapSheet` + callbacks `onActivityTap`/`onLocationTap`. Aucun changement tracking/résilience | ✅ UI |
 | +122 | Mar 11 | **Fix carte trajets** — Titre bottom sheet affiche noms de lieux (via `startLocationName`/`endLocationName`) au lieu de coordonnées GPS. Polyline OSRM connectée aux points GPS départ/arrivée (prépend start, append end) pour éliminer le gap entre marqueur et tracé. Aucun changement tracking/résilience | ✅ UI Fix |
+| +123 | Mar 11 | **Fix trajets multi-quarts + refresh approbations** — `tripsForShiftProvider` remplacé par `tripsForPeriodProvider` (charge tous les trips de la journée) pour corriger les 3 premiers déplacements non-cliquables quand employé a plusieurs quarts/jour. `dayApprovalDetailProvider` → `autoDispose` pour rafraîchir données d'approbation à chaque ouverture. Migrations backend : `work_sessions` table + RPCs. Aucun changement tracking/résilience | ✅ Fix |
 
 ### Chronologie complète Android Watchdog
 

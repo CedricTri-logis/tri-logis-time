@@ -54,7 +54,8 @@ Steps:
 9. **Push (run the full /push workflow)** — only if both deploys succeeded:
    - **Apply pending migrations**: Check `git status --short supabase/migrations/` and `git diff --name-only HEAD supabase/migrations/` for new/modified migration files. If any are found, list them and run `supabase db push --linked` from the project root. If it fails, stop and report the error.
    - **Commit**: Stage all modified files (pubspec.yaml, build configs, code changes, migrations, the audit doc, etc.). Create a commit with message: `chore: Deploy v<version>+<build> to TestFlight & Google Play` (using HEREDOC, with `Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>`).
-   - **Push**: `git push` (or `git push -u origin HEAD` if no upstream).
+   - **Git tag**: After the commit, create a git tag for the build: `git tag v<version>+<build>`. This enables `git diff v1.0.0+113..v1.0.0+114` to see exactly what changed between builds.
+   - **Push**: `git push && git push --tags` (or `git push -u origin HEAD && git push --tags` if no upstream). Always push tags alongside commits.
    - **Vercel deployment**: Run `npx vercel --prod --yes` to trigger and watch the production deployment. Report the deployment URL and status.
 10. Report the summary: both deploy statuses, the SINGLE build number deployed to both platforms, Google Play review status, what minimum version is now enforced, and the git push status.
 

@@ -86,6 +86,25 @@ class BackgroundExecutionService {
     }
   }
 
+  /// Start a CLServiceSession (iOS 18+, no-op on older/Android).
+  /// Belt-and-suspenders for continuous background location.
+  static Future<void> startServiceSession() async {
+    if (!Platform.isIOS) return;
+
+    try {
+      await _channel.invokeMethod<bool>('startServiceSession');
+    } catch (_) {}
+  }
+
+  /// Stop the CLServiceSession.
+  static Future<void> stopServiceSession() async {
+    if (!Platform.isIOS) return;
+
+    try {
+      await _channel.invokeMethod<bool>('stopServiceSession');
+    } catch (_) {}
+  }
+
   /// Register callback handler for native → Flutter calls.
   static void _ensureCallbackRegistered() {
     if (_callbackRegistered) return;
