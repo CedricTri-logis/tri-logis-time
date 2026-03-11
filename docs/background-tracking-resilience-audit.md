@@ -1,6 +1,6 @@
 # Background Tracking Resilience - Audit complet
 
-> Dernière mise à jour : 2026-03-11 | Build actuel : v1.0.0+123
+> Dernière mise à jour : 2026-03-11 | Build actuel : v1.0.0+124
 
 ## Table des matières
 
@@ -603,6 +603,7 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +121 | Mar 11 | **Carte interactive activités/lieux** — Tap sur un arrêt ou déplacement dans la timeline/répartition par lieu ouvre un bottom sheet avec carte flutter_map (marker pour stops, polyline OSRM pour trips). Nouveau widget `ActivityMapSheet` + callbacks `onActivityTap`/`onLocationTap`. Aucun changement tracking/résilience | ✅ UI |
 | +122 | Mar 11 | **Fix carte trajets** — Titre bottom sheet affiche noms de lieux (via `startLocationName`/`endLocationName`) au lieu de coordonnées GPS. Polyline OSRM connectée aux points GPS départ/arrivée (prépend start, append end) pour éliminer le gap entre marqueur et tracé. Aucun changement tracking/résilience | ✅ UI Fix |
 | +123 | Mar 11 | **Fix trajets multi-quarts + refresh approbations** — `tripsForShiftProvider` remplacé par `tripsForPeriodProvider` (charge tous les trips de la journée) pour corriger les 3 premiers déplacements non-cliquables quand employé a plusieurs quarts/jour. `dayApprovalDetailProvider` → `autoDispose` pour rafraîchir données d'approbation à chaque ouverture. Migrations backend : `work_sessions` table + RPCs. Aucun changement tracking/résilience | ✅ Fix |
+| +124 | Mar 11 | **Sessions de travail unifiées (Phase 1)** — `cleaning_sessions` + `maintenance_sessions` fusionnées dans `work_sessions` (table, 6 RPCs, sync triggers bidirectionnels). Flutter : `ActivityTypePicker` au clock-in (Ménage/Entretien/Admin), `ActiveWorkSessionCard` + `WorkSessionHistoryList` remplacent onglets séparés. Dashboard : nouvelle page `/work-sessions`, sidebar mise à jour. Auto-close intégré au clock-out. Aucun changement tracking/résilience — restructuration sessions uniquement | ✅ Stable |
 
 ### Chronologie complète Android Watchdog
 
