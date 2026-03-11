@@ -4,7 +4,7 @@ import '../../tracking/widgets/oem_battery_guide_dialog.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:geolocator/geolocator.dart' hide ActivityType;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -31,14 +31,13 @@ import '../../tracking/widgets/device_services_dialog.dart';
 import '../../tracking/widgets/permission_change_alert.dart';
 import '../../tracking/widgets/permission_explanation_dialog.dart';
 import '../../tracking/widgets/samsung_standby_dialog.dart';
-import '../../cleaning/providers/cleaning_session_provider.dart';
-import '../../cleaning/screens/qr_scanner_screen.dart';
-import '../../cleaning/widgets/active_session_card.dart';
-import '../../cleaning/widgets/cleaning_history_list.dart';
-import '../../maintenance/providers/maintenance_provider.dart';
-import '../../maintenance/widgets/active_maintenance_card.dart';
 import '../../maintenance/widgets/building_picker_sheet.dart';
-import '../../maintenance/widgets/maintenance_history_list.dart';
+import '../../work_sessions/models/activity_type.dart';
+import '../../work_sessions/providers/work_session_provider.dart';
+import '../../work_sessions/widgets/activity_type_picker.dart';
+import '../../work_sessions/widgets/active_work_session_card.dart';
+import '../../work_sessions/widgets/work_session_history_list.dart';
+import '../../work_sessions/screens/qr_scanner_screen.dart' as ws;
 import '../../tracking/widgets/permission_status_banner.dart';
 import '../../tracking/widgets/precise_location_dialog.dart';
 import '../../tracking/widgets/settings_guidance_dialog.dart';
@@ -55,9 +54,6 @@ import '../widgets/clock_button.dart';
 import '../widgets/lunch_break_button.dart';
 import '../widgets/shift_status_card.dart';
 import '../widgets/shift_timer.dart';
-
-/// Tab selection for the shift dashboard.
-enum _DashboardTab { menager, entretien }
 
 /// Main dashboard screen for shift management.
 class ShiftDashboardScreen extends ConsumerStatefulWidget {
@@ -90,9 +86,6 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
   /// Tracks whether the regression banner has been shown this session
   /// to avoid repeating it every resume.
   bool _regressionBannerShown = false;
-
-  /// Currently selected tab (ménager / entretien).
-  _DashboardTab _selectedTab = _DashboardTab.menager;
 
   DiagnosticLogger? get _logger =>
       DiagnosticLogger.isInitialized ? DiagnosticLogger.instance : null;
@@ -544,6 +537,10 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
         }
       }
 
+      // Show activity type picker BEFORE clock-in
+      final activityType = await ActivityTypePicker.show(context);
+      if (activityType == null || !mounted) return; // User cancelled
+
       // Clock in (location is guaranteed non-null after validation above)
       final success = await shiftNotifier.clockIn(
         location: gpsResult.location!,
@@ -574,6 +571,24 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
             ),
           ),
         );
+
+        // After shift created, start first work session based on activity type
+        if (!mounted) return;
+        final activeShift = ref.read(shiftProvider).activeShift;
+        if (activeShift != null) {
+          switch (activityType) {
+            case ActivityType.cleaning:
+              _openQrScanner();
+            case ActivityType.maintenance:
+              _openBuildingPicker();
+            case ActivityType.admin:
+              await ref.read(workSessionProvider.notifier).startSession(
+                    shiftId: activeShift.id,
+                    activityType: ActivityType.admin,
+                    serverShiftId: activeShift.serverId,
+                  );
+          }
+        }
       } else {
         final shiftState = ref.read(shiftProvider);
 
@@ -1252,7 +1267,7 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
 
   void _openQrScanner() {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const QrScannerScreen()),
+      MaterialPageRoute<void>(builder: (_) => const ws.QrScannerScreen()),
     );
   }
 
@@ -1263,9 +1278,10 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
     final activeShift = ref.read(shiftProvider).activeShift;
     if (activeShift == null) return;
 
-    final maintenanceResult =
-        await ref.read(maintenanceSessionProvider.notifier).startSession(
+    final sessionResult =
+        await ref.read(workSessionProvider.notifier).startSession(
               shiftId: activeShift.id,
+              activityType: ActivityType.maintenance,
               buildingId: result.buildingId,
               buildingName: result.buildingName,
               apartmentId: result.apartmentId,
@@ -1275,7 +1291,7 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
 
     if (!mounted) return;
 
-    if (maintenanceResult.success) {
+    if (sessionResult.success) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
@@ -1306,7 +1322,7 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                    maintenanceResult.errorMessage ?? 'Erreur de démarrage'),
+                    sessionResult.errorMessage ?? 'Erreur de démarrage'),
               ),
             ],
           ),
@@ -1320,12 +1336,102 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
     }
   }
 
+  /// Start a new work session - opens ActivityTypePicker then handles each type.
+  Future<void> _startNewSession() async {
+    final activityType = await ActivityTypePicker.show(context);
+    if (activityType == null || !mounted) return;
+
+    final activeShift = ref.read(shiftProvider).activeShift;
+    if (activeShift == null) return;
+
+    switch (activityType) {
+      case ActivityType.cleaning:
+        _openQrScanner();
+      case ActivityType.maintenance:
+        _openBuildingPicker();
+      case ActivityType.admin:
+        final result =
+            await ref.read(workSessionProvider.notifier).startSession(
+                  shiftId: activeShift.id,
+                  activityType: ActivityType.admin,
+                  serverShiftId: activeShift.serverId,
+                );
+        if (!mounted) return;
+        if (result.success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.white),
+                  SizedBox(width: 12),
+                  Text('Session admin démarrée'),
+                ],
+              ),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.error, color: Colors.white),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                        result.errorMessage ?? 'Erreur de démarrage'),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          );
+        }
+    }
+  }
+
+  /// Change the current activity type: complete current session, pick new one, start it.
+  Future<void> _changeActivityType() async {
+    final notifier = ref.read(workSessionProvider.notifier);
+
+    // Complete the current session first
+    final closed = await notifier.changeActivityType();
+    if (!closed || !mounted) return;
+
+    // Open activity type picker for the new type
+    final activityType = await ActivityTypePicker.show(context);
+    if (activityType == null || !mounted) return;
+
+    final activeShift = ref.read(shiftProvider).activeShift;
+    if (activeShift == null) return;
+
+    switch (activityType) {
+      case ActivityType.cleaning:
+        _openQrScanner();
+      case ActivityType.maintenance:
+        _openBuildingPicker();
+      case ActivityType.admin:
+        await ref.read(workSessionProvider.notifier).startSession(
+              shiftId: activeShift.id,
+              activityType: ActivityType.admin,
+              serverShiftId: activeShift.serverId,
+            );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final shiftState = ref.watch(shiftProvider);
     final hasActiveShift = shiftState.activeShift != null;
-    final hasActiveCleaning = ref.watch(hasActiveCleaningSessionProvider);
-    final hasActiveMaintenance = ref.watch(hasActiveMaintenanceSessionProvider);
+    final hasActiveWorkSession = ref.watch(hasActiveWorkSessionProvider);
 
     // Listen for auto clock-out due to tracking verification failure
     ref.listen<TrackingState>(trackingProvider, (previous, next) {
@@ -1339,10 +1445,7 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
       body: RefreshIndicator(
         onRefresh: () async {
           await ref.read(shiftProvider.notifier).refresh();
-          await ref.read(cleaningSessionProvider.notifier).loadActiveSession();
-          await ref
-              .read(maintenanceSessionProvider.notifier)
-              .loadActiveSession();
+          await ref.read(workSessionProvider.notifier).loadActiveSession();
           await ref.read(permissionGuardProvider.notifier).checkStatus();
         },
         child: Column(
@@ -1363,45 +1466,13 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
                       const SizedBox(height: 16),
                       const ShiftTimer(),
 
-                      // Tab toggle
+                      // Active work session card (unified)
                       const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        child: SegmentedButton<_DashboardTab>(
-                          segments: const [
-                            ButtonSegment(
-                              value: _DashboardTab.menager,
-                              label: Text('Ménager'),
-                              icon: Icon(Icons.cleaning_services, size: 18),
-                            ),
-                            ButtonSegment(
-                              value: _DashboardTab.entretien,
-                              label: Text('Entretien'),
-                              icon: Icon(Icons.handyman, size: 18),
-                            ),
-                          ],
-                          selected: {_selectedTab},
-                          onSelectionChanged: (selected) {
-                            setState(() => _selectedTab = selected.first);
-                          },
-                        ),
-                      ),
+                      const ActiveWorkSessionCard(),
 
-                      // Active session — always visible regardless of tab
+                      // Session history (all types)
                       const SizedBox(height: 16),
-                      if (hasActiveCleaning) const ActiveSessionCard(),
-                      if (hasActiveMaintenance) const ActiveMaintenanceCard(),
-
-                      // Tab-specific content
-                      const SizedBox(height: 16),
-                      if (_selectedTab == _DashboardTab.menager) ...[
-                        if (!hasActiveCleaning && !hasActiveMaintenance)
-                          const ActiveSessionCard(),
-                        const CleaningHistoryList(),
-                      ],
-                      if (_selectedTab == _DashboardTab.entretien) ...[
-                        const MaintenanceHistoryList(),
-                      ],
+                      const WorkSessionHistoryList(),
                     ],
                     const SizedBox(height: 32),
                     Center(
@@ -1417,6 +1488,14 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
                           const ClockButtonSettingsWarning(),
                           const SizedBox(height: 16),
                           const LunchBreakButton(),
+                          if (hasActiveWorkSession)
+                            TextButton.icon(
+                              onPressed: _changeActivityType,
+                              icon: const Icon(Icons.swap_horiz, size: 18),
+                              label: const Text("Changer d'activité"),
+                              style: TextButton.styleFrom(
+                                  foregroundColor: Colors.grey),
+                            ),
                         ],
                       ),
                     ),
@@ -1475,31 +1554,14 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
           ],
         ),
       ),
-      floatingActionButton: hasActiveShift
-          ? _buildFab(hasActiveCleaning, hasActiveMaintenance)
+      floatingActionButton: hasActiveShift && !hasActiveWorkSession
+          ? FloatingActionButton.extended(
+              onPressed: _startNewSession,
+              icon: const Icon(Icons.add),
+              label: const Text('Nouvelle session'),
+            )
           : null,
     );
-  }
-
-  Widget? _buildFab(bool hasActiveCleaning, bool hasActiveMaintenance) {
-    if (_selectedTab == _DashboardTab.menager) {
-      // Disable QR scanner if maintenance session is active
-      if (hasActiveMaintenance) return null;
-      return FloatingActionButton(
-        onPressed: _openQrScanner,
-        tooltip: 'Scanner QR',
-        child: const Icon(Icons.qr_code_scanner),
-      );
-    } else {
-      // Disable building picker if cleaning session is active or maintenance already active
-      if (hasActiveCleaning || hasActiveMaintenance) return null;
-      return FloatingActionButton(
-        onPressed: _openBuildingPicker,
-        tooltip: 'Démarrer entretien',
-        backgroundColor: Colors.orange,
-        child: const Icon(Icons.handyman),
-      );
-    }
   }
 }
 
