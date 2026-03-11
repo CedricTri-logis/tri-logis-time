@@ -1,6 +1,6 @@
 # Background Tracking Resilience - Audit complet
 
-> Dernière mise à jour : 2026-03-11 | Build actuel : v1.0.0+121
+> Dernière mise à jour : 2026-03-11 | Build actuel : v1.0.0+122
 
 ## Table des matières
 
@@ -601,6 +601,7 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +119 | Mar 11 | **Fix approbation sur mauvais écrans** — Les widgets d'approbation (badge, summary, breakdown, timeline, carte trajets) étaient sur `features/shifts/` mais la navigation principale utilise `features/history/`. Portage vers `my_history_screen`, `shift_history_card`, `shift_detail_screen` (historique). Aucun changement tracking/résilience | ✅ UI Fix |
 | +120 | Mar 11 | **Fix approbation mauvais employé** — `dayApprovalDetailProvider` et `dayApprovalSummariesProvider` utilisaient `currentUser.id` au lieu de l'`employeeId` du quart consulté → superviseur voyait ses propres données d'approbation en regardant un subordonné. Fix : paramètre `employeeId` explicite. Migration RLS : `supervisor_view_subordinate_day_approvals` sur `day_approvals`. Aucun changement tracking/résilience | ✅ Data Fix |
 | +121 | Mar 11 | **Carte interactive activités/lieux** — Tap sur un arrêt ou déplacement dans la timeline/répartition par lieu ouvre un bottom sheet avec carte flutter_map (marker pour stops, polyline OSRM pour trips). Nouveau widget `ActivityMapSheet` + callbacks `onActivityTap`/`onLocationTap`. Aucun changement tracking/résilience | ✅ UI |
+| +122 | Mar 11 | **Fix carte trajets** — Titre bottom sheet affiche noms de lieux (via `startLocationName`/`endLocationName`) au lieu de coordonnées GPS. Polyline OSRM connectée aux points GPS départ/arrivée (prépend start, append end) pour éliminer le gap entre marqueur et tracé. Aucun changement tracking/résilience | ✅ UI Fix |
 
 ### Chronologie complète Android Watchdog
 
