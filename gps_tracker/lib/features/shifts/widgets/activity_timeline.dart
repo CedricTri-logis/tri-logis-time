@@ -4,7 +4,8 @@ import '../models/day_approval.dart';
 
 class ActivityTimeline extends StatelessWidget {
   final List<ApprovalActivity> activities;
-  const ActivityTimeline({super.key, required this.activities});
+  final void Function(ApprovalActivity activity)? onActivityTap;
+  const ActivityTimeline({super.key, required this.activities, this.onActivityTap});
 
   String _formatTime(DateTime dt) {
     final local = dt.toLocal();
@@ -84,6 +85,9 @@ class ActivityTimeline extends StatelessWidget {
                   duration: _formatDuration(activity.durationMinutes),
                   statusColor: _statusColor(activity.finalStatus),
                   statusLabel: activity.finalStatus.displayName,
+                  onTap: (activity.isStop || activity.isTrip) && onActivityTap != null
+                      ? () => onActivityTap!(activity)
+                      : null,
                 )),
           ],
         ),
@@ -100,6 +104,7 @@ class _ActivityRow extends StatelessWidget {
   final String duration;
   final Color statusColor;
   final String statusLabel;
+  final VoidCallback? onTap;
 
   const _ActivityRow({
     required this.activity,
@@ -109,13 +114,14 @@ class _ActivityRow extends StatelessWidget {
     required this.duration,
     required this.statusColor,
     required this.statusLabel,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Padding(
+    final row = Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -158,8 +164,21 @@ class _ActivityRow extends StatelessWidget {
               ),
             ),
           ),
+          if (onTap != null) ...[
+            const SizedBox(width: 4),
+            Icon(Icons.chevron_right, size: 16, color: theme.colorScheme.onSurfaceVariant),
+          ],
         ],
       ),
     );
+
+    if (onTap != null) {
+      return InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: row,
+      );
+    }
+    return row;
   }
 }

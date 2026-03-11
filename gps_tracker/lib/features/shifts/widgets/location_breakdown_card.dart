@@ -4,7 +4,8 @@ import '../models/day_approval.dart';
 
 class LocationBreakdownCard extends StatelessWidget {
   final DayApprovalDetail detail;
-  const LocationBreakdownCard({super.key, required this.detail});
+  final void Function(String locationName, List<ApprovalActivity> stops)? onLocationTap;
+  const LocationBreakdownCard({super.key, required this.detail, this.onLocationTap});
 
   String _formatMinutes(int minutes) {
     final h = minutes ~/ 60;
@@ -67,7 +68,8 @@ class LocationBreakdownCard extends StatelessWidget {
                   .fold<int>(0, (sum, s) => sum + s.durationMinutes);
               final locationType = stops.first.locationType;
 
-              return Padding(
+              final hasTap = onLocationTap != null && stops.first.latitude != null;
+              final row = Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Row(
                   children: [
@@ -103,9 +105,21 @@ class LocationBreakdownCard extends StatelessWidget {
                         color: Colors.orange,
                       ),
                     ],
+                    if (hasTap) ...[
+                      const SizedBox(width: 4),
+                      Icon(Icons.chevron_right, size: 16, color: theme.colorScheme.onSurfaceVariant),
+                    ],
                   ],
                 ),
               );
+              if (hasTap) {
+                return InkWell(
+                  onTap: () => onLocationTap!(locationName, stops),
+                  borderRadius: BorderRadius.circular(8),
+                  child: row,
+                );
+              }
+              return row;
             }),
           ],
         ),
