@@ -141,7 +141,7 @@ has_rate                BOOLEAN       -- false if no rate defined for this date
 - Employee without a defined rate → `has_rate = false`, amounts = 0
 - Rate change mid-period → each day row has its own `hourly_rate`, amounts reflect the rate active on that date
 - Shift crossing midnight (Sat → Sun) → minutes attributed to the calendar day they fall on (using `America/Toronto` timezone)
-- Work session spanning Fri evening into Sat → only the Saturday portion gets the premium
+- Work session spanning Fri evening into Sat → **Simplification v1:** entire session attributed to its start date (no cross-midnight splitting). If needed, splitting can be added in a future iteration
 - Work sessions with `status = 'in_progress'` are excluded from premium calculation
 
 ## Enriched Timesheet Export
