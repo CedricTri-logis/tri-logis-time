@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:battery_plus/battery_plus.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
@@ -28,6 +29,7 @@ class DeviceStatusService {
         _checkBatteryOptimization(),
         _getAppStandbyBucket(),
         _getDeviceInfo(),
+        _checkPowerSaveMode(),
       ]);
 
       final notificationsEnabled = results[0] as bool;
@@ -36,6 +38,7 @@ class DeviceStatusService {
       final batteryOptDisabled = results[3] as bool;
       final appStandbyBucket = results[4] as String?;
       final deviceInfo = results[5] as Map<String, String>;
+      final powerSaveMode = results[6] as bool;
 
       await client.rpc<dynamic>('upsert_device_status', params: {
         'p_notifications_enabled': notificationsEnabled,
@@ -43,6 +46,7 @@ class DeviceStatusService {
         'p_precise_location_enabled': preciseLocation,
         'p_battery_optimization_disabled': batteryOptDisabled,
         'p_app_standby_bucket': appStandbyBucket,
+        'p_power_save_mode': powerSaveMode,
         'p_app_version': deviceInfo['app_version'],
         'p_device_model': deviceInfo['device_model'],
         'p_os_version': deviceInfo['os_version'],
@@ -114,6 +118,15 @@ class DeviceStatusService {
       return bucket.bucketName;
     } catch (_) {
       return null;
+    }
+  }
+
+  static Future<bool> _checkPowerSaveMode() async {
+    try {
+      final battery = Battery();
+      return await battery.isInBatterySaveMode;
+    } catch (_) {
+      return false;
     }
   }
 

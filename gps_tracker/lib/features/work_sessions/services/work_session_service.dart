@@ -177,6 +177,23 @@ class WorkSessionService {
       }
     }
 
+    // Last resort: query server directly for employee's active shift
+    if (resolvedShiftId == null) {
+      try {
+        final serverShift = await _supabase
+            .from('shifts')
+            .select('id')
+            .eq('employee_id', employeeId)
+            .eq('status', 'active')
+            .maybeSingle();
+        if (serverShift != null) {
+          resolvedShiftId = serverShift['id'] as String;
+        }
+      } catch (_) {
+        // Server unreachable — fall through to error
+      }
+    }
+
     if (resolvedShiftId == null) {
       // Server shift not synced — cannot start session without server confirmation
       // Delete the local session since we're not going through with it

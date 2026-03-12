@@ -1,6 +1,6 @@
 # Background Tracking Resilience - Audit complet
 
-> Dernière mise à jour : 2026-03-12 | Build actuel : v1.0.0+131
+> Dernière mise à jour : 2026-03-12 | Build actuel : v1.0.0+132
 
 ## Table des matières
 
@@ -611,6 +611,7 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +129 | Mar 12 | **Sessions serveur-requises + monitoring session visible** — `startSession()` et `completeSession()` exigent maintenant confirmation serveur (bloquent si offline au lieu de créer localement). Sessions orphelines nettoyées via `SyncService.syncAll()`. Dashboard monitoring : badge session affiché au-dessus du lieu de pointage, visible même pour sessions admin sans lieu. Aucun changement tracking/résilience — sync et UI uniquement | ✅ Sync |
 | +130 | Mar 12 | **Fix crash RPC `start_work_session`** — PostgreSQL "record not assigned yet" causait échec 100% des sessions (admin, maintenance, cleaning). RECORD variables remplacées par variables individuelles TEXT/UUID. Contrainte `chk_ws_cleaning_has_studio` remplacée par `chk_ws_cleaning_has_location` (studio OU building). Fix propagation erreurs `WorkSessionResult` (3 endroits message→errorType au lieu de errorMessage). `_humanReadableError()` pour messages français. **`_isStationary` initialisé à `true`** — GPS tracking commence stationnaire au lieu d'actif, switch sur mouvement | ✅ Fix + ⚡ Tracking |
 | +131 | Mar 12 | **Fix `NO_SERVER_SHIFT` — sessions impossibles après clock-in** — 3 bugs combinés causaient `activeShift.serverId = null` → erreur "Connexion requise" sur toute session. (1) `getActiveShift()` `LIMIT 1` sans `ORDER BY` retournait un quart local obsolète sans `server_id` au lieu du plus récent. Fix : `ORDER BY created_at DESC`. (2) `markShiftSynced()` sans paramètre `serverId` écrasait le `server_id` existant à null. Fix : update conditionnel. (3) `ClockInResult` ne reconnaissait pas `status: 'reopened'` comme succès → cycle inutile clock-out+retry. Fix : ajouté `'reopened'`. (4) `closeAllActiveShifts()` bulk cleanup en réconciliation — ferme TOUS les quarts locaux obsolètes, pas un seul. Aucun changement tracking/résilience | ✅ Fix |
+| +132 | Mar 12 | **Failsafe serveur direct pour `NO_SERVER_SHIFT`** — Si `serverShiftId` est null ET la résolution locale échoue (5 retries), `startSession()` fait maintenant une requête directe Supabase `shifts WHERE employee_id AND status='active'` comme dernier recours avant d'échouer. Élimine toute dépendance sur la cohérence du `server_id` local pour démarrer une session | ✅ Fix |
 
 ### Chronologie complète Android Watchdog
 
