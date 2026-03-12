@@ -596,11 +596,7 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
             case ActivityType.maintenance:
               await _openBuildingPickerForType(ActivityType.maintenance);
             case ActivityType.admin:
-              await ref.read(workSessionProvider.notifier).startSession(
-                    shiftId: activeShift.id,
-                    activityType: ActivityType.admin,
-                    serverShiftId: activeShift.serverId,
-                  );
+              await _startAdminSession(activeShift);
           }
         }
       } else {
@@ -1435,7 +1431,28 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
   Future<void> _changeActivityType() async {
     final notifier = ref.read(workSessionProvider.notifier);
     final closed = await notifier.changeActivityType();
-    if (!closed || !mounted) return;
+    if (!mounted) return;
+    if (!closed) {
+      // Show error SnackBar from work session state
+      final error = ref.read(workSessionProvider).error;
+      if (error != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error, color: Colors.white),
+                const SizedBox(width: 12),
+                Expanded(child: Text(error)),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        );
+      }
+      return;
+    }
 
     // After closing, go through the full picker
     await _startNewSessionFullPicker();
