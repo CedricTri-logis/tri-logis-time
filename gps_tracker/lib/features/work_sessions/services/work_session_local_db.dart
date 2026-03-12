@@ -391,6 +391,33 @@ class WorkSessionLocalDb {
     }
   }
 
+  /// Revert a work session status (used when server confirmation fails).
+  Future<void> updateWorkSessionStatus(
+    String sessionId,
+    WorkSessionStatus status,
+  ) async {
+    await ensureTables();
+    try {
+      await _localDb.transaction((txn) async {
+        await txn.update(
+          'local_work_sessions',
+          {
+            'status': status.toJson(),
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
+          },
+          where: 'id = ?',
+          whereArgs: [sessionId],
+        );
+      });
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to update work session status',
+        operation: 'updateWorkSessionStatus',
+        originalError: e,
+      );
+    }
+  }
+
   /// Delete a work session from local DB (used when server confirmation fails).
   Future<void> deleteWorkSession(String sessionId) async {
     await ensureTables();

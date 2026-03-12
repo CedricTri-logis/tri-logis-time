@@ -346,12 +346,17 @@ class WorkSessionService {
         );
       }
     } catch (e) {
-      // ignore: avoid_print
-      print('WorkSessionService.completeSession RPC error: $e');
-      // Network error — session is pending sync
+      // Network error — revert local status back to in_progress
+      await _localDb.updateWorkSessionStatus(
+        activeSession.id,
+        WorkSessionStatus.inProgress,
+      );
+      return WorkSessionResult.error(
+        'Connexion requise pour terminer la session. Vérifiez votre connexion réseau.',
+      );
     }
 
-    // 6. Return result
+    // 6. Return result (RPC returned non-success but no exception)
     return WorkSessionResult.success(completedSession, warning: warning);
   }
 
