@@ -580,7 +580,19 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
         if (activeShift != null) {
           switch (activityType) {
             case ActivityType.cleaning:
-              _openQrScanner();
+              // Show ménage sub-options (court terme QR vs long terme building)
+              if (!mounted) break;
+              final subResult = await SessionStartSheet.show(context, ActivityType.cleaning);
+              if (subResult == null || !mounted) break;
+              switch (subResult.action) {
+                case SessionStartAction.qrScan:
+                  _openQrScanner();
+                case SessionStartAction.buildingPicker:
+                  await _openBuildingPickerForType(ActivityType.cleaning);
+                case SessionStartAction.confirmAdmin:
+                case SessionStartAction.changeType:
+                  break;
+              }
             case ActivityType.maintenance:
               await _openBuildingPickerForType(ActivityType.maintenance);
             case ActivityType.admin:
@@ -1489,7 +1501,8 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
                           ),
                           const ClockButtonSettingsWarning(),
                           const SizedBox(height: 16),
-                          const LunchBreakButton(),
+                          if (!ref.watch(isOnLunchProvider))
+                            const LunchBreakButton(),
                           if (hasActiveWorkSession)
                             TextButton.icon(
                               onPressed: _changeActivityType,
