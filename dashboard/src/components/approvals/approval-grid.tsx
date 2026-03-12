@@ -142,9 +142,6 @@ export function ApprovalGrid() {
     return totals;
   }, [data]);
 
-  // Gap minutes from actual >5min GPS gap detection (per day, summed)
-  const gapSeconds = weekTotals.gap * 60;
-
   const weekLabel = useMemo(() => {
     const start = parseLocalDate(weekStart);
     const end = parseLocalDate(addDays(weekStart, 6));
@@ -328,9 +325,9 @@ export function ApprovalGrid() {
               </div>
 
               {/* Breakdown badges */}
-              {breakdown && (breakdown.travel_seconds > 0 || Object.keys(breakdown.stop_by_type).length > 0 || gapSeconds > 0) && (
+              {breakdown && (breakdown.travel_seconds > 0 || Object.keys(breakdown.stop_by_type).length > 0) && (
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[10px] font-semibold text-muted-foreground uppercase mr-1">Répartition:</span>
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase mr-1">Répartition (approuvé):</span>
                   {breakdown.travel_seconds > 0 && (
                     <span
                       className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 border border-blue-100"
@@ -338,15 +335,6 @@ export function ApprovalGrid() {
                     >
                       <Car className="h-3 w-3" />
                       {formatDuration(breakdown.travel_seconds)}
-                    </span>
-                  )}
-                  {gapSeconds > 0 && (
-                    <span
-                      className="inline-flex items-center gap-1 rounded-full bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700 border border-purple-100"
-                      title="Temps non suivi"
-                    >
-                      <WifiOff className="h-3 w-3" />
-                      {formatDuration(gapSeconds)}
                     </span>
                   )}
                   {Object.entries(breakdown.stop_by_type)
