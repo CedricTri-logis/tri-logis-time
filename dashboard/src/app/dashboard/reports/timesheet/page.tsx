@@ -22,6 +22,8 @@ import { useReportGeneration } from '@/lib/hooks/use-report-generation';
 import { supabaseClient } from '@/lib/supabase/client';
 import { resolveDateRange } from '@/lib/validations/reports';
 import { exportTimesheetToCsv } from '@/lib/utils/report-export';
+import { getTimesheetWithPay } from '@/lib/api/remuneration';
+import type { TimesheetWithPayRow } from '@/types/remuneration';
 import type { ReportConfigInput } from '@/lib/validations/reports';
 import type { TimesheetReportRow, EmployeeOption } from '@/types/reports';
 
@@ -29,6 +31,7 @@ export default function TimesheetReportPage() {
   // State
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
   const [previewData, setPreviewData] = useState<TimesheetReportRow[]>([]);
+  const [payData, setPayData] = useState<TimesheetWithPayRow[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [totalRecords, setTotalRecords] = useState(0);
@@ -87,18 +90,22 @@ export default function TimesheetReportPage() {
         }
       }
 
-      // Fetch preview data
-      const { data, error } = await supabaseClient.rpc('get_timesheet_report_data', {
-        p_start_date: start,
-        p_end_date: end,
-        p_employee_ids: employeeIds,
-        p_include_incomplete: config.options?.include_incomplete_shifts ?? false,
-      });
+      // Fetch preview data and pay data in parallel
+      const [timesheetResult, payResult] = await Promise.all([
+        supabaseClient.rpc('get_timesheet_report_data', {
+          p_start_date: start,
+          p_end_date: end,
+          p_employee_ids: employeeIds,
+          p_include_incomplete: config.options?.include_incomplete_shifts ?? false,
+        }),
+        getTimesheetWithPay(start, end, employeeIds ?? undefined).catch(() => [] as TimesheetWithPayRow[]),
+      ]);
 
-      if (error) throw new Error(error.message);
+      if (timesheetResult.error) throw new Error(timesheetResult.error.message);
 
-      const rows = (data || []) as TimesheetReportRow[];
+      const rows = (timesheetResult.data || []) as TimesheetReportRow[];
       setPreviewData(rows);
+      setPayData(payResult);
       setTotalRecords(rows.length);
       setLastConfig(config);
     } catch (err) {
@@ -123,7 +130,7 @@ export default function TimesheetReportPage() {
         dateRange: `${start} to ${end}`,
         generatedAt: new Date().toISOString(),
         totalRecords: previewData.length,
-      });
+      }, undefined, payData);
       return;
     }
 
