@@ -1,6 +1,6 @@
 # Background Tracking Resilience - Audit complet
 
-> Dernière mise à jour : 2026-03-12 | Build actuel : v1.0.0+128
+> Dernière mise à jour : 2026-03-12 | Build actuel : v1.0.0+129
 
 ## Table des matières
 
@@ -608,6 +608,7 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +125 | Mar 11 | **UX : carte active minimaliste + 4 bugfixes** — `ShiftStatusCard` redessinée (timer live, badge combiné sync+points cliquable → `SyncDetailSheet` enrichi avec infos quart/GPS). Fix RPC name `manually_close_work_session`, fix admin `location_type='office'`, fix `completeSession` passe `p_session_id`, fix building filter dashboard. `SessionStartSheet` bottom sheet, auto-close QR scan, lunch button masqué pendant pause. Aucun changement tracking/résilience | ✅ Stable |
 | +127 | Mar 12 | **Dashboard : position pointage sur carte monitoring** — `GoogleTeamMap` affiche la position de clock-in comme marker sur la carte d'équipe, `TeamList` affiche coordonnées clock-in dans la liste. Aucun changement tracking/résilience — dashboard only | ✅ UI |
 | +128 | Mar 12 | **UX : suppression carte ShiftTimer redondante, dîner dans historique, auto-close session sur lunch** — `ShiftTimer` retiré (doublon avec `ShiftStatusCard` qui affiche déjà temps de travail). `ShiftStatusCard` calcule maintenant temps réel travail (elapsed - lunch), affiche "Pause dîner" orange quand en pause. `startLunchBreak()` ferme automatiquement la session active avant de démarrer le dîner. `WorkSessionHistoryList` fusionne lunch breaks et work sessions triés chronologiquement. GPS tracking pause/resume inchangé | ✅ UX |
+| +129 | Mar 12 | **Sessions serveur-requises + monitoring session visible** — `startSession()` et `completeSession()` exigent maintenant confirmation serveur (bloquent si offline au lieu de créer localement). Sessions orphelines nettoyées via `SyncService.syncAll()`. Dashboard monitoring : badge session affiché au-dessus du lieu de pointage, visible même pour sessions admin sans lieu. Aucun changement tracking/résilience — sync et UI uniquement | ✅ Sync |
 
 ### Chronologie complète Android Watchdog
 
