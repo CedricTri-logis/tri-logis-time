@@ -150,7 +150,8 @@ export interface MergedGroup {
 
 export type DisplayItem =
   | { type: 'activity'; pa: ProcessedActivity<ApprovalActivity> }
-  | { type: 'merged'; group: MergedGroup };
+  | { type: 'merged'; group: MergedGroup }
+  | { type: 'lunch_group'; lunch: ProcessedActivity<ApprovalActivity>; children: DisplayItem[] };
 
 /**
  * Detect consecutive same-location stop/gap chains and merge them.
@@ -279,7 +280,9 @@ export function groupDisplayItemsByShift(displayItems: DisplayItem[]): ShiftGrou
   for (const item of displayItems) {
     const activity = item.type === 'merged'
       ? item.group.primaryStop.item
-      : item.pa.item;
+      : item.type === 'lunch_group'
+        ? item.lunch.item
+        : item.pa.item;
     const shiftId = activity.shift_id;
 
     if (!groupMap.has(shiftId)) {
@@ -297,8 +300,16 @@ export function groupDisplayItemsByShift(displayItems: DisplayItem[]): ShiftGrou
     let latest = '';
 
     for (const item of group.items) {
-      const startedAt = item.type === 'merged' ? item.group.startedAt : item.pa.item.started_at;
-      const endedAt = item.type === 'merged' ? item.group.endedAt : item.pa.item.ended_at;
+      const startedAt = item.type === 'merged'
+        ? item.group.startedAt
+        : item.type === 'lunch_group'
+          ? item.lunch.item.started_at
+          : item.pa.item.started_at;
+      const endedAt = item.type === 'merged'
+        ? item.group.endedAt
+        : item.type === 'lunch_group'
+          ? item.lunch.item.ended_at
+          : item.pa.item.ended_at;
       if (!earliest || startedAt < earliest) earliest = startedAt;
       if (!latest || endedAt > latest) latest = endedAt;
     }
@@ -316,6 +327,88 @@ export function groupDisplayItemsByShift(displayItems: DisplayItem[]): ShiftGrou
       items: group.items,
     };
   });
+}
+
+// --- Nest activities during lunch breaks ---
+
+/**
+ * Group activities that fall within a lunch break's time window as children of
+ * that lunch item. The lunch row becomes expandable; sub-activities are hidden
+ * by default.
+ */
+export function nestLunchActivities(items: DisplayItem[]): DisplayItem[] {
+  // Find lunch items and their time ranges
+  const lunchRanges: { index: number; start: number; end: number; pa: ProcessedActivity<ApprovalActivity> }[] = [];
+
+  items.forEach((item, i) => {
+    if (item.type === 'activity' && item.pa.item.activity_type === 'lunch') {
+      lunchRanges.push({
+        index: i,
+        start: new Date(item.pa.item.started_at).getTime(),
+        end: new Date(item.pa.item.ended_at).getTime(),
+        pa: item.pa,
+      });
+    }
+  });
+
+  if (lunchRanges.length === 0) return items;
+
+  // Build a set of indices consumed by lunch groups
+  const consumed = new Set<number>();
+  const lunchGroups = new Map<number, DisplayItem[]>();
+
+  for (const lunch of lunchRanges) {
+    consumed.add(lunch.index);
+    const children: DisplayItem[] = [];
+
+    items.forEach((item, i) => {
+      if (i === lunch.index) return;
+      if (consumed.has(i)) return;
+
+      // Get the activity's time range
+      let itemStart: number;
+      let itemEnd: number;
+      if (item.type === 'merged') {
+        itemStart = new Date(item.group.startedAt).getTime();
+        itemEnd = new Date(item.group.endedAt).getTime();
+      } else if (item.type === 'activity') {
+        itemStart = new Date(item.pa.item.started_at).getTime();
+        itemEnd = new Date(item.pa.item.ended_at).getTime();
+      } else {
+        return;
+      }
+
+      // Activity is "during lunch" if its midpoint falls within the lunch window
+      const midpoint = (itemStart + itemEnd) / 2;
+      if (midpoint >= lunch.start && midpoint <= lunch.end) {
+        children.push(item);
+        consumed.add(i);
+      }
+    });
+
+    lunchGroups.set(lunch.index, children);
+  }
+
+  // Rebuild the list
+  const result: DisplayItem[] = [];
+  items.forEach((item, i) => {
+    if (consumed.has(i)) {
+      // If this is a lunch item, emit the group
+      if (lunchGroups.has(i)) {
+        const lunch = lunchRanges.find(l => l.index === i)!;
+        result.push({
+          type: 'lunch_group',
+          lunch: lunch.pa,
+          children: lunchGroups.get(i)!,
+        });
+      }
+      // Otherwise it was consumed as a child — skip
+    } else {
+      result.push(item);
+    }
+  });
+
+  return result;
 }
 
 // --- Status badge configuration ---

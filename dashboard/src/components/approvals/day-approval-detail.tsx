@@ -32,6 +32,7 @@ import type {
 } from '@/types/mileage';
 import {
   mergeSameLocationGaps,
+  nestLunchActivities,
   groupDisplayItemsByShift,
   formatHours,
   formatDate,
@@ -43,6 +44,7 @@ import {
   GapSubRow,
   MergedLocationRow,
   ActivityRow,
+  LunchGroupRow,
 } from './approval-rows';
 
 interface DayApprovalDetailProps {
@@ -129,9 +131,10 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
     return mergeClockEvents(detail.activities);
   }, [detail]);
 
-  // Merge same-location GPS gaps into grouped rows
+  // Merge same-location GPS gaps into grouped rows, then nest lunch sub-activities
   const displayItems = useMemo(() => {
-    return mergeSameLocationGaps(processedActivities);
+    const merged = mergeSameLocationGaps(processedActivities);
+    return nestLunchActivities(merged);
   }, [processedActivities]);
 
   // Group display items by shift for visual containers
@@ -594,6 +597,21 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                           </tr>
                           {/* Shift activities */}
                           {shift.items.map((item) => {
+                            if (item.type === 'lunch_group') {
+                              const key = `lunch-${item.lunch.item.activity_id}`;
+                              return (
+                                <LunchGroupRow
+                                  key={key}
+                                  lunch={item.lunch}
+                                  children={item.children}
+                                  isApproved={isApproved}
+                                  isSaving={isSaving}
+                                  onOverride={handleOverride}
+                                  projectSessions={ps}
+                                />
+                              );
+                            }
+
                             if (item.type === 'merged') {
                               const group = item.group;
                               const key = `merged-${group.primaryStop.item.activity_id}`;

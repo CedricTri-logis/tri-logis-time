@@ -37,7 +37,7 @@ class ClockInResult {
     final shiftId = rawShiftId?.toString();
 
     return ClockInResult(
-      success: status == 'success' || status == 'already_processed',
+      success: status == 'success' || status == 'already_processed' || status == 'reopened',
       shiftId: shiftId,
       clockedInAt: json['clocked_in_at'] != null
           ? DateTime.parse(json['clocked_in_at'].toString())
@@ -384,34 +384,25 @@ class ShiftService {
       }
     }
 
-    // 6. Local active, no server shift (or server completed) → close local
+    // 6. Local active, no server shift (or server completed) → close ALL local
     if (localShift != null && serverShift == null) {
-      _logger?.shift(Severity.warn, 'Closed orphaned local shift', metadata: {
+      final closed = await _localDb.closeAllActiveShifts(userId);
+      _logger?.shift(Severity.warn, 'Closed orphaned local shifts', metadata: {
         'shift_id': localShift.id,
         'server_id': localShift.serverId,
+        'total_closed': closed,
       },);
-      await _localDb.updateShiftClockOut(
-        shiftId: localShift.id,
-        clockedOutAt: DateTime.now().toUtc(),
-        reason: 'server_reconciliation',
-      );
-      await _localDb.markShiftSynced(localShift.id);
       return null;
     }
 
-    // 7. Local active, server active but different shift → close local, handle server shift
+    // 7. Local active, server active but different shift → close ALL local, handle server shift
     if (localShift != null && serverShift != null && localShift.serverId != serverShift['id']) {
-      // Close the local orphan
-      _logger?.shift(Severity.warn, 'Closed orphaned local shift', metadata: {
+      final closed = await _localDb.closeAllActiveShifts(userId);
+      _logger?.shift(Severity.warn, 'Closed orphaned local shifts', metadata: {
         'shift_id': localShift.id,
         'server_id': localShift.serverId,
+        'total_closed': closed,
       },);
-      await _localDb.updateShiftClockOut(
-        shiftId: localShift.id,
-        clockedOutAt: DateTime.now().toUtc(),
-        reason: 'server_reconciliation',
-      );
-      await _localDb.markShiftSynced(localShift.id);
 
       // Resume the server shift if recent
       final clockedInAt = DateTime.parse(serverShift['clocked_in_at'] as String);

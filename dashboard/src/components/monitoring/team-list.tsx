@@ -118,6 +118,14 @@ function TeamListItem({ employee }: TeamListItemProps) {
                 </span>
               )}
             </div>
+            {/* Active session info (cleaning, maintenance, admin) */}
+            {isOnShift && employee.activeSessionType && (
+              <SessionBadge
+                sessionType={employee.activeSessionType}
+                location={employee.activeSessionLocation}
+                startedAt={employee.activeSessionStartedAt}
+              />
+            )}
             {/* Clock-in location */}
             {isOnShift && employee.currentShift?.clockInLocation && (
               <div className="flex items-center gap-1 text-xs text-blue-600 mt-0.5">
@@ -129,14 +137,6 @@ function TeamListItem({ employee }: TeamListItemProps) {
                   }
                 </span>
               </div>
-            )}
-            {/* Active session info (cleaning or maintenance) */}
-            {isOnShift && employee.activeSessionLocation && (
-              <SessionBadge
-                sessionType={employee.activeSessionType}
-                location={employee.activeSessionLocation}
-                startedAt={employee.activeSessionStartedAt}
-              />
             )}
             {/* Device & last shift info */}
             <div className="flex items-center gap-3 text-xs text-slate-400 mt-0.5">
@@ -188,7 +188,7 @@ const ACTIVITY_TYPE_ICONS: Record<ActivityType, typeof SprayCan> = {
 
 interface SessionBadgeProps {
   sessionType: 'cleaning' | 'maintenance' | 'admin' | null;
-  location: string;
+  location: string | null;
   startedAt: Date | null;
 }
 
@@ -203,7 +203,10 @@ function SessionBadge({ sessionType, location, startedAt }: SessionBadgeProps) {
       style={{ color: config.color }}
     >
       <Icon className="h-3 w-3 flex-shrink-0" />
-      <span className="truncate">{location}</span>
+      <span className="font-medium">{config.label}</span>
+      {location && (
+        <span className="truncate">— {location}</span>
+      )}
       {startedAt && (
         <DurationCounter
           startTime={startedAt}

@@ -177,9 +177,32 @@ class WorkSessionService {
       }
     }
 
+    // Last resort: query server directly for employee's active shift
     if (resolvedShiftId == null) {
-      // Still no server shift ID — session stays pending, will sync later
-      return WorkSessionResult.success(session);
+      try {
+        final serverShift = await _supabase
+            .from('shifts')
+            .select('id')
+            .eq('employee_id', employeeId)
+            .eq('status', 'active')
+            .maybeSingle();
+        if (serverShift != null) {
+          resolvedShiftId = serverShift['id'] as String;
+        }
+      } catch (_) {
+        // Server unreachable — fall through to error
+      }
+    }
+
+    if (resolvedShiftId == null) {
+      // Server shift not synced — cannot start session without server confirmation
+      // Delete the local session since we're not going through with it
+      await _localDb.deleteWorkSession(sessionId);
+      return WorkSessionResult.error(
+        'NO_SERVER_SHIFT',
+        errorMessage:
+            'Shift non synchronisé (serverId introuvable). Fermez et réouvrez l\'app.',
+      );
     }
 
     // 5. Call RPC start_work_session with all params
@@ -213,13 +236,23 @@ class WorkSessionService {
           session.copyWith(syncStatus: SyncStatus.synced),
         );
       } else {
-        // Server rejected but local session already created — return success
-        // so the provider updates its state. Session stays pending for later sync.
-        return WorkSessionResult.success(session);
+        // Server rejected — delete local session and return error
+        final errorCode =
+            response['error'] as String? ?? 'SERVER_REJECTED';
+        await _localDb.deleteWorkSession(sessionId);
+        return WorkSessionResult.error(
+          errorCode,
+          errorMessage: _humanReadableError(errorCode),
+        );
       }
     } catch (e) {
-      // Network error — session is pending sync
-      return WorkSessionResult.success(session);
+      // Network/server error — delete local session and return error
+      await _localDb.deleteWorkSession(sessionId);
+      return WorkSessionResult.error(
+        'NETWORK_ERROR',
+        errorMessage:
+            'Erreur serveur: ${e.toString().length > 100 ? e.toString().substring(0, 100) : e}',
+      );
     }
   }
 
@@ -338,12 +371,19 @@ class WorkSessionService {
         );
       }
     } catch (e) {
-      // ignore: avoid_print
-      print('WorkSessionService.completeSession RPC error: $e');
-      // Network error — session is pending sync
+      // Network error — revert local status back to in_progress
+      await _localDb.updateWorkSessionStatus(
+        activeSession.id,
+        WorkSessionStatus.inProgress,
+      );
+      return WorkSessionResult.error(
+        'NETWORK_ERROR',
+        errorMessage:
+            'Connexion requise pour terminer la session. Vérifiez votre connexion réseau.',
+      );
     }
 
-    // 6. Return result
+    // 6. Return result (RPC returned non-success but no exception)
     return WorkSessionResult.success(completedSession, warning: warning);
   }
 
@@ -489,6 +529,11 @@ class WorkSessionService {
   /// Get all work sessions for a shift.
   Future<List<WorkSession>> getShiftSessions(String shiftId) async {
     return _localDb.getSessionsForShift(shiftId);
+  }
+
+  /// Get count of pending work sessions for an employee.
+  Future<int> getPendingCount(String employeeId) async {
+    return _localDb.getPendingWorkSessionCount(employeeId);
   }
 
   // ============ SYNC ============
@@ -743,6 +788,30 @@ class WorkSessionService {
     final m = minutes % 60;
     if (h > 0) return '${h}h ${m}min';
     return '$m min';
+  }
+
+  /// Map server error codes to user-facing French messages.
+  String _humanReadableError(String code) {
+    switch (code) {
+      case 'NO_ACTIVE_SHIFT':
+        return 'Aucun quart actif trouvé';
+      case 'INVALID_QR_CODE':
+        return 'Code QR non reconnu';
+      case 'STUDIO_INACTIVE':
+        return "Ce studio n'est plus actif";
+      case 'STUDIO_REQUIRED':
+      case 'LOCATION_REQUIRED':
+        return 'Emplacement requis pour cette session';
+      case 'BUILDING_REQUIRED':
+      case 'BUILDING_NOT_FOUND':
+        return 'Immeuble non trouvé';
+      case 'APARTMENT_NOT_FOUND':
+        return 'Appartement non trouvé';
+      case 'INVALID_ACTIVITY_TYPE':
+        return "Type d'activité invalide";
+      default:
+        return 'Session refusée par le serveur ($code)';
+    }
   }
 }
 

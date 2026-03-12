@@ -391,6 +391,69 @@ class WorkSessionLocalDb {
     }
   }
 
+  /// Revert a work session status (used when server confirmation fails).
+  Future<void> updateWorkSessionStatus(
+    String sessionId,
+    WorkSessionStatus status,
+  ) async {
+    await ensureTables();
+    try {
+      await _localDb.transaction((txn) async {
+        await txn.update(
+          'local_work_sessions',
+          {
+            'status': status.toJson(),
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
+          },
+          where: 'id = ?',
+          whereArgs: [sessionId],
+        );
+      });
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to update work session status',
+        operation: 'updateWorkSessionStatus',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Delete a work session from local DB (used when server confirmation fails).
+  Future<void> deleteWorkSession(String sessionId) async {
+    await ensureTables();
+    try {
+      await _localDb.transaction((txn) async {
+        await txn.delete(
+          'local_work_sessions',
+          where: 'id = ?',
+          whereArgs: [sessionId],
+        );
+      });
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to delete work session',
+        operation: 'deleteWorkSession',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Get count of pending work sessions for an employee.
+  Future<int> getPendingWorkSessionCount(String employeeId) async {
+    await ensureTables();
+    try {
+      final result = await _localDb.transaction((txn) async {
+        return await txn.rawQuery(
+          'SELECT COUNT(*) as cnt FROM local_work_sessions WHERE employee_id = ? AND sync_status = ?',
+          [employeeId, 'pending'],
+        );
+      });
+      return Sqflite.firstIntValue(result) ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
   /// Get all in-progress sessions for a shift (for auto-close).
   Future<List<WorkSession>> getInProgressSessionsForShift(
     String shiftId,

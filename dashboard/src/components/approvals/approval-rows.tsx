@@ -34,9 +34,11 @@ import type {
 } from '@/types/mileage';
 import {
   type ProjectSlice,
+  type DisplayItem,
   getProjectSlices,
   type MergedGroup,
 } from './approval-utils';
+import { Fragment, useState } from 'react';
 
 // --- Project cell component ---
 
@@ -962,6 +964,175 @@ export function ActivityRow({
           </td>
         </tr>
       )}
+    </>
+  );
+}
+
+// --- Collapsible lunch group row ---
+
+export function LunchGroupRow({
+  lunch,
+  children: childItems,
+  isApproved,
+  isSaving,
+  onOverride,
+  projectSessions,
+}: {
+  lunch: ProcessedActivity<ApprovalActivity>;
+  children: DisplayItem[];
+  isApproved: boolean;
+  isSaving: boolean;
+  isExpanded?: boolean;
+  onToggle?: () => void;
+  onOverride: (activity: ApprovalActivity, status: 'approved' | 'rejected') => void;
+  projectSessions: ProjectSession[];
+  expandedChildId?: string | null;
+  onChildToggle?: (key: string) => void;
+}) {
+  const activity = lunch.item;
+  const [open, setOpen] = useState(false);
+  const [expandedChild, setExpandedChild] = useState<string | null>(null);
+
+  return (
+    <>
+      {/* Lunch summary row — always visible */}
+      <tr
+        className="bg-slate-50/80 border-l-4 border-l-slate-300 hover:bg-slate-100/80 cursor-pointer transition-all duration-200 group border-b border-white/50"
+        onClick={() => setOpen(!open)}
+      >
+        {/* Action */}
+        <td className="px-3 py-3 text-center">
+          <div className="flex justify-center">
+            <Badge variant="outline" className="font-bold text-[10px] px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border-slate-200">
+              <UtensilsCrossed className="h-3 w-3 mr-1" />
+              Pause
+            </Badge>
+          </div>
+        </td>
+
+        {/* Clock icon */}
+        <td className="px-2 py-3 text-center">
+          <div className="flex items-center justify-center">
+            <UtensilsCrossed className="h-3.5 w-3.5 text-orange-500" />
+          </div>
+        </td>
+
+        {/* Type icon */}
+        <td className="px-2 py-3 text-center">
+          <div className="flex justify-center bg-white/80 rounded-lg p-1.5 shadow-sm border border-black/5 group-hover:scale-110 transition-transform">
+            <UtensilsCrossed className="h-4 w-4 text-orange-500" />
+          </div>
+        </td>
+
+        {/* Durée */}
+        <td className="px-3 py-3 whitespace-nowrap">
+          <div className="flex items-center gap-1.5 tabular-nums text-xs text-slate-700 font-medium">
+            {formatDurationMinutes(activity.duration_minutes)}
+          </div>
+        </td>
+
+        {/* Détails */}
+        <td className="px-3 py-3 max-w-[300px]">
+          <div className="space-y-1">
+            <div className="text-xs flex items-center gap-1.5 text-orange-700 font-medium">
+              <UtensilsCrossed className="h-3 w-3" />
+              <span className="font-bold">Pause dîner</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] leading-tight text-orange-600/70">
+                {formatTime(activity.started_at)} — {formatTime(activity.ended_at)}
+              </span>
+              {childItems.length > 0 && (
+                <span className="text-[10px] text-slate-400">
+                  · {childItems.length} activité{childItems.length > 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+          </div>
+        </td>
+
+        {/* Horaire */}
+        <td className="px-3 py-3 whitespace-nowrap">
+          <div className="flex flex-col">
+            <span className="text-xs font-black text-slate-700">{formatTime(activity.started_at)}</span>
+            <span className="text-[10px] font-medium text-slate-500">{formatTime(activity.ended_at)}</span>
+          </div>
+        </td>
+
+        {/* Distance */}
+        <td className="px-3 py-3 text-right">
+          <span className="opacity-20 text-xs font-bold">—</span>
+        </td>
+
+        {/* Projet */}
+        <td className="px-3 py-3">
+          <span className="text-[10px] text-muted-foreground/40">—</span>
+        </td>
+
+        {/* Expand chevron */}
+        <td className="px-3 py-3 text-center">
+          {childItems.length > 0 && (
+            <div className={`rounded-full p-1 transition-colors ${open ? 'bg-muted' : 'group-hover:bg-muted'}`}>
+              {open
+                ? <ChevronUp className="h-4 w-4 text-primary" />
+                : <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              }
+            </div>
+          )}
+        </td>
+      </tr>
+
+      {/* Expanded: nested child activities */}
+      {open && childItems.map((child) => {
+        if (child.type === 'merged') {
+          const group = child.group;
+          const key = `merged-${group.primaryStop.item.activity_id}`;
+          return (
+            <MergedLocationRow
+              key={key}
+              group={group}
+              isApproved={isApproved}
+              isSaving={isSaving}
+              isExpanded={expandedChild === key}
+              onToggle={() => setExpandedChild(expandedChild === key ? null : key)}
+              onOverride={onOverride}
+              projectSessions={projectSessions}
+            />
+          );
+        }
+
+        if (child.type === 'activity') {
+          const pa = child.pa;
+          const key = `${pa.item.activity_type}-${pa.item.activity_id}`;
+          const isTrip = pa.item.activity_type === 'trip';
+
+          return isTrip ? (
+            <TripConnectorRow
+              key={key}
+              pa={pa}
+              isApproved={isApproved}
+              isSaving={isSaving}
+              isExpanded={expandedChild === key}
+              onToggle={() => setExpandedChild(expandedChild === key ? null : key)}
+              onOverride={onOverride}
+              projectSessions={projectSessions}
+            />
+          ) : (
+            <ActivityRow
+              key={key}
+              pa={pa}
+              isApproved={isApproved}
+              isSaving={isSaving}
+              isExpanded={expandedChild === key}
+              onToggle={() => setExpandedChild(expandedChild === key ? null : key)}
+              onOverride={onOverride}
+              projectSessions={projectSessions}
+            />
+          );
+        }
+
+        return null;
+      })}
     </>
   );
 }
