@@ -1,6 +1,6 @@
 # Background Tracking Resilience - Audit complet
 
-> Dernière mise à jour : 2026-03-11 | Build actuel : v1.0.0+126
+> Dernière mise à jour : 2026-03-12 | Build actuel : v1.0.0+127
 
 ## Table des matières
 
@@ -606,6 +606,7 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +124 | Mar 11 | **Sessions de travail unifiées (Phase 1)** — `cleaning_sessions` + `maintenance_sessions` fusionnées dans `work_sessions` (table, 6 RPCs, sync triggers bidirectionnels). Flutter : `ActivityTypePicker` au clock-in (Ménage/Entretien/Admin), `ActiveWorkSessionCard` + `WorkSessionHistoryList` remplacent onglets séparés. Dashboard : nouvelle page `/work-sessions`, sidebar mise à jour. Auto-close intégré au clock-out. Aucun changement tracking/résilience — restructuration sessions uniquement | ✅ Stable |
 | +126 | Mar 11 | **Fix sessions ménage bloquées** — `ActiveWorkSessionCard` importait l'ancien `QrScannerScreen` (cleaning) au lieu du nouveau (work_sessions) → scan QR cherchait dans `local_cleaning_sessions` au lieu de `local_work_sessions`, rendant impossible la fin de session par scan. Fix import + `startSession` retourne maintenant succès local même si RPC serveur rejette (évite sessions fantômes). Aucun changement tracking/résilience | ✅ Fix |
 | +125 | Mar 11 | **UX : carte active minimaliste + 4 bugfixes** — `ShiftStatusCard` redessinée (timer live, badge combiné sync+points cliquable → `SyncDetailSheet` enrichi avec infos quart/GPS). Fix RPC name `manually_close_work_session`, fix admin `location_type='office'`, fix `completeSession` passe `p_session_id`, fix building filter dashboard. `SessionStartSheet` bottom sheet, auto-close QR scan, lunch button masqué pendant pause. Aucun changement tracking/résilience | ✅ Stable |
+| +127 | Mar 12 | **Dashboard : position pointage sur carte monitoring** — `GoogleTeamMap` affiche la position de clock-in comme marker sur la carte d'équipe, `TeamList` affiche coordonnées clock-in dans la liste. Aucun changement tracking/résilience — dashboard only | ✅ UI |
 
 ### Chronologie complète Android Watchdog
 

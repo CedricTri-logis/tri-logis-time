@@ -55,7 +55,7 @@ import '../providers/lunch_break_provider.dart';
 import '../widgets/clock_button.dart';
 import '../widgets/lunch_break_button.dart';
 import '../widgets/shift_status_card.dart';
-import '../widgets/shift_timer.dart';
+
 
 /// Main dashboard screen for shift management.
 class ShiftDashboardScreen extends ConsumerStatefulWidget {
@@ -1477,9 +1477,6 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
                   children: [
                     const ShiftStatusCard(),
                     if (hasActiveShift) ...[
-                      const SizedBox(height: 16),
-                      const ShiftTimer(),
-
                       // Active work session card (unified)
                       const SizedBox(height: 16),
                       ActiveWorkSessionCard(onStartSession: _startNewSession),
