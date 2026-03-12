@@ -694,7 +694,7 @@ export function ActivityRow({
   onDetailUpdated?: (data: DayApprovalDetailType) => void;
   projectSessions: ProjectSession[];
 }) {
-  const { item: activity, hasClockIn, hasClockOut } = pa;
+  const { item: activity, hasClockIn, hasClockOut, clockInActivity, clockOutActivity } = pa;
   const isStop = activity.activity_type === 'stop';
   const isSegment = activity.activity_type === 'stop_segment';
   const isStopLike = isStop || isSegment;
@@ -934,8 +934,73 @@ export function ActivityRow({
 
         {/* Horaire */}
         <td className="px-3 py-3 whitespace-nowrap">
-          <div className="flex flex-col">
-            {isClock ? (
+          <div className="flex flex-col gap-0.5">
+            {/* Start time — with clock-in edit if merged */}
+            <span className="flex items-center gap-1">
+              {hasClockIn && clockInActivity && (clockInActivity as ApprovalActivity).is_edited && (clockInActivity as ApprovalActivity).original_value && (
+                <span className="line-through text-muted-foreground text-[10px]">
+                  {formatTime((clockInActivity as ApprovalActivity).original_value!)}
+                </span>
+              )}
+              <span className={`text-xs font-black ${statusConfig.text}`}>{formatTime(activity.started_at)}</span>
+              {hasClockIn && clockInActivity && (clockInActivity as ApprovalActivity).is_edited && (
+                <Badge variant="outline" className="text-[10px] px-1 py-0">Modifié</Badge>
+              )}
+              {hasClockIn && !isApproved && onDetailUpdated && (
+                <span onClick={(e) => e.stopPropagation()}>
+                  <ClockTimeEditPopover
+                    shiftId={activity.shift_id}
+                    field="clocked_in_at"
+                    currentTime={clockInActivity ? clockInActivity.started_at : activity.started_at}
+                    originalTime={clockInActivity ? (clockInActivity as ApprovalActivity).original_value : undefined}
+                    isEdited={!!(clockInActivity && (clockInActivity as ApprovalActivity).is_edited)}
+                    onUpdated={onDetailUpdated}
+                  />
+                </span>
+              )}
+              {isClock && activity.activity_type === 'clock_in' && !isApproved && onDetailUpdated && (
+                <span onClick={(e) => e.stopPropagation()}>
+                  <ClockTimeEditPopover
+                    shiftId={activity.shift_id}
+                    field="clocked_in_at"
+                    currentTime={activity.started_at}
+                    originalTime={activity.original_value}
+                    isEdited={!!activity.is_edited}
+                    onUpdated={onDetailUpdated}
+                  />
+                </span>
+              )}
+            </span>
+
+            {/* End time — with clock-out edit if merged */}
+            {!isClock && (
+              <span className="flex items-center gap-1">
+                {hasClockOut && clockOutActivity && (clockOutActivity as ApprovalActivity).is_edited && (clockOutActivity as ApprovalActivity).original_value && (
+                  <span className="line-through text-muted-foreground text-[10px]">
+                    {formatTime((clockOutActivity as ApprovalActivity).original_value!)}
+                  </span>
+                )}
+                <span className={`text-[10px] font-medium ${statusConfig.subtext}`}>{formatTime(activity.ended_at)}</span>
+                {hasClockOut && clockOutActivity && (clockOutActivity as ApprovalActivity).is_edited && (
+                  <Badge variant="outline" className="text-[10px] px-1 py-0">Modifié</Badge>
+                )}
+                {hasClockOut && !isApproved && onDetailUpdated && (
+                  <span onClick={(e) => e.stopPropagation()}>
+                    <ClockTimeEditPopover
+                      shiftId={activity.shift_id}
+                      field="clocked_out_at"
+                      currentTime={clockOutActivity ? clockOutActivity.started_at : activity.ended_at}
+                      originalTime={clockOutActivity ? (clockOutActivity as ApprovalActivity).original_value : undefined}
+                      isEdited={!!(clockOutActivity && (clockOutActivity as ApprovalActivity).is_edited)}
+                      onUpdated={onDetailUpdated}
+                    />
+                  </span>
+                )}
+              </span>
+            )}
+
+            {/* Standalone clock-out */}
+            {isClock && activity.activity_type === 'clock_out' && !isApproved && onDetailUpdated && (
               <span className="flex items-center gap-1">
                 {activity.is_edited && activity.original_value && (
                   <span className="line-through text-muted-foreground text-[10px]">
@@ -946,24 +1011,17 @@ export function ActivityRow({
                 {activity.is_edited && (
                   <Badge variant="outline" className="text-[10px] px-1 py-0">Modifié</Badge>
                 )}
-                {!isApproved && onDetailUpdated && (
-                  <span onClick={(e) => e.stopPropagation()}>
-                    <ClockTimeEditPopover
-                      shiftId={activity.shift_id}
-                      field={activity.activity_type === 'clock_in' ? 'clocked_in_at' : 'clocked_out_at'}
-                      currentTime={activity.started_at}
-                      originalTime={activity.original_value}
-                      isEdited={!!activity.is_edited}
-                      onUpdated={onDetailUpdated}
-                    />
-                  </span>
-                )}
+                <span onClick={(e) => e.stopPropagation()}>
+                  <ClockTimeEditPopover
+                    shiftId={activity.shift_id}
+                    field="clocked_out_at"
+                    currentTime={activity.started_at}
+                    originalTime={activity.original_value}
+                    isEdited={!!activity.is_edited}
+                    onUpdated={onDetailUpdated}
+                  />
+                </span>
               </span>
-            ) : (
-              <>
-                <span className={`text-xs font-black ${statusConfig.text}`}>{formatTime(activity.started_at)}</span>
-                <span className={`text-[10px] font-medium ${statusConfig.subtext}`}>{formatTime(activity.ended_at)}</span>
-              </>
             )}
           </div>
         </td>

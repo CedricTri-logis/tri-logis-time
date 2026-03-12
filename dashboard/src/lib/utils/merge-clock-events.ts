@@ -16,6 +16,8 @@ export interface ProcessedActivity<T extends MergeableActivity> {
   item: T;
   hasClockIn?: boolean;
   hasClockOut?: boolean;
+  clockInActivity?: T;
+  clockOutActivity?: T;
 }
 
 /**
@@ -57,7 +59,7 @@ export function mergeClockEvents<T extends MergeableActivity>(items: T[]): Proce
   // and clock-out just after the last cluster point.
   const MERGE_TOLERANCE_MS = 60_000;
   const mergedIndices = new Set<number>();
-  const clockFlags = new Map<number, { clockIn?: boolean; clockOut?: boolean }>();
+  const clockFlags = new Map<number, { clockIn?: boolean; clockOut?: boolean; clockInActivity?: T; clockOutActivity?: T }>();
 
   for (let i = 0; i < filtered.length; i++) {
     const item = filtered[i];
@@ -88,8 +90,8 @@ export function mergeClockEvents<T extends MergeableActivity>(items: T[]): Proce
     if (bestJ >= 0) {
       mergedIndices.add(i);
       const existing = clockFlags.get(bestJ) || {};
-      if (item.activity_type === 'clock_in') existing.clockIn = true;
-      if (item.activity_type === 'clock_out') existing.clockOut = true;
+      if (item.activity_type === 'clock_in') { existing.clockIn = true; existing.clockInActivity = item; }
+      if (item.activity_type === 'clock_out') { existing.clockOut = true; existing.clockOutActivity = item; }
       clockFlags.set(bestJ, existing);
     }
   }
@@ -102,6 +104,8 @@ export function mergeClockEvents<T extends MergeableActivity>(items: T[]): Proce
       item: filtered[i],
       hasClockIn: flags?.clockIn,
       hasClockOut: flags?.clockOut,
+      clockInActivity: flags?.clockInActivity,
+      clockOutActivity: flags?.clockOutActivity,
     });
   }
   return result;
