@@ -165,8 +165,8 @@ export function mergeSameLocationGaps(items: ProcessedActivity<ApprovalActivity>
   while (i < items.length) {
     const pa = items[i];
 
-    // Only attempt merge starting from a stop
-    if (pa.item.activity_type !== 'stop') {
+    // Only attempt merge starting from a stop or stop_segment
+    if (pa.item.activity_type !== 'stop' && pa.item.activity_type !== 'stop_segment') {
       result.push({ type: 'activity', pa });
       i++;
       continue;
@@ -191,7 +191,7 @@ export function mergeSameLocationGaps(items: ProcessedActivity<ApprovalActivity>
         const afterGap = items[j + 1];
         if (
           afterGap &&
-          afterGap.item.activity_type === 'stop' &&
+          (afterGap.item.activity_type === 'stop' || afterGap.item.activity_type === 'stop_segment') &&
           afterGap.item.matched_location_id === pa.item.matched_location_id
         ) {
           gaps.push(next.item);
