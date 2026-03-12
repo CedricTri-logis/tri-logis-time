@@ -436,3 +436,17 @@ final shiftWorkSessionsProvider =
   ref.watch(workSessionProvider);
   return service.getShiftSessions(shiftId);
 });
+
+/// Provider for the last activity type used in the current shift.
+/// Returns null if no sessions have been completed yet in this shift.
+final lastActivityTypeProvider = FutureProvider<ActivityType?>((ref) async {
+  final shiftState = ref.watch(shiftProvider);
+  ref.watch(workSessionProvider); // Invalidate when session state changes
+  final shift = shiftState.activeShift;
+  if (shift == null) return null;
+
+  final localDb = ref.watch(workSessionLocalDbProvider);
+  final typeStr = await localDb.getLastActivityTypeForShift(shift.id);
+  if (typeStr == null) return null;
+  return ActivityType.fromJson(typeStr);
+});

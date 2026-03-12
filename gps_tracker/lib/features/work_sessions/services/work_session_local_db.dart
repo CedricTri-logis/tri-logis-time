@@ -425,6 +425,27 @@ class WorkSessionLocalDb {
     }
   }
 
+  /// Get the activity type of the most recently completed session for a shift.
+  /// Returns null if no completed sessions exist for this shift.
+  Future<String?> getLastActivityTypeForShift(String shiftId) async {
+    await ensureTables();
+    try {
+      final results = await _localDb.transaction((txn) async {
+        return await txn.rawQuery('''
+          SELECT activity_type
+          FROM local_work_sessions
+          WHERE shift_id = ? AND status != 'in_progress'
+          ORDER BY completed_at DESC
+          LIMIT 1
+        ''', [shiftId],);
+      });
+      if (results.isEmpty) return null;
+      return results.first['activity_type'] as String?;
+    } catch (e) {
+      return null;
+    }
+  }
+
   // ============ HELPERS ============
 
   /// Enrich a raw query row by merging JOIN-aliased columns back
