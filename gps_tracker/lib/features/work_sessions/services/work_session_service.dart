@@ -144,7 +144,12 @@ class WorkSessionService {
       employeeId: employeeId,
       shiftId: shiftId,
       activityType: activityType,
-      locationType: _resolveLocationType(activityType, apartmentId),
+      locationType: _resolveLocationType(
+        activityType,
+        studioId: studioId,
+        buildingId: buildingId,
+        apartmentId: apartmentId,
+      ),
       status: WorkSessionStatus.inProgress,
       startedAt: now,
       syncStatus: SyncStatus.pending,
@@ -669,14 +674,19 @@ class WorkSessionService {
     }
   }
 
-  /// Resolve the location_type based on activity type.
+  /// Resolve the location_type based on activity type and available IDs.
   String? _resolveLocationType(
-    ActivityType activityType,
+    ActivityType activityType, {
+    String? studioId,
+    String? buildingId,
     String? apartmentId,
-  ) {
+  }) {
     switch (activityType) {
       case ActivityType.cleaning:
-        return 'studio';
+        // Court terme (QR studio) vs long terme (building/apartment)
+        if (studioId != null) return 'studio';
+        if (buildingId != null) return apartmentId != null ? 'apartment' : 'building';
+        return 'studio'; // fallback
       case ActivityType.maintenance:
         return apartmentId != null ? 'apartment' : 'building';
       case ActivityType.admin:
