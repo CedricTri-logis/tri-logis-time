@@ -178,8 +178,12 @@ class WorkSessionService {
     }
 
     if (resolvedShiftId == null) {
-      // Still no server shift ID — session stays pending, will sync later
-      return WorkSessionResult.success(session);
+      // Server shift not synced — cannot start session without server confirmation
+      // Delete the local session since we're not going through with it
+      await _localDb.deleteWorkSession(sessionId);
+      return WorkSessionResult.error(
+        'Connexion requise. Vérifiez votre connexion réseau et réessayez.',
+      );
     }
 
     // 5. Call RPC start_work_session with all params
@@ -213,13 +217,17 @@ class WorkSessionService {
           session.copyWith(syncStatus: SyncStatus.synced),
         );
       } else {
-        // Server rejected but local session already created — return success
-        // so the provider updates its state. Session stays pending for later sync.
-        return WorkSessionResult.success(session);
+        // Server rejected — delete local session and return error
+        final errorMsg = response['error'] as String? ?? 'Session refusée par le serveur';
+        await _localDb.deleteWorkSession(sessionId);
+        return WorkSessionResult.error(errorMsg);
       }
     } catch (e) {
-      // Network error — session is pending sync
-      return WorkSessionResult.success(session);
+      // Network error — delete local session and return error
+      await _localDb.deleteWorkSession(sessionId);
+      return WorkSessionResult.error(
+        'Connexion requise. Vérifiez votre connexion réseau et réessayez.',
+      );
     }
   }
 

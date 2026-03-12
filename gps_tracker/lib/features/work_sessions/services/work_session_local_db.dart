@@ -391,6 +391,26 @@ class WorkSessionLocalDb {
     }
   }
 
+  /// Delete a work session from local DB (used when server confirmation fails).
+  Future<void> deleteWorkSession(String sessionId) async {
+    await ensureTables();
+    try {
+      await _localDb.transaction((txn) async {
+        await txn.delete(
+          'local_work_sessions',
+          where: 'id = ?',
+          whereArgs: [sessionId],
+        );
+      });
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to delete work session',
+        operation: 'deleteWorkSession',
+        originalError: e,
+      );
+    }
+  }
+
   /// Get all in-progress sessions for a shift (for auto-close).
   Future<List<WorkSession>> getInProgressSessionsForShift(
     String shiftId,
