@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../tracking/providers/tracking_provider.dart';
 import '../models/shift.dart';
 import '../models/shift_enums.dart';
+import '../providers/lunch_break_provider.dart';
 import '../providers/shift_provider.dart';
 import '../providers/sync_provider.dart';
 import 'sync_detail_sheet.dart';
@@ -102,6 +103,21 @@ class _ShiftStatusCardState extends ConsumerState<ShiftStatusCard> {
     final elapsed = DateTime.now().difference(localTime);
     final syncState = ref.watch(syncProvider);
     final trackingState = ref.watch(trackingProvider);
+
+    // Calculate work time (elapsed minus lunch)
+    final lunchState = ref.watch(lunchBreakProvider);
+    final breaks = ref.watch(lunchBreaksForShiftProvider(activeShift.id)).valueOrNull ?? [];
+    Duration totalLunch = Duration.zero;
+    for (final lb in breaks) {
+      if (lb.endedAt != null) {
+        totalLunch += lb.endedAt!.difference(lb.startedAt);
+      }
+    }
+    if (lunchState.activeLunchBreak != null) {
+      totalLunch += DateTime.now().toUtc().difference(lunchState.activeLunchBreak!.startedAt);
+    }
+    final workTime = elapsed - totalLunch;
+    final isOnLunch = lunchState.isOnLunch;
     final pointsCaptured = trackingState.pointsCaptured;
 
     // Determine badge color from sync status
@@ -129,18 +145,19 @@ class _ShiftStatusCardState extends ConsumerState<ShiftStatusCard> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Green dot + "En cours"
+                // Status dot + label (orange when on lunch)
                 Row(
                   children: [
                     Container(
                       width: 10,
                       height: 10,
                       decoration: BoxDecoration(
-                        color: Colors.green,
+                        color: isOnLunch ? Colors.orange : Colors.green,
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.green.withValues(alpha: 0.4),
+                            color: (isOnLunch ? Colors.orange : Colors.green)
+                                .withValues(alpha: 0.4),
                             blurRadius: 6,
                             spreadRadius: 1,
                           ),
@@ -149,10 +166,10 @@ class _ShiftStatusCardState extends ConsumerState<ShiftStatusCard> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'En cours',
+                      isOnLunch ? 'Pause dîner' : 'En cours',
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: Colors.green,
+                        color: isOnLunch ? Colors.orange : Colors.green,
                       ),
                     ),
                   ],
@@ -236,10 +253,12 @@ class _ShiftStatusCardState extends ConsumerState<ShiftStatusCard> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _formatElapsed(elapsed),
+                        _formatElapsed(workTime < Duration.zero ? Duration.zero : workTime),
                         style: theme.textTheme.headlineMedium?.copyWith(
                           fontWeight: FontWeight.w700,
-                          color: theme.colorScheme.primary,
+                          color: isOnLunch
+                              ? theme.colorScheme.onSurface.withValues(alpha: 0.35)
+                              : theme.colorScheme.primary,
                         ),
                       ),
                     ],

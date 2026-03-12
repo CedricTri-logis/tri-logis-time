@@ -8,6 +8,7 @@ import '../../tracking/providers/tracking_provider.dart';
 import '../models/lunch_break.dart';
 import 'shift_provider.dart';
 import 'sync_provider.dart';
+import '../../work_sessions/providers/work_session_provider.dart';
 
 class LunchBreakState {
   final LunchBreak? activeLunchBreak;
@@ -81,6 +82,12 @@ class LunchBreakNotifier extends StateNotifier<LunchBreakState> {
           isStarting: false,
         );
         return;
+      }
+
+      // Auto-close active work session before starting lunch
+      final workState = _ref.read(workSessionProvider);
+      if (workState.activeSession != null) {
+        await _ref.read(workSessionProvider.notifier).manualClose();
       }
 
       final id = const Uuid().v4();

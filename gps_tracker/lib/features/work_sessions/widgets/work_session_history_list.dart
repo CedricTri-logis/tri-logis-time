@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../shifts/models/lunch_break.dart';
+import '../../shifts/providers/lunch_break_provider.dart';
 import '../../shifts/providers/shift_provider.dart';
 import '../../shifts/widgets/sync_status_indicator.dart';
 import '../models/work_session.dart';
@@ -49,12 +51,16 @@ class _WorkSessionHistoryListState
     final sessionsAsync =
         ref.watch(shiftWorkSessionsProvider(activeShift.id));
 
+    final lunchBreaksAsync =
+        ref.watch(lunchBreaksForShiftProvider(activeShift.id));
+
     return sessionsAsync.when(
       data: (sessions) {
-        if (sessions.isEmpty) {
+        final lunches = lunchBreaksAsync.valueOrNull ?? [];
+        if (sessions.isEmpty && lunches.isEmpty) {
           return _buildEmptyState(theme);
         }
-        return _buildList(theme, sessions);
+        return _buildList(theme, sessions, lunches);
       },
       loading: () => const Center(
         child: Padding(
@@ -91,8 +97,17 @@ class _WorkSessionHistoryListState
     );
   }
 
-  Widget _buildList(ThemeData theme, List<WorkSession> sessions) {
-    final sessionCount = sessions.length;
+  Widget _buildList(
+    ThemeData theme,
+    List<WorkSession> sessions,
+    List<LunchBreak> lunches,
+  ) {
+    // Build unified entries sorted by start time (newest first)
+    final entries = <_HistoryEntry>[
+      ...sessions.map((s) => _HistoryEntry.session(s)),
+      ...lunches.map((lb) => _HistoryEntry.lunch(lb)),
+    ];
+    entries.sort((a, b) => b.startedAt.compareTo(a.startedAt));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -114,7 +129,7 @@ class _WorkSessionHistoryListState
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                '$sessionCount',
+                '${entries.length}',
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: theme.colorScheme.primary,
                   fontWeight: FontWeight.w500,
@@ -124,8 +139,9 @@ class _WorkSessionHistoryListState
           ],
         ),
         const SizedBox(height: 8),
-        ...sessions.map(
-            (session) => _WorkSessionTile(session: session),),
+        ...entries.map((entry) => entry.workSession != null
+            ? _WorkSessionTile(session: entry.workSession!)
+            : _LunchBreakTile(lunchBreak: entry.lunchBreak!)),
       ],
     );
   }
@@ -271,6 +287,136 @@ class _WorkSessionTile extends StatelessWidget {
                 const SizedBox(height: 4),
                 SimpleSyncStatusIndicator(
                   syncStatus: session.syncStatus,
+                  showLabel: false,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Unified entry for sorting work sessions and lunch breaks together.
+class _HistoryEntry {
+  final WorkSession? workSession;
+  final LunchBreak? lunchBreak;
+
+  _HistoryEntry.session(WorkSession s) : workSession = s, lunchBreak = null;
+  _HistoryEntry.lunch(LunchBreak lb) : workSession = null, lunchBreak = lb;
+
+  DateTime get startedAt => workSession?.startedAt ?? lunchBreak!.startedAt;
+}
+
+/// Tile for a lunch break in the session history.
+class _LunchBreakTile extends StatelessWidget {
+  final LunchBreak lunchBreak;
+
+  const _LunchBreakTile({required this.lunchBreak});
+
+  String _formatTime(DateTime dateTime) {
+    final local = dateTime.toLocal();
+    return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _formatDuration(Duration duration) {
+    final h = duration.inHours;
+    final m = duration.inMinutes.remainder(60);
+    final s = duration.inSeconds.remainder(60);
+    if (h > 0) return '${h}h ${m.toString().padLeft(2, '0')}m';
+    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isActive = lunchBreak.isActive;
+    final statusColor = isActive ? Colors.orange : Colors.green;
+    final statusLabel = isActive ? 'En cours' : 'Terminé';
+    final duration = isActive
+        ? DateTime.now().difference(lunchBreak.startedAt)
+        : lunchBreak.duration ?? Duration.zero;
+    const color = Colors.orange;
+
+    return Card(
+      elevation: 1,
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            // Lunch icon
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.restaurant, color: color, size: 20),
+            ),
+            const SizedBox(width: 12),
+
+            // Info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Pause dîner',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: statusColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                              color: statusColor.withValues(alpha: 0.3)),
+                        ),
+                        child: Text(
+                          statusLabel,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: statusColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _formatTime(lunchBreak.startedAt),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            // Duration + sync
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  _formatDuration(duration),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    fontFeatures: [const FontFeature.tabularFigures()],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                SimpleSyncStatusIndicator(
+                  syncStatus: lunchBreak.syncStatus,
                   showLabel: false,
                 ),
               ],
