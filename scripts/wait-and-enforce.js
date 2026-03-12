@@ -46,7 +46,11 @@ function getServiceRoleKey() {
       const match = content.match(
         /SUPABASE_SERVICE_ROLE_KEY=(.+)/
       );
-      if (match) return match[1].trim();
+      if (match) {
+        // Strip quotes, trailing \n literals, and whitespace
+        // (Vercel CLI writes values like: KEY="value\n")
+        return match[1].trim().replace(/^["']|["']$/g, '').replace(/\\n$/g, '').trim();
+      }
     }
   }
   return null;
