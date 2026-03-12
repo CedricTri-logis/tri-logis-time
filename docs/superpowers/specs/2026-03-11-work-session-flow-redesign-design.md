@@ -22,6 +22,8 @@ When an employee starts a new session after completing one, the **activity type*
 - Only the activity type persists — not the location/building/studio.
 - A "Changer d'activité" button appears at the bottom of the default choices, allowing the employee to switch types.
 - On first session of a shift (no prior session), the full activity type picker is shown as today.
+- **Storage:** Derived by querying the most recent completed `work_session` for the current shift's `employee_id` + `shift_id`. No in-memory cache — survives app kill. Resets naturally when a new shift starts (no sessions exist for the new shift ID).
+- **Clock-in flow:** The existing pre-clock-in `ActivityTypePicker` (shown at clock-in time) is preserved. `lastActivityType` only applies to mid-shift session starts (after first session is completed).
 
 ### 2. "Aucune session active" Zone Replaces FAB
 
@@ -40,9 +42,11 @@ When the employee selects Ménage, two sub-options appear:
 - For short-term studio cleaning (existing flow).
 
 #### Long terme — Immeuble/Appartement Picker
-- Opens the same building picker used by Entretien.
+- Opens the same building picker used by Entretien (currently in `features/maintenance/widgets/building_picker_sheet.dart` — to be moved to `shared/widgets/` since it's now shared between cleaning and maintenance).
 - Employee can select either a whole building or a specific apartment.
-- Creates a session with `activity_type = cleaning` but with building/apartment metadata instead of studio/QR data.
+- Creates a session with `activity_type = cleaning` and `location_type = 'building'` (not `'studio'`), with `building_id` and optionally `unit_number` metadata.
+- **`_resolveLocationType` update:** Add a new branch — when `activity_type == cleaning` AND `studioId` is null but `buildingId` is present, set `location_type = 'building'` instead of `'studio'`.
+- **`ActiveWorkSessionCard` display:** `_buildCleaningLocation` must handle both cases: if `studioNumber`/`studioId` exist → show studio display (existing); if `buildingName` exists without studio → show building display (same layout as `_buildMaintenanceLocation`).
 
 **UI flow:**
 ```
@@ -56,11 +60,13 @@ Ménage selected →
 
 ### 4. QR Scan During Active Session: Auto-Close + Open
 
-If an employee scans a QR code while a session is already active:
+If an employee scans a QR code while a session is already active (any activity type — cleaning, maintenance, or admin):
 
-1. The current session is automatically completed (closed).
-2. A new session is immediately opened for the scanned QR code.
-3. No confirmation dialog — this is the expected workflow for moving between studios.
+1. The current session is automatically completed via `completeSession()` (no QR validation on the outgoing session — it's a simple close).
+2. A new session is immediately opened for the scanned QR code with `activity_type = cleaning`.
+3. No confirmation dialog — the existing `_showExistingSessionWarning` dialog in `QrScannerScreen` is removed and replaced with silent auto-close.
+
+**Note:** This works regardless of the active session's activity type. Scanning a QR code always means "I'm now cleaning this studio" — so any prior session (even maintenance or admin) is closed.
 
 ### 5. New Session Flow with Defaults
 
@@ -118,7 +124,8 @@ The lunch break ("Pause dîner") is displayed as an active session card at the b
   - Start time ("Début: HH:MM")
   - "Fin pause" button to end the lunch break
 - When no lunch is active, the lunch option integrates with the existing session flow — the `LunchBreakButton` remains as the trigger to start lunch (it already only shows during active shifts).
-- The active lunch card replaces/hides the "Aucune session active" zone while lunch is ongoing.
+- **Lunch + work session coexistence:** If both a work session AND lunch are active simultaneously, BOTH cards are visible — the lunch card appears above the work session card. The "Aucune session active" tappable zone is only shown when there is no active work session AND no active lunch.
+- If only lunch is active (no work session), the lunch card is shown and the "Aucune session active" zone is hidden. The employee can still start a work session by tapping the `LunchBreakButton` area to end lunch, then tapping the tappable zone.
 
 **Key difference from work sessions:** Lunch breaks pause GPS tracking (via `pauseForLunch()`) and use the existing `lunch_breaks` table — they are NOT stored as `work_sessions`. The visual treatment is unified but the underlying data model stays separate.
 
@@ -133,12 +140,15 @@ The lunch break ("Pause dîner") is displayed as an active session card at the b
 - `QrScannerScreen` — auto-close active session on new scan
 
 ### New
-- `SessionStartSheet` — bottom sheet for starting a new session with defaults + "Changer d'activité"
+- `SessionStartSheet` — modal bottom sheet (dismissable by tapping outside or back button) for starting a new session with defaults + "Changer d'activité". Only used for mid-shift session starts — the clock-in flow keeps its existing `ActivityTypePicker`.
+
+### Moved
+- `BuildingPickerSheet` — from `features/maintenance/widgets/` to `shared/widgets/` (now shared between cleaning long terme and maintenance)
 
 ### Unchanged
 - `LunchBreak` model, `LunchBreakProvider`, `lunch_breaks` table — data model stays the same
 - `WorkSession` model — no schema changes
-- Database / Supabase — no migrations needed
+- Database / Supabase — no migrations needed (the `location_type` column already exists in `work_sessions` and accepts string values)
 
 ## Data Flow
 
@@ -176,10 +186,16 @@ Lunch break end
 
 - Verify default activity type persists across sessions within a shift.
 - Verify default resets on new shift (clock-out + clock-in).
+- Verify default survives app kill (derived from DB query, not in-memory).
 - Verify ménage sub-type selection (QR vs building picker) creates correct session metadata.
-- Verify QR scan during active session auto-closes + opens new session.
+- Verify ménage long terme creates session with `location_type = 'building'` and correct `building_id`.
+- Verify QR scan during active cleaning session auto-closes + opens new session.
+- Verify QR scan during active non-cleaning session (maintenance/admin) also auto-closes + opens new.
+- Verify rapid consecutive QR scans don't create race conditions (second scan waits for first close to complete).
 - Verify "Changer d'activité" navigates to full type picker.
 - Verify administration confirmation dialog works.
 - Verify lunch break shows as active session card with live timer.
 - Verify lunch card disappears when lunch ends.
+- Verify lunch card + work session card both visible when both active.
 - Verify FAB is removed and "Aucune session active" is tappable.
+- Verify dismissing SessionStartSheet (back button / tap outside) does nothing.
