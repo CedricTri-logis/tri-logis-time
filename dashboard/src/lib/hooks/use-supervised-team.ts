@@ -139,6 +139,7 @@ export function useSupervisedTeam({
               clockedInAt: new Date(newShift.clocked_in_at),
               clockInLocation: newShift.clock_in_location,
               clockInAccuracy: newShift.clock_in_accuracy,
+              clockInLocationName: null, // Will be resolved on next RPC poll
             },
           };
         }

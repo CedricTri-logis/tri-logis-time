@@ -25,6 +25,7 @@ export interface ActiveShift {
     longitude: number;
   } | null;
   clockInAccuracy: number | null;
+  clockInLocationName: string | null;
 }
 
 // Monitored employee with current status
@@ -146,6 +147,7 @@ export interface MonitoredTeamRow {
   clocked_in_at: string | null;
   clock_in_latitude: number | null;
   clock_in_longitude: number | null;
+  clock_in_location_name: string | null;
   latest_latitude: number | null;
   latest_longitude: number | null;
   latest_accuracy: number | null;
@@ -254,6 +256,7 @@ export function transformMonitoredTeamRow(row: MonitoredTeamRow): MonitoredEmplo
               ? { latitude: row.clock_in_latitude, longitude: row.clock_in_longitude }
               : null,
           clockInAccuracy: null, // Not returned by get_monitored_team
+          clockInLocationName: row.clock_in_location_name ?? null,
         }
       : null;
 

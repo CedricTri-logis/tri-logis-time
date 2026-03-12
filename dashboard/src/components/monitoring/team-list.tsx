@@ -122,8 +122,11 @@ function TeamListItem({ employee }: TeamListItemProps) {
             {isOnShift && employee.currentShift?.clockInLocation && (
               <div className="flex items-center gap-1 text-xs text-blue-600 mt-0.5">
                 <MapPin className="h-3 w-3 flex-shrink-0" />
-                <span className="font-mono text-[10px]">
-                  Pointé à {employee.currentShift.clockInLocation.latitude.toFixed(4)}, {employee.currentShift.clockInLocation.longitude.toFixed(4)}
+                <span className="truncate">
+                  {employee.currentShift.clockInLocationName
+                    ? `Pointé à ${employee.currentShift.clockInLocationName}`
+                    : `Pointé à ${employee.currentShift.clockInLocation.latitude.toFixed(4)}, ${employee.currentShift.clockInLocation.longitude.toFixed(4)}`
+                  }
                 </span>
               </div>
             )}

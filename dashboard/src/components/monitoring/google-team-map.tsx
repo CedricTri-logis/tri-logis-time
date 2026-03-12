@@ -155,7 +155,7 @@ function ClockInMarker({ employee, onClick }: { employee: MonitoredEmployee, onC
 
         {/* Tooltip on hover */}
         <div className="absolute left-1/2 -translate-x-1/2 -top-8 bg-blue-700 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-xl">
-          {employee.displayName} — Lieu de pointage
+          {employee.displayName} — {employee.currentShift?.clockInLocationName ?? 'Lieu de pointage'}
         </div>
       </div>
     </AdvancedMarker>
@@ -231,8 +231,10 @@ function MarkerPopupContent({ employee }: { employee: MonitoredEmployee }) {
         {employee.currentShift?.clockInLocation && (
           <div className="flex items-center justify-between text-[11px]">
             <span className="text-slate-500">Pointé à</span>
-            <span className="font-mono text-[10px] text-slate-600">
-              {employee.currentShift.clockInLocation.latitude.toFixed(4)}, {employee.currentShift.clockInLocation.longitude.toFixed(4)}
+            <span className="font-semibold text-slate-700 truncate max-w-[120px]">
+              {employee.currentShift.clockInLocationName
+                ?? `${employee.currentShift.clockInLocation.latitude.toFixed(4)}, ${employee.currentShift.clockInLocation.longitude.toFixed(4)}`
+              }
             </span>
           </div>
         )}
