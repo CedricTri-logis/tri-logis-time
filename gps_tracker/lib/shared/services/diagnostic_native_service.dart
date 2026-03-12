@@ -82,23 +82,6 @@ class DiagnosticNativeService {
       final logger = DiagnosticLogger.instance;
 
       switch (type) {
-        // iOS: MetricKit crash diagnostic
-        case 'metrickit_crash':
-          logger.crash(
-            Severity.critical,
-            'MetricKit crash diagnostic received',
-            metadata: event['data'] as Map<String, dynamic>?,
-          );
-
-        // iOS: MetricKit app exit reasons
-        case 'metrickit_exit':
-          logger.log(
-            category: EventCategory.metrickit,
-            severity: Severity.warn,
-            message: 'MetricKit app exit metric',
-            metadata: event['data'] as Map<String, dynamic>?,
-          );
-
         // iOS: CLLocationManager paused updates
         case 'location_paused':
           logger.gps(
