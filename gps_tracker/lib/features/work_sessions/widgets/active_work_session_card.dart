@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../cleaning/screens/qr_scanner_screen.dart';
+import '../screens/qr_scanner_screen.dart';
 import '../../shifts/providers/lunch_break_provider.dart';
 import '../../shifts/widgets/sync_status_indicator.dart';
 import '../models/activity_type.dart';

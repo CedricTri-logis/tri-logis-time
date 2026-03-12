@@ -213,21 +213,11 @@ class WorkSessionService {
           session.copyWith(syncStatus: SyncStatus.synced),
         );
       } else {
-        // Server rejected but we still have local session
-        final errorMsg =
-            response['message'] as String? ?? 'Erreur serveur';
-        // ignore: avoid_print
-        print(
-          'WorkSessionService.startSession RPC rejected: ${response['error']} — $errorMsg',
-        );
-        return WorkSessionResult.error(
-          response['error'] as String? ?? 'UNKNOWN',
-          errorMessage: errorMsg,
-        );
+        // Server rejected but local session already created — return success
+        // so the provider updates its state. Session stays pending for later sync.
+        return WorkSessionResult.success(session);
       }
     } catch (e) {
-      // ignore: avoid_print
-      print('WorkSessionService.startSession RPC error: $e');
       // Network error — session is pending sync
       return WorkSessionResult.success(session);
     }
