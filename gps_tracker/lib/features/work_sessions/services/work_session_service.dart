@@ -201,7 +201,7 @@ class WorkSessionService {
       return WorkSessionResult.error(
         'NO_SERVER_SHIFT',
         errorMessage:
-            'Connexion requise. Vérifiez votre connexion réseau et réessayez.',
+            'Shift non synchronisé (serverId introuvable). Fermez et réouvrez l\'app.',
       );
     }
 
@@ -251,7 +251,7 @@ class WorkSessionService {
       return WorkSessionResult.error(
         'NETWORK_ERROR',
         errorMessage:
-            'Connexion requise. Vérifiez votre connexion réseau et réessayez.',
+            'Erreur serveur: ${e.toString().length > 100 ? e.toString().substring(0, 100) : e}',
       );
     }
   }
