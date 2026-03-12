@@ -11,6 +11,7 @@ import '../../../shared/models/diagnostic_event.dart';
 import '../../../shared/services/diagnostic_logger.dart';
 import '../../../shared/services/local_database.dart';
 import '../models/sync_progress.dart';
+import '../../work_sessions/services/work_session_service.dart';
 import 'diagnostic_sync_service.dart';
 import 'quarantine_service.dart';
 import 'shift_service.dart';
@@ -70,6 +71,13 @@ class SyncService {
   /// Set the diagnostic sync service (injected to avoid circular dependencies).
   void setDiagnosticSyncService(DiagnosticSyncService service) {
     _diagnosticSyncService = service;
+  }
+
+  WorkSessionService? _workSessionService;
+
+  /// Set the work session service (injected to avoid circular dependencies).
+  void setWorkSessionService(WorkSessionService service) {
+    _workSessionService = service;
   }
 
   /// Stream of sync progress updates.
@@ -158,6 +166,9 @@ class SyncService {
 
     // Sync pending lunch breaks
     await _syncLunchBreaks();
+
+    // Sync orphaned work sessions (safety net for mid-request failures)
+    await _syncWorkSessions();
 
     // Sync diagnostic events (lowest priority — never blocks GPS/shift sync)
     try {
@@ -376,23 +387,36 @@ class SyncService {
     if (pendingPoints.isNotEmpty) return true;
 
     final pendingDiagnostics = await _localDb.getPendingDiagnosticEventCount();
-    return pendingDiagnostics > 0;
+    if (pendingDiagnostics > 0) return true;
+
+    if (_workSessionService != null) {
+      final count = await _workSessionService!.getPendingCount(userId);
+      if (count > 0) return true;
+    }
+
+    return false;
   }
 
   /// Get count of pending items.
-  Future<({int shifts, int gpsPoints, int diagnostics})> getPendingCounts() async {
+  Future<({int shifts, int gpsPoints, int diagnostics, int workSessions})> getPendingCounts() async {
     final userId = _currentUserId;
-    if (userId == null) return (shifts: 0, gpsPoints: 0, diagnostics: 0);
+    if (userId == null) return (shifts: 0, gpsPoints: 0, diagnostics: 0, workSessions: 0);
 
     final pendingShifts = await _localDb.getPendingShifts(userId);
     final errorShifts = await _localDb.getErrorShifts(userId);
     final pendingGpsCount = await _localDb.getPendingGpsPointCount();
     final pendingDiagnosticCount = await _localDb.getPendingDiagnosticEventCount();
 
+    int pendingWorkSessionCount = 0;
+    if (_workSessionService != null) {
+      pendingWorkSessionCount = await _workSessionService!.getPendingCount(userId);
+    }
+
     return (
       shifts: pendingShifts.length + errorShifts.length,
       gpsPoints: pendingGpsCount,
       diagnostics: pendingDiagnosticCount,
+      workSessions: pendingWorkSessionCount,
     );
   }
 
@@ -498,6 +522,17 @@ class SyncService {
           'error': e.toString(),
         });
       }
+    }
+  }
+
+  /// Sync orphaned work sessions as safety net.
+  Future<void> _syncWorkSessions() async {
+    final userId = _currentUserId;
+    if (userId == null || _workSessionService == null) return;
+    try {
+      await _workSessionService!.syncPendingSessions(userId);
+    } catch (_) {
+      // Never let work session sync block the main sync
     }
   }
 

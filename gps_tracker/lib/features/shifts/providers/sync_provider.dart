@@ -12,6 +12,7 @@ import '../services/backoff_strategy.dart';
 import '../services/diagnostic_sync_service.dart';
 import '../services/sync_logger.dart';
 import '../services/sync_service.dart';
+import '../../work_sessions/providers/work_session_provider.dart';
 import 'connectivity_provider.dart';
 import 'quarantine_provider.dart';
 import 'shift_provider.dart';
@@ -33,6 +34,8 @@ final syncServiceProvider = Provider<SyncService>((ref) {
   syncService.setQuarantineService(ref.watch(quarantineServiceProvider));
   // Inject diagnostic sync service for log upload
   syncService.setDiagnosticSyncService(ref.watch(diagnosticSyncServiceProvider));
+  // Inject work session service for orphaned session sync
+  syncService.setWorkSessionService(ref.watch(workSessionServiceProvider));
   return syncService;
 });
 
@@ -48,6 +51,7 @@ class SyncState {
   final int pendingShifts;
   final int pendingGpsPoints;
   final int pendingDiagnostics;
+  final int pendingWorkSessions;
   final String? lastError;
   final DateTime? lastSyncTime;
 
@@ -68,6 +72,7 @@ class SyncState {
     this.pendingShifts = 0,
     this.pendingGpsPoints = 0,
     this.pendingDiagnostics = 0,
+    this.pendingWorkSessions = 0,
     this.lastError,
     this.lastSyncTime,
     this.progress,
@@ -77,10 +82,10 @@ class SyncState {
   });
 
   bool get hasPendingData =>
-      pendingShifts > 0 || pendingGpsPoints > 0 || pendingDiagnostics > 0;
+      pendingShifts > 0 || pendingGpsPoints > 0 || pendingDiagnostics > 0 || pendingWorkSessions > 0;
 
   /// Total pending items count.
-  int get totalPending => pendingShifts + pendingGpsPoints + pendingDiagnostics;
+  int get totalPending => pendingShifts + pendingGpsPoints + pendingDiagnostics + pendingWorkSessions;
 
   /// Whether we're in a retry state.
   bool get isRetrying => consecutiveFailures > 0;
@@ -94,6 +99,7 @@ class SyncState {
     int? pendingShifts,
     int? pendingGpsPoints,
     int? pendingDiagnostics,
+    int? pendingWorkSessions,
     String? lastError,
     DateTime? lastSyncTime,
     SyncProgress? progress,
@@ -109,6 +115,7 @@ class SyncState {
       pendingShifts: pendingShifts ?? this.pendingShifts,
       pendingGpsPoints: pendingGpsPoints ?? this.pendingGpsPoints,
       pendingDiagnostics: pendingDiagnostics ?? this.pendingDiagnostics,
+      pendingWorkSessions: pendingWorkSessions ?? this.pendingWorkSessions,
       lastError: clearError ? null : (lastError ?? this.lastError),
       lastSyncTime: lastSyncTime ?? this.lastSyncTime,
       progress: clearProgress ? null : (progress ?? this.progress),
@@ -367,26 +374,29 @@ class SyncNotifier extends StateNotifier<SyncState> {
   Future<void> refreshPendingCounts() async {
     try {
       final syncService = _ref.read(syncServiceProvider);
-      final counts = await syncService.getPendingCounts();
+      final (:shifts, :gpsPoints, :diagnostics, :workSessions) =
+          await syncService.getPendingCounts();
 
-      final newStatus = counts.shifts > 0 ||
-              counts.gpsPoints > 0 ||
-              counts.diagnostics > 0
+      final newStatus = shifts > 0 ||
+              gpsPoints > 0 ||
+              diagnostics > 0 ||
+              workSessions > 0
           ? (state.status == SyncStatus.syncing
               ? SyncStatus.syncing
               : SyncStatus.pending)
           : SyncStatus.synced;
 
       state = state.copyWith(
-        pendingShifts: counts.shifts,
-        pendingGpsPoints: counts.gpsPoints,
-        pendingDiagnostics: counts.diagnostics,
+        pendingShifts: shifts,
+        pendingGpsPoints: gpsPoints,
+        pendingDiagnostics: diagnostics,
+        pendingWorkSessions: workSessions,
         status: newStatus,
       );
 
       // Update persisted counts
       final localDb = _ref.read(localDatabaseProvider);
-      await localDb.updatePendingCounts(counts.shifts, counts.gpsPoints);
+      await localDb.updatePendingCounts(shifts, gpsPoints);
     } catch (e) {
       // Ignore errors during count check
     }

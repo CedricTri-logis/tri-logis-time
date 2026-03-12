@@ -504,6 +504,11 @@ class WorkSessionService {
     return _localDb.getSessionsForShift(shiftId);
   }
 
+  /// Get count of pending work sessions for an employee.
+  Future<int> getPendingCount(String employeeId) async {
+    return _localDb.getPendingWorkSessionCount(employeeId);
+  }
+
   // ============ SYNC ============
 
   /// Sync all pending work sessions to Supabase.
