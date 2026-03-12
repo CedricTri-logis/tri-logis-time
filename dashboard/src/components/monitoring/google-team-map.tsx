@@ -94,19 +94,31 @@ export function GoogleTeamMap({
               disableDefaultUI={true}
               zoomControl={true}
             >
+              {/* Clock-in location markers (shown for all on-shift employees) */}
               {employeesWithLocation.map((employee) => (
-                <EmployeeMarker 
-                  key={employee.id} 
-                  employee={employee} 
+                employee.currentShift?.clockInLocation && (
+                  <ClockInMarker
+                    key={`clockin-${employee.id}`}
+                    employee={employee}
+                    onClick={() => setSelectedEmployeeId(employee.id)}
+                  />
+                )
+              ))}
+
+              {/* Current GPS position markers */}
+              {employeesWithLocation.map((employee) => (
+                <EmployeeMarker
+                  key={employee.id}
+                  employee={employee}
                   onClick={() => setSelectedEmployeeId(employee.id)}
                 />
               ))}
 
               {selectedEmployee && selectedEmployee.currentLocation && (
                 <InfoWindow
-                  position={{ 
-                    lat: selectedEmployee.currentLocation.latitude, 
-                    lng: selectedEmployee.currentLocation.longitude 
+                  position={{
+                    lat: selectedEmployee.currentLocation.latitude,
+                    lng: selectedEmployee.currentLocation.longitude
                   }}
                   onCloseClick={() => setSelectedEmployeeId(null)}
                 >
@@ -120,6 +132,33 @@ export function GoogleTeamMap({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function ClockInMarker({ employee, onClick }: { employee: MonitoredEmployee, onClick: () => void }) {
+  const loc = employee.currentShift?.clockInLocation;
+  if (!loc) return null;
+
+  return (
+    <AdvancedMarker
+      position={{ lat: loc.latitude, lng: loc.longitude }}
+      onClick={onClick}
+    >
+      <div className="relative group cursor-pointer">
+        {/* Clock-in pin — smaller, blue outline */}
+        <div className="relative flex flex-col items-center">
+          <div className="w-5 h-5 rounded-full border-2 border-blue-500 bg-white shadow-md flex items-center justify-center">
+            <div className="w-2 h-2 rounded-full bg-blue-500" />
+          </div>
+          <div className="w-1.5 h-1.5 -mt-0.5 rotate-45 border-r-2 border-b-2 border-blue-500 bg-white" />
+        </div>
+
+        {/* Tooltip on hover */}
+        <div className="absolute left-1/2 -translate-x-1/2 -top-8 bg-blue-700 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-xl">
+          {employee.displayName} — Lieu de pointage
+        </div>
+      </div>
+    </AdvancedMarker>
   );
 }
 
@@ -189,6 +228,22 @@ function MarkerPopupContent({ employee }: { employee: MonitoredEmployee }) {
           <span className="text-slate-500">Statut GPS</span>
           <StalenessBadge level={staleness} />
         </div>
+        {employee.currentShift?.clockInLocation && (
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-slate-500">Pointé à</span>
+            <span className="font-mono text-[10px] text-slate-600">
+              {employee.currentShift.clockInLocation.latitude.toFixed(4)}, {employee.currentShift.clockInLocation.longitude.toFixed(4)}
+            </span>
+          </div>
+        )}
+        {employee.activeSessionLocation && (
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-slate-500">Activité</span>
+            <span className="font-semibold text-slate-700 truncate max-w-[120px]">
+              {employee.activeSessionLocation}
+            </span>
+          </div>
+        )}
       </div>
 
       <Link
@@ -239,6 +294,9 @@ function AutoFitBounds({ employees }: { employees: MonitoredEmployee[] }) {
     employeesInQuebec.forEach(e => {
       if (e.currentLocation) {
         bounds.extend({ lat: e.currentLocation.latitude, lng: e.currentLocation.longitude });
+      }
+      if (e.currentShift?.clockInLocation) {
+        bounds.extend({ lat: e.currentShift.clockInLocation.latitude, lng: e.currentShift.clockInLocation.longitude });
       }
     });
     if (employeesInQuebec.length === 1) {

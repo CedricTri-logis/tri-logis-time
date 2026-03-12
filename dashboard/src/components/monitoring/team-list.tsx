@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Briefcase, ChevronRight, Clock, LogIn, MonitorSmartphone, Smartphone, SprayCan, User, UtensilsCrossed, Wrench } from 'lucide-react';
+import { Briefcase, ChevronRight, Clock, LogIn, MapPin, MonitorSmartphone, Smartphone, SprayCan, User, UtensilsCrossed, Wrench } from 'lucide-react';
 import { ACTIVITY_TYPE_CONFIG, type ActivityType } from '@/types/work-session';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -118,6 +118,15 @@ function TeamListItem({ employee }: TeamListItemProps) {
                 </span>
               )}
             </div>
+            {/* Clock-in location */}
+            {isOnShift && employee.currentShift?.clockInLocation && (
+              <div className="flex items-center gap-1 text-xs text-blue-600 mt-0.5">
+                <MapPin className="h-3 w-3 flex-shrink-0" />
+                <span className="font-mono text-[10px]">
+                  Pointé à {employee.currentShift.clockInLocation.latitude.toFixed(4)}, {employee.currentShift.clockInLocation.longitude.toFixed(4)}
+                </span>
+              </div>
+            )}
             {/* Active session info (cleaning or maintenance) */}
             {isOnShift && employee.activeSessionLocation && (
               <SessionBadge
