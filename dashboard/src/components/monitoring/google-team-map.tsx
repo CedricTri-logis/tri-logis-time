@@ -238,11 +238,11 @@ function MarkerPopupContent({ employee }: { employee: MonitoredEmployee }) {
             </span>
           </div>
         )}
-        {employee.activeSessionLocation && (
+        {employee.activeSessionType && (
           <div className="flex items-center justify-between text-[11px]">
-            <span className="text-slate-500">Activité</span>
+            <span className="text-slate-500">Session</span>
             <span className="font-semibold text-slate-700 truncate max-w-[120px]">
-              {employee.activeSessionLocation}
+              {employee.activeSessionLocation ?? employee.activeSessionType}
             </span>
           </div>
         )}
