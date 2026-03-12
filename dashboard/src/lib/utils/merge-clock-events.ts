@@ -6,7 +6,7 @@
 
 /** Minimal interface required for merging — works with both ActivityItem and ApprovalActivity */
 export interface MergeableActivity {
-  activity_type: 'trip' | 'stop' | 'clock_in' | 'clock_out' | 'gap' | 'lunch';
+  activity_type: 'trip' | 'stop' | 'stop_segment' | 'clock_in' | 'clock_out' | 'gap' | 'lunch';
   shift_id: string;
   started_at: string;
   ended_at: string;
@@ -71,7 +71,7 @@ export function mergeClockEvents<T extends MergeableActivity>(items: T[]): Proce
     let bestJ = -1;
     let bestDistance = Infinity;
     for (let j = 0; j < filtered.length; j++) {
-      if (filtered[j].activity_type !== 'stop' && filtered[j].activity_type !== 'gap') continue;
+      if (filtered[j].activity_type !== 'stop' && filtered[j].activity_type !== 'stop_segment' && filtered[j].activity_type !== 'gap') continue;
       if (filtered[j].shift_id !== item.shift_id) continue;
       const stopStart = new Date(filtered[j].started_at).getTime();
       const stopEnd = new Date(filtered[j].ended_at).getTime();

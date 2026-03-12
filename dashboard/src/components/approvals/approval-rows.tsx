@@ -23,6 +23,8 @@ import {
 import { TripExpandDetail } from './trip-expand-detail';
 import { GapExpandDetail } from './gap-expand-detail';
 import { StopExpandDetail } from './stop-expand-detail';
+import { ClockTimeEditPopover } from './clock-time-edit-popover';
+import { ClusterSegmentModal } from './cluster-segment-modal';
 import { LOCATION_TYPE_ICON_MAP } from '@/lib/constants/location-icons';
 import { LOCATION_TYPE_LABELS } from '@/lib/validations/location';
 import type { ProcessedActivity } from '@/lib/utils/merge-clock-events';
@@ -30,6 +32,7 @@ import { formatTime, formatDurationMinutes, formatDistance } from '@/lib/utils/a
 import type { LocationType } from '@/types/location';
 import type {
   ApprovalActivity,
+  DayApprovalDetail as DayApprovalDetailType,
   ProjectSession,
 } from '@/types/mileage';
 import {
@@ -679,6 +682,7 @@ export function ActivityRow({
   isExpanded,
   onToggle,
   onOverride,
+  onDetailUpdated,
   projectSessions,
 }: {
   pa: ProcessedActivity<ApprovalActivity>;
@@ -687,14 +691,17 @@ export function ActivityRow({
   isExpanded: boolean;
   onToggle: () => void;
   onOverride: (activity: ApprovalActivity, status: 'approved' | 'rejected') => void;
+  onDetailUpdated?: (data: DayApprovalDetailType) => void;
   projectSessions: ProjectSession[];
 }) {
   const { item: activity, hasClockIn, hasClockOut } = pa;
   const isStop = activity.activity_type === 'stop';
+  const isSegment = activity.activity_type === 'stop_segment';
+  const isStopLike = isStop || isSegment;
   const isClock = activity.activity_type === 'clock_in' || activity.activity_type === 'clock_out';
   const isGap = activity.activity_type === 'gap';
   const isLunch = activity.activity_type === 'lunch';
-  const canExpand = isStop || isGap;
+  const canExpand = isStopLike || isGap;
   const hasOverride = activity.override_status !== null;
 
   const statusConfig = {
@@ -835,6 +842,20 @@ export function ActivityRow({
             {(activity.gps_gap_seconds ?? 0) > 0 && (
               <AlertTriangle className="h-3.5 w-3.5 text-amber-600 animate-pulse" />
             )}
+            {isStop && !isApproved && onDetailUpdated && (
+              <span onClick={(e) => e.stopPropagation()}>
+                <ClusterSegmentModal
+                  clusterId={activity.activity_id}
+                  startedAt={activity.started_at}
+                  endedAt={activity.ended_at}
+                  isSegmented={false}
+                  onUpdated={onDetailUpdated}
+                />
+              </span>
+            )}
+            {isSegment && (
+              <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1">Segment</Badge>
+            )}
           </div>
           {(activity.gps_gap_seconds ?? 0) > 0 && (
             <div className={`text-[10px] mt-0.5 ${
@@ -886,7 +907,7 @@ export function ActivityRow({
                 {formatTime(activity.started_at)} — {formatTime(activity.ended_at)}
               </span>
             </div>
-          ) : isStop ? (
+          ) : isStopLike ? (
             <div className="space-y-1">
               <div className={`text-xs flex items-center gap-1.5 ${statusConfig.text}`}>
                 <span className={activity.location_name ? 'font-bold underline decoration-current/20' : ''}>
@@ -914,9 +935,35 @@ export function ActivityRow({
         {/* Horaire */}
         <td className="px-3 py-3 whitespace-nowrap">
           <div className="flex flex-col">
-            <span className={`text-xs font-black ${statusConfig.text}`}>{formatTime(activity.started_at)}</span>
-            {!isClock && (
-              <span className={`text-[10px] font-medium ${statusConfig.subtext}`}>{formatTime(activity.ended_at)}</span>
+            {isClock ? (
+              <span className="flex items-center gap-1">
+                {activity.is_edited && activity.original_value && (
+                  <span className="line-through text-muted-foreground text-[10px]">
+                    {formatTime(activity.original_value)}
+                  </span>
+                )}
+                <span className={`text-xs font-black ${statusConfig.text}`}>{formatTime(activity.started_at)}</span>
+                {activity.is_edited && (
+                  <Badge variant="outline" className="text-[10px] px-1 py-0">Modifié</Badge>
+                )}
+                {!isApproved && onDetailUpdated && (
+                  <span onClick={(e) => e.stopPropagation()}>
+                    <ClockTimeEditPopover
+                      shiftId={activity.shift_id}
+                      field={activity.activity_type === 'clock_in' ? 'clocked_in_at' : 'clocked_out_at'}
+                      currentTime={activity.started_at}
+                      originalTime={activity.original_value}
+                      isEdited={!!activity.is_edited}
+                      onUpdated={onDetailUpdated}
+                    />
+                  </span>
+                )}
+              </span>
+            ) : (
+              <>
+                <span className={`text-xs font-black ${statusConfig.text}`}>{formatTime(activity.started_at)}</span>
+                <span className={`text-[10px] font-medium ${statusConfig.subtext}`}>{formatTime(activity.ended_at)}</span>
+              </>
             )}
           </div>
         </td>
@@ -950,7 +997,7 @@ export function ActivityRow({
         </td>
       </tr>
 
-      {/* Expanded detail row (stops + gaps — trips use TripConnectorRow) */}
+      {/* Expanded detail row (stops/segments + gaps — trips use TripConnectorRow) */}
       {isExpanded && canExpand && (
         <tr>
           <td colSpan={9} className="p-0 border-b">
@@ -976,6 +1023,7 @@ export function LunchGroupRow({
   isApproved,
   isSaving,
   onOverride,
+  onDetailUpdated,
   projectSessions,
 }: {
   lunch: ProcessedActivity<ApprovalActivity>;
@@ -985,6 +1033,7 @@ export function LunchGroupRow({
   isExpanded?: boolean;
   onToggle?: () => void;
   onOverride: (activity: ApprovalActivity, status: 'approved' | 'rejected') => void;
+  onDetailUpdated?: (data: DayApprovalDetailType) => void;
   projectSessions: ProjectSession[];
   expandedChildId?: string | null;
   onChildToggle?: (key: string) => void;
@@ -1126,6 +1175,7 @@ export function LunchGroupRow({
               isExpanded={expandedChild === key}
               onToggle={() => setExpandedChild(expandedChild === key ? null : key)}
               onOverride={onOverride}
+              onDetailUpdated={onDetailUpdated}
               projectSessions={projectSessions}
             />
           );
