@@ -247,12 +247,14 @@ export type ApprovalAutoStatus = 'approved' | 'rejected' | 'needs_review';
 export type DayApprovalStatus = 'no_shift' | 'active' | 'pending' | 'needs_review' | 'approved';
 
 export interface ApprovalActivity {
-  activity_type: 'trip' | 'stop' | 'clock_in' | 'clock_out' | 'gap' | 'lunch';
+  activity_type: 'trip' | 'stop' | 'stop_segment' | 'clock_in' | 'clock_out' | 'gap' | 'lunch';
   activity_id: string;
   shift_id: string;
   started_at: string;
   ended_at: string;
   duration_minutes: number;
+  is_edited?: boolean;
+  original_value?: string;
   auto_status: ApprovalAutoStatus;
   auto_reason: string;
   override_status: 'approved' | 'rejected' | null;
