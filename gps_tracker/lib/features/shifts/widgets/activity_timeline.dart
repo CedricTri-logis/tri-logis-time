@@ -22,8 +22,6 @@ class ActivityTimeline extends StatelessWidget {
   IconData _activityIcon(ApprovalActivity activity) {
     if (activity.isTrip) return Icons.directions_car;
     if (activity.isStop) return Icons.location_on;
-    if (activity.isClockIn) return Icons.login;
-    if (activity.isClockOut) return Icons.logout;
     if (activity.isLunch) return Icons.restaurant;
     if (activity.isGap) return Icons.warning_amber;
     return Icons.help_outline;
@@ -50,8 +48,6 @@ class ActivityTimeline extends StatelessWidget {
       return '$from \u2192 $to$dist';
     }
     if (activity.isStop) return activity.locationName ?? 'Lieu inconnu';
-    if (activity.isClockIn) return 'Pointage';
-    if (activity.isClockOut) return 'D\u00e9pointage';
     if (activity.isLunch) return 'Pause d\u00eener';
     if (activity.isGap) return 'Interruption GPS';
     return activity.activityType;
@@ -62,6 +58,25 @@ class ActivityTimeline extends StatelessWidget {
     if (activities.isEmpty) return const SizedBox.shrink();
 
     final theme = Theme.of(context);
+
+    // Separate clock events from real activities
+    ApprovalActivity? clockIn;
+    ApprovalActivity? clockOut;
+    final realActivities = <ApprovalActivity>[];
+
+    for (final activity in activities) {
+      if (activity.isClockIn) {
+        clockIn = activity;
+      } else if (activity.isClockOut) {
+        clockOut = activity;
+      } else {
+        realActivities.add(activity);
+      }
+    }
+
+    // Determine which rows get clock-in/out indicators
+    final firstIdx = realActivities.isNotEmpty ? 0 : -1;
+    final lastIdx = realActivities.isNotEmpty ? realActivities.length - 1 : -1;
 
     return Card(
       elevation: 1,
@@ -77,18 +92,36 @@ class ActivityTimeline extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            ...activities.map((activity) => _ActivityRow(
-                  activity: activity,
-                  icon: _activityIcon(activity),
-                  label: _activityLabel(activity),
-                  time: _formatTime(activity.startedAt),
-                  duration: _formatDuration(activity.durationMinutes),
-                  statusColor: _statusColor(activity.finalStatus),
-                  statusLabel: activity.finalStatus.displayName,
-                  onTap: (activity.isStop || activity.isTrip) && onActivityTap != null
-                      ? () => onActivityTap!(activity)
-                      : null,
-                )),
+            ...realActivities.asMap().entries.map((entry) {
+              final idx = entry.key;
+              final activity = entry.value;
+              final hasClockIn = clockIn != null && idx == firstIdx;
+              final hasClockOut = clockOut != null && idx == lastIdx;
+
+              return _ActivityRow(
+                activity: activity,
+                icon: _activityIcon(activity),
+                label: _activityLabel(activity),
+                time: _formatTime(activity.startedAt),
+                duration: _formatDuration(activity.durationMinutes),
+                statusColor: _statusColor(activity.finalStatus),
+                statusLabel: activity.finalStatus.displayName,
+                hasClockIn: hasClockIn,
+                hasClockOut: hasClockOut,
+                clockInTime: hasClockIn ? _formatTime(clockIn!.startedAt) : null,
+                clockOutTime: hasClockOut ? _formatTime(clockOut!.startedAt) : null,
+                onTap: (activity.isStop || activity.isTrip) && onActivityTap != null
+                    ? () => onActivityTap!(activity)
+                    : null,
+              );
+            }),
+            // Fallback: if no real activities, show clock-in/out as standalone
+            if (realActivities.isEmpty && (clockIn != null || clockOut != null))
+              _StandaloneClockRow(
+                clockIn: clockIn,
+                clockOut: clockOut,
+                formatTime: _formatTime,
+              ),
           ],
         ),
       ),
@@ -104,6 +137,10 @@ class _ActivityRow extends StatelessWidget {
   final String duration;
   final Color statusColor;
   final String statusLabel;
+  final bool hasClockIn;
+  final bool hasClockOut;
+  final String? clockInTime;
+  final String? clockOutTime;
   final VoidCallback? onTap;
 
   const _ActivityRow({
@@ -114,6 +151,10 @@ class _ActivityRow extends StatelessWidget {
     required this.duration,
     required this.statusColor,
     required this.statusLabel,
+    this.hasClockIn = false,
+    this.hasClockOut = false,
+    this.clockInTime,
+    this.clockOutTime,
     this.onTap,
   });
 
@@ -126,6 +167,21 @@ class _ActivityRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Clock indicators column (small icons before the main icon)
+          SizedBox(
+            width: 18,
+            child: Column(
+              children: [
+                if (hasClockIn)
+                  Icon(Icons.login, size: 13, color: Colors.green.shade700)
+                else if (hasClockOut)
+                  Icon(Icons.logout, size: 13, color: Colors.red.shade700)
+                else
+                  const SizedBox(width: 13),
+              ],
+            ),
+          ),
+          const SizedBox(width: 4),
           Icon(icon, size: 18, color: theme.colorScheme.onSurfaceVariant),
           const SizedBox(width: 8),
           Expanded(
@@ -180,5 +236,40 @@ class _ActivityRow extends StatelessWidget {
       );
     }
     return row;
+  }
+}
+
+/// Fallback row for when there are no real activities but clock events exist.
+class _StandaloneClockRow extends StatelessWidget {
+  final ApprovalActivity? clockIn;
+  final ApprovalActivity? clockOut;
+  final String Function(DateTime) formatTime;
+
+  const _StandaloneClockRow({
+    this.clockIn,
+    this.clockOut,
+    required this.formatTime,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final parts = <String>[];
+    if (clockIn != null) parts.add('Entr\u00e9e ${formatTime(clockIn!.startedAt)}');
+    if (clockOut != null) parts.add('Sortie ${formatTime(clockOut!.startedAt)}');
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          Icon(Icons.access_time, size: 18, color: theme.colorScheme.onSurfaceVariant),
+          const SizedBox(width: 8),
+          Text(
+            parts.join(' \u2192 '),
+            style: theme.textTheme.bodyMedium,
+          ),
+        ],
+      ),
+    );
   }
 }

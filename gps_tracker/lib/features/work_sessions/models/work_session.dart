@@ -142,6 +142,12 @@ class WorkSession {
   String get locationLabel {
     switch (activityType) {
       case ActivityType.cleaning:
+        // Long terme: building-based cleaning
+        if (studioNumber == null && studioId == null && buildingName != null) {
+          if (unitNumber != null) return '$unitNumber — $buildingName';
+          return buildingName!;
+        }
+        // Court terme: studio-based cleaning
         if (studioNumber != null && buildingName != null) {
           return '$studioNumber — $buildingName';
         }

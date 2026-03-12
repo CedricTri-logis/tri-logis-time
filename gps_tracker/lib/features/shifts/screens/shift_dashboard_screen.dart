@@ -33,9 +33,11 @@ import '../../tracking/widgets/permission_explanation_dialog.dart';
 import '../../tracking/widgets/samsung_standby_dialog.dart';
 import '../../maintenance/widgets/building_picker_sheet.dart';
 import '../../work_sessions/models/activity_type.dart';
+import '../../work_sessions/models/work_session.dart';
 import '../../work_sessions/providers/work_session_provider.dart';
 import '../../work_sessions/widgets/activity_type_picker.dart';
 import '../../work_sessions/widgets/active_work_session_card.dart';
+import '../../work_sessions/widgets/session_start_sheet.dart';
 import '../../work_sessions/widgets/work_session_history_list.dart';
 import '../../work_sessions/screens/qr_scanner_screen.dart' as ws;
 import '../../tracking/widgets/permission_status_banner.dart';
@@ -578,9 +580,21 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
         if (activeShift != null) {
           switch (activityType) {
             case ActivityType.cleaning:
-              _openQrScanner();
+              // Show ménage sub-options (court terme QR vs long terme building)
+              if (!mounted) break;
+              final subResult = await SessionStartSheet.show(context, ActivityType.cleaning);
+              if (subResult == null || !mounted) break;
+              switch (subResult.action) {
+                case SessionStartAction.qrScan:
+                  _openQrScanner();
+                case SessionStartAction.buildingPicker:
+                  await _openBuildingPickerForType(ActivityType.cleaning);
+                case SessionStartAction.confirmAdmin:
+                case SessionStartAction.changeType:
+                  break;
+              }
             case ActivityType.maintenance:
-              _openBuildingPicker();
+              await _openBuildingPickerForType(ActivityType.maintenance);
             case ActivityType.admin:
               await ref.read(workSessionProvider.notifier).startSession(
                     shiftId: activeShift.id,
@@ -1271,7 +1285,8 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
     );
   }
 
-  Future<void> _openBuildingPicker() async {
+  /// Open building picker and start a session with the given activity type.
+  Future<void> _openBuildingPickerForType(ActivityType activityType) async {
     final result = await BuildingPickerSheet.show(context);
     if (result == null || !mounted) return;
 
@@ -1281,7 +1296,7 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
     final sessionResult =
         await ref.read(workSessionProvider.notifier).startSession(
               shiftId: activeShift.id,
-              activityType: ActivityType.maintenance,
+              activityType: activityType,
               buildingId: result.buildingId,
               buildingName: result.buildingName,
               apartmentId: result.apartmentId,
@@ -1290,27 +1305,50 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
             );
 
     if (!mounted) return;
+    _showSessionResultSnackbar(sessionResult, activityType, result.buildingName, result.unitNumber);
+  }
 
-    if (sessionResult.success) {
+  Future<void> _startAdminSession(Shift activeShift) async {
+    final result = await ref.read(workSessionProvider.notifier).startSession(
+          shiftId: activeShift.id,
+          activityType: ActivityType.admin,
+          serverShiftId: activeShift.serverId,
+        );
+    if (!mounted) return;
+    _showSessionResultSnackbar(result, ActivityType.admin, null, null);
+  }
+
+  void _showSessionResultSnackbar(
+    WorkSessionResult result,
+    ActivityType type,
+    String? buildingName,
+    String? unitNumber,
+  ) {
+    if (result.success) {
+      String message;
+      switch (type) {
+        case ActivityType.cleaning:
+          message = buildingName != null
+              ? 'Ménage démarré — $buildingName${unitNumber != null ? ' ($unitNumber)' : ''}'
+              : 'Session ménage démarrée';
+        case ActivityType.maintenance:
+          message = 'Entretien démarré — ${buildingName ?? ''}'
+              '${unitNumber != null ? ' ($unitNumber)' : ''}';
+        case ActivityType.admin:
+          message = 'Session admin démarrée';
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
             children: [
               const Icon(Icons.check_circle, color: Colors.white),
               const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Entretien démarré — ${result.buildingName}'
-                  '${result.unitNumber != null ? ' (${result.unitNumber})' : ''}',
-                ),
-              ),
+              Expanded(child: Text(message)),
             ],
           ),
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       );
     } else {
@@ -1320,24 +1358,52 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
             children: [
               const Icon(Icons.error, color: Colors.white),
               const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                    sessionResult.errorMessage ?? 'Erreur de démarrage'),
-              ),
+              Expanded(child: Text(result.errorMessage ?? 'Erreur de démarrage')),
             ],
           ),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       );
     }
   }
 
-  /// Start a new work session - opens ActivityTypePicker then handles each type.
+  /// Start a new work session.
+  ///
+  /// If a previous session exists for this shift, show SessionStartSheet
+  /// with default activity type. Otherwise show full ActivityTypePicker.
   Future<void> _startNewSession() async {
+    final activeShift = ref.read(shiftProvider).activeShift;
+    if (activeShift == null) return;
+
+    // Check for last activity type
+    final lastTypeAsync = ref.read(lastActivityTypeProvider);
+    final lastType = lastTypeAsync.valueOrNull;
+
+    if (lastType != null) {
+      // Show SessionStartSheet with defaults
+      final result = await SessionStartSheet.show(context, lastType);
+      if (result == null || !mounted) return;
+
+      switch (result.action) {
+        case SessionStartAction.qrScan:
+          _openQrScanner();
+        case SessionStartAction.buildingPicker:
+          await _openBuildingPickerForType(lastType);
+        case SessionStartAction.confirmAdmin:
+          await _startAdminSession(activeShift);
+        case SessionStartAction.changeType:
+          await _startNewSessionFullPicker();
+      }
+    } else {
+      // First session of shift — full picker
+      await _startNewSessionFullPicker();
+    }
+  }
+
+  /// Full activity type picker flow (used for first session or "Changer d'activité").
+  Future<void> _startNewSessionFullPicker() async {
     final activityType = await ActivityTypePicker.show(context);
     if (activityType == null || !mounted) return;
 
@@ -1346,85 +1412,33 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
 
     switch (activityType) {
       case ActivityType.cleaning:
-        _openQrScanner();
-      case ActivityType.maintenance:
-        _openBuildingPicker();
-      case ActivityType.admin:
-        final result =
-            await ref.read(workSessionProvider.notifier).startSession(
-                  shiftId: activeShift.id,
-                  activityType: ActivityType.admin,
-                  serverShiftId: activeShift.serverId,
-                );
-        if (!mounted) return;
-        if (result.success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Row(
-                children: [
-                  Icon(Icons.check_circle, color: Colors.white),
-                  SizedBox(width: 12),
-                  Text('Session admin démarrée'),
-                ],
-              ),
-              backgroundColor: Colors.green,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  const Icon(Icons.error, color: Colors.white),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                        result.errorMessage ?? 'Erreur de démarrage'),
-                  ),
-                ],
-              ),
-              backgroundColor: Colors.red,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          );
+        // For cleaning from full picker, show ménage sub-options
+        final result = await SessionStartSheet.show(context, ActivityType.cleaning);
+        if (result == null || !mounted) return;
+        switch (result.action) {
+          case SessionStartAction.qrScan:
+            _openQrScanner();
+          case SessionStartAction.buildingPicker:
+            await _openBuildingPickerForType(ActivityType.cleaning);
+          case SessionStartAction.confirmAdmin:
+          case SessionStartAction.changeType:
+            break;
         }
+      case ActivityType.maintenance:
+        await _openBuildingPickerForType(ActivityType.maintenance);
+      case ActivityType.admin:
+        await _startAdminSession(activeShift);
     }
   }
 
   /// Change the current activity type: complete current session, pick new one, start it.
   Future<void> _changeActivityType() async {
     final notifier = ref.read(workSessionProvider.notifier);
-
-    // Complete the current session first
     final closed = await notifier.changeActivityType();
     if (!closed || !mounted) return;
 
-    // Open activity type picker for the new type
-    final activityType = await ActivityTypePicker.show(context);
-    if (activityType == null || !mounted) return;
-
-    final activeShift = ref.read(shiftProvider).activeShift;
-    if (activeShift == null) return;
-
-    switch (activityType) {
-      case ActivityType.cleaning:
-        _openQrScanner();
-      case ActivityType.maintenance:
-        _openBuildingPicker();
-      case ActivityType.admin:
-        await ref.read(workSessionProvider.notifier).startSession(
-              shiftId: activeShift.id,
-              activityType: ActivityType.admin,
-              serverShiftId: activeShift.serverId,
-            );
-    }
+    // After closing, go through the full picker
+    await _startNewSessionFullPicker();
   }
 
   @override
@@ -1468,7 +1482,7 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
 
                       // Active work session card (unified)
                       const SizedBox(height: 16),
-                      const ActiveWorkSessionCard(),
+                      ActiveWorkSessionCard(onStartSession: _startNewSession),
 
                       // Session history (all types)
                       const SizedBox(height: 16),
@@ -1487,7 +1501,8 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
                           ),
                           const ClockButtonSettingsWarning(),
                           const SizedBox(height: 16),
-                          const LunchBreakButton(),
+                          if (!ref.watch(isOnLunchProvider))
+                            const LunchBreakButton(),
                           if (hasActiveWorkSession)
                             TextButton.icon(
                               onPressed: _changeActivityType,
@@ -1554,13 +1569,6 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
           ],
         ),
       ),
-      floatingActionButton: hasActiveShift && !hasActiveWorkSession
-          ? FloatingActionButton.extended(
-              onPressed: _startNewSession,
-              icon: const Icon(Icons.add),
-              label: const Text('Nouvelle session'),
-            )
-          : null,
     );
   }
 }

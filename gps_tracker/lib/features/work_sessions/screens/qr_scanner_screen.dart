@@ -92,9 +92,8 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
     final notifier = ref.read(workSessionProvider.notifier);
     final activeSession = ref.read(activeWorkSessionProvider);
 
-    // Check if there's an active session for a DIFFERENT studio
     if (activeSession != null) {
-      // Try to look up the scanned studio to see if it matches
+      // Check if scanning the same studio (scan out)
       final studioCache = ref.read(studioCacheServiceProvider);
       final scannedStudio = await studioCache.lookupByQrCode(qrCode);
 
@@ -112,43 +111,33 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
         return;
       }
 
-      // Different studio — warn about existing session
-      if (!mounted) return;
-      final action = await _showExistingSessionWarning(activeSession);
-      if (action == _ExistingSessionAction.closeAndNew) {
-        // Close current session first
-        final closeResult = await notifier.scanOut(
-          await _getQrCodeForSession(activeSession),
-        );
-        if (closeResult.success) {
-          // Now scan in to the new studio
-          final result = await notifier.scanIn(
-            qrCode,
-            activeShift.id,
-            serverShiftId: activeShift.serverId,
-          );
-          if (!mounted) return;
-          final scanResult = _toScanResult(result);
-          await ScanResultDialog.show(context, scanResult);
-          if (scanResult.success) {
-            if (mounted) Navigator.of(context).pop();
-          } else {
-            _resumeScanner();
-          }
-        } else {
-          if (!mounted) return;
-          await ScanResultDialog.show(context, _toScanResult(closeResult));
-          _resumeScanner();
-        }
-        return;
-      } else {
-        // User cancelled
+      // Different studio or non-cleaning session — auto-close current and open new
+      final closeResult = await notifier.completeSession();
+      if (!closeResult.success) {
+        if (!mounted) return;
+        await ScanResultDialog.show(context, _toScanResult(closeResult));
         _resumeScanner();
         return;
       }
+
+      // Now scan in to the new studio
+      final result = await notifier.scanIn(
+        qrCode,
+        activeShift.id,
+        serverShiftId: activeShift.serverId,
+      );
+      if (!mounted) return;
+      final scanResult = _toScanResult(result);
+      await ScanResultDialog.show(context, scanResult);
+      if (scanResult.success) {
+        if (mounted) Navigator.of(context).pop();
+      } else {
+        _resumeScanner();
+      }
+      return;
     }
 
-    // No active session — try scan in
+    // No active session — scan in
     final result = await notifier.scanIn(
       qrCode,
       activeShift.id,
@@ -217,46 +206,6 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
       case WorkSessionStatus.manuallyClosed:
         return CleaningSessionStatus.manuallyClosed;
     }
-  }
-
-  Future<String> _getQrCodeForSession(WorkSession session) async {
-    final studioCache = ref.read(studioCacheServiceProvider);
-    final studios = await studioCache.getAllStudios();
-    final match =
-        studios.where((s) => s.id == session.studioId).firstOrNull;
-    return match?.qrCode ?? '';
-  }
-
-  Future<_ExistingSessionAction?> _showExistingSessionWarning(
-    WorkSession activeSession,
-  ) {
-    return showDialog<_ExistingSessionAction>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.warning_amber, color: Colors.orange),
-            SizedBox(width: 8),
-            Expanded(child: Text('Session active')),
-          ],
-        ),
-        content: Text(
-          'Vous avez une session active à ${activeSession.locationLabel}. '
-          'Voulez-vous la fermer et démarrer une nouvelle?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(null),
-            child: const Text('Annuler'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context)
-                .pop(_ExistingSessionAction.closeAndNew),
-            child: const Text('Fermer et démarrer'),
-          ),
-        ],
-      ),
-    );
   }
 
   void _resumeScanner() {
@@ -367,8 +316,6 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen>
     );
   }
 }
-
-enum _ExistingSessionAction { closeAndNew }
 
 /// Overlay with scan area indicator.
 class _ScanOverlay extends StatelessWidget {

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../cleaning/screens/qr_scanner_screen.dart';
+import '../../shifts/providers/lunch_break_provider.dart';
 import '../../shifts/widgets/sync_status_indicator.dart';
 import '../models/activity_type.dart';
 import '../models/work_session.dart';
@@ -15,7 +16,8 @@ import '../providers/work_session_provider.dart';
 /// Replaces [ActiveSessionCard] (cleaning) + [ActiveMaintenanceCard] (maintenance)
 /// with a single widget that adapts its display based on [ActivityType].
 class ActiveWorkSessionCard extends ConsumerStatefulWidget {
-  const ActiveWorkSessionCard({super.key});
+  final VoidCallback? onStartSession;
+  const ActiveWorkSessionCard({super.key, this.onStartSession});
 
   @override
   ConsumerState<ActiveWorkSessionCard> createState() =>
@@ -47,10 +49,15 @@ class _ActiveWorkSessionCardState
 
   void _recalculateElapsed() {
     final session = ref.read(activeWorkSessionProvider);
+    final lunchState = ref.read(lunchBreakProvider);
+
     if (session != null && session.status.isActive) {
       setState(() {
         _elapsed = DateTime.now().difference(session.startedAt);
       });
+    } else if (lunchState.isOnLunch) {
+      // Force rebuild so lunch timer updates
+      setState(() {});
     }
   }
 
@@ -174,39 +181,196 @@ class _ActiveWorkSessionCardState
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(activeWorkSessionProvider);
+    final lunchState = ref.watch(lunchBreakProvider);
     final theme = Theme.of(context);
 
-    if (session == null) {
+    // Both lunch and work session can be active simultaneously
+    final showLunch = lunchState.isOnLunch;
+    final showSession = session != null;
+
+    if (!showLunch && !showSession) {
       return _buildEmptyState(theme);
     }
 
-    return _buildActiveSession(theme, session);
+    return Column(
+      children: [
+        if (showLunch) _buildLunchCard(theme, lunchState),
+        if (showLunch && showSession) const SizedBox(height: 12),
+        if (showSession) _buildActiveSession(theme, session),
+      ],
+    );
   }
 
   Widget _buildEmptyState(ThemeData theme) {
     return Card(
       elevation: 1,
+      child: InkWell(
+        onTap: widget.onStartSession,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              Icon(
+                Icons.play_circle_outline,
+                size: 40,
+                color: theme.colorScheme.primary.withValues(alpha: 0.6),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Aucune session active',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Appuyez pour démarrer une activité',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLunchCard(ThemeData theme, LunchBreakState lunchState) {
+    final lunchBreak = lunchState.activeLunchBreak!;
+    final elapsed = DateTime.now().difference(lunchBreak.startedAt);
+    final color = Colors.orange.shade600;
+
+    String formatTime(DateTime dt) {
+      final local = dt.toLocal();
+      return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+    }
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: color.withValues(alpha: 0.4), width: 2),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              Icons.play_circle_outline,
-              size: 40,
-              color: theme.colorScheme.outline,
+            // Header
+            Row(
+              children: [
+                Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: color.withValues(alpha: 0.4),
+                        blurRadius: 8,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: color.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.restaurant, size: 16, color: color),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Pause dîner en cours',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: color,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            Text(
-              'Aucune session active',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
+            const SizedBox(height: 16),
+
+            // Location info
+            Row(
+              children: [
+                Icon(
+                  Icons.restaurant,
+                  size: 20,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Pause dîner',
+                    style: theme.textTheme.titleLarge
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Timer
+            Center(
+              child: Text(
+                _formatDuration(elapsed),
+                style: theme.textTheme.displaySmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  fontFeatures: [const FontFeature.tabularFigures()],
+                  letterSpacing: 2,
+                ),
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Démarrez une activité pour commencer',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+            const SizedBox(height: 8),
+
+            // Start time
+            Center(
+              child: Text(
+                'Début: ${formatTime(lunchBreak.startedAt)}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // End button
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: lunchState.isEnding
+                    ? null
+                    : () =>
+                        ref.read(lunchBreakProvider.notifier).endLunchBreak(),
+                icon: lunchState.isEnding
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.check_circle),
+                label: Text(
+                  lunchState.isEnding ? 'Fin en cours...' : 'Fin pause',
+                ),
+                style: FilledButton.styleFrom(backgroundColor: Colors.green),
               ),
             ),
           ],
@@ -375,6 +539,47 @@ class _ActiveWorkSessionCardState
     WorkSession session,
     Color activityColor,
   ) {
+    // Long terme: building-based cleaning (no studio)
+    if (session.studioId == null &&
+        session.studioNumber == null &&
+        session.buildingName != null) {
+      return Row(
+        children: [
+          Icon(
+            Icons.apartment,
+            size: 20,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  session.buildingName!,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (session.unitNumber != null)
+                  Text(
+                    session.unitNumber!,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          _LocationBadge(
+            label: session.unitNumber != null ? 'Appart.' : 'Immeuble',
+            color: activityColor,
+          ),
+        ],
+      );
+    }
+
+    // Court terme: studio-based cleaning (existing)
     return Row(
       children: [
         Icon(
