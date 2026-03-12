@@ -393,7 +393,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                   <div className="flex items-baseline gap-1 mt-auto">
                     <span className={`text-2xl font-black tracking-tight ${
                       gpsGapTotals.seconds >= 300 ? 'text-amber-700' : 'text-amber-600'
-                    }`}>{Math.round(gpsGapTotals.seconds / 60)} min</span>
+                    }`}>{Math.round(gpsGapTotals.seconds / 60)}&nbsp;min</span>
                   </div>
                   <span className="text-[10px] text-muted-foreground/60 font-medium">
                     {gpsGapTotals.count} interruption{gpsGapTotals.count > 1 ? 's' : ''}
