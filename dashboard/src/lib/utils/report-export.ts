@@ -7,6 +7,7 @@
 
 import { format } from 'date-fns';
 import type { TimesheetReportRow } from '@/types/reports';
+import type { TimesheetWithPayRow } from '@/types/remuneration';
 
 /**
  * Progress callback for large exports
@@ -89,13 +90,24 @@ function generateFilename(reportType: string, extension: string): string {
 export function exportTimesheetToCsv(
   rows: TimesheetReportRow[],
   metadata: ExportMetadata,
-  onProgress?: ProgressCallback
+  onProgress?: ProgressCallback,
+  payRows?: TimesheetWithPayRow[]
 ): void {
   // Metadata header
   const metadataLines = generateMetadataHeader(metadata);
 
+  // Build pay lookup map: employee_id_date -> pay row
+  const payMap = new Map<string, TimesheetWithPayRow>();
+  if (payRows) {
+    for (const pr of payRows) {
+      payMap.set(`${pr.employee_id}_${pr.date}`, pr);
+    }
+  }
+
+  const hasPay = payRows && payRows.length > 0;
+
   // CSV header
-  const headers = [
+  const headerFields = [
     'Nom de l\'employé',
     'Numéro d\'employé',
     'Date du quart',
@@ -104,14 +116,24 @@ export function exportTimesheetToCsv(
     'Durée (heures)',
     'Statut',
     'Notes',
-  ].join(',');
+  ];
+  if (hasPay) {
+    headerFields.push(
+      'Taux horaire ($/h)',
+      'Montant de base ($)',
+      'Heures ménage weekend',
+      'Prime weekend ($)',
+      'Montant total ($)',
+    );
+  }
+  const headers = headerFields.join(',');
 
   // Build data rows with progress reporting
   const dataRows: string[] = [];
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
-    const dataRow = [
+    const fields = [
       escapeCsvField(row.employee_name),
       escapeCsvField(row.employee_identifier),
       row.shift_date || '',
@@ -120,8 +142,24 @@ export function exportTimesheetToCsv(
       row.duration_minutes ? (row.duration_minutes / 60).toFixed(2) : '',
       row.status,
       escapeCsvField(row.notes),
-    ].join(',');
-    dataRows.push(dataRow);
+    ];
+
+    if (hasPay) {
+      const pay = payMap.get(`${row.employee_id}_${row.shift_date}`);
+      if (pay) {
+        fields.push(
+          pay.hourly_rate?.toFixed(2) ?? '',
+          pay.base_amount.toFixed(2),
+          (pay.weekend_cleaning_minutes / 60).toFixed(2),
+          pay.premium_amount.toFixed(2),
+          pay.total_amount.toFixed(2),
+        );
+      } else {
+        fields.push('', '', '', '', '');
+      }
+    }
+
+    dataRows.push(fields.join(','));
 
     // Report progress
     if (onProgress && i % CHUNK_SIZE === 0) {

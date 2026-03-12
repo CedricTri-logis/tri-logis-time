@@ -33,9 +33,21 @@ interface GenerateReportRequest {
   user_id: string;
 }
 
+interface PayDataRow {
+  employee_id: string;
+  date: string;
+  hourly_rate: number | null;
+  base_amount: number;
+  weekend_cleaning_minutes: number;
+  premium_amount: number;
+  total_amount: number;
+}
+
 interface ReportData {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   rows: any[];
+  payData?: PayDataRow[];
+  weekendPremiumRate?: number;
   summary?: Record<string, unknown>;
   metadata: {
     generated_at: string;
@@ -257,7 +269,7 @@ async function fetchReportData(
     throw new Error(`Failed to fetch report data: ${error.message}`);
   }
 
-  return {
+  const result: ReportData = {
     rows: data || [],
     metadata: {
       generated_at: new Date().toISOString(),
@@ -266,6 +278,100 @@ async function fetchReportData(
       report_type: reportType,
     },
   };
+
+  // For timesheet reports, also fetch pay data
+  if (reportType === "timesheet" && result.rows.length > 0) {
+    try {
+      // Fetch weekend premium
+      const { data: premiumData } = await supabase
+        .from("pay_settings")
+        .select("value")
+        .eq("key", "weekend_cleaning_premium")
+        .single();
+
+      const premiumRate = premiumData?.value?.amount ?? 0;
+      result.weekendPremiumRate = premiumRate;
+
+      // Fetch all employee hourly rates
+      const uniqueEmployeeIds = [...new Set(result.rows.map((r: any) => r.employee_id))];
+      const { data: ratesData } = await supabase
+        .from("employee_hourly_rates")
+        .select("employee_id, rate, effective_from, effective_to")
+        .in("employee_id", uniqueEmployeeIds);
+
+      // Fetch approved day data
+      const { data: approvalData } = await supabase
+        .from("day_approvals")
+        .select("employee_id, date, approved_minutes")
+        .eq("status", "approved")
+        .gte("date", startDate)
+        .lte("date", endDate)
+        .in("employee_id", uniqueEmployeeIds);
+
+      // Fetch weekend cleaning sessions via raw SQL for accurate minutes
+      const { data: cleaningData } = await supabase.rpc("exec_sql", {}).catch(() => ({ data: null }));
+      // Cleaning data is complex to fetch via PostgREST — use simpler approach
+      // Query work_sessions for weekend cleaning
+      const { data: weekendCleaning } = await supabase
+        .from("work_sessions")
+        .select("employee_id, started_at, completed_at")
+        .eq("activity_type", "cleaning")
+        .in("status", ["completed", "auto_closed", "manually_closed"])
+        .gte("started_at", `${startDate}T00:00:00`)
+        .lte("started_at", `${endDate}T23:59:59`)
+        .in("employee_id", uniqueEmployeeIds);
+
+      // Build weekend cleaning lookup (aggregate by employee+date for Sat/Sun)
+      const cleaningMap = new Map<string, number>();
+      for (const ws of weekendCleaning || []) {
+        const startedAt = new Date(ws.started_at);
+        const dayOfWeek = startedAt.getDay(); // 0=Sun, 6=Sat
+        if (dayOfWeek === 0 || dayOfWeek === 6) {
+          const dateStr = startedAt.toISOString().split("T")[0];
+          const key = `${ws.employee_id}_${dateStr}`;
+          const completedAt = ws.completed_at ? new Date(ws.completed_at) : new Date();
+          const mins = Math.round((completedAt.getTime() - startedAt.getTime()) / 60000);
+          cleaningMap.set(key, (cleaningMap.get(key) || 0) + mins);
+        }
+      }
+
+      // Build rate lookup: find rate for employee on date
+      const findRate = (empId: string, date: string): number | null => {
+        if (!ratesData) return null;
+        const match = ratesData.find(
+          (r: any) =>
+            r.employee_id === empId &&
+            r.effective_from <= date &&
+            (r.effective_to === null || r.effective_to >= date)
+        );
+        return match?.rate ?? null;
+      };
+
+      // Build pay rows from approval data
+      const payRows: PayDataRow[] = (approvalData || []).map((a: any) => {
+        const rate = findRate(a.employee_id, a.date);
+        const baseAmount = rate ? Math.round(((a.approved_minutes / 60) * rate) * 100) / 100 : 0;
+        const cleaningMins = cleaningMap.get(`${a.employee_id}_${a.date}`) || 0;
+        const premiumAmount = Math.round((cleaningMins / 60) * premiumRate * 100) / 100;
+        return {
+          employee_id: a.employee_id,
+          date: a.date,
+          hourly_rate: rate,
+          base_amount: baseAmount,
+          weekend_cleaning_minutes: cleaningMins,
+          premium_amount: premiumAmount,
+          total_amount: baseAmount + premiumAmount,
+        };
+      });
+
+      result.payData = payRows;
+    } catch (payError) {
+      console.error("Failed to fetch pay data for PDF (non-fatal):", payError);
+      // Pay data is optional — continue without it
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -346,18 +452,65 @@ async function renderHtmlTemplate(
   let tableRows: string[][] = [];
 
   switch (reportType) {
-    case "timesheet":
+    case "timesheet": {
+      const hasPay = reportData.payData && reportData.payData.length > 0;
+      const payMap = new Map<string, PayDataRow>();
+      if (reportData.payData) {
+        for (const pr of reportData.payData) {
+          payMap.set(`${pr.employee_id}_${pr.date}`, pr);
+        }
+      }
+
       tableHeaders = ["Employee", "ID", "Date", "Clock In", "Clock Out", "Hours", "Status"];
-      tableRows = rows.map((row) => [
-        row.employee_name || "-",
-        row.employee_identifier || "-",
-        row.shift_date || "-",
-        row.clocked_in_at ? new Date(row.clocked_in_at).toLocaleTimeString() : "-",
-        row.clocked_out_at ? new Date(row.clocked_out_at).toLocaleTimeString() : "-",
-        row.duration_minutes ? (row.duration_minutes / 60).toFixed(2) : "-",
-        row.status || "-",
-      ]);
+      if (hasPay) {
+        tableHeaders.push("Rate ($/h)", "Base ($)", "Wknd Clean", "Premium ($)", "Total ($)");
+      }
+
+      tableRows = rows.map((row) => {
+        const base = [
+          row.employee_name || "-",
+          row.employee_identifier || "-",
+          row.shift_date || "-",
+          row.clocked_in_at ? new Date(row.clocked_in_at).toLocaleTimeString() : "-",
+          row.clocked_out_at ? new Date(row.clocked_out_at).toLocaleTimeString() : "-",
+          row.duration_minutes ? (row.duration_minutes / 60).toFixed(2) : "-",
+          row.status || "-",
+        ];
+        if (hasPay) {
+          const pay = payMap.get(`${row.employee_id}_${row.shift_date}`);
+          if (pay) {
+            base.push(
+              pay.hourly_rate?.toFixed(2) ?? "-",
+              pay.base_amount.toFixed(2),
+              pay.weekend_cleaning_minutes > 0 ? (pay.weekend_cleaning_minutes / 60).toFixed(2) : "-",
+              pay.premium_amount > 0 ? pay.premium_amount.toFixed(2) : "-",
+              pay.total_amount.toFixed(2),
+            );
+          } else {
+            base.push("-", "-", "-", "-", "-");
+          }
+        }
+        return base;
+      });
+
+      // Add grand total row if pay data exists
+      if (hasPay && reportData.payData) {
+        const grandBase = reportData.payData.reduce((s, p) => s + p.base_amount, 0);
+        const grandPremium = reportData.payData.reduce((s, p) => s + p.premium_amount, 0);
+        const grandTotal = reportData.payData.reduce((s, p) => s + p.total_amount, 0);
+        const totalCols = tableHeaders.length;
+        const emptyPrefix = new Array(totalCols - 3).fill("");
+        emptyPrefix[0] = "<strong>GRAND TOTAL</strong>";
+        tableRows.push([
+          ...emptyPrefix,
+          `<strong>${grandBase.toFixed(2)}</strong>`,
+          "",
+          `<strong>${grandPremium.toFixed(2)}</strong>`,
+          `<strong>${grandTotal.toFixed(2)}</strong>`,
+        ]);
+      }
       break;
+    }
 
     case "shift_history":
       tableHeaders = ["Employee", "ID", "Shift ID", "Clock In", "Clock Out", "Hours", "GPS Points"];
