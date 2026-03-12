@@ -86,17 +86,14 @@ public class ExitReasonPlugin: NSObject, FlutterPlugin, MXMetricManagerSubscribe
 
             if #available(iOS 15, *) {
                 if let exitMetric = payload.applicationExitMetrics {
-                    // Foreground exits
+                    // Foreground exits (only properties available on MXForegroundExitData)
                     let fg = exitMetric.foregroundExitData
                     foreground["normal"] = (foreground["normal"] ?? 0) + fg.cumulativeNormalAppExitCount
                     foreground["abnormal"] = (foreground["abnormal"] ?? 0) + fg.cumulativeAbnormalExitCount
                     foreground["memory_limit"] = (foreground["memory_limit"] ?? 0) + fg.cumulativeMemoryResourceLimitExitCount
-                    foreground["memory_pressure"] = (foreground["memory_pressure"] ?? 0) + fg.cumulativeMemoryPressureExitCount
                     foreground["watchdog"] = (foreground["watchdog"] ?? 0) + fg.cumulativeAppWatchdogExitCount
-                    foreground["cpu_limit"] = (foreground["cpu_limit"] ?? 0) + fg.cumulativeCPUResourceLimitExitCount
                     foreground["bad_access"] = (foreground["bad_access"] ?? 0) + fg.cumulativeBadAccessExitCount
                     foreground["illegal_instruction"] = (foreground["illegal_instruction"] ?? 0) + fg.cumulativeIllegalInstructionExitCount
-                    foreground["suspended_locked_file"] = (foreground["suspended_locked_file"] ?? 0) + fg.cumulativeSuspendedWithLockedFileExitCount
 
                     // Background exits
                     let bg = exitMetric.backgroundExitData
