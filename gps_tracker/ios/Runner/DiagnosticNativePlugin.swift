@@ -1,10 +1,9 @@
 import Flutter
 import UIKit
 import CoreLocation
-import MetricKit
 
 public class DiagnosticNativePlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
-    CLLocationManagerDelegate, MXMetricManagerSubscriber {
+    CLLocationManagerDelegate {
 
     private var eventSink: FlutterEventSink?
     private var memorySource: DispatchSourceMemoryPressure?
@@ -23,7 +22,6 @@ public class DiagnosticNativePlugin: NSObject, FlutterPlugin, FlutterStreamHandl
 
     public func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
         self.eventSink = events
-        startMetricKit()
         startLocationMonitoring()
         startMemoryPressureMonitoring()
         return nil
@@ -33,39 +31,6 @@ public class DiagnosticNativePlugin: NSObject, FlutterPlugin, FlutterStreamHandl
         stopAll()
         self.eventSink = nil
         return nil
-    }
-
-    // MARK: - MetricKit
-
-    private func startMetricKit() {
-        if #available(iOS 13, *) {
-            MXMetricManager.shared.add(self)
-        }
-    }
-
-    @available(iOS 14, *)
-    public func didReceive(_ payloads: [MXDiagnosticPayload]) {
-        do {
-            for payload in payloads {
-                let json = payload.jsonRepresentation()
-                if let dict = try JSONSerialization.jsonObject(with: json) as? [String: Any] {
-                    if let crashes = dict["crashDiagnostics"] as? [[String: Any]] {
-                        for crash in crashes {
-                            sendEvent(["type": "metrickit_crash", "data": crash])
-                        }
-                    }
-                    let exitData: [String: Any] = [
-                        "cumulativeForegroundExitCount":
-                            dict["cumulativeForegroundExitCount"] ?? [:],
-                        "cumulativeBackgroundExitCount":
-                            dict["cumulativeBackgroundExitCount"] ?? [:]
-                    ]
-                    sendEvent(["type": "metrickit_exit", "data": exitData])
-                }
-            }
-        } catch {
-            // Silently ignore serialization failures
-        }
     }
 
     // MARK: - Location Pause/Resume
@@ -121,9 +86,6 @@ public class DiagnosticNativePlugin: NSObject, FlutterPlugin, FlutterStreamHandl
     }
 
     private func stopAll() {
-        if #available(iOS 13, *) {
-            MXMetricManager.shared.remove(self)
-        }
         memorySource?.cancel()
         memorySource = nil
         locationManager?.delegate = nil

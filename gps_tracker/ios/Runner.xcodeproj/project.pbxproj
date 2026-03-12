@@ -27,6 +27,7 @@
 		E1F2A3B4C5D6E7F8A9B0C1D3 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = E1F2A3B4C5D6E7F8A9B0C1D2 /* GoogleService-Info.plist */; };
 		F1A2B3C4D5E6F7A8B9C0D1E2 /* BackgroundAppRefreshPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F7A8B9C0D1E3 /* BackgroundAppRefreshPlugin.swift */; };
 		A2B3C4D5E6F7A8B9C0D1E2F4 /* DiagnosticNativePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2B3C4D5E6F7A8B9C0D1E2F5 /* DiagnosticNativePlugin.swift */; };
+		E3F4A5B6C7D8E9F0A1B2C3D4 /* ExitReasonPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3F4A5B6C7D8E9F0A1B2C3D5 /* ExitReasonPlugin.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -109,6 +110,7 @@
 		E1F2A3B4C5D6E7F8A9B0C1D2 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		F1A2B3C4D5E6F7A8B9C0D1E3 /* BackgroundAppRefreshPlugin.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BackgroundAppRefreshPlugin.swift; sourceTree = "<group>"; };
 		A2B3C4D5E6F7A8B9C0D1E2F5 /* DiagnosticNativePlugin.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DiagnosticNativePlugin.swift; sourceTree = "<group>"; };
+		E3F4A5B6C7D8E9F0A1B2C3D5 /* ExitReasonPlugin.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ExitReasonPlugin.swift; sourceTree = "<group>"; };
 		FBFD05B8D57AF80BA8FC0997 /* Pods-RunnerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -239,6 +241,7 @@
 				D1E2F3A4B5C6D7E8F9A0B1C3 /* NativeGpsBuffer.swift */,
 				F1A2B3C4D5E6F7A8B9C0D1E3 /* BackgroundAppRefreshPlugin.swift */,
 				A2B3C4D5E6F7A8B9C0D1E2F5 /* DiagnosticNativePlugin.swift */,
+				E3F4A5B6C7D8E9F0A1B2C3D5 /* ExitReasonPlugin.swift */,
 				E1F2A3B4C5D6E7F8A9B0C1D2 /* GoogleService-Info.plist */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 			);
@@ -620,6 +623,7 @@
 				D1E2F3A4B5C6D7E8F9A0B1C2 /* NativeGpsBuffer.swift in Sources */,
 				F1A2B3C4D5E6F7A8B9C0D1E2 /* BackgroundAppRefreshPlugin.swift in Sources */,
 				A2B3C4D5E6F7A8B9C0D1E2F4 /* DiagnosticNativePlugin.swift in Sources */,
+				E3F4A5B6C7D8E9F0A1B2C3D4 /* ExitReasonPlugin.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

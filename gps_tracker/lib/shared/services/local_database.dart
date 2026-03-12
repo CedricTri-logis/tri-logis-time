@@ -24,7 +24,7 @@ import 'session_backup_service.dart';
 /// Local SQLite database service with encrypted storage.
 class LocalDatabase {
   static const String _databaseName = 'gps_tracker.db';
-  static const int _databaseVersion = 9;
+  static const int _databaseVersion = 10;
   static const String _encryptionKeyKey = 'local_db_encryption_key';
 
   static LocalDatabase? _instance;
@@ -392,7 +392,7 @@ class LocalDatabase {
         employee_id TEXT NOT NULL,
         shift_id TEXT,
         device_id TEXT NOT NULL,
-        event_category TEXT NOT NULL CHECK (event_category IN ('gps', 'shift', 'sync', 'auth', 'permission', 'lifecycle', 'thermal', 'error', 'network')),
+        event_category TEXT NOT NULL,
         severity TEXT NOT NULL CHECK (severity IN ('debug', 'info', 'warn', 'error', 'critical')),
         message TEXT NOT NULL,
         metadata TEXT,
@@ -491,6 +491,12 @@ class LocalDatabase {
     if (oldVersion < 9) {
       await db.execute("ALTER TABLE local_shifts ADD COLUMN shift_type TEXT NOT NULL DEFAULT 'regular'");
     }
+    // Migration from v9 to v10: Remove restrictive event_category CHECK constraint
+    // The CHECK only allowed 9 categories but the enum has 18+ values.
+    // SQLite doesn't support DROP CONSTRAINT, so we recreate the table.
+    if (oldVersion < 10) {
+      await _migrateDiagnosticEventsDropCheck(db);
+    }
   }
 
   /// Add extended GPS data columns to local_gps_points.
@@ -502,6 +508,24 @@ class LocalDatabase {
     await db.execute('ALTER TABLE local_gps_points ADD COLUMN altitude REAL');
     await db.execute('ALTER TABLE local_gps_points ADD COLUMN altitude_accuracy REAL');
     await db.execute('ALTER TABLE local_gps_points ADD COLUMN is_mocked INTEGER');
+  }
+
+  /// Recreate diagnostic_events table without the restrictive event_category CHECK.
+  Future<void> _migrateDiagnosticEventsDropCheck(Database db) async {
+    // 1. Rename old table
+    await db.execute('ALTER TABLE diagnostic_events RENAME TO diagnostic_events_old');
+
+    // 2. Create new table without event_category CHECK
+    await _createDiagnosticEventsTable(db);
+
+    // 3. Copy data
+    await db.execute('''
+      INSERT INTO diagnostic_events
+      SELECT * FROM diagnostic_events_old
+    ''');
+
+    // 4. Drop old table
+    await db.execute('DROP TABLE diagnostic_events_old');
   }
 
   /// Ensure database is available.

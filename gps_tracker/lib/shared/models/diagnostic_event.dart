@@ -20,7 +20,8 @@ enum EventCategory {
   satellite,
   doze,
   motion,
-  metrickit;
+  metrickit,
+  exitInfo;
 
   String get value => name;
 }
