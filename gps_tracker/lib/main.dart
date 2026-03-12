@@ -24,8 +24,10 @@ import 'shared/services/diagnostic_native_service.dart';
 import 'shared/services/local_database.dart';
 import 'shared/services/fcm_service.dart';
 import 'shared/services/notification_service.dart';
+import 'shared/services/exit_reason_collector.dart';
 import 'shared/services/session_backup_service.dart';
 import 'shared/services/shift_activity_service.dart';
+import 'features/auth/services/device_id_service.dart';
 
 /// Top-level handler for FCM background/terminated messages.
 /// Firebase requires this to be a top-level function (not a class method).
@@ -158,6 +160,15 @@ Future<void> main() async {
         await NotificationService().initialize();
       } catch (e) {
         debugPrint('[Main] Notification init failed (non-critical): $e');
+      }
+
+      // Collect OS exit reasons (non-critical, fire-and-forget)
+      // Must run after LocalDatabase init but before auth is required.
+      try {
+        final deviceId = await DeviceIdService.getDeviceId();
+        await ExitReasonCollector.collect(LocalDatabase(), deviceId);
+      } catch (e) {
+        debugPrint('[Main] ExitReasonCollector failed (non-critical): $e');
       }
 
       // Initialize diagnostic logger (non-critical — don't block app startup)
