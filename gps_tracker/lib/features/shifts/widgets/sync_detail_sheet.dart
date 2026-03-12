@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../tracking/models/tracking_status.dart';
+import '../../tracking/providers/tracking_provider.dart';
 import '../models/shift_enums.dart';
+import '../providers/shift_provider.dart';
 import '../providers/sync_provider.dart';
 import '../providers/storage_provider.dart';
 
@@ -62,6 +65,14 @@ class SyncDetailSheet extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 24),
+
+                // Shift info section
+                _ShiftInfoCard(ref: ref),
+                const SizedBox(height: 16),
+
+                // GPS tracking section
+                _TrackingInfoCard(ref: ref),
+                const SizedBox(height: 16),
 
                 // Status card
                 _SyncStatusCard(syncState: syncState),
@@ -630,6 +641,193 @@ class _ActionsSection extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ShiftInfoCard extends StatelessWidget {
+  final WidgetRef ref;
+
+  const _ShiftInfoCard({required this.ref});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final shiftState = ref.watch(shiftProvider);
+    final activeShift = shiftState.activeShift;
+
+    if (activeShift == null) {
+      return const SizedBox.shrink();
+    }
+
+    final localTime = activeShift.clockedInAt.toLocal();
+    final elapsed = DateTime.now().difference(localTime);
+    final hours = elapsed.inHours;
+    final minutes = elapsed.inMinutes.remainder(60);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.work, size: 18, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  'Quart de travail',
+                  style: theme.textTheme.titleSmall,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _DetailRow(
+              label: 'Début',
+              value:
+                  '${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}',
+            ),
+            _DetailRow(
+              label: 'Durée',
+              value: hours > 0 ? '${hours}h ${minutes}m' : '${minutes}m',
+            ),
+            _DetailRow(
+              label: 'Sync',
+              value: activeShift.syncStatus.toJson(),
+            ),
+            if (activeShift.clockInLocation != null) ...[
+              _DetailRow(
+                label: 'Position',
+                value:
+                    '${activeShift.clockInLocation!.latitude.toStringAsFixed(4)}, '
+                    '${activeShift.clockInLocation!.longitude.toStringAsFixed(4)}',
+              ),
+              if (activeShift.clockInAccuracy != null)
+                _DetailRow(
+                  label: 'Précision',
+                  value: '±${activeShift.clockInAccuracy!.toStringAsFixed(0)}m',
+                ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TrackingInfoCard extends StatelessWidget {
+  final WidgetRef ref;
+
+  const _TrackingInfoCard({required this.ref});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final trackingState = ref.watch(trackingProvider);
+
+    final (statusLabel, statusColor) = switch (trackingState.status) {
+      TrackingStatus.stopped => ('Arrêté', Colors.grey),
+      TrackingStatus.starting => ('Démarrage...', Colors.orange),
+      TrackingStatus.running => ('Actif', Colors.green),
+      TrackingStatus.paused => ('En pause', Colors.orange),
+      TrackingStatus.error => ('Erreur', Colors.red),
+    };
+
+    final modeLabel = trackingState.isStationary ? 'Immobile' : 'En mouvement';
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.location_on, size: 18, color: statusColor),
+                const SizedBox(width: 8),
+                Text(
+                  'Suivi de position',
+                  style: theme.textTheme.titleSmall,
+                ),
+                const Spacer(),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    statusLabel,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: statusColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _DetailRow(
+              label: 'Points capturés',
+              value: '${trackingState.pointsCaptured}',
+            ),
+            if (trackingState.status.isActive)
+              _DetailRow(label: 'Mode', value: modeLabel),
+            if (trackingState.lastCaptureTime != null)
+              _DetailRow(
+                label: 'Dernière capture',
+                value: _formatAgo(trackingState.lastCaptureTime!),
+              ),
+            if (trackingState.lastAccuracy != null)
+              _DetailRow(
+                label: 'Précision GPS',
+                value:
+                    '±${trackingState.lastAccuracy!.toStringAsFixed(0)}m',
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatAgo(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inSeconds < 60) return 'Il y a ${diff.inSeconds}s';
+    if (diff.inMinutes < 60) return 'Il y a ${diff.inMinutes}m';
+    return 'Il y a ${diff.inHours}h';
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _DetailRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          Text(
+            value,
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

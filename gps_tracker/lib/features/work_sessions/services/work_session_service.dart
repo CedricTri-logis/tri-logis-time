@@ -318,6 +318,9 @@ class WorkSessionService {
       final params = <String, dynamic>{
         'p_employee_id': employeeId,
       };
+      if (activeSession.serverId != null) {
+        params['p_session_id'] = activeSession.serverId;
+      }
       if (qrCode != null) params['p_qr_code'] = qrCode;
       if (latitude != null) params['p_latitude'] = latitude;
       if (longitude != null) params['p_longitude'] = longitude;
@@ -405,7 +408,7 @@ class WorkSessionService {
     // Try to sync to Supabase
     try {
       await _supabase.rpc<Map<String, dynamic>>(
-        'manual_close_work_session',
+        'manually_close_work_session',
         params: {
           'p_employee_id': employeeId,
           'p_session_id': activeSession.id,
@@ -690,7 +693,7 @@ class WorkSessionService {
       case ActivityType.maintenance:
         return apartmentId != null ? 'apartment' : 'building';
       case ActivityType.admin:
-        return null;
+        return 'office';
     }
   }
 
