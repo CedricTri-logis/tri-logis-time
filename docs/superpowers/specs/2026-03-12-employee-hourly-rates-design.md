@@ -26,19 +26,26 @@ Add per-employee hourly rates with period-based history, a global weekend cleani
 | rate | DECIMAL(10,2) | NOT NULL, CHECK > 0 |
 | effective_from | DATE | NOT NULL |
 | effective_to | DATE | NULL (NULL = currently active) |
+| created_by | UUID | FK → employee_profiles, NULL |
 | created_at | TIMESTAMPTZ | default now() |
 | updated_at | TIMESTAMPTZ | default now() |
 
 **Constraints:**
-- No overlapping periods for the same employee (exclusion constraint on daterange)
-- `effective_to IS NULL OR effective_to > effective_from`
-- At most one record with `effective_to IS NULL` per employee
+- No overlapping periods: enforced via `BEFORE INSERT OR UPDATE` trigger (`check_hourly_rate_overlap`) — follows existing `check_vehicle_period_overlap` pattern from `employee_vehicle_periods`
+- `effective_to IS NULL OR effective_to > effective_from` (CHECK constraint)
+- At most one record with `effective_to IS NULL` per employee: enforced via partial unique index `CREATE UNIQUE INDEX idx_employee_hourly_rates_active ON employee_hourly_rates(employee_id) WHERE effective_to IS NULL`
 - Unique: `(employee_id, effective_from)`
+- Performance index: `(employee_id, effective_from DESC)` for per-day rate lookups
+
+**Triggers:**
+- `update_updated_at_column()` on UPDATE (standard project pattern)
+- `check_hourly_rate_overlap()` on INSERT/UPDATE (overlap prevention)
 
 **RLS:**
-- Admins/super_admins: full CRUD
-- Managers: SELECT on supervised employees
+- Admins/super_admins: full CRUD (inline `role IN ('admin', 'super_admin')` check on `employee_profiles`)
 - Employees: no access
+
+**COMMENT ON TABLE/COLUMN:** Required in migration per project standards (ROLE/STATUTS/REGLES/RELATIONS/TRIGGERS format).
 
 ### Table: `pay_settings`
 
@@ -54,13 +61,20 @@ Add per-employee hourly rates with period-based history, a global weekend cleani
 - key: `weekend_cleaning_premium`
 - value: `{ "amount": 0.00, "currency": "CAD" }`
 
+**Triggers:**
+- `update_updated_at_column()` on UPDATE
+
 **RLS:**
 - Admins/super_admins: full CRUD
 - Others: SELECT only
 
+**COMMENT ON TABLE/COLUMN:** Required in migration per project standards.
+
 ## Dashboard: Rémunération Page
 
 ### Route: `/dashboard/remuneration`
+
+**Sidebar navigation:** Add "Rémunération" entry in `sidebar.tsx` navigation array, after "Approbation" and before "Rapports". Icon: DollarSign (from lucide-react).
 
 ### Main View — Employee Rates Table
 - Columns: Nom, ID employé, Taux actuel ($/h), En vigueur depuis, Actions
@@ -75,7 +89,7 @@ Add per-employee hourly rates with period-based history, a global weekend cleani
 
 ### Rate History (expandable per employee)
 - Click on employee row to expand and show all past periods
-- Each period: rate, from → to, modified by
+- Each period: rate, from → to, created by (from `created_by` column joined to `employee_profiles.full_name`)
 
 ### Weekend Premium Section (top of page)
 - Displays current premium: "+X.XX $/h pour le ménage le weekend"
@@ -90,38 +104,49 @@ Add per-employee hourly rates with period-based history, a global weekend cleani
 - `p_employee_ids` UUID[] (optional, NULL = all)
 
 ### Logic
-1. Fetch approved hours from `day_approvals` (only `status = 'approved'`)
-2. For each day/employee, find the active `employee_hourly_rates` record at that date
-3. For Saturdays/Sundays, calculate minutes from `work_sessions` where `activity_type = 'cleaning'` that fall on that day
-4. Calculate:
-   - `base_amount` = approved_minutes / 60 × hourly_rate
-   - `weekend_cleaning_minutes` = cleaning work_session minutes on Sat/Sun
-   - `premium_amount` = (weekend_cleaning_minutes / 60) × weekend_premium
-   - `total_amount` = base_amount + premium_amount
+1. Fetch approved days from `day_approvals` where `status = 'approved'`
+2. For each day/employee, find the active `employee_hourly_rates` record at that date (`effective_from <= date AND (effective_to IS NULL OR effective_to >= date)`)
+3. Use `day_approvals.approved_minutes` (not `total_shift_minutes`) for pay calculation — this is the admin-validated amount after any rejections
+4. For Saturdays/Sundays (determined using `AT TIME ZONE 'America/Toronto'`), calculate minutes from `work_sessions` where `activity_type = 'cleaning'` AND `status IN ('completed', 'auto_closed', 'manually_closed')` (exclude `in_progress`)
+5. Calculate per day:
+   - `day_base_amount` = approved_minutes / 60 × hourly_rate
+   - `day_weekend_cleaning_minutes` = cleaning work_session minutes on Sat/Sun
+   - `day_premium_amount` = (weekend_cleaning_minutes / 60) × weekend_premium
+   - `day_total` = day_base_amount + day_premium_amount
 
-### Return (per employee)
+### Return (per employee, per day)
+
+Returns **per-day rows** (not aggregated per employee) to handle mid-period rate changes transparently. Client-side aggregation for totals.
+
 ```
-employee_id         UUID
-full_name           TEXT
-employee_id_code    TEXT
-total_approved_minutes  INTEGER
-hourly_rate         DECIMAL
-base_amount         DECIMAL
-weekend_cleaning_minutes INTEGER
-weekend_premium_rate    DECIMAL
-premium_amount      DECIMAL
-total_amount        DECIMAL
+employee_id             UUID
+full_name               TEXT
+employee_id_code        TEXT
+date                    DATE
+approved_minutes        INTEGER
+hourly_rate             DECIMAL       -- rate active on that date, NULL if no rate defined
+base_amount             DECIMAL
+weekend_cleaning_minutes INTEGER      -- 0 if not a weekend day
+weekend_premium_rate    DECIMAL       -- global premium amount
+premium_amount          DECIMAL
+total_amount            DECIMAL
+has_rate                BOOLEAN       -- false if no rate defined for this date
 ```
+
+### Permissions
+- `GRANT EXECUTE ON FUNCTION get_timesheet_with_pay TO authenticated;`
+- The RPC itself filters to employees the caller can access (admin: all, manager: supervised)
 
 ### Edge Cases
-- Employee without a defined rate → amounts = 0, flag "Taux non défini"
-- Rate change mid-period → each day uses the rate active on that date
-- Shift crossing midnight (Sat → Sun) → minutes attributed to the calendar day they fall on
+- Employee without a defined rate → `has_rate = false`, amounts = 0
+- Rate change mid-period → each day row has its own `hourly_rate`, amounts reflect the rate active on that date
+- Shift crossing midnight (Sat → Sun) → minutes attributed to the calendar day they fall on (using `America/Toronto` timezone)
 - Work session spanning Fri evening into Sat → only the Saturday portion gets the premium
+- Work sessions with `status = 'in_progress'` are excluded from premium calculation
 
 ## Enriched Timesheet Export
 
-The existing timesheet report (`/dashboard/reports/timesheet`) gains additional columns:
+The existing timesheet report (`/dashboard/reports/timesheet`) calls `get_timesheet_with_pay` **as a new separate RPC** alongside the existing `get_timesheet_report_data`. The existing RPC continues to provide shift-level detail; the new RPC provides pay data per day.
 
 ### CSV columns added
 - Taux horaire ($/h)
@@ -131,8 +156,9 @@ The existing timesheet report (`/dashboard/reports/timesheet`) gains additional 
 - Montant total ($)
 
 ### PDF additions
-- Same breakdown per employee
-- Totals row at the bottom
+- Same breakdown per employee per day
+- Totals row at the bottom per employee
+- Grand total row at the very bottom
 
 ## Out of Scope
 - Display of $ amounts in the approval grid or day detail panel
