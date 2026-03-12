@@ -17,7 +17,7 @@ class GPSTrackingHandler extends TaskHandler {
   int _pointCount = 0;
   DateTime? _lastCaptureTime;
   Position? _lastPosition;
-  bool _isStationary = false;
+  bool _isStationary = true; // Start stationary — switch to active on movement
   DateTime? _lowSpeedSince; // When speed first dropped below 0.5 m/s
   static const _stationaryDelay = Duration(minutes: 5);
   bool _isCapturing = false; // Prevent duplicate captures

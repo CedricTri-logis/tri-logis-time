@@ -182,7 +182,9 @@ class WorkSessionService {
       // Delete the local session since we're not going through with it
       await _localDb.deleteWorkSession(sessionId);
       return WorkSessionResult.error(
-        'Connexion requise. Vérifiez votre connexion réseau et réessayez.',
+        'NO_SERVER_SHIFT',
+        errorMessage:
+            'Connexion requise. Vérifiez votre connexion réseau et réessayez.',
       );
     }
 
@@ -218,15 +220,21 @@ class WorkSessionService {
         );
       } else {
         // Server rejected — delete local session and return error
-        final errorMsg = response['error'] as String? ?? 'Session refusée par le serveur';
+        final errorCode =
+            response['error'] as String? ?? 'SERVER_REJECTED';
         await _localDb.deleteWorkSession(sessionId);
-        return WorkSessionResult.error(errorMsg);
+        return WorkSessionResult.error(
+          errorCode,
+          errorMessage: _humanReadableError(errorCode),
+        );
       }
     } catch (e) {
-      // Network error — delete local session and return error
+      // Network/server error — delete local session and return error
       await _localDb.deleteWorkSession(sessionId);
       return WorkSessionResult.error(
-        'Connexion requise. Vérifiez votre connexion réseau et réessayez.',
+        'NETWORK_ERROR',
+        errorMessage:
+            'Connexion requise. Vérifiez votre connexion réseau et réessayez.',
       );
     }
   }
@@ -352,7 +360,9 @@ class WorkSessionService {
         WorkSessionStatus.inProgress,
       );
       return WorkSessionResult.error(
-        'Connexion requise pour terminer la session. Vérifiez votre connexion réseau.',
+        'NETWORK_ERROR',
+        errorMessage:
+            'Connexion requise pour terminer la session. Vérifiez votre connexion réseau.',
       );
     }
 
@@ -761,6 +771,30 @@ class WorkSessionService {
     final m = minutes % 60;
     if (h > 0) return '${h}h ${m}min';
     return '$m min';
+  }
+
+  /// Map server error codes to user-facing French messages.
+  String _humanReadableError(String code) {
+    switch (code) {
+      case 'NO_ACTIVE_SHIFT':
+        return 'Aucun quart actif trouvé';
+      case 'INVALID_QR_CODE':
+        return 'Code QR non reconnu';
+      case 'STUDIO_INACTIVE':
+        return "Ce studio n'est plus actif";
+      case 'STUDIO_REQUIRED':
+      case 'LOCATION_REQUIRED':
+        return 'Emplacement requis pour cette session';
+      case 'BUILDING_REQUIRED':
+      case 'BUILDING_NOT_FOUND':
+        return 'Immeuble non trouvé';
+      case 'APARTMENT_NOT_FOUND':
+        return 'Appartement non trouvé';
+      case 'INVALID_ACTIVITY_TYPE':
+        return "Type d'activité invalide";
+      default:
+        return 'Session refusée par le serveur ($code)';
+    }
   }
 }
 
