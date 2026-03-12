@@ -582,6 +582,7 @@ class LocalDatabase {
         'local_shifts',
         where: 'employee_id = ? AND status = ?',
         whereArgs: [employeeId, 'active'],
+        orderBy: 'created_at DESC',
         limit: 1,
       );
       if (results.isEmpty) return null;
@@ -663,14 +664,19 @@ class LocalDatabase {
   Future<void> markShiftSynced(String shiftId, {String? serverId}) async {
     try {
       final now = DateTime.now().toUtc().toIso8601String();
+      final updates = <String, Object?>{
+        'sync_status': 'synced',
+        'sync_error': null,
+        'updated_at': now,
+      };
+      // Only update server_id when explicitly provided — calling without
+      // serverId (e.g. on clock-out) must NOT overwrite an existing value.
+      if (serverId != null) {
+        updates['server_id'] = serverId;
+      }
       await _db.update(
         'local_shifts',
-        {
-          'sync_status': 'synced',
-          'sync_error': null,
-          'server_id': serverId,
-          'updated_at': now,
-        },
+        updates,
         where: 'id = ?',
         whereArgs: [shiftId],
       );
@@ -678,6 +684,41 @@ class LocalDatabase {
       throw LocalDatabaseException(
         'Failed to mark shift synced',
         operation: 'markShiftSynced',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Close all active local shifts for an employee (bulk cleanup).
+  ///
+  /// Used by reconciliation to ensure no stale active shifts linger in the
+  /// local DB when the server has a definitive state. Optionally excludes
+  /// a specific shift ID (the one we want to keep active).
+  Future<int> closeAllActiveShifts(String employeeId, {String? exceptShiftId}) async {
+    try {
+      final now = DateTime.now().toUtc().toIso8601String();
+      final where = exceptShiftId != null
+          ? 'employee_id = ? AND status = ? AND id != ?'
+          : 'employee_id = ? AND status = ?';
+      final whereArgs = exceptShiftId != null
+          ? [employeeId, 'active', exceptShiftId]
+          : [employeeId, 'active'];
+      return await _db.update(
+        'local_shifts',
+        {
+          'status': 'completed',
+          'clocked_out_at': now,
+          'clock_out_reason': 'stale_cleanup',
+          'sync_status': 'synced',
+          'updated_at': now,
+        },
+        where: where,
+        whereArgs: whereArgs,
+      );
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to close all active shifts',
+        operation: 'closeAllActiveShifts',
         originalError: e,
       );
     }
