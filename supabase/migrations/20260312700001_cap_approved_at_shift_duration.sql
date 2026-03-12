@@ -36,3 +36,22 @@ BEGIN
 
     EXECUTE v_funcdef;
 END $$;
+
+-- =============================================================================
+-- Same cap for get_weekly_approval_summary
+-- Weekly total_shift_minutes already subtracts lunch, so cap at (raw - lunch)
+-- =============================================================================
+DO $$
+DECLARE
+    v_funcdef TEXT;
+BEGIN
+    SELECT pg_get_functiondef(oid) INTO v_funcdef
+    FROM pg_proc WHERE proname = 'get_weekly_approval_summary';
+
+    v_funcdef := REPLACE(v_funcdef,
+        '''approved_minutes'', CASE WHEN pds.approval_status = ''approved'' THEN pds.frozen_approved ELSE COALESCE(pds.live_approved, 0) END',
+        '''approved_minutes'', LEAST(CASE WHEN pds.approval_status = ''approved'' THEN pds.frozen_approved ELSE COALESCE(pds.live_approved, 0) END, GREATEST(COALESCE(pds.total_shift_minutes, 0) - COALESCE(pds.lunch_minutes, 0), 0))'
+    );
+
+    EXECUTE v_funcdef;
+END $$;

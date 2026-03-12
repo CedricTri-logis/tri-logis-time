@@ -29,6 +29,7 @@ import '../services/background_tracking_service.dart';
 import '../services/bg_app_refresh_service.dart';
 import '../services/significant_location_service.dart';
 import '../services/thermal_state_service.dart';
+import '../../../shared/services/exit_reason_collector.dart';
 import '../../../shared/services/shift_activity_service.dart';
 
 /// Manages UI state for background GPS tracking.
@@ -398,6 +399,24 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
 
     // Midnight auto clock-out: warn at 23:55, detect closure after midnight
     _checkMidnightClosure();
+
+    // Update process state summary for OS exit reason recovery (Android only).
+    // Called every 30s from the heartbeat cycle. Battery info is not available
+    // from the background handler, so we pass null — the primary value is
+    // shift_id + last GPS timestamp + pending points for debugging kills.
+    final activeShiftId = state.activeShiftId;
+    if (Platform.isAndroid && activeShiftId != null) {
+      ExitReasonCollector.updateProcessState({
+        's': activeShiftId,
+        'g': _lastBackgroundCapture?.millisecondsSinceEpoch != null
+            ? (_lastBackgroundCapture!.millisecondsSinceEpoch ~/ 1000)
+            : null,
+        'p': data['point_count'] as int? ?? 0,
+        'b': null, // Battery not available in heartbeat data
+        'c': null, // Charging not available in heartbeat data
+        't': DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000,
+      });
+    }
   }
 
   /// Ping the server to update shift heartbeat, independent of GPS points.

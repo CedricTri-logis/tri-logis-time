@@ -54,3 +54,28 @@ BEGIN
 
     EXECUTE v_funcdef;
 END $$;
+
+-- =============================================================================
+-- Same fix for get_weekly_approval_summary (activity_events, quality_gaps)
+-- =============================================================================
+DO $$
+DECLARE
+    v_funcdef TEXT;
+BEGIN
+    SELECT pg_get_functiondef(oid) INTO v_funcdef
+    FROM pg_proc WHERE proname = 'get_weekly_approval_summary';
+
+    -- Fix activity_events + activity_quality_gaps: clusters use shift_id
+    v_funcdef := REPLACE(v_funcdef,
+        'JOIN stationary_clusters sc ON sc.employee_id = sb.employee_id AND sc.started_at >= sb.clocked_in_at - INTERVAL ''1 minute'' AND sc.started_at < sb.clocked_out_at AND sc.ended_at > sb.clocked_in_at AND sc.duration_seconds >= 180',
+        'JOIN stationary_clusters sc ON sc.shift_id = sb.shift_id AND sc.ended_at > sb.clocked_in_at AND sc.duration_seconds >= 180'
+    );
+
+    -- Fix activity_events + trip_quality_gaps: trips use shift_id
+    v_funcdef := REPLACE(v_funcdef,
+        'JOIN trips t ON t.employee_id = sb.employee_id AND t.started_at >= sb.clocked_in_at - INTERVAL ''1 minute'' AND t.started_at < sb.clocked_out_at AND t.ended_at > sb.clocked_in_at',
+        'JOIN trips t ON t.shift_id = sb.shift_id AND t.ended_at > sb.clocked_in_at'
+    );
+
+    EXECUTE v_funcdef;
+END $$;
