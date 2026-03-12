@@ -1,5 +1,6 @@
 'use client';
 
+// Remuneration page — employee hourly rates & weekend cleaning premium
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RatesTable } from '@/components/remuneration/rates-table';
