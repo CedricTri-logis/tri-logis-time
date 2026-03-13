@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "260685260149",
+    "project_id": "tri-logis-time",
+    "storage_bucket": "tri-logis-time.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:260685260149:android:52f06d538af5651e485f3c",
+        "android_client_info": {
+          "package_name": "ca.trilogis.gpstracker"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAM4R05uI9irZ-D4TUFhlJCM1GYLAZ1Rp0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
