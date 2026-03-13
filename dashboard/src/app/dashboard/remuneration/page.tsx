@@ -1,19 +1,20 @@
 'use client';
 
-// Remuneration page — employee hourly rates & weekend cleaning premium
+// Remuneration page — employee hourly rates, annual salaries & weekend cleaning premium
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RatesTable } from '@/components/remuneration/rates-table';
 import { PremiumSection } from '@/components/remuneration/premium-section';
 import { getEmployeeRatesList, getWeekendPremium } from '@/lib/api/remuneration';
 import type { EmployeeRateListItem, WeekendCleaningPremium } from '@/types/remuneration';
+import type { CompensationFilter } from '@/components/remuneration/rates-table';
 
 export default function RemunerationPage() {
   const [employees, setEmployees] = useState<EmployeeRateListItem[]>([]);
   const [premium, setPremium] = useState<WeekendCleaningPremium | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'all' | 'with_rate' | 'without_rate'>('all');
+  const [filter, setFilter] = useState<CompensationFilter>('all');
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = async () => {
@@ -39,10 +40,15 @@ export default function RemunerationPage() {
     const matchesSearch = !search
       || (emp.full_name?.toLowerCase().includes(search.toLowerCase()))
       || (emp.employee_id_code?.toLowerCase().includes(search.toLowerCase()));
+    const hasCompensation = emp.pay_type === 'annual'
+      ? emp.current_salary !== null
+      : emp.current_rate !== null;
     const matchesFilter =
       filter === 'all' ? true
-      : filter === 'with_rate' ? emp.current_rate !== null
-      : emp.current_rate === null;
+      : filter === 'with_compensation' ? hasCompensation
+      : filter === 'without_compensation' ? !hasCompensation
+      : filter === 'hourly' ? emp.pay_type === 'hourly'
+      : emp.pay_type === 'annual';
     return matchesSearch && matchesFilter;
   });
 
@@ -51,7 +57,7 @@ export default function RemunerationPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Rémunération</h1>
         <p className="text-muted-foreground">
-          Gérer les taux horaires des employés et la prime de fin de semaine.
+          Gérer la rémunération des employés (taux horaires et salaires annuels).
         </p>
       </div>
 
@@ -65,7 +71,7 @@ export default function RemunerationPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Taux horaires</CardTitle>
+          <CardTitle>Compensation des employés</CardTitle>
         </CardHeader>
         <CardContent>
           <RatesTable
