@@ -1,6 +1,7 @@
 import { supabaseClient } from '@/lib/supabase/client';
 import type {
   EmployeeHourlyRateWithCreator,
+  EmployeeAnnualSalaryWithCreator,
   EmployeeRateListItem,
   WeekendCleaningPremium,
   TimesheetWithPayRow,
@@ -9,16 +10,14 @@ import type {
 // ── Employee Hourly Rates ──
 
 export async function getEmployeeRatesList(): Promise<EmployeeRateListItem[]> {
-  // Get all employees with their current rate (if any)
   const { data, error } = await supabaseClient
     .from('employee_profiles')
-    .select('id, full_name, employee_id')
+    .select('id, full_name, employee_id, pay_type')
     .eq('status', 'active')
     .order('full_name');
 
   if (error) throw error;
 
-  // Get all active rates
   const { data: rates, error: ratesError } = await supabaseClient
     .from('employee_hourly_rates')
     .select('employee_id, rate, effective_from')
@@ -26,18 +25,34 @@ export async function getEmployeeRatesList(): Promise<EmployeeRateListItem[]> {
 
   if (ratesError) throw ratesError;
 
+  const { data: salaries, error: salariesError } = await supabaseClient
+    .from('employee_annual_salaries')
+    .select('employee_id, salary, effective_from')
+    .is('effective_to', null);
+
+  if (salariesError) throw salariesError;
+
   const rateMap = new Map(
     (rates || []).map((r) => [r.employee_id, r])
+  );
+  const salaryMap = new Map(
+    (salaries || []).map((s) => [s.employee_id, s])
   );
 
   return (data || []).map((emp) => {
     const rate = rateMap.get(emp.id);
+    const salary = salaryMap.get(emp.id);
+    const payType = (emp.pay_type as 'hourly' | 'annual') || 'hourly';
     return {
       employee_id: emp.id,
       full_name: emp.full_name,
       employee_id_code: emp.employee_id,
+      pay_type: payType,
       current_rate: rate?.rate ?? null,
-      effective_from: rate?.effective_from ?? null,
+      current_salary: salary?.salary ?? null,
+      effective_from: payType === 'annual'
+        ? (salary?.effective_from ?? null)
+        : (rate?.effective_from ?? null),
     };
   });
 }
@@ -67,10 +82,8 @@ export async function upsertEmployeeRate(
   rate: number,
   effectiveFrom: string
 ): Promise<void> {
-  // Get current user for created_by
   const { data: { user } } = await supabaseClient.auth.getUser();
 
-  // 1. Close current active rate (if any)
   const { data: activeRate } = await supabaseClient
     .from('employee_hourly_rates')
     .select('id')
@@ -79,7 +92,6 @@ export async function upsertEmployeeRate(
     .single();
 
   if (activeRate) {
-    // Close previous period: effective_to = day before new effective_from
     const closingDate = new Date(effectiveFrom);
     closingDate.setDate(closingDate.getDate() - 1);
     const closingDateStr = closingDate.toISOString().split('T')[0];
@@ -92,7 +104,6 @@ export async function upsertEmployeeRate(
     if (updateError) throw updateError;
   }
 
-  // 2. Insert new rate with created_by
   const { error: insertError } = await supabaseClient
     .from('employee_hourly_rates')
     .insert({
@@ -104,6 +115,82 @@ export async function upsertEmployeeRate(
     });
 
   if (insertError) throw insertError;
+}
+
+// ── Employee Annual Salaries ──
+
+export async function getEmployeeSalaryHistory(
+  employeeId: string
+): Promise<EmployeeAnnualSalaryWithCreator[]> {
+  const { data, error } = await supabaseClient
+    .from('employee_annual_salaries')
+    .select(`
+      *,
+      creator:created_by(full_name)
+    `)
+    .eq('employee_id', employeeId)
+    .order('effective_from', { ascending: false });
+
+  if (error) throw error;
+
+  return (data || []).map((row) => ({
+    ...row,
+    creator_name: (row.creator as any)?.full_name ?? null,
+  }));
+}
+
+export async function upsertEmployeeSalary(
+  employeeId: string,
+  salary: number,
+  effectiveFrom: string
+): Promise<void> {
+  const { data: { user } } = await supabaseClient.auth.getUser();
+
+  const { data: activeSalary } = await supabaseClient
+    .from('employee_annual_salaries')
+    .select('id')
+    .eq('employee_id', employeeId)
+    .is('effective_to', null)
+    .single();
+
+  if (activeSalary) {
+    const closingDate = new Date(effectiveFrom);
+    closingDate.setDate(closingDate.getDate() - 1);
+    const closingDateStr = closingDate.toISOString().split('T')[0];
+
+    const { error: updateError } = await supabaseClient
+      .from('employee_annual_salaries')
+      .update({ effective_to: closingDateStr })
+      .eq('id', activeSalary.id);
+
+    if (updateError) throw updateError;
+  }
+
+  const { error: insertError } = await supabaseClient
+    .from('employee_annual_salaries')
+    .insert({
+      employee_id: employeeId,
+      salary,
+      effective_from: effectiveFrom,
+      effective_to: null,
+      created_by: user?.id ?? null,
+    });
+
+  if (insertError) throw insertError;
+}
+
+// ── Pay Type ──
+
+export async function updateEmployeePayType(
+  employeeId: string,
+  payType: 'hourly' | 'annual'
+): Promise<void> {
+  const { error } = await supabaseClient.rpc('update_employee_pay_type', {
+    p_employee_id: employeeId,
+    p_pay_type: payType,
+  });
+
+  if (error) throw error;
 }
 
 // ── Pay Settings ──
