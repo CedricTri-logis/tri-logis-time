@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
 import '../../../shared/models/diagnostic_event.dart';
 import '../../../shared/services/diagnostic_logger.dart';
+import 'android_battery_health_service.dart';
 
 /// Result of a GPS health check.
 enum HealthCheckResult {
@@ -31,6 +33,20 @@ class GpsHealthGuard {
 
   DiagnosticLogger? get _logger =>
       DiagnosticLogger.isInitialized ? DiagnosticLogger.instance : null;
+
+  /// Fetch standby bucket info (Android only). Returns empty map on iOS/error.
+  Future<Map<String, dynamic>> _getBucketMetadata() async {
+    if (!Platform.isAndroid) return {};
+    try {
+      final info = await AndroidBatteryHealthService.getAppStandbyBucket();
+      return {
+        'standby_bucket': info.bucketName,
+        'standby_bucket_code': info.bucket,
+      };
+    } catch (_) {
+      return {};
+    }
+  }
 
   /// Hard gate — check if GPS tracking service is alive.
   /// If dead and an active shift exists, restart and wait up to 5 seconds.
@@ -100,6 +116,7 @@ class GpsHealthGuard {
     _isRestarting = true;
     final stopwatch = Stopwatch()..start();
 
+    final bucketMeta = await _getBucketMetadata();
     _logger?.lifecycle(
       Severity.warn,
       'GPS health check — service dead, restarting',
@@ -110,6 +127,7 @@ class GpsHealthGuard {
         'shift_id': shiftId,
         if (timeSinceLastCheck != null)
           'time_since_last_check_s': timeSinceLastCheck,
+        ...bucketMeta,
       },
     );
 
@@ -224,6 +242,7 @@ class GpsHealthGuard {
       _isRestarting = true;
       final stopwatch = Stopwatch()..start();
 
+      final bucketMeta = await _getBucketMetadata();
       _logger?.lifecycle(
         Severity.warn,
         'GPS health check — service dead, restarting',
@@ -232,6 +251,7 @@ class GpsHealthGuard {
           'tier': 'soft',
           'service_was_alive': false,
           'shift_id': shiftId,
+          ...bucketMeta,
         },
       );
 
