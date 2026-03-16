@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -11,6 +10,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { updateEmployeePayType, upsertEmployeeSalary, upsertEmployeeRate } from '@/lib/api/remuneration';
@@ -162,13 +162,13 @@ export function PayTypeSwitch({ employee, onClose, onSaved }: PayTypeSwitchProps
         )}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={saving} onClick={handleClose}>Annuler</AlertDialogCancel>
-          <AlertDialogAction onClick={handleConfirm} disabled={saving}>
+          <Button onClick={handleConfirm} disabled={saving}>
             {saving
               ? 'Changement...'
               : needsCompensation
                 ? `Enregistrer et passer à ${targetLabel}`
                 : `Passer à ${targetLabel}`}
-          </AlertDialogAction>
+          </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
