@@ -477,7 +477,9 @@ export default function EmployeeDetailPage() {
             employee_id: employeeId,
             full_name: employee.full_name,
             employee_id_code: employee.employee_id,
+            pay_type: 'hourly' as const,
             current_rate: currentRate?.rate ?? null,
+            current_salary: null,
             effective_from: currentRate?.effective_from ?? null,
           }}
           onClose={() => setShowRateDialog(false)}

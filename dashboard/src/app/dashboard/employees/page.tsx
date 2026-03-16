@@ -17,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EmployeeTableExpandable } from '@/components/dashboard/employees/employee-table-expandable';
 import { EmployeeFilters } from '@/components/dashboard/employees/employee-filters';
 import { EmptyState } from '@/components/dashboard/employees/empty-state';
-import { RatesTable } from '@/components/remuneration/rates-table';
+import { RatesTable, type CompensationFilter } from '@/components/remuneration/rates-table';
 import { PremiumSection } from '@/components/remuneration/premium-section';
 import { getEmployeeRatesList, getWeekendPremium } from '@/lib/api/remuneration';
 import type { EmployeeListItem } from '@/types/employee';
@@ -124,7 +124,7 @@ export default function EmployeesPage() {
   const [premium, setPremium] = useState<WeekendCleaningPremium | null>(null);
   const [remLoading, setRemLoading] = useState(false);
   const [remSearch, setRemSearch] = useState('');
-  const [remFilter, setRemFilter] = useState<'all' | 'with_rate' | 'without_rate'>('all');
+  const [remFilter, setRemFilter] = useState<CompensationFilter>('all');
   const [remError, setRemError] = useState<string | null>(null);
   const [remLoaded, setRemLoaded] = useState(false);
 
@@ -151,10 +151,14 @@ export default function EmployeesPage() {
       const matchesSearch = !remSearch
         || emp.full_name?.toLowerCase().includes(remSearch.toLowerCase())
         || emp.employee_id_code?.toLowerCase().includes(remSearch.toLowerCase());
+      const hasCompensation = emp.current_rate !== null || emp.current_salary !== null;
       const matchesFilter =
         remFilter === 'all' ? true
-        : remFilter === 'with_rate' ? emp.current_rate !== null
-        : emp.current_rate === null;
+        : remFilter === 'with_compensation' ? hasCompensation
+        : remFilter === 'without_compensation' ? !hasCompensation
+        : remFilter === 'hourly' ? emp.pay_type === 'hourly'
+        : remFilter === 'annual' ? emp.pay_type === 'annual'
+        : true;
       return matchesSearch && matchesFilter;
     });
   }, [remEmployees, remSearch, remFilter]);
