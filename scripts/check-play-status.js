@@ -47,6 +47,7 @@ const STATE_PATH = path.join(
 );
 const DEVELOPER_ID = "7134686966635771144";
 const APP_ID = "4975656360365049859";
+const ALPHA_TRACK_ID = "4698766574298897762";
 const BASE_URL = `https://play.google.com/console/u/0/developers/${DEVELOPER_ID}/app/${APP_ID}`;
 
 // Navigate to the alpha track releases page and extract release statuses
@@ -60,8 +61,8 @@ async function checkStatus() {
   const page = await context.newPage();
 
   try {
-    // Step 1: Go to the closed testing page (within the app)
-    await page.goto(`${BASE_URL}/closed-testing`, {
+    // Step 1: Navigate directly to the alpha track page
+    await page.goto(`${BASE_URL}/tracks/${ALPHA_TRACK_ID}`, {
       waitUntil: "networkidle",
       timeout: 30000,
     });
@@ -81,58 +82,33 @@ async function checkStatus() {
       return { expired: true };
     }
 
-    await page.waitForTimeout(3000);
+    // Wait for the releases section to load
+    await page.waitForTimeout(5000);
 
-    // Step 2: Click "Manage track" to get to the releases list
-    const manageTrack = page.locator("text=Manage track");
-    try {
-      await manageTrack.waitFor({ state: "visible", timeout: 10000 });
-    } catch {
-      // If "Manage track" isn't visible, the page structure may have changed
-      // or there are no active tracks
-      return {
-        error: true,
-        message: "Could not find 'Manage track' button on closed testing page",
-      };
-    }
-    await manageTrack.click();
-    await page.waitForTimeout(4000);
-
-    // Step 3: Expand all "Show summary" sections to reveal version codes (build numbers)
-    // Use JavaScript to click all matching elements (avoids scroll/visibility issues)
+    // Step 2: Expand all "Show summary" sections to reveal version codes (build numbers)
+    // Supports both English ("Show summary") and French ("Afficher le résumé")
     await page.evaluate(() => {
       const allElements = document.querySelectorAll("*");
       for (const el of allElements) {
-        if (el.textContent?.trim() === "Show summary" && el.children.length === 0) {
+        const t = el.textContent?.trim();
+        if ((t === "Show summary" || t === "Afficher le résumé") && el.children.length === 0) {
           el.click();
         }
       }
     });
     await page.waitForTimeout(2000);
 
-    // Step 4: Extract release statuses from the track page
-    // After expanding summaries, the page shows for each release:
-    //   1.0.0                          (version)
-    //   ...
-    //   In review / Available to ...   (status)
-    //   ...
-    //   Version codes
-    //   81                             (build number, under expanded summary)
+    // Step 3: Extract release statuses from the track page
+    // The page shows for each release (EN/FR):
+    //   1.0.0                                         ← version
+    //   Available to selected testers / Disponible pour certains testeurs  ← status
+    //   1 version code / 1 code de version
+    //   Released on Mar 16 / Date de sortie : 16 mars  ← date
+    //   Version codes / Codes de version               ← (after expanding summary)
+    //   136                                            ← build number
     const releaseInfo = await page.evaluate(() => {
       const body = document.body.innerText;
       const releases = [];
-
-      // Split page text into lines and find release blocks.
-      // After expanding summaries, each release block looks like:
-      //   "1.0.0"                         ← version
-      //   "Manage release"
-      //   "In review. Go to ..."          ← status (or "Available to selected testers")
-      //   "1 version code"
-      //   "Hide summary" / "Show summary"
-      //   "Version codes"
-      //   "81"                            ← build number (after expanding)
-      //   "Countries / regions"
-      //   ...
       const lines = body.split("\n").map((l) => l.trim()).filter(Boolean);
 
       let currentVersion = null;
@@ -143,7 +119,6 @@ async function checkStatus() {
 
         // Match version lines like "1.0.0"
         if (/^\d+\.\d+\.\d+$/.test(line)) {
-          // If we already have a pending release without a build number, push it
           if (currentVersion && currentStatus) {
             releases.push({
               version: currentVersion,
@@ -162,32 +137,39 @@ async function checkStatus() {
 
         const lower = line.toLowerCase();
 
-        // Detect status lines
+        // Detect status lines (EN + FR)
         if (!currentStatus) {
-          if (lower.includes("available to") && lower.includes("tester")) {
+          if (
+            (lower.includes("available to") && lower.includes("tester")) ||
+            (lower.includes("disponible") && lower.includes("testeur"))
+          ) {
             currentStatus = line;
-            // Look for "Released on" nearby
+            // Look for release date nearby (EN: "Released on ...", FR: "Date de sortie : ...")
             for (let j = i + 1; j < Math.min(i + 8, lines.length); j++) {
-              if (lines[j].toLowerCase().startsWith("released on")) {
+              const lj = lines[j].toLowerCase();
+              if (lj.startsWith("released on")) {
                 currentReleasedOn = lines[j].replace(/^released on\s*/i, "");
                 break;
               }
+              if (lj.startsWith("date de sortie")) {
+                currentReleasedOn = lines[j].replace(/^date de sortie\s*:\s*/i, "");
+                break;
+              }
             }
-          } else if (lower.includes("in review")) {
+          } else if (lower.includes("in review") || lower.includes("en examen") || lower.includes("en cours d")) {
             currentStatus = "In review";
           } else if (lower.includes("draft") || lower.includes("brouillon")) {
             currentStatus = "Draft";
           } else if (lower.includes("rejected") || lower.includes("rejeté")) {
             currentStatus = "Rejected";
-          } else if (lower.includes("halted") || lower.includes("suspended")) {
+          } else if (lower.includes("halted") || lower.includes("suspended") || lower.includes("suspendu")) {
             currentStatus = line;
           }
           continue;
         }
 
-        // After status is set, look for "Version codes" followed by the build number
-        if (lower === "version codes") {
-          // The next line(s) should be the build number(s)
+        // After status is set, look for "Version codes" / "Codes de version" followed by build number
+        if (lower === "version codes" || lower === "codes de version") {
           for (let j = i + 1; j < Math.min(i + 3, lines.length); j++) {
             if (/^\d+$/.test(lines[j])) {
               releases.push({
@@ -202,17 +184,15 @@ async function checkStatus() {
               break;
             }
           }
-          // If we found the build, currentVersion is now null
           if (!currentVersion) continue;
         }
 
-        // Also check for "N version code" without expansion (fallback)
-        const versionCodeMatch = line.match(/^(\d+)\s+version\s+codes?$/i);
+        // Fallback: "N version code(s)" / "N code(s) de version" without expansion
+        const versionCodeMatch = line.match(/^(\d+)\s+(version\s+codes?|codes?\s+de\s+version)$/i);
         if (versionCodeMatch && currentStatus && !releases.find(
           r => r.version === currentVersion && r.status === currentStatus
         )) {
-          // "Show summary" wasn't expanded — no build number available
-          // Push the release without build number so we at least capture status
+          // Summary wasn't expanded — no build number available
         }
       }
 
@@ -226,14 +206,15 @@ async function checkStatus() {
         });
       }
 
-      // Also extract track name from page heading
+      // Extract track name from heading (EN + FR)
       let trackName = "";
       const headings = document.querySelectorAll("h1, h2");
       for (const h of headings) {
         const t = h.textContent?.trim() || "";
+        const tl = t.toLowerCase();
         if (
-          t.toLowerCase().includes("closed testing") ||
-          t.toLowerCase().includes("alpha")
+          tl.includes("closed testing") || tl.includes("tests fermés") ||
+          tl.includes("alpha")
         ) {
           trackName = t;
           break;
@@ -256,9 +237,12 @@ async function checkStatus() {
 
 function normalizeStatus(raw) {
   const s = raw.toLowerCase().trim();
-  if (s.includes("available to") && s.includes("tester"))
+  if (
+    (s.includes("available to") && s.includes("tester")) ||
+    (s.includes("disponible") && s.includes("testeur"))
+  )
     return "update_available";
-  if (s.includes("in review") || s.includes("en examen"))
+  if (s.includes("in review") || s.includes("en examen") || s.includes("en cours d"))
     return "in_review";
   if (s.includes("not yet sent") || s.includes("pas encore envoy"))
     return "not_sent_for_review";
