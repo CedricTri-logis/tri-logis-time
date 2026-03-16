@@ -193,6 +193,41 @@ export async function updateEmployeePayType(
   if (error) throw error;
 }
 
+// ── Rate Period Editing ──
+
+interface RpcResult {
+  success: boolean;
+  error?: { code: string; message: string };
+}
+
+export async function updateRatePeriod(
+  rateId: string,
+  rate: number,
+  effectiveFrom: string,
+  effectiveTo: string | null
+): Promise<RpcResult> {
+  const { data, error } = await supabaseClient.rpc('update_employee_rate_period', {
+    p_rate_id: rateId,
+    p_rate: rate,
+    p_effective_from: effectiveFrom,
+    p_effective_to: effectiveTo,
+  });
+
+  if (error) throw error;
+  return data as RpcResult;
+}
+
+export async function deleteRatePeriod(
+  rateId: string
+): Promise<RpcResult> {
+  const { data, error } = await supabaseClient.rpc('delete_employee_rate_period', {
+    p_rate_id: rateId,
+  });
+
+  if (error) throw error;
+  return data as RpcResult;
+}
+
 // ── Pay Settings ──
 
 export async function getWeekendPremium(): Promise<WeekendCleaningPremium> {
