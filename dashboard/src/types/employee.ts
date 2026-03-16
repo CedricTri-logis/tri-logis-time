@@ -29,6 +29,7 @@ export interface EmployeeListItem {
   current_supervisor_email: string | null;
   active_category_count: number;
   current_hourly_rate: number | null;
+  has_menage_category: boolean;
   has_weekend_premium: boolean;
   total_count: number;
 }

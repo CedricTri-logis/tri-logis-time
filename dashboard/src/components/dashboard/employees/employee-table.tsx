@@ -85,11 +85,13 @@ export function EmployeeTable({ data, isLoading }: EmployeeTableProps) {
         accessorKey: 'has_weekend_premium',
         header: 'Prime FDS',
         cell: ({ row }) => {
-          const has = row.original.has_weekend_premium;
-          return has ? (
+          if (!row.original.has_menage_category) {
+            return <span className="text-slate-300">—</span>;
+          }
+          return row.original.has_weekend_premium ? (
             <Check className="h-4 w-4 text-green-600" />
           ) : (
-            <X className="h-4 w-4 text-slate-300" />
+            <X className="h-4 w-4 text-red-400" />
           );
         },
       },
