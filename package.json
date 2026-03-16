@@ -1,0 +1,27 @@
+{
+  "name": "gps_tracker_repo",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CedricTri-logis/tri-logis-time.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/CedricTri-logis/tri-logis-time/issues"
+  },
+  "homepage": "https://github.com/CedricTri-logis/tri-logis-time#readme",
+  "dependencies": {
+    "playwright": "^1.58.2"
+  }
+}
