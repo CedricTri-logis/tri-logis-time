@@ -10,7 +10,7 @@ import {
   useReactTable,
   type Row,
 } from '@tanstack/react-table';
-import { ChevronRight, ChevronDown, AlertTriangle, Loader2, RefreshCw } from 'lucide-react';
+import { ChevronRight, ChevronDown, AlertTriangle, Loader2, RefreshCw, Check, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -23,14 +23,14 @@ import { getEmployeeExpandDetails, type EmployeeExpandDetails } from '@/lib/api/
 
 const CATEGORY_LABELS: Record<string, string> = {
   renovation: 'Rénovation',
-  entretien: 'Entretien',
+  maintenance: 'Maintenance',
   menage: 'Ménage',
   admin: 'Administration',
 };
 
 const CATEGORY_BADGE_CLASSES: Record<string, string> = {
   renovation: 'bg-blue-100 text-blue-700 hover:bg-blue-100',
-  entretien: 'bg-green-100 text-green-700 hover:bg-green-100',
+  maintenance: 'bg-green-100 text-green-700 hover:bg-green-100',
   menage: 'bg-purple-100 text-purple-700 hover:bg-purple-100',
   admin: 'bg-amber-100 text-amber-700 hover:bg-amber-100',
 };
@@ -168,6 +168,20 @@ export function EmployeeTableExpandable({ data, isLoading }: EmployeeTableExpand
             <span className="text-sm font-mono text-slate-600">
               {Number(rate).toFixed(2)} $/h
             </span>
+          );
+        },
+      },
+      {
+        id: 'weekend_premium',
+        header: 'Prime FDS',
+        cell: ({ row }) => {
+          if (!row.original.has_menage_category) {
+            return <span className="text-slate-300">—</span>;
+          }
+          return row.original.has_weekend_premium ? (
+            <Check className="h-4 w-4 text-green-600" />
+          ) : (
+            <X className="h-4 w-4 text-red-400" />
           );
         },
       },
