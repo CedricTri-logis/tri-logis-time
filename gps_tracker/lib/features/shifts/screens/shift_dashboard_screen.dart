@@ -56,7 +56,6 @@ import '../widgets/clock_button.dart';
 import '../widgets/lunch_break_button.dart';
 import '../widgets/shift_status_card.dart';
 
-
 /// Main dashboard screen for shift management.
 class ShiftDashboardScreen extends ConsumerStatefulWidget {
   const ShiftDashboardScreen({super.key});

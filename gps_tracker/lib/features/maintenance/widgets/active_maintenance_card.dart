@@ -83,7 +83,7 @@ class _ActiveMaintenanceCardState
             const SizedBox(width: 12),
             Expanded(
               child: Text(success
-                  ? 'Session d\'entretien terminée'
+                  ? 'Session de maintenance terminée'
                   : errorMsg ?? 'Erreur lors de la fermeture'),
             ),
           ],

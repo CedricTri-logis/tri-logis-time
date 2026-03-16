@@ -13,7 +13,7 @@ class SessionStartResult {
 enum SessionStartAction {
   /// Open QR scanner (ménage court terme)
   qrScan,
-  /// Open building picker (ménage long terme or entretien)
+  /// Open building picker (ménage long terme or maintenance)
   buildingPicker,
   /// Start admin session directly
   confirmAdmin,

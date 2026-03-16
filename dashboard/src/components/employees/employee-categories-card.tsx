@@ -45,7 +45,7 @@ import { toast } from 'sonner';
 import { supabaseClient } from '@/lib/supabase/client';
 import { toLocalDateString } from '@/lib/utils/date-utils';
 
-type CategoryType = 'renovation' | 'entretien' | 'menage' | 'admin';
+type CategoryType = 'renovation' | 'maintenance' | 'menage' | 'admin';
 type StatusFilter = 'all' | 'active' | 'expired';
 type CategoryFilter = 'all' | CategoryType;
 
@@ -67,14 +67,14 @@ interface EmployeeCategoriesCardProps {
 
 const CATEGORY_LABELS: Record<CategoryType, string> = {
   renovation: 'Rénovation',
-  entretien: 'Entretien',
+  maintenance: 'Maintenance',
   menage: 'Ménage',
   admin: 'Administration',
 };
 
 const CATEGORY_BADGE_CLASSES: Record<CategoryType, string> = {
   renovation: 'bg-blue-100 text-blue-700 hover:bg-blue-100',
-  entretien: 'bg-green-100 text-green-700 hover:bg-green-100',
+  maintenance: 'bg-green-100 text-green-700 hover:bg-green-100',
   menage: 'bg-purple-100 text-purple-700 hover:bg-purple-100',
   admin: 'bg-amber-100 text-amber-700 hover:bg-amber-100',
 };
@@ -102,7 +102,7 @@ export function EmployeeCategoriesCard({ employeeId, isDisabled = false }: Emplo
   const [isSaving, setIsSaving] = useState(false);
 
   // Form state
-  const [formCategory, setFormCategory] = useState<CategoryType>('entretien');
+  const [formCategory, setFormCategory] = useState<CategoryType>('maintenance');
   const [formStartedAt, setFormStartedAt] = useState('');
   const [formEndedAt, setFormEndedAt] = useState('');
 
@@ -144,10 +144,10 @@ export function EmployeeCategoriesCard({ employeeId, isDisabled = false }: Emplo
     const active = categories.filter((c) => !c.ended_at).length;
     const expired = categories.filter((c) => !!c.ended_at).length;
     const renovation = categories.filter((c) => c.category === 'renovation').length;
-    const entretien = categories.filter((c) => c.category === 'entretien').length;
+    const maintenance = categories.filter((c) => c.category === 'maintenance').length;
     const menage = categories.filter((c) => c.category === 'menage').length;
     const admin = categories.filter((c) => c.category === 'admin').length;
-    return { total, active, expired, renovation, entretien, menage, admin };
+    return { total, active, expired, renovation, maintenance, menage, admin };
   }, [categories]);
 
   // Filter categories
@@ -167,7 +167,7 @@ export function EmployeeCategoriesCard({ employeeId, isDisabled = false }: Emplo
   // Open add dialog
   const openAddDialog = useCallback(() => {
     setEditingCategory(null);
-    setFormCategory('entretien');
+    setFormCategory('maintenance');
     setFormStartedAt(toLocalDateString(new Date()));
     setFormEndedAt('');
     setShowDialog(true);
@@ -361,7 +361,7 @@ export function EmployeeCategoriesCard({ employeeId, isDisabled = false }: Emplo
       <CardContent>
         {/* Summary stats */}
         <div className="grid grid-cols-4 gap-3 mb-4">
-          {(['renovation', 'entretien', 'menage', 'admin'] as CategoryType[]).map((cat) => (
+          {(['renovation', 'maintenance', 'menage', 'admin'] as CategoryType[]).map((cat) => (
             <button
               key={cat}
               className={`rounded-lg border p-3 text-center transition-colors hover:ring-2 hover:ring-primary/20 ${

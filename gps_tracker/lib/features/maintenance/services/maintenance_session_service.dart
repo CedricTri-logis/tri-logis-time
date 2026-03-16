@@ -162,7 +162,7 @@ class MaintenanceSessionService {
         await _localDb.getActiveSessionForEmployee(employeeId);
     if (activeSession == null) {
       return MaintenanceSessionResult.error(
-          'Aucune session d\'entretien active');
+          'Aucune session de maintenance active');
     }
 
     final now = DateTime.now().toUtc();
