@@ -460,7 +460,7 @@ export function LocationForm({
                   <div className="space-y-0.5">
                     <FormLabel>Ce lieu est la maison d&apos;employe(s)</FormLabel>
                     <FormDescription className="text-xs">
-                      Les clusters de ces employes seront affiches comme &quot;Maison&quot; sauf si une session menage/entretien est active
+                      Les clusters de ces employes seront affiches comme &quot;Maison&quot; sauf si une session menage/maintenance est active
                     </FormDescription>
                   </div>
                   <FormControl>
@@ -496,7 +496,7 @@ export function LocationForm({
                   <div className="space-y-0.5">
                     <FormLabel>Ce lieu est aussi un bureau</FormLabel>
                     <FormDescription className="text-xs">
-                      Les clusters de tous les employes seront affiches comme &quot;Bureau&quot; sauf si une session menage/entretien est active
+                      Les clusters de tous les employes seront affiches comme &quot;Bureau&quot; sauf si une session menage/maintenance est active
                     </FormDescription>
                   </div>
                   <FormControl>

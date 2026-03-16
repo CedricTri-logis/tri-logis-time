@@ -78,7 +78,7 @@ class _MaintenanceHistoryListState
             ),
             const SizedBox(height: 8),
             Text(
-              'Aucun entretien ce quart',
+              'Aucune maintenance ce quart',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -98,7 +98,7 @@ class _MaintenanceHistoryListState
         Row(
           children: [
             Text(
-              'Historique d\'entretien',
+              'Historique de maintenance',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),

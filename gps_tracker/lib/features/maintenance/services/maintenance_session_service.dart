@@ -37,7 +37,7 @@ class MaintenanceSessionService {
         await _cleaningLocalDb.getActiveSessionForEmployee(employeeId);
     if (activeCleaning != null) {
       return MaintenanceSessionResult.error(
-        'Terminez votre session de ménage avant de commencer un entretien',
+        'Terminez votre session de ménage avant de commencer une maintenance',
       );
     }
 
@@ -46,7 +46,7 @@ class MaintenanceSessionService {
         await _localDb.getActiveSessionForEmployee(employeeId);
     if (activeMaintenance != null) {
       return MaintenanceSessionResult.error(
-        'Une session d\'entretien est déjà en cours',
+        'Une session de maintenance est déjà en cours',
       );
     }
 
@@ -121,7 +121,7 @@ class MaintenanceSessionService {
         await _localDb.getActiveSessionForEmployee(employeeId);
     if (activeSession == null) {
       return MaintenanceSessionResult.error(
-          'Aucune session d\'entretien active');
+          'Aucune session de maintenance active');
     }
 
     final now = DateTime.now().toUtc();

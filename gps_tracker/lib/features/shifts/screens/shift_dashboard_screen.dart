@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import '../../tracking/widgets/oem_battery_guide_dialog.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -53,7 +54,7 @@ import '../widgets/shift_status_card.dart';
 import '../widgets/shift_timer.dart';
 
 /// Tab selection for the shift dashboard.
-enum _DashboardTab { menager, entretien }
+enum _DashboardTab { menager, maintenance }
 
 /// Main dashboard screen for shift management.
 class ShiftDashboardScreen extends ConsumerStatefulWidget {
@@ -87,7 +88,7 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
   /// to avoid repeating it every resume.
   bool _regressionBannerShown = false;
 
-  /// Currently selected tab (ménager / entretien).
+  /// Currently selected tab (ménager / maintenance).
   _DashboardTab _selectedTab = _DashboardTab.menager;
 
   DiagnosticLogger? get _logger =>
@@ -503,6 +504,11 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
       if (!mounted) return;
       messenger.hideCurrentSnackBar();
 
+      // Enforce OEM battery setup on problematic devices before clock-in
+      if (Platform.isAndroid && mounted) {
+        await OemBatteryGuideDialog.showIfNeeded(context);
+        if (!mounted) return;
+      }
       // Clock in (location is guaranteed non-null after validation above)
       final success = await shiftNotifier.clockIn(
         location: gpsResult.location!,
@@ -1334,8 +1340,8 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
                               icon: Icon(Icons.cleaning_services, size: 18),
                             ),
                             ButtonSegment(
-                              value: _DashboardTab.entretien,
-                              label: Text('Entretien'),
+                              value: _DashboardTab.maintenance,
+                              label: Text('Maintenance'),
                               icon: Icon(Icons.handyman, size: 18),
                             ),
                           ],
@@ -1358,7 +1364,7 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
                           const ActiveSessionCard(),
                         const CleaningHistoryList(),
                       ],
-                      if (_selectedTab == _DashboardTab.entretien) ...[
+                      if (_selectedTab == _DashboardTab.maintenance) ...[
                         const MaintenanceHistoryList(),
                       ],
                     ],
@@ -1451,7 +1457,7 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
       if (hasActiveCleaning || hasActiveMaintenance) return null;
       return FloatingActionButton(
         onPressed: _openBuildingPicker,
-        tooltip: 'Démarrer entretien',
+        tooltip: 'Démarrer maintenance',
         backgroundColor: Colors.orange,
         child: const Icon(Icons.handyman),
       );

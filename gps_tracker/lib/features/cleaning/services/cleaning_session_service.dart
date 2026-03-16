@@ -91,7 +91,7 @@ class CleaningSessionService {
         return ScanResult.error(
           ScanErrorType.sessionExists,
           message:
-              'Terminez votre session d\'entretien avant de commencer un ménage',
+              'Terminez votre session de maintenance avant de commencer un ménage',
         );
       }
     }

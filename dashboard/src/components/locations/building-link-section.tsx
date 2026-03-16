@@ -69,7 +69,7 @@ export function BuildingLinkSection({ locationId }: BuildingLinkSectionProps) {
       if (error) { toast.error('Erreur'); return; }
     }
     setLinkedProperty(buildingId);
-    toast.success('Building entretien mis a jour');
+    toast.success('Building maintenance mis à jour');
   }, [locationId, linkedProperty]);
 
   if (isLoading) return <Card><CardContent className="py-6"><Loader2 className="h-4 w-4 animate-spin" /></CardContent></Card>;
@@ -98,7 +98,7 @@ export function BuildingLinkSection({ locationId }: BuildingLinkSectionProps) {
           </Select>
         </div>
         <div className="space-y-2">
-          <Label>Building entretien (property)</Label>
+          <Label>Building maintenance (property)</Label>
           <Select value={linkedProperty} onValueChange={handlePropertyChange}>
             <SelectTrigger><SelectValue placeholder="Aucun" /></SelectTrigger>
             <SelectContent>
