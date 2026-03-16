@@ -132,15 +132,6 @@ export function EmployeeTableExpandable({ data, isLoading }: EmployeeTableExpand
         },
       },
       {
-        accessorKey: 'employee_id',
-        header: 'ID employé',
-        cell: ({ row }) => (
-          <span className="text-slate-600">
-            {row.original.employee_id || '—'}
-          </span>
-        ),
-      },
-      {
         id: 'categories',
         header: 'Catégories',
         cell: ({ row }) => {
@@ -371,7 +362,6 @@ function ExpandableTableSkeleton() {
           <TableRow>
             <TableHead className="w-10"></TableHead>
             <TableHead>Nom</TableHead>
-            <TableHead>ID employé</TableHead>
             <TableHead>Catégories</TableHead>
             <TableHead>Rémunération</TableHead>
             <TableHead></TableHead>
@@ -387,7 +377,6 @@ function ExpandableTableSkeleton() {
                   <Skeleton className="h-3 w-40" />
                 </div>
               </TableCell>
-              <TableCell><Skeleton className="h-4 w-20" /></TableCell>
               <TableCell><Skeleton className="h-4 w-16" /></TableCell>
               <TableCell><Skeleton className="h-4 w-20" /></TableCell>
               <TableCell><Skeleton className="h-8 w-16" /></TableCell>
