@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, Fragment, useCallback } from 'react';
+import { useState, useMemo, useEffect, Fragment, useCallback } from 'react';
 import Link from 'next/link';
 import {
   ColumnDef,
@@ -17,8 +17,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import { toast } from 'sonner';
+import { supabaseClient } from '@/lib/supabase/client';
 import { StatusBadge, RoleBadge } from './status-badge';
-import type { EmployeeListItem } from '@/types/employee';
+import type { EmployeeListItem, ManagerListItem, AssignSupervisorResponse } from '@/types/employee';
 import { getEmployeeExpandDetails, type EmployeeExpandDetails } from '@/lib/api/employee-expand';
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -44,11 +49,96 @@ interface ExpandState {
 interface EmployeeTableExpandableProps {
   data: EmployeeListItem[];
   isLoading?: boolean;
+  onDataChanged?: () => void;
 }
 
-export function EmployeeTableExpandable({ data, isLoading }: EmployeeTableExpandableProps) {
+function InlineSupervisorSelect({
+  employeeId,
+  currentSupervisorId,
+  currentSupervisorName,
+  managers,
+  onChanged,
+}: {
+  employeeId: string;
+  currentSupervisorId: string | null;
+  currentSupervisorName: string | null;
+  managers: ManagerListItem[];
+  onChanged: () => void;
+}) {
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleChange = async (managerId: string) => {
+    if (managerId === (currentSupervisorId ?? 'none')) return;
+
+    setIsSaving(true);
+    try {
+      if (managerId === 'none') {
+        const { data: result, error } = await supabaseClient.rpc('remove_supervisor', {
+          p_employee_id: employeeId,
+        });
+        if (error) throw error;
+        toast.success('Superviseur retiré');
+      } else {
+        const { data: result, error } = await supabaseClient.rpc('assign_supervisor', {
+          p_employee_id: employeeId,
+          p_manager_id: managerId,
+          p_supervision_type: 'direct',
+        });
+        if (error) throw error;
+        const response = result as AssignSupervisorResponse;
+        if (!response.success) {
+          toast.error(response.error?.message ?? 'Erreur');
+          return;
+        }
+        toast.success('Superviseur assigné');
+      }
+      onChanged();
+    } catch (err: any) {
+      toast.error(err.message || 'Erreur');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const filtered = managers.filter((m) => m.id !== employeeId);
+
+  return (
+    <Select
+      value={currentSupervisorId ?? 'none'}
+      onValueChange={handleChange}
+      disabled={isSaving}
+    >
+      <SelectTrigger className="h-8 w-[180px] text-xs">
+        <SelectValue>
+          {isSaving ? 'Enregistrement...' : (currentSupervisorName ?? 'Non assigné')}
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="none">
+          <span className="text-slate-400">Non assigné</span>
+        </SelectItem>
+        {filtered.map((m) => (
+          <SelectItem key={m.id} value={m.id}>
+            {m.full_name || m.email}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+export function EmployeeTableExpandable({ data, isLoading, onDataChanged }: EmployeeTableExpandableProps) {
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const [expandState, setExpandState] = useState<Record<string, ExpandState>>({});
+  const [managers, setManagers] = useState<ManagerListItem[]>([]);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Fetch managers list once for inline supervisor selects
+  useEffect(() => {
+    supabaseClient.rpc('get_managers_list').then(({ data: mgrs }) => {
+      if (mgrs) setManagers(mgrs as ManagerListItem[]);
+    });
+  }, []);
 
   const toggleRow = useCallback(async (employeeId: string) => {
     const isExpanded = expandedRows[employeeId];
@@ -186,6 +276,19 @@ export function EmployeeTableExpandable({ data, isLoading }: EmployeeTableExpand
         },
       },
       {
+        id: 'supervisor',
+        header: 'Superviseur',
+        cell: ({ row }) => (
+          <InlineSupervisorSelect
+            employeeId={row.original.id}
+            currentSupervisorId={row.original.current_supervisor_id}
+            currentSupervisorName={row.original.current_supervisor_name}
+            managers={managers}
+            onChanged={() => { setRefreshKey((k) => k + 1); onDataChanged?.(); }}
+          />
+        ),
+      },
+      {
         id: 'actions',
         header: '',
         cell: ({ row }) => (
@@ -200,7 +303,7 @@ export function EmployeeTableExpandable({ data, isLoading }: EmployeeTableExpand
         ),
       },
     ],
-    [expandedRows, toggleRow]
+    [expandedRows, toggleRow, managers, refreshKey]
   );
 
   const table = useReactTable({
