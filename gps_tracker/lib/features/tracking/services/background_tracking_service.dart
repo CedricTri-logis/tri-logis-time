@@ -421,10 +421,26 @@ class BackgroundTrackingService with WidgetsBindingObserver {
 
   /// Read watchdog breadcrumbs written by AlarmManager/WorkManager isolates
   /// and forward them to DiagnosticLogger so they get synced to the server.
+  ///
+  /// Fetches the current standby bucket once and includes it in all entries,
+  /// since the MethodChannel is not available in WorkManager isolates.
   Future<void> _syncWatchdogLog() async {
     if (!Platform.isAndroid) return;
     try {
       final entries = await TrackingWatchdogService.consumeLog();
+      if (entries.isEmpty) return;
+
+      // Fetch bucket once for all entries (current value at sync time)
+      Map<String, dynamic> bucketMeta = {};
+      try {
+        final info =
+            await AndroidBatteryHealthService.getAppStandbyBucket();
+        bucketMeta = {
+          'standby_bucket': info.bucketName,
+          'standby_bucket_code': info.bucket,
+        };
+      } catch (_) {}
+
       for (final entry in entries) {
         // Format: "2026-02-27T12:00:00Z|alarm|service_alive|shift-uuid"
         final parts = entry.split('|');
@@ -440,6 +456,7 @@ class BackgroundTrackingService with WidgetsBindingObserver {
           metadata: {
             'watchdog_ts': timestamp,
             if (shiftId.isNotEmpty) 'shift_id': shiftId,
+            ...bucketMeta,
           },
         );
       }

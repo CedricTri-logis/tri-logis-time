@@ -361,6 +361,12 @@ class ShiftNotifier extends StateNotifier<ShiftState>
           'server_id': shift.serverId,
           'status': shift.status.toJson(),
         },);
+
+        // Post-kill restart diagnostic: if we have an active shift but
+        // the foreground service is dead, the app was killed and restarted.
+        if (defaultTargetPlatform == TargetPlatform.android) {
+          _logPostKillDiagnostic(shift);
+        }
       }
 
       state = state.copyWith(
@@ -447,6 +453,48 @@ class ShiftNotifier extends StateNotifier<ShiftState>
   void _stopTokenRefreshTimer() {
     _tokenRefreshTimer?.cancel();
     _tokenRefreshTimer = null;
+  }
+
+  /// Log a post-kill restart diagnostic when the app cold-starts and finds
+  /// an active shift but the foreground service is dead.
+  ///
+  /// Combines standby bucket, gap duration, and service state into one event
+  /// for forensic analysis. Exit reasons are collected separately by
+  /// [ExitReasonCollector] at app startup.
+  Future<void> _logPostKillDiagnostic(Shift shift) async {
+    try {
+      final isRunning = await BackgroundTrackingService.isTracking;
+      if (isRunning) return; // Service is alive — not a post-kill restart
+
+      // Compute gap duration from the last local GPS point
+      final localDb = _ref.read(localDatabaseProvider);
+      final points = await localDb.getGpsPointsForShift(shift.id);
+      final lastPointTime =
+          points.isNotEmpty ? points.last.capturedAt : null;
+      final gapSeconds = lastPointTime != null
+          ? DateTime.now().toUtc().difference(lastPointTime).inSeconds
+          : null;
+
+      // Fetch current standby bucket
+      final bucketInfo =
+          await AndroidBatteryHealthService.getAppStandbyBucket();
+
+      _logger?.lifecycle(
+        Severity.warn,
+        'Post-kill restart diagnostic',
+        metadata: {
+          'shift_id': shift.serverId ?? shift.id,
+          'foreground_service_was_alive': false,
+          'standby_bucket': bucketInfo.bucketName,
+          'standby_bucket_code': bucketInfo.bucket,
+          if (gapSeconds != null) 'gap_duration_seconds': gapSeconds,
+          if (lastPointTime != null)
+            'last_gps_point_at': lastPointTime.toIso8601String(),
+        },
+      );
+    } catch (_) {
+      // Best-effort — never block shift load for diagnostics
+    }
   }
 
   /// Clock in with required GPS location.
