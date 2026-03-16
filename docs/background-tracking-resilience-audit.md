@@ -1,6 +1,6 @@
 # Background Tracking Resilience - Audit complet
 
-> Dernière mise à jour : 2026-03-12 | Build actuel : v1.0.0+134
+> Dernière mise à jour : 2026-03-16 | Build actuel : v1.0.0+136
 
 ## Table des matières
 
@@ -614,6 +614,7 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +132 | Mar 12 | **Failsafe serveur direct pour `NO_SERVER_SHIFT`** — Si `serverShiftId` est null ET la résolution locale échoue (5 retries), `startSession()` fait maintenant une requête directe Supabase `shifts WHERE employee_id AND status='active'` comme dernier recours avant d'échouer. Élimine toute dépendance sur la cohérence du `server_id` local pour démarrer une session | ✅ Fix |
 | +133 | Mar 12 | Dashboard : positions pointage carte monitoring, dîner historique, auto-close session sur lunch, sessions serveur-requises, fix crash RPC `start_work_session`, fix `NO_SERVER_SHIFT`, failsafe serveur direct — aucun changement tracking/résilience | ✅ Stable |
 | +134 | Mar 12 | **Exit Reason Collection** — Nouveau mécanisme de diagnostic : **ExitReasonPlugin Android** (Kotlin) lit `ApplicationExitInfo` (API 30+) au lancement, `setProcessStateSummary()` écrit état shift/GPS toutes les 30s depuis `_handleHeartbeat()` (main isolate). **ExitReasonPlugin iOS** (Swift) lit `MXAppExitMetric` (iOS 15+) via `pastPayloads` avec delta UserDefaults, buffer crash diagnostics MetricKit. **ExitReasonCollector** (Dart) insère directement dans SQLCipher (`EventCategory.exitInfo`), `deviceId` comme `employee_id` temporaire → résolu en `auth.uid()` au sync. MetricKit retiré de `DiagnosticNativePlugin` (centralisé dans ExitReasonPlugin). Migration v10 SQLCipher : supprimé CHECK `event_category` (limitait à 9 catégories, l'app en a 18+). Migration Supabase : supprimé CHECK `diagnostic_logs_event_category_check`. Dashboard : corrections manuelles de temps, taux horaires employés, prime ménage weekend, export feuille de temps enrichie | ✅ Diagnostic |
+| +136 | Mar 16 | **ProGuard GSON TypeToken fix** — règles keep pour `com.google.gson.reflect.TypeToken` (R8 strippait les signatures génériques → crash `flutter_local_notifications`). **EXEMPTED bucket** (5) ajouté à `standbyBucketName()` (`MainActivity.kt` + `DiagnosticNativePlugin.kt`) — `@SystemApi STANDBY_BUCKET_EXEMPTED` correctement mappé. Pas de changement tracking/résilience directement — améliore stabilité Android et diagnostic | ✅ Stable |
 
 ### Chronologie complète Android Watchdog
 
