@@ -12,6 +12,18 @@ export const hourlyRateFormSchema = z.object({
 
 export type HourlyRateFormValues = z.infer<typeof hourlyRateFormSchema>;
 
+export const annualSalaryFormSchema = z.object({
+  salary: z
+    .number({ message: 'Le salaire annuel est requis' })
+    .positive('Le salaire doit être supérieur à 0')
+    .multipleOf(0.01, 'Maximum 2 décimales'),
+  effective_from: z
+    .string({ message: 'La date est requise' })
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Format de date invalide (AAAA-MM-JJ)'),
+});
+
+export type AnnualSalaryFormValues = z.infer<typeof annualSalaryFormSchema>;
+
 export const weekendPremiumFormSchema = z.object({
   amount: z
     .number({ message: 'Le montant est requis' })

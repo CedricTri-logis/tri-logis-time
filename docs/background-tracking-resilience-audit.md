@@ -1,6 +1,6 @@
 # Background Tracking Resilience - Audit complet
 
-> Dernière mise à jour : 2026-03-12 | Build actuel : v1.0.0+132
+> Dernière mise à jour : 2026-03-12 | Build actuel : v1.0.0+134
 
 ## Table des matières
 
@@ -612,6 +612,8 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +130 | Mar 12 | **Fix crash RPC `start_work_session`** — PostgreSQL "record not assigned yet" causait échec 100% des sessions (admin, maintenance, cleaning). RECORD variables remplacées par variables individuelles TEXT/UUID. Contrainte `chk_ws_cleaning_has_studio` remplacée par `chk_ws_cleaning_has_location` (studio OU building). Fix propagation erreurs `WorkSessionResult` (3 endroits message→errorType au lieu de errorMessage). `_humanReadableError()` pour messages français. **`_isStationary` initialisé à `true`** — GPS tracking commence stationnaire au lieu d'actif, switch sur mouvement | ✅ Fix + ⚡ Tracking |
 | +131 | Mar 12 | **Fix `NO_SERVER_SHIFT` — sessions impossibles après clock-in** — 3 bugs combinés causaient `activeShift.serverId = null` → erreur "Connexion requise" sur toute session. (1) `getActiveShift()` `LIMIT 1` sans `ORDER BY` retournait un quart local obsolète sans `server_id` au lieu du plus récent. Fix : `ORDER BY created_at DESC`. (2) `markShiftSynced()` sans paramètre `serverId` écrasait le `server_id` existant à null. Fix : update conditionnel. (3) `ClockInResult` ne reconnaissait pas `status: 'reopened'` comme succès → cycle inutile clock-out+retry. Fix : ajouté `'reopened'`. (4) `closeAllActiveShifts()` bulk cleanup en réconciliation — ferme TOUS les quarts locaux obsolètes, pas un seul. Aucun changement tracking/résilience | ✅ Fix |
 | +132 | Mar 12 | **Failsafe serveur direct pour `NO_SERVER_SHIFT`** — Si `serverShiftId` est null ET la résolution locale échoue (5 retries), `startSession()` fait maintenant une requête directe Supabase `shifts WHERE employee_id AND status='active'` comme dernier recours avant d'échouer. Élimine toute dépendance sur la cohérence du `server_id` local pour démarrer une session | ✅ Fix |
+| +133 | Mar 12 | Dashboard : positions pointage carte monitoring, dîner historique, auto-close session sur lunch, sessions serveur-requises, fix crash RPC `start_work_session`, fix `NO_SERVER_SHIFT`, failsafe serveur direct — aucun changement tracking/résilience | ✅ Stable |
+| +134 | Mar 12 | **Exit Reason Collection** — Nouveau mécanisme de diagnostic : **ExitReasonPlugin Android** (Kotlin) lit `ApplicationExitInfo` (API 30+) au lancement, `setProcessStateSummary()` écrit état shift/GPS toutes les 30s depuis `_handleHeartbeat()` (main isolate). **ExitReasonPlugin iOS** (Swift) lit `MXAppExitMetric` (iOS 15+) via `pastPayloads` avec delta UserDefaults, buffer crash diagnostics MetricKit. **ExitReasonCollector** (Dart) insère directement dans SQLCipher (`EventCategory.exitInfo`), `deviceId` comme `employee_id` temporaire → résolu en `auth.uid()` au sync. MetricKit retiré de `DiagnosticNativePlugin` (centralisé dans ExitReasonPlugin). Migration v10 SQLCipher : supprimé CHECK `event_category` (limitait à 9 catégories, l'app en a 18+). Migration Supabase : supprimé CHECK `diagnostic_logs_event_category_check`. Dashboard : corrections manuelles de temps, taux horaires employés, prime ménage weekend, export feuille de temps enrichie | ✅ Diagnostic |
 
 ### Chronologie complète Android Watchdog
 
@@ -647,6 +649,7 @@ TrackingRescueReceiver v2 (Kotlin natif, setAlarmClock tier principal, 45s)
 | Exponential backoff (stream recovery) | Both | Retry infini mais pas agressif |
 | Server heartbeat (~90s) | Both | Détecte les shifts zombie côté serveur |
 | Diagnostic logging | Both | Visibilité sur ce qui se passe en background |
+| Exit reason collection | Both | Android: `ApplicationExitInfo` per-event + `processStateSummary` 30s. iOS: MetricKit cumulative deltas. Diagnostique pourquoi l'OS a tué l'app |
 
 ### ⚠️ Fonctionne partiellement
 

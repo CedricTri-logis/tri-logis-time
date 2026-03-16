@@ -119,7 +119,10 @@ export function exportTimesheetToCsv(
   ];
   if (hasPay) {
     headerFields.push(
+      'Type de paye',
       'Taux horaire ($/h)',
+      'Salaire annuel ($/an)',
+      'Montant période ($)',
       'Montant de base ($)',
       'Heures ménage weekend',
       'Prime weekend ($)',
@@ -148,14 +151,17 @@ export function exportTimesheetToCsv(
       const pay = payMap.get(`${row.employee_id}_${row.shift_date}`);
       if (pay) {
         fields.push(
+          pay.pay_type ?? 'hourly',
           pay.hourly_rate?.toFixed(2) ?? '',
+          pay.annual_salary?.toFixed(2) ?? '',
+          pay.period_amount?.toFixed(2) ?? '',
           pay.base_amount.toFixed(2),
           (pay.weekend_cleaning_minutes / 60).toFixed(2),
           pay.premium_amount.toFixed(2),
           pay.total_amount.toFixed(2),
         );
       } else {
-        fields.push('', '', '', '', '');
+        fields.push('', '', '', '', '', '', '', '');
       }
     }
 

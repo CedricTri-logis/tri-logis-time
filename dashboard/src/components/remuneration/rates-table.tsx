@@ -24,18 +24,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ChevronDown, ChevronRight, Pencil } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { ChevronDown, ChevronRight, Pencil, ArrowLeftRight } from 'lucide-react';
 import { RateDialog } from './rate-dialog';
+import { SalaryDialog } from './salary-dialog';
 import { RateHistory } from './rate-history';
+import { SalaryHistory } from './salary-history';
+import { PayTypeSwitch } from './pay-type-switch';
 import type { EmployeeRateListItem } from '@/types/remuneration';
+
+export type CompensationFilter = 'all' | 'with_compensation' | 'without_compensation' | 'hourly' | 'annual';
 
 interface RatesTableProps {
   employees: EmployeeRateListItem[];
   loading: boolean;
   search: string;
   onSearchChange: (v: string) => void;
-  filter: 'all' | 'with_rate' | 'without_rate';
-  onFilterChange: (v: 'all' | 'with_rate' | 'without_rate') => void;
+  filter: CompensationFilter;
+  onFilterChange: (v: CompensationFilter) => void;
   onUpdate: () => void;
 }
 
@@ -50,6 +56,7 @@ export function RatesTable({
 }: RatesTableProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingEmployee, setEditingEmployee] = useState<EmployeeRateListItem | null>(null);
+  const [switchingEmployee, setSwitchingEmployee] = useState<EmployeeRateListItem | null>(null);
 
   const columns = useMemo<ColumnDef<EmployeeRateListItem>[]>(
     () => [
@@ -96,16 +103,36 @@ export function RatesTable({
         ),
       },
       {
-        accessorKey: 'current_rate',
-        header: 'Taux actuel ($/h)',
-        cell: ({ row }) =>
-          row.original.current_rate !== null ? (
+        id: 'pay_type',
+        header: 'Type',
+        cell: ({ row }) => (
+          <Badge variant={row.original.pay_type === 'annual' ? 'secondary' : 'default'}>
+            {row.original.pay_type === 'annual' ? 'Annuel' : 'Horaire'}
+          </Badge>
+        ),
+      },
+      {
+        id: 'compensation',
+        header: 'Compensation',
+        cell: ({ row }) => {
+          const emp = row.original;
+          if (emp.pay_type === 'annual') {
+            return emp.current_salary !== null ? (
+              <span className="font-mono">
+                {emp.current_salary.toLocaleString('fr-CA')} $/an
+              </span>
+            ) : (
+              <span className="text-muted-foreground italic">Non défini</span>
+            );
+          }
+          return emp.current_rate !== null ? (
             <span className="font-mono">
-              {row.original.current_rate.toFixed(2)} $
+              {emp.current_rate.toFixed(2)} $/h
             </span>
           ) : (
             <span className="text-muted-foreground italic">Non défini</span>
-          ),
+          );
+        },
       },
       {
         accessorKey: 'effective_from',
@@ -121,14 +148,24 @@ export function RatesTable({
         id: 'actions',
         header: '',
         cell: ({ row }) => (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setEditingEmployee(row.original)}
-          >
-            <Pencil className="h-4 w-4 mr-1" />
-            Modifier
-          </Button>
+          <div className="flex gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setEditingEmployee(row.original)}
+            >
+              <Pencil className="h-4 w-4 mr-1" />
+              Modifier
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSwitchingEmployee(row.original)}
+              title="Changer le type de rémunération"
+            >
+              <ArrowLeftRight className="h-4 w-4" />
+            </Button>
+          </div>
         ),
       },
     ],
@@ -152,14 +189,16 @@ export function RatesTable({
           onChange={(e) => onSearchChange(e.target.value)}
           className="max-w-sm"
         />
-        <Select value={filter} onValueChange={(v) => onFilterChange(v as any)}>
-          <SelectTrigger className="w-[200px]">
+        <Select value={filter} onValueChange={(v) => onFilterChange(v as CompensationFilter)}>
+          <SelectTrigger className="w-[220px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tous les employés</SelectItem>
-            <SelectItem value="with_rate">Avec taux</SelectItem>
-            <SelectItem value="without_rate">Sans taux</SelectItem>
+            <SelectItem value="with_compensation">Avec compensation</SelectItem>
+            <SelectItem value="without_compensation">Sans compensation</SelectItem>
+            <SelectItem value="hourly">Horaire seulement</SelectItem>
+            <SelectItem value="annual">Annuel seulement</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -208,7 +247,11 @@ export function RatesTable({
                   {expandedId === row.original.employee_id && (
                     <TableRow>
                       <TableCell colSpan={columns.length} className="bg-muted/50 p-4">
-                        <RateHistory employeeId={row.original.employee_id} />
+                        {row.original.pay_type === 'annual' ? (
+                          <SalaryHistory employeeId={row.original.employee_id} />
+                        ) : (
+                          <RateHistory employeeId={row.original.employee_id} />
+                        )}
                       </TableCell>
                     </TableRow>
                   )}
@@ -219,12 +262,33 @@ export function RatesTable({
         </Table>
       </div>
 
-      {/* Edit Dialog */}
-      <RateDialog
-        employee={editingEmployee}
-        onClose={() => setEditingEmployee(null)}
+      {/* Edit Dialogs — route to correct dialog based on pay_type */}
+      {editingEmployee?.pay_type === 'annual' ? (
+        <SalaryDialog
+          employee={editingEmployee}
+          onClose={() => setEditingEmployee(null)}
+          onSaved={() => {
+            setEditingEmployee(null);
+            onUpdate();
+          }}
+        />
+      ) : (
+        <RateDialog
+          employee={editingEmployee}
+          onClose={() => setEditingEmployee(null)}
+          onSaved={() => {
+            setEditingEmployee(null);
+            onUpdate();
+          }}
+        />
+      )}
+
+      {/* Pay Type Switch Dialog */}
+      <PayTypeSwitch
+        employee={switchingEmployee}
+        onClose={() => setSwitchingEmployee(null)}
         onSaved={() => {
-          setEditingEmployee(null);
+          setSwitchingEmployee(null);
           onUpdate();
         }}
       />
