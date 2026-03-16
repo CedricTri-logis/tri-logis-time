@@ -215,6 +215,7 @@ class DiagnosticNativePlugin(private val context: Context) {
         UsageStatsManager.STANDBY_BUCKET_FREQUENT -> "FREQUENT"
         UsageStatsManager.STANDBY_BUCKET_RARE -> "RARE"
         UsageStatsManager.STANDBY_BUCKET_RESTRICTED -> "RESTRICTED"
+            5 -> "EXEMPTED"
         else -> "UNKNOWN($bucket)"
     }
 
