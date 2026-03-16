@@ -234,7 +234,7 @@ export default function EmployeesPage() {
               </CardContent>
             </Card>
           ) : (
-            <EmployeeTableExpandable data={employees} isLoading={isLoading} />
+            <EmployeeTableExpandable data={employees} isLoading={isLoading} onDataChanged={() => query.refetch()} />
           )}
 
           {/* Pagination */}
