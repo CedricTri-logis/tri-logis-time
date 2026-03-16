@@ -39,6 +39,7 @@ import {
 } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Plus, Pencil, Trash2, Briefcase, Loader2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabaseClient } from '@/lib/supabase/client';
@@ -54,6 +55,7 @@ interface EmployeeCategory {
   category: CategoryType;
   started_at: string;
   ended_at: string | null;
+  weekend_premium_eligible: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -254,6 +256,31 @@ export function EmployeeCategoriesCard({ employeeId, isDisabled = false }: Emplo
     }
   }, [deletingCategory, fetchCategories]);
 
+  // Toggle weekend premium eligibility
+  const handleTogglePremium = useCallback(async (cat: EmployeeCategory) => {
+    const newValue = !cat.weekend_premium_eligible;
+    try {
+      const { error: updateError } = await supabaseClient
+        .from('employee_categories')
+        .update({ weekend_premium_eligible: newValue })
+        .eq('id', cat.id);
+
+      if (updateError) {
+        toast.error(`Erreur: ${updateError.message}`);
+        return;
+      }
+
+      toast.success(
+        newValue
+          ? 'Prime fin de semaine activée.'
+          : 'Prime fin de semaine désactivée.'
+      );
+      fetchCategories();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur inattendue');
+    }
+  }, [fetchCategories]);
+
   return (
     <Card>
       <CardHeader>
@@ -378,6 +405,7 @@ export function EmployeeCategoriesCard({ employeeId, isDisabled = false }: Emplo
                 <TableHead>Catégorie</TableHead>
                 <TableHead>Début</TableHead>
                 <TableHead>Fin</TableHead>
+                <TableHead>Prime FDS</TableHead>
                 {!isDisabled && <TableHead className="text-right">Actions</TableHead>}
               </TableRow>
             </TableHeader>
@@ -397,6 +425,17 @@ export function EmployeeCategoriesCard({ employeeId, isDisabled = false }: Emplo
                       <Badge variant="outline" className="text-green-600 border-green-300">
                         En cours
                       </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {cat.category === 'menage' ? (
+                      <Switch
+                        checked={cat.weekend_premium_eligible}
+                        onCheckedChange={() => handleTogglePremium(cat)}
+                        disabled={isDisabled}
+                      />
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
                     )}
                   </TableCell>
                   {!isDisabled && (
