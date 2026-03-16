@@ -1,6 +1,6 @@
 # Background Tracking Resilience - Audit complet
 
-> Dernière mise à jour : 2026-03-12 | Build actuel : v1.0.0+134
+> Dernière mise à jour : 2026-03-16 | Build actuel : v1.0.0+137
 
 ## Table des matières
 
@@ -614,6 +614,8 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +132 | Mar 12 | **Failsafe serveur direct pour `NO_SERVER_SHIFT`** — Si `serverShiftId` est null ET la résolution locale échoue (5 retries), `startSession()` fait maintenant une requête directe Supabase `shifts WHERE employee_id AND status='active'` comme dernier recours avant d'échouer. Élimine toute dépendance sur la cohérence du `server_id` local pour démarrer une session | ✅ Fix |
 | +133 | Mar 12 | Dashboard : positions pointage carte monitoring, dîner historique, auto-close session sur lunch, sessions serveur-requises, fix crash RPC `start_work_session`, fix `NO_SERVER_SHIFT`, failsafe serveur direct — aucun changement tracking/résilience | ✅ Stable |
 | +134 | Mar 12 | **Exit Reason Collection** — Nouveau mécanisme de diagnostic : **ExitReasonPlugin Android** (Kotlin) lit `ApplicationExitInfo` (API 30+) au lancement, `setProcessStateSummary()` écrit état shift/GPS toutes les 30s depuis `_handleHeartbeat()` (main isolate). **ExitReasonPlugin iOS** (Swift) lit `MXAppExitMetric` (iOS 15+) via `pastPayloads` avec delta UserDefaults, buffer crash diagnostics MetricKit. **ExitReasonCollector** (Dart) insère directement dans SQLCipher (`EventCategory.exitInfo`), `deviceId` comme `employee_id` temporaire → résolu en `auth.uid()` au sync. MetricKit retiré de `DiagnosticNativePlugin` (centralisé dans ExitReasonPlugin). Migration v10 SQLCipher : supprimé CHECK `event_category` (limitait à 9 catégories, l'app en a 18+). Migration Supabase : supprimé CHECK `diagnostic_logs_event_category_check`. Dashboard : corrections manuelles de temps, taux horaires employés, prime ménage weekend, export feuille de temps enrichie | ✅ Diagnostic |
+| +135-136 | Mar 12-16 | Builds intermédiaires (ProGuard, EXEMPTED bucket fixes, specs) — pas de changement tracking/résilience | ✅ Stable |
+| +137 | Mar 16 | **Post-kill diagnostic enrichment** — 3 améliorations forensiques : (1) `_logPostKillDiagnostic()` dans `ShiftProvider` : quand l'app cold-start avec un shift actif mais foreground service mort → log `standby_bucket`, `gap_duration_seconds`, `last_gps_point_at`. (2) `GpsHealthGuard` : `standby_bucket` + `standby_bucket_code` ajoutés au metadata quand `service_was_alive=false` (hard + soft tiers). (3) `_syncWatchdogLog()` : bucket fetch au moment du sync des breadcrumbs watchdog (bucket pas dispo dans l'isolate WorkManager). Aucun nouveau mécanisme de résilience — diagnostic seulement | ✅ Diagnostic |
 
 ### Chronologie complète Android Watchdog
 
