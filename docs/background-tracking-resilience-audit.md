@@ -1,6 +1,6 @@
 # Background Tracking Resilience - Audit complet
 
-> Dernière mise à jour : 2026-03-17 | Build actuel : v1.0.0+138
+> Dernière mise à jour : 2026-03-17 | Build actuel : v1.0.0+139
 
 ## Table des matières
 
@@ -500,7 +500,7 @@ Tentative 4+ → attente 15 min (cap)
 
 **Comment ça marche** :
 1. pg_cron appelle `send-wake-push` Edge Function toutes les 2 min via pg_net
-2. La fonction appelle `get_stale_active_devices()` (shifts actifs + heartbeat > 5 min + FCM token valide)
+2. La fonction appelle `get_stale_active_devices()` (shifts actifs + (heartbeat > 5 min OU GPS silencieux > 5 min) + FCM token valide)
 3. Pour chaque device stale : envoie un silent push FCM v1 (Android `priority: high`, iOS `content-available: 1`)
 4. `record_wake_push()` met à jour `last_wake_push_at` pour le throttle
 
@@ -513,7 +513,7 @@ Tentative 4+ → attente 15 min (cap)
 | **Migration** | 126 (advisory_locks_detect_trips) |
 | **Introduit** | Build +98 |
 | **Statut** | ✅ ACTIF |
-| **Principe** | `pg_advisory_xact_lock` empêche l'exécution concurrente de `detect_trips` (clé: shift_id) et `detect_carpools` (clé: date). Prévient les deadlocks DB. |
+| **Principe** | `pg_advisory_xact_lock` empêche l'exécution concurrente de `detect_trips` (clé: shift_id) et `detect_carpools` (clé: date). Prévient les deadlocks DB intra-fonction. Migration 132 : `detect_carpools` INSERT atomique via `JOIN trips` pour gérer la race condition cross-fonction (stale trip IDs). |
 
 ### 5.6 Minimum App Version Enforcement
 
@@ -627,6 +627,7 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +135-136 | Mar 12-16 | Builds intermédiaires (ProGuard, EXEMPTED bucket fixes, specs) — pas de changement tracking/résilience | ✅ Stable |
 | +137 | Mar 16 | **Post-kill diagnostic enrichment** — 3 améliorations forensiques : (1) `_logPostKillDiagnostic()` dans `ShiftProvider` : quand l'app cold-start avec un shift actif mais foreground service mort → log `standby_bucket`, `gap_duration_seconds`, `last_gps_point_at`. (2) `GpsHealthGuard` : `standby_bucket` + `standby_bucket_code` ajoutés au metadata quand `service_was_alive=false` (hard + soft tiers). (3) `_syncWatchdogLog()` : bucket fetch au moment du sync des breadcrumbs watchdog (bucket pas dispo dans l'isolate WorkManager). Aucun nouveau mécanisme de résilience — diagnostic seulement | ✅ Diagnostic |
 | +138 | Mar 17 | **NativeGpsBuffer JSONL** (Android + iOS) — migration de SharedPreferences/UserDefaults vers JSONL file append. Élimine le cap de 500 points et le risque ANR (Android QueuedWork). Ajout DispatchQueue thread safety (iOS). Migration automatique des anciennes données. | ✅ Actif |
+| +139 | Mar 17 | **Fix stampede detect_trips/carpools + GPS staleness detection** — 3 correctifs : (1) `_triggerTripDetection` réduit de 10 shifts fire-and-forget à 1 shift sérialisé avec cooldown 5min (240→~24 RPCs max). (2) Migration 132 : `detect_carpools` INSERT atomique via `JOIN trips` au lieu de boucle FOR — élimine FK violations sur trip_ids supprimés par `detect_trips` concurrent. (3) Migration 133 : `get_stale_active_devices()` détecte maintenant les GPS silencieux (shift >5min ET aucun GPS point en 5min) même si heartbeat frais — corrige le cas iOS où le GPS service meurt mais le main isolate survit | ✅ Résilience |
 
 ### Chronologie complète Android Watchdog
 
