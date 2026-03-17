@@ -279,6 +279,7 @@ export interface ApprovalActivity {
   gps_gap_count: number | null;
   shift_type: 'regular' | 'call' | null;
   shift_type_source: 'auto' | 'manual' | null;
+  children?: ApprovalActivity[];
 }
 
 export interface ProjectSession {

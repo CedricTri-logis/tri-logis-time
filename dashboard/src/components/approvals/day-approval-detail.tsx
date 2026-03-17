@@ -333,7 +333,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
         ) : detail ? (
           <div className="mt-6 space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
             {/* Summary Grid - Modern Analytics Style */}
-            <div className={`grid grid-cols-2 ${gpsGapTotals.seconds > 0 ? 'sm:grid-cols-5' : 'sm:grid-cols-4'} gap-4`}>
+            <div className={`grid grid-cols-2 ${gpsGapTotals.seconds > 0 || (detail.summary.lunch_minutes ?? 0) > 0 ? 'sm:grid-cols-5' : 'sm:grid-cols-4'} gap-4`}>
               <div className="group relative overflow-hidden flex flex-col p-4 bg-green-50/50 rounded-2xl border border-green-100 shadow-sm transition-all hover:shadow-md">
                 <div className="absolute top-0 right-0 p-3 text-green-200/50 group-hover:scale-110 transition-transform">
                   <CheckCircle2 className="h-12 w-12" />
@@ -402,13 +402,13 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
               )}
 
               {(detail.summary.lunch_minutes ?? 0) > 0 && (
-                <div className="group relative overflow-hidden flex flex-col p-4 bg-orange-50/50 rounded-2xl border border-orange-100 shadow-sm transition-all hover:shadow-md">
-                  <div className="absolute top-0 right-0 p-3 text-orange-200/50 group-hover:scale-110 transition-transform">
+                <div className="group relative overflow-hidden flex flex-col p-4 bg-slate-50 rounded-2xl border border-slate-200 shadow-sm transition-all hover:shadow-md">
+                  <div className="absolute top-0 right-0 p-3 text-slate-200 group-hover:scale-110 transition-transform">
                     <UtensilsCrossed className="h-12 w-12" />
                   </div>
-                  <span className="text-[10px] uppercase tracking-[0.1em] text-orange-700/60 font-bold mb-1">Dîner</span>
+                  <span className="text-[10px] uppercase tracking-[0.1em] text-slate-500 font-bold mb-1">Dîner</span>
                   <div className="flex items-baseline gap-1 mt-auto">
-                    <span className="text-2xl font-black text-orange-700 tracking-tight">{formatHours(detail.summary.lunch_minutes)}</span>
+                    <span className="text-2xl font-black text-slate-700 tracking-tight">{formatHours(detail.summary.lunch_minutes)}</span>
                   </div>
                 </div>
               )}
