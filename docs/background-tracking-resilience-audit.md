@@ -1,6 +1,6 @@
 # Background Tracking Resilience - Audit complet
 
-> Dernière mise à jour : 2026-03-16 | Build actuel : v1.0.0+137
+> Dernière mise à jour : 2026-03-17 | Build actuel : v1.0.0+138
 
 ## Table des matières
 
@@ -41,14 +41,14 @@ L'architecture de résilience utilise une approche **multi-couches** (defense in
 │  CLBackgroundActivitySession (iOS 17+),      │
 │  beginBackgroundTask, SLC (~500m),           │
 │  BGAppRefreshTask (~5min), Live Activity,    │
-│  NativeGpsBuffer (UserDefaults, 500pts)      │
+│  NativeGpsBuffer (JSONL file append)          │
 ├─────────────────────────────────────────────┤
 │           COUCHE NATIVE Android              │
 │  setAlarmClock (45s rescue chain),           │
 │  WorkManager (5min periodic),                │
 │  Boot/Package receiver, OEM battery guide,   │
 │  GeofenceWakeReceiver (200m exit),           │
-│  NativeGpsBuffer (SharedPreferences, 500pts) │
+│  NativeGpsBuffer (JSONL file append)         │
 └─────────────────────────────────────────────┘
 ```
 
@@ -108,16 +108,21 @@ L'architecture de résilience utilise une approche **multi-couches** (defense in
 | **Statut** | ✅ ACTIF |
 | **Principe** | Affiche le statut du shift sur le Lock Screen. Donne une visibilité à l'utilisateur que le tracking est actif. |
 
-### 2.5 NativeGpsBuffer (UserDefaults)
+### 2.5 NativeGpsBuffer (JSONL file append)
 
 | Attribut | Valeur |
 |----------|--------|
 | **Fichier** | `ios/Runner/NativeGpsBuffer.swift` |
-| **Introduit** | Build +98 |
+| **Introduit** | Build +98, migré JSONL build +138 |
 | **Statut** | ✅ ACTIF |
-| **Principe** | Capture des points GPS dans UserDefaults quand le SLC callback se déclenche. Permet de sauver des points même si Flutter engine est mort. Drainé dans SQLCipher au prochain sync. |
+| **Principe** | Capture des points GPS en JSONL (append-only) dans `Application Support/native_gps_buffer.jsonl` quand le SLC callback se déclenche. Permet de sauver des points même si Flutter engine est mort. Drainé dans SQLCipher au prochain sync. |
 
-**Limites** : Max 100 points. Source tag : `native_slc`. Singleton pattern. Intégré dans `SignificantLocationPlugin.didUpdateLocations`.
+**Évolution** :
+- **Build +98** : UserDefaults JSON array, max 100 points
+- **Build +101** : Max étendu à 500 points
+- **Build +138** : JSONL file append — plus de cap, écriture O(1), DispatchQueue pour thread safety, migration automatique depuis UserDefaults
+
+**Caractéristiques** : Pas de limite de points. Source tag : `native_slc`. Singleton pattern. Thread-safe (DispatchQueue). Intégré dans `SignificantLocationPlugin.didUpdateLocations`.
 
 ### 2.6 BGAppRefreshTask (iOS 13+)
 
@@ -190,16 +195,21 @@ L'architecture de résilience utilise une approche **multi-couches** (defense in
 
 **Boucle** : Alarme toutes les 45s → vérifie si shift actif → si le service FFT est mort, le redémarre → re-programme la prochaine alarme.
 
-### 3.3 NativeGpsBuffer (SharedPreferences)
+### 3.3 NativeGpsBuffer (JSONL file append)
 
 | Attribut | Valeur |
 |----------|--------|
 | **Fichier** | `android/.../NativeGpsBuffer.kt` |
-| **Introduit** | Build +98 |
+| **Introduit** | Build +98, migré JSONL build +138 |
 | **Statut** | ✅ ACTIF |
-| **Principe** | Capture native via `FusedLocationProviderClient` dans le rescue alarm callback. Sauve dans SharedPreferences (JSON array). Drainé dans SQLCipher au prochain sync via MethodChannel. |
+| **Principe** | Capture native via `FusedLocationProviderClient` dans le rescue alarm callback. Append-only JSONL dans `filesDir/native_gps_buffer.jsonl`. Drainé dans SQLCipher au prochain sync via MethodChannel. |
 
-**Limites** : Max 100 points. Source tag : `native_rescue`. Timeout GPS : 10s. Intégré dans `TrackingRescueReceiver`.
+**Évolution** :
+- **Build +98** : SharedPreferences JSON array, max 100 points
+- **Build +101** : Max étendu à 500 points
+- **Build +138** : JSONL file append — plus de cap, écriture O(1), élimine le risque ANR, migration automatique depuis SharedPreferences
+
+**Caractéristiques** : Pas de limite de points. Source tag : `native_rescue`. Timeout GPS : 10s. `client_id` déterministe (UUID v5) pour dedup. Intégré dans `TrackingRescueReceiver`.
 
 ### 3.4 TrackingWatchdogService (WorkManager — 5min)
 
@@ -616,6 +626,7 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +134 | Mar 12 | **Exit Reason Collection** — Nouveau mécanisme de diagnostic : **ExitReasonPlugin Android** (Kotlin) lit `ApplicationExitInfo` (API 30+) au lancement, `setProcessStateSummary()` écrit état shift/GPS toutes les 30s depuis `_handleHeartbeat()` (main isolate). **ExitReasonPlugin iOS** (Swift) lit `MXAppExitMetric` (iOS 15+) via `pastPayloads` avec delta UserDefaults, buffer crash diagnostics MetricKit. **ExitReasonCollector** (Dart) insère directement dans SQLCipher (`EventCategory.exitInfo`), `deviceId` comme `employee_id` temporaire → résolu en `auth.uid()` au sync. MetricKit retiré de `DiagnosticNativePlugin` (centralisé dans ExitReasonPlugin). Migration v10 SQLCipher : supprimé CHECK `event_category` (limitait à 9 catégories, l'app en a 18+). Migration Supabase : supprimé CHECK `diagnostic_logs_event_category_check`. Dashboard : corrections manuelles de temps, taux horaires employés, prime ménage weekend, export feuille de temps enrichie | ✅ Diagnostic |
 | +135-136 | Mar 12-16 | Builds intermédiaires (ProGuard, EXEMPTED bucket fixes, specs) — pas de changement tracking/résilience | ✅ Stable |
 | +137 | Mar 16 | **Post-kill diagnostic enrichment** — 3 améliorations forensiques : (1) `_logPostKillDiagnostic()` dans `ShiftProvider` : quand l'app cold-start avec un shift actif mais foreground service mort → log `standby_bucket`, `gap_duration_seconds`, `last_gps_point_at`. (2) `GpsHealthGuard` : `standby_bucket` + `standby_bucket_code` ajoutés au metadata quand `service_was_alive=false` (hard + soft tiers). (3) `_syncWatchdogLog()` : bucket fetch au moment du sync des breadcrumbs watchdog (bucket pas dispo dans l'isolate WorkManager). Aucun nouveau mécanisme de résilience — diagnostic seulement | ✅ Diagnostic |
+| +138 | Mar 17 | **NativeGpsBuffer JSONL** (Android + iOS) — migration de SharedPreferences/UserDefaults vers JSONL file append. Élimine le cap de 500 points et le risque ANR (Android QueuedWork). Ajout DispatchQueue thread safety (iOS). Migration automatique des anciennes données. | ✅ Actif |
 
 ### Chronologie complète Android Watchdog
 
@@ -712,12 +723,12 @@ TrackingRescueReceiver v2 (Kotlin natif, setAlarmClock tier principal, 45s)
 | `ios/Runner/SignificantLocationPlugin.swift` | SLC — relance après kill iOS |
 | `ios/Runner/BackgroundTaskPlugin.swift` | CLBackgroundActivitySession + beginBackgroundTask + thermal |
 | `ios/Runner/LiveActivityPlugin.swift` | Lock Screen tracking status |
-| `ios/Runner/NativeGpsBuffer.swift` | UserDefaults GPS buffer (max 500 pts) |
+| `ios/Runner/NativeGpsBuffer.swift` | JSONL file append GPS buffer (no cap, thread-safe) |
 | `ios/Runner/BackgroundAppRefreshPlugin.swift` | BGAppRefreshTask — relance app quand stationnaire (~5min) |
 | `lib/features/tracking/services/bg_app_refresh_service.dart` | Dart bridge pour BGAppRefreshTask iOS |
 | `android/.../TrackingRescueReceiver.kt` | Rescue alarm chain (setAlarmClock 45s) + native GPS capture |
 | `android/.../GeofenceWakeReceiver.kt` | Geofence 200m — redémarre tracking après kill Samsung |
-| `android/.../NativeGpsBuffer.kt` | SharedPreferences GPS buffer (max 500 pts) |
+| `android/.../NativeGpsBuffer.kt` | JSONL file append GPS buffer (no cap) |
 | `android/.../TrackingBootReceiver.kt` | Boot/update recovery |
 | `android/.../MainActivity.kt` | OEM battery guide + thermal + rescue alarm + native buffer drain |
 | `lib/features/tracking/services/background_tracking_service.dart` | FFT lifecycle manager |
