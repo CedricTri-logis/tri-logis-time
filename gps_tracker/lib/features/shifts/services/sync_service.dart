@@ -56,6 +56,10 @@ class SyncService {
   /// Track per-shift orphan sync attempts (shift_id -> attempt count).
   final Map<String, int> _orphanAttempts = {};
 
+  /// Cooldown tracker: shift server ID -> last trip detection trigger time.
+  /// Prevents re-triggering detect_trips for the same shift within 5 minutes.
+  final Map<String, DateTime> _tripDetectionCooldowns = {};
+
   /// Stream controller for progress updates.
   final _progressController = StreamController<SyncProgress>.broadcast();
 
@@ -536,40 +540,102 @@ class SyncService {
     }
   }
 
-  /// Fire-and-forget trip detection for recently completed shifts.
+  /// Trigger trip detection for the most recently completed shift only.
+  /// Serialized (awaited) to prevent concurrent DB contention.
+  /// Skips shifts already triggered within the last 5 minutes (cooldown).
   /// Called after GPS points sync to detect/re-detect trips with new data.
-  /// Active shift detection is skipped — trips aren't needed until after clock-out.
-  void _triggerTripDetection(String userId) async {
+  Future<void> _triggerTripDetection(String userId) async {
     try {
-      // Re-detect trips for recently completed shifts
+      // Only fetch the most recently completed shift (not 10).
+      // detect_trips is idempotent — older shifts don't need repeated re-detection.
       final recentShifts = await _localDb.getShiftHistory(
         employeeId: userId,
-        limit: 10,
+        limit: 1,
         offset: 0,
       );
 
-      for (final shift in recentShifts) {
-        if (shift.status == 'completed' && shift.serverId != null) {
-          _supabase.rpc('detect_trips', params: {
-            'p_shift_id': shift.serverId,
-          }).then((_) {
-            _logger?.sync(Severity.debug, 'Trip re-detection completed', metadata: {'shift_id': shift.serverId});
-            // Fire-and-forget carpool detection for the shift's date
-            final shiftDate = shift.clockedInAt.toIso8601String().substring(0, 10);
-            _supabase.rpc('detect_carpools', params: {
-              'p_date': shiftDate,
-            }).then((_) {
-              _logger?.sync(Severity.debug, 'Carpool detection completed for completed shift');
-            }).catchError((e) {
-              _logger?.sync(Severity.warn, 'Carpool detection failed', metadata: {'error': e.toString()});
-            });
-          }).catchError((e) {
-            _logger?.sync(Severity.warn, 'Trip re-detection failed', metadata: {'shift_id': shift.serverId, 'error': e.toString()});
-          });
+      if (recentShifts.isEmpty) return;
+
+      final shift = recentShifts.first;
+      if (shift.status != 'completed' || shift.serverId == null) return;
+
+      final serverId = shift.serverId!;
+
+      // Cooldown: skip if already triggered within the last 5 minutes
+      final lastTriggered = _tripDetectionCooldowns[serverId];
+      if (lastTriggered != null) {
+        final elapsed = DateTime.now().difference(lastTriggered);
+        if (elapsed < const Duration(minutes: 5)) {
+          _logger?.sync(
+            Severity.debug,
+            'Trip detection skipped (cooldown)',
+            metadata: {
+              'shift_id': serverId,
+              'seconds_since_last': elapsed.inSeconds,
+            },
+          );
+          return;
         }
       }
+
+      // Record the trigger time before calling RPCs
+      _tripDetectionCooldowns[serverId] = DateTime.now();
+
+      // Prune old cooldown entries (keep only last 20 to avoid unbounded growth)
+      if (_tripDetectionCooldowns.length > 20) {
+        final sortedEntries = _tripDetectionCooldowns.entries.toList()
+          ..sort((a, b) => a.value.compareTo(b.value));
+        for (final entry
+            in sortedEntries.take(_tripDetectionCooldowns.length - 20)) {
+          _tripDetectionCooldowns.remove(entry.key);
+        }
+      }
+
+      // Serialize: await detect_trips, then await detect_carpools
+      try {
+        await _supabase.rpc<void>(
+          'detect_trips',
+          params: {'p_shift_id': serverId},
+        );
+        _logger?.sync(
+          Severity.debug,
+          'Trip detection completed',
+          metadata: {'shift_id': serverId},
+        );
+      } catch (e) {
+        _logger?.sync(
+          Severity.warn,
+          'Trip detection failed',
+          metadata: {'shift_id': serverId, 'error': e.toString()},
+        );
+        return; // Don't attempt carpool detection if trip detection failed
+      }
+
+      try {
+        final shiftDate =
+            shift.clockedInAt.toIso8601String().substring(0, 10);
+        await _supabase.rpc<void>(
+          'detect_carpools',
+          params: {'p_date': shiftDate},
+        );
+        _logger?.sync(
+          Severity.debug,
+          'Carpool detection completed',
+          metadata: {'shift_id': serverId, 'date': shiftDate},
+        );
+      } catch (e) {
+        _logger?.sync(
+          Severity.warn,
+          'Carpool detection failed',
+          metadata: {'shift_id': serverId, 'error': e.toString()},
+        );
+      }
     } catch (e) {
-      _logger?.sync(Severity.error, 'Failed to trigger trip detection', metadata: {'error': e.toString()});
+      _logger?.sync(
+        Severity.error,
+        'Failed to trigger trip detection',
+        metadata: {'error': e.toString()},
+      );
     }
   }
 
