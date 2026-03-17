@@ -264,6 +264,9 @@ export function ApprovalGrid() {
                           key={day.date}
                           className={`px-2 py-2 text-center ${STATUS_COLORS[day.status]} transition-colors`}
                           onClick={() => handleCellClick(row, i)}
+                          title={day.status !== 'no_shift' && day.status !== 'active'
+                            ? `${formatHours(day.total_shift_minutes)} travaillé${(day.lunch_minutes ?? 0) > 0 ? ` · ${formatHours(day.lunch_minutes)} dîner` : ''}`
+                            : undefined}
                         >
                           {renderCell(day)}
                         </td>

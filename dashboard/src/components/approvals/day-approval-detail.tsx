@@ -22,6 +22,8 @@ import {
   ArrowRight,
   Calendar,
   User,
+  UtensilsCrossed,
+  WifiOff,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabaseClient } from '@/lib/supabase/client';
@@ -85,6 +87,12 @@ const STATUS_BADGE: Record<ApprovalAutoStatus, { className: string; icon: typeof
 // --- Icon helper for approval activities ---
 
 function ApprovalActivityIcon({ activity }: { activity: ApprovalActivity }) {
+  if (activity.activity_type === 'lunch') {
+    return <UtensilsCrossed className="h-4 w-4 text-slate-500" />;
+  }
+  if (activity.activity_type === 'gap') {
+    return <WifiOff className="h-4 w-4 text-purple-500" />;
+  }
   if (activity.activity_type === 'trip') {
     if (activity.transport_mode === 'walking') return <Footprints className="h-4 w-4 text-orange-500" />;
     if (activity.transport_mode === 'driving') return <Car className="h-4 w-4 text-blue-500" />;
@@ -392,16 +400,18 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
 
   // Duration by location type (for summary badges)
   const durationStats = useMemo(() => {
-    if (!detail) return { totalTravelSeconds: 0, stopByType: {} as Record<string, number> };
+    if (!detail) return { totalTravelSeconds: 0, stopByType: {} as Record<string, number>, totalGapSeconds: 0 };
     const trips = detail.activities.filter(a => a.activity_type === 'trip');
     const stops = detail.activities.filter(a => a.activity_type === 'stop');
+    const gaps = detail.activities.filter(a => a.activity_type === 'gap');
     const totalTravelSeconds = trips.reduce((sum, t) => sum + (t.duration_minutes || 0) * 60, 0);
+    const totalGapSeconds = gaps.reduce((sum, g) => sum + (g.duration_minutes || 0) * 60, 0);
     const stopByType: Record<string, number> = {};
     for (const stop of stops) {
       const key = stop.location_type || '_unmatched';
       stopByType[key] = (stopByType[key] || 0) + (stop.duration_minutes || 0) * 60;
     }
-    return { totalTravelSeconds, stopByType };
+    return { totalTravelSeconds, stopByType, totalGapSeconds };
   }, [detail]);
 
   const gpsGapTotals = useMemo(() => {
@@ -592,7 +602,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
         ) : detail ? (
           <div className="mt-6 space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
             {/* Summary Grid - Modern Analytics Style */}
-            <div className={`grid grid-cols-2 ${gpsGapTotals.seconds > 0 ? 'sm:grid-cols-5' : 'sm:grid-cols-4'} gap-4`}>
+            <div className={`grid grid-cols-2 ${gpsGapTotals.seconds > 0 || (detail.summary.lunch_minutes ?? 0) > 0 ? 'sm:grid-cols-5' : 'sm:grid-cols-4'} gap-4`}>
               <div className="group relative overflow-hidden flex flex-col p-4 bg-green-50/50 rounded-2xl border border-green-100 shadow-sm transition-all hover:shadow-md">
                 <div className="absolute top-0 right-0 p-3 text-green-200/50 group-hover:scale-110 transition-transform">
                   <CheckCircle2 className="h-12 w-12" />
@@ -656,10 +666,22 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                   </span>
                 </div>
               )}
+
+              {(detail.summary.lunch_minutes ?? 0) > 0 && (
+                <div className="group relative overflow-hidden flex flex-col p-4 bg-slate-50 rounded-2xl border border-slate-200 shadow-sm transition-all hover:shadow-md">
+                  <div className="absolute top-0 right-0 p-3 text-slate-200 group-hover:scale-110 transition-transform">
+                    <UtensilsCrossed className="h-12 w-12" />
+                  </div>
+                  <span className="text-[10px] uppercase tracking-[0.1em] text-slate-500 font-bold mb-1">Dîner</span>
+                  <div className="flex items-baseline gap-1 mt-auto">
+                    <span className="text-2xl font-black text-slate-700 tracking-tight">{formatHours(detail.summary.lunch_minutes)}</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Duration by type badges */}
-            {(durationStats.totalTravelSeconds > 0 || Object.keys(durationStats.stopByType).length > 0) && (
+            {(durationStats.totalTravelSeconds > 0 || Object.keys(durationStats.stopByType).length > 0 || durationStats.totalGapSeconds > 0) && (
               <div className="flex flex-wrap items-center gap-1.5 px-1">
                 <span className="text-[10px] font-semibold text-muted-foreground uppercase mr-1">Répartition:</span>
                 {durationStats.totalTravelSeconds > 0 && (
@@ -669,6 +691,15 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                   >
                     <Car className="h-3 w-3" />
                     {formatDuration(durationStats.totalTravelSeconds)}
+                  </span>
+                )}
+                {durationStats.totalGapSeconds > 0 && (
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700 border border-purple-100"
+                    title="Temps non suivi"
+                  >
+                    <WifiOff className="h-3 w-3" />
+                    {formatDuration(durationStats.totalGapSeconds)}
                   </span>
                 )}
                 {Object.entries(durationStats.stopByType)
@@ -854,7 +885,9 @@ function ActivityRow({
   const isTrip = activity.activity_type === 'trip';
   const isStop = activity.activity_type === 'stop';
   const isClock = activity.activity_type === 'clock_in' || activity.activity_type === 'clock_out';
-  const canExpand = !isClock;
+  const isGap = activity.activity_type === 'gap';
+  const isLunch = activity.activity_type === 'lunch';
+  const canExpand = isLunch || (!isClock && !isGap);
   const hasOverride = activity.override_status !== null;
 
   const statusConfig = {
@@ -897,12 +930,15 @@ function ActivityRow({
   return (
     <>
       <tr
-        className={`${statusConfig.row} ${canExpand ? 'cursor-pointer' : ''} transition-all duration-200 group border-b border-white/50`}
+        className={`${isLunch ? 'bg-slate-50 border-l-4 border-l-slate-400 hover:bg-slate-100/80' : statusConfig.row} ${canExpand ? 'cursor-pointer' : ''} transition-all duration-200 group border-b border-white/50`}
+        style={isGap ? { borderLeftStyle: 'dashed' } : undefined}
         onClick={canExpand ? onToggle : undefined}
       >
         {/* Action / Approbation */}
         <td className="px-3 py-3 text-center">
-          {!isApproved ? (
+          {isLunch ? (
+            <span className="text-xs text-slate-400 italic">Non payé</span>
+          ) : !isApproved ? (
             <div className="flex items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
               {/* Approve Button */}
               <div className="relative group/btn">
@@ -1005,7 +1041,14 @@ function ActivityRow({
 
         {/* Détails */}
         <td className="px-3 py-3 max-w-[300px]">
-          {isTrip ? (
+          {isLunch ? (
+            <div className="space-y-0.5">
+              <div className="text-xs font-medium text-slate-600">Pause dîner</div>
+              <div className="text-[10px] text-slate-400">
+                {formatTime(activity.started_at)} — {formatTime(activity.ended_at)}
+              </div>
+            </div>
+          ) : isTrip ? (
             <div className="space-y-1">
               <div className={`flex items-center gap-2 text-xs ${statusConfig.text}`}>
                 <span className="truncate">{activity.start_location_name || 'Inconnu'}</span>
@@ -1017,6 +1060,16 @@ function ActivityRow({
                   {activity.auto_reason}
                 </span>
               </div>
+            </div>
+          ) : isGap ? (
+            <div className="space-y-1">
+              <div className={`text-xs flex items-center gap-1.5 ${statusConfig.text}`}>
+                <WifiOff className="h-3 w-3" />
+                <span className="font-bold">Temps non suivi</span>
+              </div>
+              <span className={`text-[10px] leading-tight italic ${statusConfig.subtext}`}>
+                Aucune donnee GPS durant cette periode
+              </span>
             </div>
           ) : isStop ? (
             <div className="space-y-1">
@@ -1082,7 +1135,43 @@ function ActivityRow({
         <tr>
           <td colSpan={8} className="p-0 border-b">
             <div className="px-4 py-6 bg-muted/10 border-t border-b">
-              {isTrip ? (
+              {isLunch ? (
+                <div className="space-y-2">
+                  {activity.children && activity.children.length > 0 ? (
+                    <>
+                      <p className="text-xs text-slate-500 font-medium">Activités pendant la pause</p>
+                      <table className="w-full text-sm">
+                        <tbody>
+                          {activity.children.map((child) => (
+                            <tr key={`${child.activity_type}-${child.activity_id}`} className="border-b border-slate-100 last:border-0">
+                              <td className="py-1.5 px-2 w-8">
+                                {child.activity_type === 'trip' ? (
+                                  <Car className="h-3.5 w-3.5 text-blue-400" />
+                                ) : (
+                                  <MapPin className="h-3.5 w-3.5 text-slate-400" />
+                                )}
+                              </td>
+                              <td className="py-1.5 text-xs text-slate-600">
+                                {child.activity_type === 'trip'
+                                  ? `${child.start_location_name || 'Inconnu'} → ${child.end_location_name || 'Inconnu'}`
+                                  : child.location_name || 'Lieu inconnu'}
+                              </td>
+                              <td className="py-1.5 px-2 text-right text-xs text-slate-400 whitespace-nowrap">
+                                {child.duration_minutes} min
+                                {child.activity_type === 'trip' && child.distance_km != null && (
+                                  <span className="ml-1">({formatDistance(child.distance_km)})</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </>
+                  ) : (
+                    <p className="text-xs text-slate-400 italic">Aucune activité détectée pendant la pause</p>
+                  )}
+                </div>
+              ) : isTrip ? (
                 <TripExpandDetail activity={activity} />
               ) : isStop ? (
                 <StopExpandDetail activity={activity} />

@@ -6,7 +6,7 @@
 
 /** Minimal interface required for merging — works with both ActivityItem and ApprovalActivity */
 export interface MergeableActivity {
-  activity_type: 'trip' | 'stop' | 'clock_in' | 'clock_out';
+  activity_type: 'trip' | 'stop' | 'clock_in' | 'clock_out' | 'gap' | 'lunch';
   shift_id: string;
   started_at: string;
   ended_at: string;
@@ -87,7 +87,7 @@ export function mergeClockEvents<T extends MergeableActivity>(items: T[]): Proce
     const clockTime = new Date(item.started_at).getTime();
 
     for (let j = 0; j < filtered.length; j++) {
-      if (filtered[j].activity_type !== 'stop') continue;
+      if (filtered[j].activity_type !== 'stop' && filtered[j].activity_type !== 'gap') continue;
       const stopStart = new Date(filtered[j].started_at).getTime();
       const stopEnd = new Date(filtered[j].ended_at).getTime();
       if (clockTime >= (stopStart - MERGE_TOLERANCE_MS) && clockTime <= (stopEnd + MERGE_TOLERANCE_MS)) {
