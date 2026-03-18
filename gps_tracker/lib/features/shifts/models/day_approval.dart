@@ -64,12 +64,19 @@ class DayApprovalSummary {
   bool get hasRejections => (rejectedMinutes ?? 0) > 0;
 
   factory DayApprovalSummary.fromJson(Map<String, dynamic> json) {
+    final status =
+        ApprovalStatus.fromJson(json['status'] as String? ?? 'pending');
+    final isDayApproved = status == ApprovalStatus.approved;
+
     return DayApprovalSummary(
       employeeId: json['employee_id'] as String,
       date: DateTime.parse(json['date'] as String),
-      status: ApprovalStatus.fromJson(json['status'] as String? ?? 'pending'),
-      approvedMinutes: (json['approved_minutes'] as num?)?.toInt(),
-      rejectedMinutes: (json['rejected_minutes'] as num?)?.toInt(),
+      status: status,
+      // Hide per-status breakdown until the day is fully approved
+      approvedMinutes:
+          isDayApproved ? (json['approved_minutes'] as num?)?.toInt() : null,
+      rejectedMinutes:
+          isDayApproved ? (json['rejected_minutes'] as num?)?.toInt() : null,
       totalShiftMinutes: (json['total_shift_minutes'] as num?)?.toInt(),
     );
   }
@@ -122,6 +129,30 @@ class ApprovalActivity {
   bool get isClockOut => activityType == 'clock_out';
   bool get isLunch => activityType == 'lunch';
   bool get isGap => activityType == 'gap';
+
+  /// Return a copy with a different [finalStatus].
+  ApprovalActivity withStatus(ActivityFinalStatus status) {
+    if (status == finalStatus) return this;
+    return ApprovalActivity(
+      activityType: activityType,
+      activityId: activityId,
+      shiftId: shiftId,
+      startedAt: startedAt,
+      endedAt: endedAt,
+      durationMinutes: durationMinutes,
+      finalStatus: status,
+      autoReason: autoReason,
+      locationName: locationName,
+      locationType: locationType,
+      latitude: latitude,
+      longitude: longitude,
+      distanceKm: distanceKm,
+      transportMode: transportMode,
+      startLocationName: startLocationName,
+      endLocationName: endLocationName,
+      shiftType: shiftType,
+    );
+  }
 
   factory ApprovalActivity.fromJson(Map<String, dynamic> json) {
     return ApprovalActivity(
@@ -192,23 +223,42 @@ class DayApprovalDetail {
   factory DayApprovalDetail.fromJson(Map<String, dynamic> json) {
     final activitiesJson = json['activities'] as List<dynamic>? ?? [];
     final summary = json['summary'] as Map<String, dynamic>? ?? {};
+    final approvalStatus = ApprovalStatus.fromJson(
+        json['approval_status'] as String? ?? 'pending');
+    final isDayApproved = approvalStatus == ApprovalStatus.approved;
+
+    final rawActivities = activitiesJson
+        .map((a) => ApprovalActivity.fromJson(a as Map<String, dynamic>))
+        .toList();
+
+    // Until the day is fully approved, mask all per-activity statuses as
+    // "needs_review" so employees cannot see individual approved/rejected
+    // decisions before the supervisor finalizes the day.
+    final activities = isDayApproved
+        ? rawActivities
+        : rawActivities
+            .map((a) => a.withStatus(ActivityFinalStatus.needsReview))
+            .toList();
 
     return DayApprovalDetail(
       employeeId: json['employee_id'] as String,
       date: DateTime.parse(json['date'] as String),
       hasActiveShift: json['has_active_shift'] as bool? ?? false,
-      approvalStatus: ApprovalStatus.fromJson(
-          json['approval_status'] as String? ?? 'pending'),
+      approvalStatus: approvalStatus,
       notes: json['notes'] as String?,
-      activities: activitiesJson
-          .map((a) => ApprovalActivity.fromJson(a as Map<String, dynamic>))
-          .toList(),
+      activities: activities,
       totalShiftMinutes:
           (summary['total_shift_minutes'] as num?)?.toInt() ?? 0,
-      approvedMinutes: (summary['approved_minutes'] as num?)?.toInt() ?? 0,
-      rejectedMinutes: (summary['rejected_minutes'] as num?)?.toInt() ?? 0,
-      needsReviewCount:
-          (summary['needs_review_count'] as num?)?.toInt() ?? 0,
+      // Hide per-status breakdown until the day is fully approved
+      approvedMinutes: isDayApproved
+          ? (summary['approved_minutes'] as num?)?.toInt() ?? 0
+          : 0,
+      rejectedMinutes: isDayApproved
+          ? (summary['rejected_minutes'] as num?)?.toInt() ?? 0
+          : 0,
+      needsReviewCount: isDayApproved
+          ? (summary['needs_review_count'] as num?)?.toInt() ?? 0
+          : activities.length,
     );
   }
 }
