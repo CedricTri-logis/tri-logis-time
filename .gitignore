@@ -67,3 +67,4 @@ scripts/package-lock.json
 
 # Playwright MCP screenshots
 .playwright-mcp/
+.vercel

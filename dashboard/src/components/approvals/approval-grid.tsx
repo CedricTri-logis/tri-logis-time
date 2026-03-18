@@ -291,7 +291,7 @@ export function ApprovalGrid() {
           {!isLoading && hasAnyShifts && (
             <div className="mt-4 pt-4 border-t space-y-3">
               {/* Summary cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              <div className="flex flex-wrap gap-3">
                 <div className="flex flex-col p-3 bg-green-50/50 rounded-xl border border-green-100">
                   <span className="text-[10px] uppercase tracking-wider text-green-700/60 font-bold">Approuvé</span>
                   <span className="text-xl font-black text-green-700 tracking-tight">{formatHours(weekTotals.approved)}</span>
@@ -320,6 +320,14 @@ export function ApprovalGrid() {
                   <div className="flex flex-col p-3 bg-orange-50/50 rounded-xl border border-orange-100">
                     <span className="text-[10px] uppercase tracking-wider text-orange-700/60 font-bold">Dîner</span>
                     <span className="text-xl font-black text-orange-700 tracking-tight">{formatHours(weekTotals.lunch)}</span>
+                  </div>
+                )}
+                {weekTotals.gap > 0 && (
+                  <div className="flex flex-col p-3 bg-purple-50/50 rounded-xl border border-purple-100">
+                    <span className="text-[10px] uppercase tracking-wider text-purple-700/60 font-bold flex items-center gap-1">
+                      <WifiOff className="h-3 w-3" /> Temps non suivi
+                    </span>
+                    <span className="text-xl font-black text-purple-700 tracking-tight">{formatHours(weekTotals.gap)}</span>
                   </div>
                 )}
               </div>

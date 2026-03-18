@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useList } from '@refinedev/core';
 import { Users, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Pagination,
   PaginationContent,
@@ -13,29 +13,26 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { EmployeeTableExpandable } from '@/components/dashboard/employees/employee-table-expandable';
+import { EmployeeTable } from '@/components/dashboard/employees/employee-table';
 import { EmployeeFilters } from '@/components/dashboard/employees/employee-filters';
 import { EmptyState } from '@/components/dashboard/employees/empty-state';
-import { RatesTable } from '@/components/remuneration/rates-table';
-import { PremiumSection } from '@/components/remuneration/premium-section';
-import { getEmployeeRatesList, getWeekendPremium } from '@/lib/api/remuneration';
 import type { EmployeeListItem } from '@/types/employee';
-import type { EmployeeRateListItem, WeekendCleaningPremium } from '@/types/remuneration';
 import { CreateEmployeeDialog } from '@/components/dashboard/employees/create-employee-dialog';
 import type { EmployeeRoleType, EmployeeStatusType } from '@/lib/validations/employee';
 
 const PAGE_SIZE = 50;
 
 export default function EmployeesPage() {
-  // ── Liste tab state ──
   const [search, setSearch] = useState('');
   const [role, setRole] = useState<EmployeeRoleType | ''>('');
   const [status, setStatus] = useState<EmployeeStatusType | ''>('');
   const [currentPage, setCurrentPage] = useState(1);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+
+  // Debounced search with page reset
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
+  // Debounce search input and reset page
   useEffect(() => {
     const timer = setTimeout(() => {
       if (search !== debouncedSearch) {
@@ -47,6 +44,7 @@ export default function EmployeesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
+  // Handle filter changes with page reset
   const handleRoleChange = useCallback((newRole: EmployeeRoleType | '') => {
     setRole(newRole);
     setCurrentPage(1);
@@ -57,6 +55,7 @@ export default function EmployeesPage() {
     setCurrentPage(1);
   }, []);
 
+  // Build filters for the query
   const filters = useMemo(() => {
     const result: Array<{ field: string; operator: 'eq'; value: string }> = [];
     if (debouncedSearch) {
@@ -71,6 +70,7 @@ export default function EmployeesPage() {
     return result;
   }, [debouncedSearch, role, status]);
 
+  // Fetch employees using the extended data provider
   const { query, result } = useList<EmployeeListItem>({
     resource: 'employees',
     pagination: {
@@ -100,6 +100,7 @@ export default function EmployeesPage() {
     setCurrentPage(page);
   }, []);
 
+  // Generate page numbers for pagination
   const pageNumbers = useMemo(() => {
     const pages: number[] = [];
     const maxVisiblePages = 5;
@@ -118,46 +119,6 @@ export default function EmployeesPage() {
 
   const showEmptyState = !isLoading && employees.length === 0;
   const showPagination = !isLoading && totalPages > 1;
-
-  // ── Rémunération tab state ──
-  const [remEmployees, setRemEmployees] = useState<EmployeeRateListItem[]>([]);
-  const [premium, setPremium] = useState<WeekendCleaningPremium | null>(null);
-  const [remLoading, setRemLoading] = useState(false);
-  const [remSearch, setRemSearch] = useState('');
-  const [remFilter, setRemFilter] = useState<'all' | 'with_rate' | 'without_rate'>('all');
-  const [remError, setRemError] = useState<string | null>(null);
-  const [remLoaded, setRemLoaded] = useState(false);
-
-  const fetchRemunerationData = useCallback(async () => {
-    setRemLoading(true);
-    setRemError(null);
-    try {
-      const [empData, premData] = await Promise.all([
-        getEmployeeRatesList(),
-        getWeekendPremium(),
-      ]);
-      setRemEmployees(empData);
-      setPremium(premData);
-      setRemLoaded(true);
-    } catch (e: any) {
-      setRemError(e.message || 'Erreur lors du chargement');
-    } finally {
-      setRemLoading(false);
-    }
-  }, []);
-
-  const filteredRemEmployees = useMemo(() => {
-    return remEmployees.filter((emp) => {
-      const matchesSearch = !remSearch
-        || emp.full_name?.toLowerCase().includes(remSearch.toLowerCase())
-        || emp.employee_id_code?.toLowerCase().includes(remSearch.toLowerCase());
-      const matchesFilter =
-        remFilter === 'all' ? true
-        : remFilter === 'with_rate' ? emp.current_rate !== null
-        : emp.current_rate === null;
-      return matchesSearch && matchesFilter;
-    });
-  }, [remEmployees, remSearch, remFilter]);
 
   return (
     <div className="space-y-6">
@@ -182,129 +143,95 @@ export default function EmployeesPage() {
         </Button>
       </div>
 
-      <Tabs defaultValue="liste" onValueChange={(v) => {
-        if (v === 'remuneration' && !remLoaded) fetchRemunerationData();
-      }}>
-        <TabsList>
-          <TabsTrigger value="liste">Liste</TabsTrigger>
-          <TabsTrigger value="remuneration">Rémunération</TabsTrigger>
-        </TabsList>
+      {/* Filters */}
+      <Card>
+        <CardContent className="pt-6">
+          <EmployeeFilters
+            search={search}
+            role={role}
+            status={status}
+            onSearchChange={setSearch}
+            onRoleChange={handleRoleChange}
+            onStatusChange={handleStatusChange}
+            onClearFilters={handleClearFilters}
+          />
+        </CardContent>
+      </Card>
 
-        <TabsContent value="liste" className="space-y-6">
-          {/* Filters */}
-          <Card>
-            <CardContent className="pt-6">
-              <EmployeeFilters
-                search={search}
-                role={role}
-                status={status}
-                onSearchChange={setSearch}
-                onRoleChange={handleRoleChange}
-                onStatusChange={handleStatusChange}
-                onClearFilters={handleClearFilters}
-              />
-            </CardContent>
-          </Card>
+      {/* Error State */}
+      {isError && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="flex items-center justify-center py-8">
+            <p className="text-red-600">
+              Échec du chargement des employés. Veuillez réessayer.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
-          {/* Error State */}
-          {isError && (
-            <Card className="border-red-200 bg-red-50">
-              <CardContent className="flex items-center justify-center py-8">
-                <p className="text-red-600">
-                  Échec du chargement des employés. Veuillez réessayer.
-                </p>
-              </CardContent>
-            </Card>
-          )}
+      {/* Employee Table or Empty State */}
+      {showEmptyState ? (
+        <Card>
+          <CardContent>
+            <EmptyState
+              search={debouncedSearch}
+              role={role}
+              status={status}
+              onClearFilters={handleClearFilters}
+            />
+          </CardContent>
+        </Card>
+      ) : (
+        <EmployeeTable data={employees} isLoading={isLoading} />
+      )}
 
-          {/* Employee Table or Empty State */}
-          {showEmptyState ? (
-            <Card>
-              <CardContent>
-                <EmptyState
-                  search={debouncedSearch}
-                  role={role}
-                  status={status}
-                  onClearFilters={handleClearFilters}
+      {/* Pagination */}
+      {showPagination && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-slate-500">
+            Affichage de {(currentPage - 1) * PAGE_SIZE + 1} à{' '}
+            {Math.min(currentPage * PAGE_SIZE, totalCount)} sur {totalCount} employés
+          </p>
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (currentPage > 1) handlePageChange(currentPage - 1);
+                  }}
+                  className={currentPage <= 1 ? 'pointer-events-none opacity-50' : ''}
                 />
-              </CardContent>
-            </Card>
-          ) : (
-            <EmployeeTableExpandable data={employees} isLoading={isLoading} />
-          )}
-
-          {/* Pagination */}
-          {showPagination && (
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-slate-500">
-                Affichage de {(currentPage - 1) * PAGE_SIZE + 1} à{' '}
-                {Math.min(currentPage * PAGE_SIZE, totalCount)} sur {totalCount} employés
-              </p>
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        if (currentPage > 1) handlePageChange(currentPage - 1);
-                      }}
-                      className={currentPage <= 1 ? 'pointer-events-none opacity-50' : ''}
-                    />
-                  </PaginationItem>
-                  {pageNumbers.map((page) => (
-                    <PaginationItem key={page}>
-                      <PaginationLink
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          handlePageChange(page);
-                        }}
-                        isActive={page === currentPage}
-                      >
-                        {page}
-                      </PaginationLink>
-                    </PaginationItem>
-                  ))}
-                  <PaginationItem>
-                    <PaginationNext
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        if (currentPage < totalPages) handlePageChange(currentPage + 1);
-                      }}
-                      className={currentPage >= totalPages ? 'pointer-events-none opacity-50' : ''}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="remuneration" className="space-y-6">
-          {remError && (
-            <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">{remError}</div>
-          )}
-          <PremiumSection premium={premium} onUpdate={fetchRemunerationData} />
-          <Card>
-            <CardHeader>
-              <CardTitle>Taux horaires</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <RatesTable
-                employees={filteredRemEmployees}
-                loading={remLoading}
-                search={remSearch}
-                onSearchChange={setRemSearch}
-                filter={remFilter}
-                onFilterChange={setRemFilter}
-                onUpdate={fetchRemunerationData}
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+              </PaginationItem>
+              {pageNumbers.map((page) => (
+                <PaginationItem key={page}>
+                  <PaginationLink
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handlePageChange(page);
+                    }}
+                    isActive={page === currentPage}
+                  >
+                    {page}
+                  </PaginationLink>
+                </PaginationItem>
+              ))}
+              <PaginationItem>
+                <PaginationNext
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (currentPage < totalPages) handlePageChange(currentPage + 1);
+                  }}
+                  className={currentPage >= totalPages ? 'pointer-events-none opacity-50' : ''}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
 
       <CreateEmployeeDialog
         isOpen={showCreateDialog}
