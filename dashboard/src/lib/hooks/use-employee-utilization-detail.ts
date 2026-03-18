@@ -4,15 +4,22 @@ import { useCustom } from '@refinedev/core';
 import { useMemo } from 'react';
 import { toLocalDateString } from '@/lib/utils/date-utils';
 
+export interface SessionDetail {
+  session_name: string;
+  activity_type: string;
+  duration_minutes: number;
+  match: boolean | null;
+  location_category: 'match' | 'mismatch' | 'office' | 'home' | null;
+}
+
 export interface ClusterDetail {
   started_at: string;
   ended_at: string;
   duration_minutes: number;
   physical_location: string;
   physical_location_id: string | null;
-  session_building: string | null;
-  session_location_id: string | null;
-  session_activity_type: string | null;
+  sessions: SessionDetail[];
+  uncovered_minutes: number;
   match: boolean | null;
   location_category: 'match' | 'mismatch' | 'office' | 'home' | null;
 }

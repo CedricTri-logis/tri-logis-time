@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { toLocalDateString } from '@/lib/utils/date-utils';
@@ -117,6 +117,16 @@ export default function EmployeeUtilizationDetailPage() {
     toParam ? new Date(toParam + 'T00:00:00') : new Date()
   );
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [expandedClusters, setExpandedClusters] = useState<Set<number>>(new Set());
+
+  const toggleCluster = (index: number) => {
+    setExpandedClusters(prev => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  };
 
   const { data, isLoading } = useEmployeeUtilizationDetail({
     employeeId,
@@ -244,22 +254,77 @@ export default function EmployeeUtilizationDetailPage() {
                     <tbody>
                       {filteredClusters.map((c, i) => {
                         const isMismatch = c.match === false;
+                        const sessions = c.sessions ?? [];
+                        const hasUncovered = c.uncovered_minutes > 0;
+                        const isExpandable = sessions.length > 1 || hasUncovered;
+                        const isExpanded = expandedClusters.has(i);
+
+                        const sessionLabel = sessions.length === 0
+                          ? '\u2014'
+                          : sessions.length === 1 && !hasUncovered
+                            ? sessions[0].session_name
+                            : `${sessions.length} session${sessions.length > 1 ? 's' : ''}`;
+
                         return (
-                          <tr key={i} className={`border-b last:border-0 ${isMismatch ? 'bg-red-50' : ''}`}>
-                            <td className="py-3 pr-4 text-slate-600">
-                              {format(parseISO(c.started_at), 'HH:mm')} - {format(parseISO(c.ended_at), 'HH:mm')}
-                            </td>
-                            <td className="py-3 pr-4 font-medium">{c.physical_location}</td>
-                            <td className="py-3 pr-4 text-slate-600">{c.session_building ?? '\u2014'}</td>
-                            <td className="py-3 pr-4 text-center">
-                              {c.match === true && <span className="text-emerald-600 font-bold">{'\u2713'}</span>}
-                              {c.match === false && <span className="text-red-600 font-bold">{'\u2717'}</span>}
-                              {c.match === null && c.location_category === 'office' && <span className="text-blue-600 font-bold">Bureau</span>}
-                              {c.match === null && c.location_category === 'home' && <span className="text-purple-600 font-bold">Domicile</span>}
-                              {c.match === null && c.location_category === null && <span className="text-slate-400">{'\u2014'}</span>}
-                            </td>
-                            <td className="py-3 text-right">{c.duration_minutes} min</td>
-                          </tr>
+                          <React.Fragment key={i}>
+                            <tr
+                              className={`border-b ${isMismatch ? 'bg-red-50' : ''} ${isExpandable ? 'cursor-pointer hover:bg-slate-50' : ''}`}
+                              onClick={isExpandable ? () => toggleCluster(i) : undefined}
+                            >
+                              <td className="py-3 pr-4 text-slate-600">
+                                {format(parseISO(c.started_at), 'HH:mm')} - {format(parseISO(c.ended_at), 'HH:mm')}
+                              </td>
+                              <td className="py-3 pr-4 font-medium">{c.physical_location}</td>
+                              <td className="py-3 pr-4 text-slate-600">
+                                <span className="inline-flex items-center gap-1">
+                                  {isExpandable && (
+                                    isExpanded
+                                      ? <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+                                      : <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
+                                  )}
+                                  {sessionLabel}
+                                </span>
+                              </td>
+                              <td className="py-3 pr-4 text-center">
+                                {c.match === true && <span className="text-emerald-600 font-bold">{'\u2713'}</span>}
+                                {c.match === false && <span className="text-red-600 font-bold">{'\u2717'}</span>}
+                                {c.match === null && c.location_category === 'office' && <span className="text-blue-600 font-bold">Bureau</span>}
+                                {c.match === null && c.location_category === 'home' && <span className="text-purple-600 font-bold">Domicile</span>}
+                                {c.match === null && c.location_category === null && <span className="text-slate-400">{'\u2014'}</span>}
+                              </td>
+                              <td className="py-3 text-right">{c.duration_minutes} min</td>
+                            </tr>
+                            {isExpanded && sessions.map((s, si) => (
+                              <tr key={`${i}-s${si}`} className="border-b bg-slate-50/50">
+                                <td className="py-2 pr-4" />
+                                <td className="py-2 pr-4" />
+                                <td className="py-2 pr-4 text-slate-500 text-xs pl-5">
+                                  <span className="text-slate-300 mr-1.5">{'\u2514\u2500'}</span>
+                                  {s.session_name}
+                                </td>
+                                <td className="py-2 pr-4 text-center">
+                                  {s.match === true && <span className="text-emerald-600 font-bold">{'\u2713'}</span>}
+                                  {s.match === false && <span className="text-red-600 font-bold">{'\u2717'}</span>}
+                                  {s.match === null && <span className="text-slate-400">{'\u2014'}</span>}
+                                </td>
+                                <td className="py-2 text-right text-xs text-slate-500">{s.duration_minutes.toFixed(1)} min</td>
+                              </tr>
+                            ))}
+                            {isExpanded && hasUncovered && (
+                              <tr className="border-b bg-slate-50/50">
+                                <td className="py-2 pr-4" />
+                                <td className="py-2 pr-4" />
+                                <td className="py-2 pr-4 text-slate-400 text-xs pl-5">
+                                  <span className="text-slate-300 mr-1.5">{'\u2514\u2500'}</span>
+                                  Sans session
+                                </td>
+                                <td className="py-2 pr-4 text-center">
+                                  <span className="text-slate-400">{'\u2014'}</span>
+                                </td>
+                                <td className="py-2 text-right text-xs text-slate-500">{c.uncovered_minutes.toFixed(1)} min</td>
+                              </tr>
+                            )}
+                          </React.Fragment>
                         );
                       })}
                     </tbody>
