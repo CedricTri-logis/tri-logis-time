@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { useCustom } from '@refinedev/core';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toLocalDateString } from '@/lib/utils/date-utils';
+import { supabaseClient } from '@/lib/supabase/client';
 import {
   useCleaningUtilization,
   type CleaningUtilizationEmployee,
@@ -44,22 +44,18 @@ export default function CleaningUtilizationPage() {
   const [employeeId, setEmployeeId] = useState<string>('');
 
   // Fetch employee list for filter
-  const { result: empResult } = useCustom({
-    url: '',
-    method: 'get',
-    meta: { rpc: 'get_supervised_employees' },
-    config: { payload: {} as Record<string, unknown> },
-    queryOptions: { staleTime: 60 * 1000 },
-  });
-
-  const employeeOptions = useMemo(() => {
-    const raw = empResult?.data as unknown as Array<{
-      id: string;
-      full_name: string;
-    }> | undefined;
-    if (!raw) return [];
-    return [...raw].sort((a, b) => a.full_name.localeCompare(b.full_name));
-  }, [empResult]);
+  const [employeeOptions, setEmployeeOptions] = useState<Array<{ id: string; full_name: string }>>([]);
+  useEffect(() => {
+    async function loadEmployees() {
+      const { data, error } = await supabaseClient.rpc('get_supervised_employees');
+      if (data && !error) {
+        const sorted = (data as Array<{ id: string; full_name: string }>)
+          .sort((a, b) => (a.full_name ?? '').localeCompare(b.full_name ?? ''));
+        setEmployeeOptions(sorted);
+      }
+    }
+    loadEmployees();
+  }, []);
 
   const { employees, totals, isLoading } = useCleaningUtilization({
     dateFrom,
