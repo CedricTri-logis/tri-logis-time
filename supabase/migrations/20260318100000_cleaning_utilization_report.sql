@@ -57,30 +57,39 @@ BEGIN
     GROUP BY es.employee_id
   ),
   employee_sessions AS (
-    -- Session durations with category breakdown
+    -- Session durations clamped to shift boundaries (overlap only)
     SELECT
       ws.employee_id,
-      SUM(ws.duration_minutes) AS total_session_minutes,
+      SUM(GREATEST(EXTRACT(EPOCH FROM (
+        LEAST(ws.completed_at, es.clocked_out_at) - GREATEST(ws.started_at, es.clocked_in_at)
+      )) / 60.0, 0)) AS total_session_minutes,
       COUNT(*) AS total_sessions,
       -- Short-term: studio-based
-      COALESCE(SUM(ws.duration_minutes)
+      COALESCE(SUM(GREATEST(EXTRACT(EPOCH FROM (
+        LEAST(ws.completed_at, es.clocked_out_at) - GREATEST(ws.started_at, es.clocked_in_at)
+      )) / 60.0, 0))
         FILTER (WHERE ws.studio_id IS NOT NULL AND st.studio_type = 'unit'), 0)
         AS short_term_unit_minutes,
-      COALESCE(SUM(ws.duration_minutes)
+      COALESCE(SUM(GREATEST(EXTRACT(EPOCH FROM (
+        LEAST(ws.completed_at, es.clocked_out_at) - GREATEST(ws.started_at, es.clocked_in_at)
+      )) / 60.0, 0))
         FILTER (WHERE ws.studio_id IS NOT NULL AND st.studio_type IN ('common_area', 'conciergerie')), 0)
         AS short_term_common_minutes,
       -- Long-term: property_building-based
-      COALESCE(SUM(ws.duration_minutes)
+      COALESCE(SUM(GREATEST(EXTRACT(EPOCH FROM (
+        LEAST(ws.completed_at, es.clocked_out_at) - GREATEST(ws.started_at, es.clocked_in_at)
+      )) / 60.0, 0))
         FILTER (WHERE ws.building_id IS NOT NULL AND ws.activity_type = 'cleaning'), 0)
         AS cleaning_long_term_minutes,
-      COALESCE(SUM(ws.duration_minutes)
+      COALESCE(SUM(GREATEST(EXTRACT(EPOCH FROM (
+        LEAST(ws.completed_at, es.clocked_out_at) - GREATEST(ws.started_at, es.clocked_in_at)
+      )) / 60.0, 0))
         FILTER (WHERE ws.building_id IS NOT NULL AND ws.activity_type = 'maintenance'), 0)
         AS maintenance_long_term_minutes
     FROM work_sessions ws
+    JOIN employee_shifts es ON es.shift_id = ws.shift_id
     LEFT JOIN studios st ON st.id = ws.studio_id
     WHERE ws.status IN ('completed', 'auto_closed', 'manually_closed')
-      AND ws.started_at::date BETWEEN p_date_from AND p_date_to
-      AND (p_employee_id IS NULL OR ws.employee_id = p_employee_id)
     GROUP BY ws.employee_id
   ),
   employee_accuracy AS (
