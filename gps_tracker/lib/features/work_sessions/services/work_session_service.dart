@@ -214,7 +214,12 @@ class WorkSessionService {
       };
       if (qrCode != null) params['p_qr_code'] = qrCode;
       if (studioId != null) params['p_studio_id'] = studioId;
-      if (buildingId != null) params['p_building_id'] = buildingId;
+      // Only send building_id for non-studio sessions (maintenance/building-based cleaning).
+      // Studio-based cleaning resolves building from the studio on the server side.
+      // The studio.buildingId is from the `buildings` table, but the FK references `property_buildings`.
+      if (buildingId != null && studioId == null) {
+        params['p_building_id'] = buildingId;
+      }
       if (apartmentId != null) params['p_apartment_id'] = apartmentId;
       if (latitude != null) params['p_latitude'] = latitude;
       if (longitude != null) params['p_longitude'] = longitude;
@@ -572,7 +577,8 @@ class WorkSessionService {
             if (qrCode.isNotEmpty) params['p_qr_code'] = qrCode;
             params['p_studio_id'] = session.studioId;
           }
-          if (session.buildingId != null) {
+          // Only send building_id for non-studio sessions (maintenance/building-based cleaning).
+          if (session.buildingId != null && session.studioId == null) {
             params['p_building_id'] = session.buildingId;
           }
           if (session.apartmentId != null) {

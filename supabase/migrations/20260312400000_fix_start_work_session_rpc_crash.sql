@@ -19,7 +19,12 @@ ALTER TABLE work_sessions DROP CONSTRAINT IF EXISTS chk_ws_cleaning_has_studio;
 ALTER TABLE work_sessions ADD CONSTRAINT chk_ws_cleaning_has_location
   CHECK (activity_type != 'cleaning' OR studio_id IS NOT NULL OR building_id IS NOT NULL);
 
--- 3. Fix the RPC: use individual variables instead of RECORD field access
+-- 3. Drop old overload that had p_qr_code before p_studio_id (different param order = new overload, not replace)
+DROP FUNCTION IF EXISTS start_work_session(
+  UUID, UUID, TEXT, TEXT, UUID, UUID, UUID, DOUBLE PRECISION, DOUBLE PRECISION, DOUBLE PRECISION
+);
+
+-- 4. Fix the RPC: use individual variables instead of RECORD field access
 CREATE OR REPLACE FUNCTION start_work_session(
   p_employee_id UUID,
   p_shift_id UUID,
