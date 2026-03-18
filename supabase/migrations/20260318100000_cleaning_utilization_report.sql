@@ -109,6 +109,7 @@ BEGIN
     JOIN work_sessions ws ON ws.shift_id = sc.shift_id
       AND ws.employee_id = sc.employee_id
       AND ws.status IN ('completed', 'auto_closed', 'manually_closed')
+      AND ws.activity_type != 'admin'  -- admin sessions have no location
       AND sc.started_at < ws.completed_at AND sc.ended_at > ws.started_at
     -- Resolve session's building location
     LEFT JOIN studios st ON st.id = ws.studio_id
