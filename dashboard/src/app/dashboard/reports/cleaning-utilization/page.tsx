@@ -47,7 +47,7 @@ export default function CleaningUtilizationPage() {
   const { result: empResult } = useCustom({
     url: '',
     method: 'get',
-    meta: { rpc: 'get_supervised_employees_list' },
+    meta: { rpc: 'get_supervised_employees' },
     config: { payload: {} as Record<string, unknown> },
     queryOptions: { staleTime: 60 * 1000 },
   });
