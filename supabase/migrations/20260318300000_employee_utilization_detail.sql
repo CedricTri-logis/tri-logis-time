@@ -52,6 +52,8 @@ BEGIN
         'session_building', CASE
           WHEN ws.id IS NULL THEN NULL
           WHEN ws.activity_type = 'admin' THEN 'Admin'
+          WHEN st.id IS NOT NULL THEN ws.activity_type || ' @ ' || COALESCE(b.name, 'Inconnu') || ' - ' || st.studio_number
+          WHEN apt.id IS NOT NULL THEN ws.activity_type || ' @ ' || COALESCE(pb.name, 'Inconnu') || ' - ' || COALESCE(apt.apartment_name, apt.unit_number, '')
           ELSE ws.activity_type || ' @ ' || COALESCE(b.name, pb.name, 'Inconnu')
         END,
         'session_location_id', COALESCE(b_loc.id, pb_loc.id),
@@ -77,7 +79,7 @@ BEGIN
     LEFT JOIN locations loc ON loc.id = sc.matched_location_id
     -- Find overlapping work session
     LEFT JOIN LATERAL (
-      SELECT ws2.id, ws2.activity_type, ws2.studio_id, ws2.building_id
+      SELECT ws2.id, ws2.activity_type, ws2.studio_id, ws2.building_id, ws2.apartment_id
       FROM work_sessions ws2
       WHERE ws2.shift_id = sc.shift_id
         AND ws2.employee_id = p_employee_id
@@ -92,6 +94,7 @@ BEGIN
     LEFT JOIN locations b_loc ON b_loc.id = b.location_id
     LEFT JOIN property_buildings pb ON pb.id = ws.building_id
     LEFT JOIN locations pb_loc ON pb_loc.id = pb.location_id
+    LEFT JOIN apartments apt ON apt.id = ws.apartment_id
     GROUP BY sc.shift_id
   ),
   shift_trips AS (
