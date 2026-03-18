@@ -7,13 +7,14 @@ import { RatesTable } from '@/components/remuneration/rates-table';
 import { PremiumSection } from '@/components/remuneration/premium-section';
 import { getEmployeeRatesList, getWeekendPremium } from '@/lib/api/remuneration';
 import type { EmployeeRateListItem, WeekendCleaningPremium } from '@/types/remuneration';
+import type { CompensationFilter } from '@/components/remuneration/rates-table';
 
 export default function RemunerationPage() {
   const [employees, setEmployees] = useState<EmployeeRateListItem[]>([]);
   const [premium, setPremium] = useState<WeekendCleaningPremium | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'all' | 'with_rate' | 'without_rate'>('all');
+  const [filter, setFilter] = useState<CompensationFilter>('all');
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = async () => {
@@ -41,8 +42,9 @@ export default function RemunerationPage() {
       || (emp.employee_id_code?.toLowerCase().includes(search.toLowerCase()));
     const matchesFilter =
       filter === 'all' ? true
-      : filter === 'with_rate' ? emp.current_rate !== null
-      : emp.current_rate === null;
+      : filter === 'with_compensation' ? emp.current_rate !== null
+      : filter === 'without_compensation' ? emp.current_rate === null
+      : true;
     return matchesSearch && matchesFilter;
   });
 
