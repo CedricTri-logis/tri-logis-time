@@ -126,16 +126,84 @@ class ShiftNotifier extends StateNotifier<ShiftState>
 
     final newStatus = record['status'] as String?;
     final shiftId = record['id'] as String?;
+    final clockOutReason = record['clock_out_reason'] as String?;
+    final workBodyId = record['work_body_id'] as String?;
 
-    // If the active shift was closed server-side (admin, midnight cleanup, etc.)
+    // If the active shift was closed server-side
     if (shiftId == activeShift.serverId && newStatus == 'completed') {
-      final reason = record['clock_out_reason'] as String? ?? 'server_closed';
+      // Lunch transition — do NOT close shift, transition to new segment
+      if (clockOutReason == 'lunch' || clockOutReason == 'lunch_end') {
+        if (workBodyId != null) {
+          _handleLunchTransition(workBodyId);
+        }
+        return;
+      }
+
+      final reason = clockOutReason ?? 'server_closed';
       _logger?.shift(Severity.warn, 'Shift closed by server', metadata: {
         'shift_id': shiftId,
         'reason': reason,
         'source': 'realtime',
       },);
       _closeShiftLocally(activeShift, reason);
+    }
+
+    // INSERT event: a new segment was created with the same work_body_id
+    if (newStatus == 'active' && workBodyId != null) {
+      final activeWorkBodyId = activeShift.workBodyId;
+      if (activeWorkBodyId != null && workBodyId == activeWorkBodyId && shiftId != activeShift.serverId) {
+        _handleLunchTransition(workBodyId);
+      }
+    }
+  }
+
+  /// Fetch the active sibling segment after a lunch transition.
+  Future<void> _handleLunchTransition(String workBodyId) async {
+    try {
+      final client = _ref.read(supabaseClientProvider);
+      final response = await client
+          .from('shifts')
+          .select()
+          .eq('work_body_id', workBodyId)
+          .eq('status', 'active')
+          .maybeSingle();
+
+      if (response != null) {
+        final newShift = Shift.fromJson(response);
+
+        // Save locally
+        final localDb = _ref.read(localDatabaseProvider);
+        final localSegment = LocalShift(
+          id: newShift.id,
+          employeeId: newShift.employeeId,
+          clockedInAt: newShift.clockedInAt,
+          status: 'active',
+          syncStatus: 'synced',
+          serverId: newShift.id,
+          workBodyId: newShift.workBodyId,
+          isLunch: newShift.isLunch,
+          shiftType: newShift.shiftType.toJson(),
+          createdAt: newShift.createdAt,
+          updatedAt: newShift.updatedAt,
+        );
+        await localDb.insertShiftSegment(localSegment);
+
+        state = state.copyWith(activeShift: newShift);
+
+        // Update Live Activity and GPS based on new segment type
+        if (newShift.isLunch) {
+          await _ref.read(trackingProvider.notifier).pauseForLunch();
+          ShiftActivityService.instance.updateStatus('lunch');
+        } else {
+          await _ref.read(trackingProvider.notifier).startTracking();
+          ShiftActivityService.instance.updateStatus('active');
+        }
+      }
+    } catch (e) {
+      _logger?.shift(Severity.error, 'Failed to handle lunch transition', metadata: {
+        'work_body_id': workBodyId,
+        'error': e.toString(),
+      });
     }
   }
 
@@ -209,7 +277,7 @@ class ShiftNotifier extends StateNotifier<ShiftState>
 
       final response = await client
           .from('shifts')
-          .select('id, status, clock_out_reason')
+          .select('id, status, clock_out_reason, work_body_id')
           .eq('id', serverId)
           .maybeSingle();
 
@@ -250,7 +318,7 @@ class ShiftNotifier extends StateNotifier<ShiftState>
           await _ref.read(authServiceProvider).refreshSession(thresholdMinutes: 0);
           final retryResponse = await client
               .from('shifts')
-              .select('id, status, clock_out_reason')
+              .select('id, status, clock_out_reason, work_body_id')
               .eq('id', serverId)
               .maybeSingle();
 
@@ -262,6 +330,14 @@ class ShiftNotifier extends StateNotifier<ShiftState>
             final serverStatus = retryResponse['status'] as String?;
             if (serverStatus == 'completed') {
               final reason = retryResponse['clock_out_reason'] as String? ?? 'server_closed';
+              // Lunch transition — do NOT close shift
+              if (reason == 'lunch' || reason == 'lunch_end') {
+                final workBodyId = retryResponse['work_body_id'] as String?;
+                if (workBodyId != null) {
+                  await _handleLunchTransition(workBodyId);
+                }
+                return;
+              }
               _logger?.shift(Severity.warn, 'Shift closed by server', metadata: {
                 'shift_id': serverId,
                 'reason': reason,
@@ -293,6 +369,14 @@ class ShiftNotifier extends StateNotifier<ShiftState>
       final serverStatus = response['status'] as String?;
       if (serverStatus == 'completed') {
         final reason = response['clock_out_reason'] as String? ?? 'server_closed';
+        // Lunch transition — do NOT close shift
+        if (reason == 'lunch' || reason == 'lunch_end') {
+          final workBodyId = response['work_body_id'] as String?;
+          if (workBodyId != null) {
+            await _handleLunchTransition(workBodyId);
+          }
+          return;
+        }
         _logger?.shift(Severity.warn, 'Shift closed by server', metadata: {
           'shift_id': serverId,
           'reason': reason,
