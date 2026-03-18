@@ -40,6 +40,55 @@ BEGIN
       AND s.status = 'completed' AND s.is_lunch IS NOT TRUE
       AND s.clocked_in_at::date BETWEEN p_date_from AND p_date_to
   ),
+  -- Per-cluster sessions: all work sessions overlapping each cluster
+  cluster_sessions AS (
+    SELECT
+      sc.id AS cluster_id,
+      sc.shift_id,
+      sc.matched_location_id,
+      jsonb_agg(jsonb_build_object(
+        'session_name', CASE
+          WHEN ws.activity_type = 'admin' THEN 'Admin'
+          WHEN st.id IS NOT NULL THEN ws.activity_type || ' @ ' || COALESCE(b.name, 'Inconnu') || ' - ' || st.studio_number
+          WHEN apt.id IS NOT NULL THEN ws.activity_type || ' @ ' || COALESCE(pb.name, 'Inconnu') || ' - ' || COALESCE(apt.apartment_name, apt.unit_number, '')
+          ELSE ws.activity_type || ' @ ' || COALESCE(b.name, pb.name, 'Inconnu')
+        END,
+        'activity_type', ws.activity_type,
+        'duration_minutes', round(EXTRACT(EPOCH FROM (
+          LEAST(ws.completed_at, sc.ended_at) - GREATEST(ws.started_at, sc.started_at)
+        )) / 60.0, 1),
+        'match', CASE
+          WHEN ws.activity_type = 'admin' THEN NULL
+          WHEN COALESCE(b_loc.id, pb_loc.id) IS NULL THEN NULL
+          ELSE sc.matched_location_id = COALESCE(b_loc.id, pb_loc.id)
+        END,
+        'location_category', CASE
+          WHEN ws.activity_type = 'admin' AND loc.is_also_office = true THEN 'office'
+          WHEN ws.activity_type = 'admin' AND loc.is_employee_home = true THEN 'home'
+          WHEN ws.activity_type = 'admin' THEN NULL
+          WHEN COALESCE(b_loc.id, pb_loc.id) IS NOT NULL
+            AND sc.matched_location_id = COALESCE(b_loc.id, pb_loc.id) THEN 'match'
+          ELSE 'mismatch'
+        END
+      ) ORDER BY ws.started_at) AS sessions,
+      SUM(EXTRACT(EPOCH FROM (
+        LEAST(ws.completed_at, sc.ended_at) - GREATEST(ws.started_at, sc.started_at)
+      )) / 60.0) AS covered_minutes
+    FROM stationary_clusters sc
+    JOIN employee_shifts es ON es.shift_id = sc.shift_id
+    LEFT JOIN locations loc ON loc.id = sc.matched_location_id
+    JOIN work_sessions ws ON ws.shift_id = sc.shift_id
+      AND ws.employee_id = p_employee_id
+      AND ws.status IN ('completed', 'auto_closed', 'manually_closed')
+      AND sc.started_at < ws.completed_at AND sc.ended_at > ws.started_at
+    LEFT JOIN studios st ON st.id = ws.studio_id
+    LEFT JOIN buildings b ON b.id = st.building_id
+    LEFT JOIN locations b_loc ON b_loc.id = b.location_id
+    LEFT JOIN property_buildings pb ON pb.id = ws.building_id
+    LEFT JOIN locations pb_loc ON pb_loc.id = pb.location_id
+    LEFT JOIN apartments apt ON apt.id = ws.apartment_id
+    GROUP BY sc.id, sc.shift_id, sc.matched_location_id, loc.is_also_office, loc.is_employee_home
+  ),
   shift_clusters AS (
     SELECT
       sc.shift_id,
@@ -49,52 +98,28 @@ BEGIN
         'duration_minutes', round(sc.duration_seconds / 60.0, 1),
         'physical_location', COALESCE(loc.name, 'Non identifie'),
         'physical_location_id', sc.matched_location_id,
-        'session_building', CASE
-          WHEN ws.id IS NULL THEN NULL
-          WHEN ws.activity_type = 'admin' THEN 'Admin'
-          WHEN st.id IS NOT NULL THEN ws.activity_type || ' @ ' || COALESCE(b.name, 'Inconnu') || ' - ' || st.studio_number
-          WHEN apt.id IS NOT NULL THEN ws.activity_type || ' @ ' || COALESCE(pb.name, 'Inconnu') || ' - ' || COALESCE(apt.apartment_name, apt.unit_number, '')
-          ELSE ws.activity_type || ' @ ' || COALESCE(b.name, pb.name, 'Inconnu')
-        END,
-        'session_location_id', COALESCE(b_loc.id, pb_loc.id),
-        'session_activity_type', ws.activity_type,
+        'sessions', COALESCE(cs.sessions, '[]'::jsonb),
+        'uncovered_minutes', round(GREATEST(sc.duration_seconds / 60.0 - COALESCE(cs.covered_minutes, 0), 0), 1),
+        -- Overall match: true if ANY session matches, false if all mismatch, null if no sessions
         'match', CASE
-          WHEN ws.id IS NULL THEN NULL
-          WHEN ws.activity_type = 'admin' THEN NULL
-          WHEN COALESCE(b_loc.id, pb_loc.id) IS NULL THEN NULL
-          ELSE sc.matched_location_id = COALESCE(b_loc.id, pb_loc.id)
+          WHEN cs.sessions IS NULL THEN NULL
+          WHEN EXISTS (SELECT 1 FROM jsonb_array_elements(cs.sessions) s WHERE (s->>'match')::boolean = true) THEN true
+          WHEN EXISTS (SELECT 1 FROM jsonb_array_elements(cs.sessions) s WHERE (s->>'match')::boolean = false) THEN false
+          ELSE NULL
         END,
         'location_category', CASE
-          WHEN ws.id IS NULL THEN NULL
-          WHEN ws.activity_type = 'admin' AND loc.is_also_office = true THEN 'office'
-          WHEN ws.activity_type = 'admin' AND loc.is_employee_home = true THEN 'home'
-          WHEN ws.activity_type = 'admin' THEN NULL
-          WHEN COALESCE(b_loc.id, pb_loc.id) IS NOT NULL
-            AND sc.matched_location_id = COALESCE(b_loc.id, pb_loc.id) THEN 'match'
-          ELSE 'mismatch'
+          WHEN cs.sessions IS NULL THEN NULL
+          WHEN EXISTS (SELECT 1 FROM jsonb_array_elements(cs.sessions) s WHERE s->>'location_category' = 'office') THEN 'office'
+          WHEN EXISTS (SELECT 1 FROM jsonb_array_elements(cs.sessions) s WHERE s->>'location_category' = 'home') THEN 'home'
+          WHEN EXISTS (SELECT 1 FROM jsonb_array_elements(cs.sessions) s WHERE s->>'location_category' = 'match') THEN 'match'
+          WHEN EXISTS (SELECT 1 FROM jsonb_array_elements(cs.sessions) s WHERE s->>'location_category' = 'mismatch') THEN 'mismatch'
+          ELSE NULL
         END
       ) ORDER BY sc.started_at) AS clusters
     FROM stationary_clusters sc
     JOIN employee_shifts es ON es.shift_id = sc.shift_id
     LEFT JOIN locations loc ON loc.id = sc.matched_location_id
-    -- Find overlapping work session
-    LEFT JOIN LATERAL (
-      SELECT ws2.id, ws2.activity_type, ws2.studio_id, ws2.building_id, ws2.apartment_id
-      FROM work_sessions ws2
-      WHERE ws2.shift_id = sc.shift_id
-        AND ws2.employee_id = p_employee_id
-        AND ws2.status IN ('completed', 'auto_closed', 'manually_closed')
-        AND sc.started_at < ws2.completed_at AND sc.ended_at > ws2.started_at
-      ORDER BY ws2.started_at
-      LIMIT 1
-    ) ws ON true
-    -- Resolve session building location
-    LEFT JOIN studios st ON st.id = ws.studio_id
-    LEFT JOIN buildings b ON b.id = st.building_id
-    LEFT JOIN locations b_loc ON b_loc.id = b.location_id
-    LEFT JOIN property_buildings pb ON pb.id = ws.building_id
-    LEFT JOIN locations pb_loc ON pb_loc.id = pb.location_id
-    LEFT JOIN apartments apt ON apt.id = ws.apartment_id
+    LEFT JOIN cluster_sessions cs ON cs.cluster_id = sc.id
     GROUP BY sc.shift_id
   ),
   shift_trips AS (
