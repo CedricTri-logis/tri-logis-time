@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toLocalDateString } from '@/lib/utils/date-utils';
 import { supabaseClient } from '@/lib/supabase/client';
@@ -39,8 +41,16 @@ function PercentBar({ value, thresholds }: {
 }
 
 export default function CleaningUtilizationPage() {
-  const [dateFrom, setDateFrom] = useState(() => subDays(new Date(), 7));
-  const [dateTo, setDateTo] = useState(() => new Date());
+  const searchParams = useSearchParams();
+  const fromParam = searchParams.get('from');
+  const toParam = searchParams.get('to');
+
+  const [dateFrom, setDateFrom] = useState(() =>
+    fromParam ? new Date(fromParam + 'T00:00:00') : subDays(new Date(), 7)
+  );
+  const [dateTo, setDateTo] = useState(() =>
+    toParam ? new Date(toParam + 'T00:00:00') : new Date()
+  );
   const [employeeId, setEmployeeId] = useState<string>('');
 
   // Fetch employee list for filter
@@ -164,7 +174,12 @@ export default function CleaningUtilizationPage() {
                       className="border-b last:border-0"
                     >
                       <td className="py-3 pr-4 font-medium">
-                        {emp.employee_name}
+                        <Link
+                          href={`/dashboard/reports/cleaning-utilization/${emp.employee_id}?from=${toLocalDateString(dateFrom)}&to=${toLocalDateString(dateTo)}`}
+                          className="text-blue-600 hover:underline"
+                        >
+                          {emp.employee_name}
+                        </Link>
                       </td>
                       <td className="py-3 pr-4 text-right">
                         {formatHours(emp.total_shift_minutes)}
