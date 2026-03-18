@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { useOne } from '@refinedev/core';
-import { ArrowLeft, User, Shield, AlertTriangle, History, UserCheck, DollarSign } from 'lucide-react';
+import { ArrowLeft, User, Shield, AlertTriangle, History, UserCheck } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,10 +17,7 @@ import { SupervisorAssignment } from '@/components/dashboard/employees/superviso
 import { DeactivationWarningDialog } from '@/components/dashboard/employees/deactivation-warning-dialog';
 import { supabaseClient } from '@/lib/supabase/client';
 import { EmployeeCategoriesCard } from '@/components/employees/employee-categories-card';
-import { RateDialog } from '@/components/remuneration/rate-dialog';
-import { RateHistory } from '@/components/remuneration/rate-history';
 import type { EmployeeDetail, UpdateEmployeeResponse, UpdateStatusResponse } from '@/types/employee';
-import type { EmployeeRateListItem } from '@/types/remuneration';
 import type { EmployeeEditExtendedInput, EmployeeStatusType } from '@/lib/validations/employee';
 
 export default function EmployeeDetailPage() {
@@ -31,9 +28,6 @@ export default function EmployeeDetailPage() {
   const [currentUser, setCurrentUser] = useState<{ id: string; role: string } | null>(null);
   const [pendingStatus, setPendingStatus] = useState<EmployeeStatusType | null>(null);
   const [showDeactivationWarning, setShowDeactivationWarning] = useState(false);
-  const [showRateDialog, setShowRateDialog] = useState(false);
-  const [showRateHistory, setShowRateHistory] = useState(false);
-  const [currentRate, setCurrentRate] = useState<{ rate: number; effective_from: string } | null>(null);
 
   // Fetch current user info
   useEffect(() => {
@@ -52,26 +46,6 @@ export default function EmployeeDetailPage() {
     };
     fetchCurrentUser();
   }, []);
-
-  // Fetch current hourly rate
-  const fetchCurrentRate = useCallback(() => {
-    if (!employeeId) return;
-    supabaseClient
-      .from('employee_hourly_rates')
-      .select('rate, effective_from')
-      .eq('employee_id', employeeId)
-      .is('effective_to', null)
-      .order('effective_from', { ascending: false })
-      .limit(1)
-      .single()
-      .then(({ data }) => {
-        setCurrentRate(data ?? null);
-      });
-  }, [employeeId]);
-
-  useEffect(() => {
-    fetchCurrentRate();
-  }, [fetchCurrentRate]);
 
   // Fetch employee details
   const { query, result: employee } = useOne<EmployeeDetail>({
@@ -419,76 +393,6 @@ export default function EmployeeDetailPage() {
 
       {/* Employee Categories */}
       <EmployeeCategoriesCard employeeId={employeeId} isDisabled={!canEdit} />
-
-      {/* Remuneration */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <DollarSign className="h-5 w-5" />
-            Rémunération
-          </CardTitle>
-          <CardDescription>
-            Gérer le taux horaire de cet employé.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {currentRate ? (
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-2xl font-bold">{currentRate.rate.toFixed(2)}$/h</p>
-                <p className="text-sm text-muted-foreground">
-                  Depuis le {new Date(currentRate.effective_from + 'T00:00:00').toLocaleDateString('fr-CA', {
-                    year: 'numeric', month: 'long', day: 'numeric',
-                  })}
-                </p>
-              </div>
-              {canEdit && (
-                <Button variant="outline" size="sm" onClick={() => setShowRateDialog(true)}>
-                  Modifier le taux
-                </Button>
-              )}
-            </div>
-          ) : (
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">Aucun taux horaire défini.</p>
-              {canEdit && (
-                <Button variant="outline" size="sm" onClick={() => setShowRateDialog(true)}>
-                  Définir un taux
-                </Button>
-              )}
-            </div>
-          )}
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowRateHistory(!showRateHistory)}
-          >
-            {showRateHistory ? 'Masquer' : 'Voir'} l&apos;historique
-          </Button>
-
-          {showRateHistory && <RateHistory employeeId={employeeId} />}
-        </CardContent>
-      </Card>
-
-      {showRateDialog && (
-        <RateDialog
-          employee={{
-            employee_id: employeeId,
-            full_name: employee.full_name,
-            employee_id_code: employee.employee_id,
-            pay_type: 'hourly' as const,
-            current_rate: currentRate?.rate ?? null,
-            current_salary: null,
-            effective_from: currentRate?.effective_from ?? null,
-          }}
-          onClose={() => setShowRateDialog(false)}
-          onSaved={() => {
-            setShowRateDialog(false);
-            fetchCurrentRate();
-          }}
-        />
-      )}
 
       {/* Account Information */}
       <Card>
