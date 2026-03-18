@@ -5,7 +5,7 @@
 
 ## Overview
 
-New screen "Collegues" accessible from the 3-dot menu in the Flutter app. Displays a simple list of all active employees with their current status: on-shift, on-lunch, or off-shift. Available to all authenticated employees (not just managers).
+New screen "Collègues" accessible from the 3-dot menu in the Flutter app. Displays a simple list of all active employees with their current status: on-shift, on-lunch, or off-shift. Available to all authenticated employees (not just managers).
 
 ## Backend
 
@@ -32,9 +32,9 @@ New screen "Collegues" accessible from the 3-dot menu in the Flutter app. Displa
 - Excludes the calling user (`auth.uid()`)
 - Sort order: on-shift first, then on-lunch, then off-shift, alphabetical within each group
 
-**Authorization:** Any authenticated user can call this RPC. No manager/admin restriction.
+**Authorization:** Any authenticated user can call this RPC. No manager/admin restriction. This is intentionally unrestricted — all employees see all colleagues. The existing `get_monitored_team()` restricts by supervisor relationship, but this feature is designed for peer visibility across the entire company.
 
-**Migration:** Single migration file creating the RPC as a `SECURITY DEFINER` function (to bypass employee_profiles RLS self-reference limitation).
+**Migration:** Single migration file (next available number) creating the RPC as a `SECURITY DEFINER` function with `SET search_path = public` (to bypass employee_profiles RLS self-reference limitation). Must include `GRANT EXECUTE ON FUNCTION get_colleagues_status TO authenticated;`.
 
 ## Flutter
 
@@ -43,7 +43,7 @@ New screen "Collegues" accessible from the 3-dot menu in the Flutter app. Displa
 **Location:** `gps_tracker/lib/features/colleagues/screens/colleagues_screen.dart`
 
 **UI layout:**
-1. **App bar:** Title "Collegues"
+1. **App bar:** Title "Collègues"
 2. **Summary bar:** "X en quart · Y en diner · Z hors quart"
 3. **List:** One tile per employee
    - Leading: Circle avatar with initials (first letter of first + last name)
@@ -61,8 +61,8 @@ New screen "Collegues" accessible from the 3-dot menu in the Flutter app. Displa
 
 - Riverpod `StateNotifier` or `AsyncNotifier`
 - Calls `get_colleagues_status()` RPC
-- Polls every 30 seconds while the screen is mounted
-- Stops polling when the screen is disposed
+- Loads data on init + pull-to-refresh (matches existing TeamDashboardProvider pattern)
+- No automatic polling — user pulls to refresh when they want fresh data
 - Exposes: list of colleagues + loading state + error state
 
 ### Model: `ColleagueStatus`
@@ -72,18 +72,27 @@ New screen "Collegues" accessible from the 3-dot menu in the Flutter app. Displa
 ```dart
 enum WorkStatus { onShift, onLunch, offShift }
 
+@immutable
 class ColleagueStatus {
   final String id;
   final String fullName;
   final WorkStatus workStatus;
+
+  const ColleagueStatus({required this.id, required this.fullName, required this.workStatus});
+
+  factory ColleagueStatus.fromJson(Map<String, dynamic> json) => ColleagueStatus(
+    id: json['id'] as String,
+    fullName: json['full_name'] as String,
+    workStatus: _parseWorkStatus(json['work_status'] as String),
+  );
 }
 ```
 
 ### Menu Entry
 
-Add "Collegues" item to the 3-dot menu in `HomeScreen` (available to all roles, not just managers).
+Add "Collègues" item to the 3-dot menu in `HomeScreen` (available to all roles, not just managers).
 - Icon: `Icons.people`
-- Label: "Collegues"
+- Label: "Collègues"
 - Navigates to `ColleaguesScreen`
 
 ## What This Feature Does NOT Include
