@@ -103,28 +103,30 @@ get_cleaning_utilization_report(
 utilization = total_session_minutes / (total_shift_minutes - total_trip_minutes) × 100
 ```
 
-- `total_shift_minutes`: sum of `EXTRACT(EPOCH FROM (clocked_out_at - clocked_in_at)) / 60` for completed shifts in date range
-- `total_trip_minutes`: sum of trip durations from `trips` table for those shifts
+- `total_shift_minutes`: sum of `EXTRACT(EPOCH FROM (clocked_out_at - clocked_in_at)) / 60` for completed shifts in date range, **excluding lunch shifts** (`WHERE is_lunch IS NOT TRUE`). Lunch shift-splits (is_lunch=true) are break time, not work time.
+- `total_trip_minutes`: sum of trip durations from `trips` table for those shifts (only completed shifts with `is_lunch IS NOT TRUE`)
 - `total_session_minutes`: sum of `duration_minutes` from `work_sessions` (status IN completed, auto_closed, manually_closed)
+- Only include completed shifts (`status = 'completed'`); active/in-progress shifts are excluded
 
 #### 2. Accuracy %
 
 For each completed work session:
-1. Get GPS points from `gps_points` where `shift_id = session.shift_id` AND `captured_at BETWEEN session.started_at AND session.completed_at`
-2. Resolve the session's building geofence:
-   - If `studio_id` is set: `studios → buildings → locations` (get location's lat/lng/radius)
-   - If `building_id` is set: `property_buildings → locations` (get location's lat/lng/radius)
+1. Get GPS points from `gps_points` where `shift_id = session.shift_id` AND `captured_at BETWEEN session.started_at AND session.completed_at` AND `accuracy <= 50` (filter out noisy GPS, consistent with location matching in migration 080)
+2. Resolve the session's building geofence via JOIN:
+   - If `studio_id` is set: `work_sessions.studio_id → studios.building_id → buildings.location_id → locations` (get location's geography + radius)
+   - If `building_id` is set: `work_sessions.building_id → property_buildings.location_id → locations` (get location's geography + radius)
+   - If location_id is NULL (building not linked to a location) → accuracy = NULL for this session, skip it in the aggregate
 3. Count GPS points within geofence: `ST_DWithin(location.location, ST_SetSRID(ST_MakePoint(gps.longitude, gps.latitude), 4326)::geography, location.radius_meters)`
 4. `accuracy = points_in_geofence / total_points × 100`
 
-Aggregate across all sessions for the employee.
+Aggregate across all sessions for the employee (excluding sessions with NULL accuracy due to unlinked buildings).
 
 #### 3. Time breakdown
 
 | Category | Filter |
 |---|---|
-| `short_term_unit_minutes` | `studio_id IS NOT NULL` AND `studio_type = 'unit'` |
-| `short_term_common_minutes` | `studio_id IS NOT NULL` AND `studio_type IN ('common_area', 'conciergerie')` |
+| `short_term_unit_minutes` | `ws.studio_id IS NOT NULL` AND `s.studio_type = 'unit'` (JOIN: `work_sessions ws JOIN studios s ON s.id = ws.studio_id`) |
+| `short_term_common_minutes` | `ws.studio_id IS NOT NULL` AND `s.studio_type IN ('common_area', 'conciergerie')` (same JOIN) |
 | `cleaning_long_term_minutes` | `building_id IS NOT NULL` AND `activity_type = 'cleaning'` |
 | `maintenance_long_term_minutes` | `building_id IS NOT NULL` AND `activity_type = 'maintenance'` |
 | `office_minutes` | GPS time at 151-159_Principale (location with `is_also_office = true`) NOT covered by any work session |
@@ -132,9 +134,10 @@ Aggregate across all sessions for the employee.
 #### 4. Office time calculation
 
 1. Find location where `is_also_office = true` (151-159_Principale)
-2. Get GPS points for employee's shifts in date range that fall within office geofence
-3. Estimate time: sum of intervals between consecutive GPS points at office
-4. Subtract any work_session time that overlaps with office location (to avoid double-counting sessions done AT the office building)
+2. Get GPS points for employee's shifts in date range that fall within office geofence AND `accuracy <= 50`
+3. Filter OUT any GPS points that fall during an active work session (`NOT EXISTS work_session covering that timestamp`)
+4. Estimate time: sum of intervals between consecutive remaining GPS points at office
+5. This avoids double-counting — if an employee does a cleaning session at Le Chic-urbain (which IS the office building), that time is counted under short_term, not office
 
 ---
 
@@ -189,7 +192,9 @@ Add link in sidebar under "Rapports" section, labeled "Utilisation ménage".
 4. **Building/studio not linked to a location** → accuracy = NULL for those sessions
 5. **Employee with 0 work sessions** → utilization = 0%, still shown in report if they had shifts
 6. **Lunch shifts** (`is_lunch = true`) → excluded from shift duration calculation
-7. **Office time < 0 after subtraction** → floor at 0
+7. **Office time**: GPS points during work sessions are excluded BEFORE computing office time, so negative values cannot occur
+8. **Property building not linked to a location** (`location_id IS NULL`) → accuracy = NULL for sessions at that building; time breakdown still counts the minutes
+9. **GPS accuracy filter**: only points with `accuracy <= 50m` are used for accuracy % and office time (consistent with location matching elsewhere in the app)
 
 ---
 
