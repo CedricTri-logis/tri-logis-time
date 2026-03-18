@@ -14,6 +14,7 @@ import '../history/screens/my_history_screen.dart';
 import '../history/screens/supervised_employees_screen.dart';
 import '../mileage/screens/mileage_screen.dart';
 import '../shifts/screens/shift_dashboard_screen.dart';
+import '../colleagues/screens/colleagues_screen.dart';
 import '../tracking/screens/battery_health_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -146,6 +147,9 @@ class HomeScreen extends ConsumerWidget {
         onBatteryHealth: () => _navigateToBatteryHealth(context),
         onEmployeeHistory: () => _navigateToEmployeeHistory(context),
         onUserManagement: () => _navigateToUserManagement(context),
+        onColleagues: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const ColleaguesScreen()),
+        ),
         isAdmin: isAdmin,
       );
     }
@@ -205,6 +209,11 @@ class HomeScreen extends ConsumerWidget {
                 case 'battery_health':
                   _navigateToBatteryHealth(context);
                   break;
+                case 'colleagues':
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const ColleaguesScreen()),
+                  );
+                  break;
                 case 'signout':
                   _handleSignOut(context, ref);
                   break;
@@ -243,6 +252,16 @@ class HomeScreen extends ConsumerWidget {
                   ],
                 ),
               ),
+              const PopupMenuItem(
+                value: 'colleagues',
+                child: Row(
+                  children: [
+                    Icon(Icons.people_outlined, color: TriLogisColors.red),
+                    SizedBox(width: 12),
+                    Text('Collègues'),
+                  ],
+                ),
+              ),
               const PopupMenuDivider(),
               const PopupMenuItem(
                 value: 'signout',
@@ -272,6 +291,7 @@ class _ManagerHomeScreen extends StatelessWidget {
   final VoidCallback onBatteryHealth;
   final VoidCallback onEmployeeHistory;
   final VoidCallback onUserManagement;
+  final VoidCallback onColleagues;
   final bool isAdmin;
 
   const _ManagerHomeScreen({
@@ -282,6 +302,7 @@ class _ManagerHomeScreen extends StatelessWidget {
     required this.onBatteryHealth,
     required this.onEmployeeHistory,
     required this.onUserManagement,
+    required this.onColleagues,
     required this.isAdmin,
   });
 
@@ -335,6 +356,9 @@ class _ManagerHomeScreen extends StatelessWidget {
                     break;
                   case 'user_management':
                     onUserManagement();
+                    break;
+                  case 'colleagues':
+                    onColleagues();
                     break;
                   case 'signout':
                     onSignOut();
@@ -396,6 +420,16 @@ class _ManagerHomeScreen extends StatelessWidget {
                       ],
                     ),
                   ),
+                const PopupMenuItem(
+                  value: 'colleagues',
+                  child: Row(
+                    children: [
+                      Icon(Icons.people_outlined, color: TriLogisColors.red),
+                      SizedBox(width: 12),
+                      Text('Collègues'),
+                    ],
+                  ),
+                ),
                 const PopupMenuDivider(),
                 const PopupMenuItem(
                   value: 'signout',

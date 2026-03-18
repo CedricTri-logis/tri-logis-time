@@ -1,6 +1,6 @@
 # Background Tracking Resilience - Audit complet
 
-> Dernière mise à jour : 2026-03-17 | Build actuel : v1.0.0+139
+> Dernière mise à jour : 2026-03-18 | Build actuel : v1.0.0+142
 
 ## Table des matières
 
@@ -628,6 +628,8 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +137 | Mar 16 | **Post-kill diagnostic enrichment** — 3 améliorations forensiques : (1) `_logPostKillDiagnostic()` dans `ShiftProvider` : quand l'app cold-start avec un shift actif mais foreground service mort → log `standby_bucket`, `gap_duration_seconds`, `last_gps_point_at`. (2) `GpsHealthGuard` : `standby_bucket` + `standby_bucket_code` ajoutés au metadata quand `service_was_alive=false` (hard + soft tiers). (3) `_syncWatchdogLog()` : bucket fetch au moment du sync des breadcrumbs watchdog (bucket pas dispo dans l'isolate WorkManager). Aucun nouveau mécanisme de résilience — diagnostic seulement | ✅ Diagnostic |
 | +138 | Mar 17 | **NativeGpsBuffer JSONL** (Android + iOS) — migration de SharedPreferences/UserDefaults vers JSONL file append. Élimine le cap de 500 points et le risque ANR (Android QueuedWork). Ajout DispatchQueue thread safety (iOS). Migration automatique des anciennes données. | ✅ Actif |
 | +139 | Mar 17 | **Fix stampede detect_trips/carpools + GPS staleness detection** — 3 correctifs : (1) `_triggerTripDetection` réduit de 10 shifts fire-and-forget à 1 shift sérialisé avec cooldown 5min (240→~24 RPCs max). (2) Migration 132 : `detect_carpools` INSERT atomique via `JOIN trips` au lieu de boucle FOR — élimine FK violations sur trip_ids supprimés par `detect_trips` concurrent. (3) Migration 133 : `get_stale_active_devices()` détecte maintenant les GPS silencieux (shift >5min ET aucun GPS point en 5min) même si heartbeat frais — corrige le cas iOS où le GPS service meurt mais le main isolate survit | ✅ Résilience |
+| +140 | Mar 18 | **Fix QR scan work session** — 2 bugs : (1) DB : doublon `start_work_session` (2 overloads avec ordres de params différents) → supprimé l'overload en trop + advisory lock. (2) Flutter : `buildingId` du studio (table `buildings`) envoyé comme `p_building_id` (FK `property_buildings`) → FK violation. Fix : ne pas envoyer `p_building_id` quand `studioId` est présent. Lunch shift-split, cleaning utilization report, employee utilization detail — aucun changement tracking/résilience | ✅ Fix |
+| +142 | Mar 18 | **Masquage approbations employé** — Tant que la journée n'est pas approuvée (`day_approvals.status != 'approved'`), tous les `ActivityFinalStatus` sont forcés à `needsReview` côté client et les minutes approuvées/rejetées masquées (model `DayApprovalDetail`/`DayApprovalSummary`). Aucun changement tracking/résilience | ✅ UI |
 
 ### Chronologie complète Android Watchdog
 
