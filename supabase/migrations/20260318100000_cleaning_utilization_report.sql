@@ -93,31 +93,30 @@ BEGIN
     GROUP BY ws.employee_id
   ),
   employee_accuracy AS (
-    -- GPS accuracy: % of points within session building's geofence
+    -- Accuracy: cluster time at correct building / total cluster time during sessions
+    -- Uses stationary_clusters (ignores trip GPS) and checks if cluster location
+    -- matches the work session's building geofence
     SELECT
-      ws.employee_id,
-      COUNT(gp.id) FILTER (WHERE loc.id IS NOT NULL) AS total_gps_points,
-      COUNT(gp.id) FILTER (WHERE
-        loc.id IS NOT NULL AND
-        ST_DWithin(
-          loc.location,
-          ST_SetSRID(ST_MakePoint(gp.longitude, gp.latitude), 4326)::geography,
-          loc.radius_meters
-        )
-      ) AS points_in_geofence
-    FROM work_sessions ws
-    JOIN employee_shifts es ON es.shift_id = ws.shift_id
-    JOIN gps_points gp ON gp.shift_id = ws.shift_id
-      AND gp.captured_at BETWEEN ws.started_at AND ws.completed_at
-      AND gp.accuracy <= 50
+      sc.employee_id,
+      SUM(sc.duration_seconds) AS total_cluster_seconds,
+      SUM(sc.duration_seconds) FILTER (WHERE
+        sc.matched_location_id IS NOT NULL
+        AND sc.matched_location_id = COALESCE(b_loc.id, pb_loc.id)
+      ) AS correct_cluster_seconds
+    FROM stationary_clusters sc
+    JOIN employee_shifts es ON es.shift_id = sc.shift_id
+    -- Only clusters during an active work session
+    JOIN work_sessions ws ON ws.shift_id = sc.shift_id
+      AND ws.employee_id = sc.employee_id
+      AND ws.status IN ('completed', 'auto_closed', 'manually_closed')
+      AND sc.started_at < ws.completed_at AND sc.ended_at > ws.started_at
+    -- Resolve session's building location
     LEFT JOIN studios st ON st.id = ws.studio_id
     LEFT JOIN buildings b ON b.id = st.building_id
+    LEFT JOIN locations b_loc ON b_loc.id = b.location_id
     LEFT JOIN property_buildings pb ON pb.id = ws.building_id
-    LEFT JOIN locations loc ON loc.id = COALESCE(b.location_id, pb.location_id)
-    WHERE ws.status IN ('completed', 'auto_closed', 'manually_closed')
-      AND ws.started_at::date BETWEEN p_date_from AND p_date_to
-      AND (p_employee_id IS NULL OR ws.employee_id = p_employee_id)
-    GROUP BY ws.employee_id
+    LEFT JOIN locations pb_loc ON pb_loc.id = pb.location_id
+    GROUP BY sc.employee_id
   ),
   office_gps AS (
     -- GPS points at office NOT during any work session
@@ -168,19 +167,18 @@ BEGIN
         'total_shift_minutes', round(COALESCE(sa.total_shift_minutes, 0), 1),
         'total_trip_minutes', round(COALESCE(et.trip_minutes, 0), 1),
         'total_session_minutes', round(COALESCE(esn.total_session_minutes, 0), 1),
-        'available_minutes', round(
-          GREATEST(COALESCE(sa.total_shift_minutes, 0) - COALESCE(et.trip_minutes, 0), 0), 1),
+        'available_minutes', round(COALESCE(sa.total_shift_minutes, 0), 1),
         'utilization_pct', CASE
-          WHEN COALESCE(sa.total_shift_minutes, 0) - COALESCE(et.trip_minutes, 0) > 0
+          WHEN COALESCE(sa.total_shift_minutes, 0) > 0
           THEN round(
             COALESCE(esn.total_session_minutes, 0)
-            / (sa.total_shift_minutes - COALESCE(et.trip_minutes, 0))
+            / sa.total_shift_minutes
             * 100, 1)
           ELSE 0
         END,
         'accuracy_pct', CASE
-          WHEN COALESCE(ea.total_gps_points, 0) > 0
-          THEN round(ea.points_in_geofence::numeric / ea.total_gps_points * 100, 1)
+          WHEN COALESCE(ea.total_cluster_seconds, 0) > 0
+          THEN round(COALESCE(ea.correct_cluster_seconds, 0)::numeric / ea.total_cluster_seconds * 100, 1)
           ELSE NULL
         END,
         'short_term_unit_minutes', round(COALESCE(esn.short_term_unit_minutes, 0), 1),
