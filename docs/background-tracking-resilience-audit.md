@@ -1,6 +1,6 @@
 # Background Tracking Resilience - Audit complet
 
-> Dernière mise à jour : 2026-03-18 | Build actuel : v1.0.0+143
+> Dernière mise à jour : 2026-03-18 | Build actuel : v1.0.0+144
 
 ## Table des matières
 
@@ -631,6 +631,7 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +140 | Mar 18 | **Fix QR scan work session** — 2 bugs : (1) DB : doublon `start_work_session` (2 overloads avec ordres de params différents) → supprimé l'overload en trop + advisory lock. (2) Flutter : `buildingId` du studio (table `buildings`) envoyé comme `p_building_id` (FK `property_buildings`) → FK violation. Fix : ne pas envoyer `p_building_id` quand `studioId` est présent. Lunch shift-split, cleaning utilization report, employee utilization detail — aucun changement tracking/résilience | ✅ Fix |
 | +142 | Mar 18 | **Masquage approbations employé** — Tant que la journée n'est pas approuvée (`day_approvals.status != 'approved'`), tous les `ActivityFinalStatus` sont forcés à `needsReview` côté client et les minutes approuvées/rejetées masquées (model `DayApprovalDetail`/`DayApprovalSummary`). Aucun changement tracking/résilience | ✅ UI |
 | +143 | Mar 18 | **Liste collègues en quart** — Nouvel écran « Collègues » (menu 3-points, toutes rôles) : RPC `get_colleagues_status()` SECURITY DEFINER retourne statut (on-shift/on-lunch/off-shift) + session active (ménage/entretien/admin) de tous les employés. Flutter : model, provider autoDispose, screen avec summary bar + badges colorés + pull-to-refresh. Aucun changement tracking/résilience | ✅ Feature |
+| +144 | Mar 18 | **Lunch shift-split natif Flutter** — Refonte complète de la pause dîner côté app : RPCs `start_lunch`/`end_lunch` SECURITY DEFINER (split segment, redistribution GPS, idempotent). `ShiftProvider` absorbe la logique lunch (`startLunch()`/`endLunch()` avec branching online/offline, `isStartingLunch`/`isEndingLunch`). Realtime/polling lunch-aware (ne ferme plus le shift sur `clock_out_reason='lunch'`). `pauseForLunch()` garde SLC/BAS/BGAppRefresh actifs. SQLCipher v11 (5 colonnes lunch). `SyncService` : sync RPCs offline avant shift/GPS. `LunchBreakProvider` + `LunchBreak` model supprimés. `_syncLunchBreaks()` retiré de `SyncService`. **Impact résilience** : `pauseForLunch()` inchangé (existait déjà) — garde tous les mécanismes de recovery actifs pendant la pause | ✅ Refactor |
 
 ### Chronologie complète Android Watchdog
 
