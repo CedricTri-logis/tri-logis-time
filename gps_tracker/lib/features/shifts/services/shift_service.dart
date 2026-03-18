@@ -103,6 +103,46 @@ class ClockOutResult {
       );
 }
 
+/// Result of a lunch start/end operation.
+class LunchResult {
+  final bool success;
+  final String? newShiftId;
+  final String? workBodyId;
+  final DateTime? startedAt;
+  final String? errorMessage;
+
+  LunchResult({
+    required this.success,
+    this.newShiftId,
+    this.workBodyId,
+    this.startedAt,
+    this.errorMessage,
+  });
+
+  factory LunchResult.fromJson(Map<String, dynamic> json) {
+    final status = json['status'] as String?;
+    if (status == 'error') {
+      return LunchResult(
+        success: false,
+        errorMessage: json['message'] as String?,
+      );
+    }
+    return LunchResult(
+      success: true,
+      newShiftId: json['new_shift_id']?.toString(),
+      workBodyId: json['work_body_id']?.toString(),
+      startedAt: json['started_at'] != null
+          ? DateTime.parse(json['started_at'].toString())
+          : null,
+    );
+  }
+
+  factory LunchResult.error(String message) => LunchResult(
+        success: false,
+        errorMessage: message,
+      );
+}
+
 /// Service for shift operations with local-first architecture.
 class ShiftService {
   final SupabaseClient _supabase;
@@ -611,6 +651,40 @@ class ShiftService {
     } catch (e) {
       await _localDb.markShiftSyncError(shiftId, e.toString());
       return false;
+    }
+  }
+
+  /// Start a lunch break by splitting the current shift.
+  Future<LunchResult> startLunch(String shiftId, {DateTime? at}) async {
+    final shift = await _localDb.getShiftById(shiftId);
+    final serverId = shift?.serverId ?? shiftId;
+
+    try {
+      final response = await _supabase.rpc<Map<String, dynamic>>('start_lunch', params: {
+        'p_shift_id': serverId,
+        if (at != null) 'p_at': at.toUtc().toIso8601String(),
+      });
+
+      return LunchResult.fromJson(response);
+    } catch (e) {
+      return LunchResult.error(e.toString());
+    }
+  }
+
+  /// End a lunch break by creating a new work segment.
+  Future<LunchResult> endLunch(String shiftId, {DateTime? at}) async {
+    final shift = await _localDb.getShiftById(shiftId);
+    final serverId = shift?.serverId ?? shiftId;
+
+    try {
+      final response = await _supabase.rpc<Map<String, dynamic>>('end_lunch', params: {
+        'p_shift_id': serverId,
+        if (at != null) 'p_at': at.toUtc().toIso8601String(),
+      });
+
+      return LunchResult.fromJson(response);
+    } catch (e) {
+      return LunchResult.error(e.toString());
     }
   }
 

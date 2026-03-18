@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/local_gps_point.dart';
+import '../models/local_shift.dart';
 import '../../../shared/models/diagnostic_event.dart';
 import '../../../shared/services/diagnostic_logger.dart';
 import '../../../shared/services/local_database.dart';
@@ -100,6 +101,9 @@ class SyncService {
     // Step 0: Drain native GPS buffers (Android/iOS backup points)
     await _drainNativeGpsBuffers();
 
+    // Step 0.5: Process pending lunch operations via RPCs
+    await _syncPendingLunchOperations();
+
     // Get counts for progress tracking
     final pendingShifts = await _localDb.getPendingShifts(userId);
     final errorShifts = await _localDb.getErrorShifts(userId);
@@ -167,9 +171,6 @@ class SyncService {
     if (syncedGpsPoints > 0) {
       _triggerTripDetection(userId);
     }
-
-    // Sync pending lunch breaks
-    await _syncLunchBreaks();
 
     // Sync orphaned work sessions (safety net for mid-request failures)
     await _syncWorkSessions();
@@ -430,6 +431,70 @@ class SyncService {
     return await _localDb.deleteOldSyncedGpsPoints(threshold);
   }
 
+  /// Process pending lunch start/end operations via RPCs.
+  /// These are created when the user starts/ends a lunch break while offline.
+  Future<void> _syncPendingLunchOperations() async {
+    try {
+      final lunchPendingShifts = await _localDb.getLunchPendingShifts();
+      if (lunchPendingShifts.isEmpty) return;
+
+      _logger?.sync(Severity.info, 'Processing ${lunchPendingShifts.length} pending lunch operations');
+
+      for (final shift in lunchPendingShifts) {
+        try {
+          if (shift.syncStatus == 'lunchPending' && shift.lunchStartedAt != null) {
+            final result = await _shiftService.startLunch(
+              shift.id,
+              at: shift.lunchStartedAt!,
+            );
+            if (result.success && result.newShiftId != null) {
+              final lunchSegment = LocalShift(
+                id: result.newShiftId!,
+                employeeId: shift.employeeId,
+                clockedInAt: result.startedAt ?? shift.lunchStartedAt!,
+                status: 'active',
+                syncStatus: 'synced',
+                serverId: result.newShiftId,
+                workBodyId: result.workBodyId,
+                isLunch: true,
+                createdAt: DateTime.now().toUtc(),
+                updatedAt: DateTime.now().toUtc(),
+              );
+              await _localDb.insertShiftSegment(lunchSegment);
+              await _localDb.markShiftSynced(shift.id);
+            }
+          } else if (shift.syncStatus == 'lunchEndPending' && shift.lunchEndedAt != null) {
+            final result = await _shiftService.endLunch(
+              shift.id,
+              at: shift.lunchEndedAt!,
+            );
+            if (result.success && result.newShiftId != null) {
+              final workSegment = LocalShift(
+                id: result.newShiftId!,
+                employeeId: shift.employeeId,
+                clockedInAt: result.startedAt ?? shift.lunchEndedAt!,
+                status: 'active',
+                syncStatus: 'synced',
+                serverId: result.newShiftId,
+                workBodyId: result.workBodyId,
+                isLunch: false,
+                createdAt: DateTime.now().toUtc(),
+                updatedAt: DateTime.now().toUtc(),
+              );
+              await _localDb.insertShiftSegment(workSegment);
+              await _localDb.markShiftSynced(shift.id);
+            }
+          }
+        } catch (e) {
+          _logger?.sync(Severity.warn, 'Lunch sync failed for shift ${shift.id}: $e');
+          // Leave as pending — will retry on next sync cycle
+        }
+      }
+    } catch (e) {
+      _logger?.sync(Severity.warn, 'Failed to process lunch operations: $e');
+    }
+  }
+
   /// Drains native GPS buffers (Android SharedPreferences / iOS UserDefaults)
   /// and inserts points into local SQLCipher for normal sync pipeline.
   Future<int> _drainNativeGpsBuffers() async {
@@ -494,38 +559,6 @@ class SyncService {
         metadata: {'error': e.toString()},
       );
       return 0;
-    }
-  }
-
-  /// Sync pending lunch breaks to Supabase.
-  Future<void> _syncLunchBreaks() async {
-    final pendingBreaks = await _localDb.getPendingLunchBreaks();
-    if (pendingBreaks.isEmpty) return;
-
-    for (final breakMap in pendingBreaks) {
-      try {
-        // Map local shift ID to server ID
-        final shift = await _localDb.getShiftById(breakMap['shift_id'] as String);
-        if (shift == null || shift.serverId == null) continue;
-
-        final result = await _supabase.from('lunch_breaks').upsert({
-          'id': breakMap['id'],
-          'shift_id': shift.serverId,
-          'employee_id': breakMap['employee_id'],
-          'started_at': breakMap['started_at'],
-          'ended_at': breakMap['ended_at'],
-        }, onConflict: 'id').select().single();
-
-        await _localDb.markLunchBreakSynced(
-          breakMap['id'] as String,
-          result['id'] as String,
-        );
-      } catch (e) {
-        _logger?.sync(Severity.warn, 'Failed to sync lunch break', metadata: {
-          'id': breakMap['id'],
-          'error': e.toString(),
-        });
-      }
     }
   }
 

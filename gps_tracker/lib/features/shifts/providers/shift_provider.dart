@@ -14,10 +14,10 @@ import '../../../shared/services/realtime_service.dart';
 import '../../cleaning/providers/cleaning_session_provider.dart';
 import '../../maintenance/providers/maintenance_provider.dart';
 import '../../work_sessions/providers/work_session_provider.dart';
-import 'lunch_break_provider.dart';
 import '../../../shared/services/shift_activity_service.dart';
 import '../models/geo_point.dart';
 import '../models/local_gps_point.dart';
+import '../models/local_shift.dart';
 import '../models/shift.dart';
 import '../../auth/services/device_info_service.dart';
 import '../../tracking/providers/gps_health_guard_provider.dart';
@@ -47,6 +47,8 @@ class ShiftState {
   final bool isClockingIn;
   final bool isClockingOut;
   final bool versionTooOld;
+  final bool isStartingLunch;
+  final bool isEndingLunch;
 
   const ShiftState({
     this.activeShift,
@@ -55,6 +57,8 @@ class ShiftState {
     this.isClockingIn = false,
     this.isClockingOut = false,
     this.versionTooOld = false,
+    this.isStartingLunch = false,
+    this.isEndingLunch = false,
   });
 
   ShiftState copyWith({
@@ -64,6 +68,8 @@ class ShiftState {
     bool? isClockingIn,
     bool? isClockingOut,
     bool? versionTooOld,
+    bool? isStartingLunch,
+    bool? isEndingLunch,
     bool clearActiveShift = false,
     bool clearError = false,
   }) {
@@ -74,6 +80,8 @@ class ShiftState {
       isClockingIn: isClockingIn ?? this.isClockingIn,
       isClockingOut: isClockingOut ?? this.isClockingOut,
       versionTooOld: clearError ? false : (versionTooOld ?? this.versionTooOld),
+      isStartingLunch: isStartingLunch ?? this.isStartingLunch,
+      isEndingLunch: isEndingLunch ?? this.isEndingLunch,
     );
   }
 }
@@ -117,16 +125,84 @@ class ShiftNotifier extends StateNotifier<ShiftState>
 
     final newStatus = record['status'] as String?;
     final shiftId = record['id'] as String?;
+    final clockOutReason = record['clock_out_reason'] as String?;
+    final workBodyId = record['work_body_id'] as String?;
 
-    // If the active shift was closed server-side (admin, midnight cleanup, etc.)
+    // If the active shift was closed server-side
     if (shiftId == activeShift.serverId && newStatus == 'completed') {
-      final reason = record['clock_out_reason'] as String? ?? 'server_closed';
+      // Lunch transition — do NOT close shift, transition to new segment
+      if (clockOutReason == 'lunch' || clockOutReason == 'lunch_end') {
+        if (workBodyId != null) {
+          _handleLunchTransition(workBodyId);
+        }
+        return;
+      }
+
+      final reason = clockOutReason ?? 'server_closed';
       _logger?.shift(Severity.warn, 'Shift closed by server', metadata: {
         'shift_id': shiftId,
         'reason': reason,
         'source': 'realtime',
       },);
       _closeShiftLocally(activeShift, reason);
+    }
+
+    // INSERT event: a new segment was created with the same work_body_id
+    if (newStatus == 'active' && workBodyId != null) {
+      final activeWorkBodyId = activeShift.workBodyId;
+      if (activeWorkBodyId != null && workBodyId == activeWorkBodyId && shiftId != activeShift.serverId) {
+        _handleLunchTransition(workBodyId);
+      }
+    }
+  }
+
+  /// Fetch the active sibling segment after a lunch transition.
+  Future<void> _handleLunchTransition(String workBodyId) async {
+    try {
+      final client = _ref.read(supabaseClientProvider);
+      final response = await client
+          .from('shifts')
+          .select()
+          .eq('work_body_id', workBodyId)
+          .eq('status', 'active')
+          .maybeSingle();
+
+      if (response != null) {
+        final newShift = Shift.fromJson(response);
+
+        // Save locally
+        final localDb = _ref.read(localDatabaseProvider);
+        final localSegment = LocalShift(
+          id: newShift.id,
+          employeeId: newShift.employeeId,
+          clockedInAt: newShift.clockedInAt,
+          status: 'active',
+          syncStatus: 'synced',
+          serverId: newShift.id,
+          workBodyId: newShift.workBodyId,
+          isLunch: newShift.isLunch,
+          shiftType: newShift.shiftType.toJson(),
+          createdAt: newShift.createdAt,
+          updatedAt: newShift.updatedAt,
+        );
+        await localDb.insertShiftSegment(localSegment);
+
+        state = state.copyWith(activeShift: newShift);
+
+        // Update Live Activity and GPS based on new segment type
+        if (newShift.isLunch) {
+          await _ref.read(trackingProvider.notifier).pauseForLunch();
+          ShiftActivityService.instance.updateStatus('lunch');
+        } else {
+          await _ref.read(trackingProvider.notifier).startTracking();
+          ShiftActivityService.instance.updateStatus('active');
+        }
+      }
+    } catch (e) {
+      _logger?.shift(Severity.error, 'Failed to handle lunch transition', metadata: {
+        'work_body_id': workBodyId,
+        'error': e.toString(),
+      });
     }
   }
 
@@ -200,7 +276,7 @@ class ShiftNotifier extends StateNotifier<ShiftState>
 
       final response = await client
           .from('shifts')
-          .select('id, status, clock_out_reason')
+          .select('id, status, clock_out_reason, work_body_id')
           .eq('id', serverId)
           .maybeSingle();
 
@@ -241,7 +317,7 @@ class ShiftNotifier extends StateNotifier<ShiftState>
           await _ref.read(authServiceProvider).refreshSession(thresholdMinutes: 0);
           final retryResponse = await client
               .from('shifts')
-              .select('id, status, clock_out_reason')
+              .select('id, status, clock_out_reason, work_body_id')
               .eq('id', serverId)
               .maybeSingle();
 
@@ -253,6 +329,14 @@ class ShiftNotifier extends StateNotifier<ShiftState>
             final serverStatus = retryResponse['status'] as String?;
             if (serverStatus == 'completed') {
               final reason = retryResponse['clock_out_reason'] as String? ?? 'server_closed';
+              // Lunch transition — do NOT close shift
+              if (reason == 'lunch' || reason == 'lunch_end') {
+                final workBodyId = retryResponse['work_body_id'] as String?;
+                if (workBodyId != null) {
+                  await _handleLunchTransition(workBodyId);
+                }
+                return;
+              }
               _logger?.shift(Severity.warn, 'Shift closed by server', metadata: {
                 'shift_id': serverId,
                 'reason': reason,
@@ -284,6 +368,14 @@ class ShiftNotifier extends StateNotifier<ShiftState>
       final serverStatus = response['status'] as String?;
       if (serverStatus == 'completed') {
         final reason = response['clock_out_reason'] as String? ?? 'server_closed';
+        // Lunch transition — do NOT close shift
+        if (reason == 'lunch' || reason == 'lunch_end') {
+          final workBodyId = response['work_body_id'] as String?;
+          if (workBodyId != null) {
+            await _handleLunchTransition(workBodyId);
+          }
+          return;
+        }
         _logger?.shift(Severity.warn, 'Shift closed by server', metadata: {
           'shift_id': serverId,
           'reason': reason,
@@ -307,18 +399,7 @@ class ShiftNotifier extends StateNotifier<ShiftState>
     // End iOS Live Activity (server-side closures: midnight cleanup, admin, zombie)
     ShiftActivityService.instance.endActivity();
 
-    // Auto-close any open lunch break
-    try {
-      final lunchState = _ref.read(lunchBreakProvider);
-      if (lunchState.isOnLunch) {
-        final lunchBreak = lunchState.activeLunchBreak!;
-        final localDb = _ref.read(localDatabaseProvider);
-        await localDb.endLunchBreak(lunchBreak.id, DateTime.now().toUtc());
-        _ref.read(lunchBreakProvider.notifier).clearOnShiftEnd();
-      }
-    } catch (_) {
-      // Don't fail shift closure if lunch cleanup fails
-    }
+    // No lunch cleanup needed — lunch is now a shift segment, not a separate entity
 
     // Update SQLite so the closure persists across app restarts
     try {
@@ -378,6 +459,20 @@ class ShiftNotifier extends StateNotifier<ShiftState>
       // If resuming an active shift, start token refresh timer
       if (shift != null) {
         _startTokenRefreshTimer();
+
+        // Restore lunch state if app was killed during offline lunch
+        if (reconciledShift != null &&
+            reconciledShift.syncStatus == 'lunchPending' &&
+            reconciledShift.lunchStartedAt != null) {
+          final lunchShift = shift.copyWith(isLunch: true);
+          state = state.copyWith(activeShift: lunchShift);
+          await _ref.read(trackingProvider.notifier).pauseForLunch();
+          ShiftActivityService.instance.updateStatus('lunch');
+        } else if (shift.isLunch) {
+          // Shift itself is a lunch segment (from server)
+          await _ref.read(trackingProvider.notifier).pauseForLunch();
+          ShiftActivityService.instance.updateStatus('lunch');
+        }
       }
     } catch (e) {
       _logger?.shift(Severity.error, 'Shift reconciliation failed', metadata: {
@@ -641,6 +736,149 @@ class ShiftNotifier extends StateNotifier<ShiftState>
     }
   }
 
+  /// Start a lunch break — closes the current work segment, opens a lunch segment.
+  Future<void> startLunch() async {
+    final shift = state.activeShift;
+    if (shift == null || shift.isOnLunch) return;
+    if (state.isStartingLunch) return; // double-tap guard
+
+    state = state.copyWith(isStartingLunch: true, clearError: true);
+    final now = DateTime.now().toUtc();
+    final localDb = _ref.read(localDatabaseProvider);
+
+    try {
+      // 1. Record lunch_started_at locally (offline safety)
+      await localDb.markLunchPending(shift.id, now);
+
+      // 2. Close active work session
+      try {
+        _ref.read(workSessionProvider.notifier).manualClose();
+      } catch (_) {}
+
+      // 3. Pause GPS (keep resilience mechanisms alive)
+      await _ref.read(trackingProvider.notifier).pauseForLunch();
+
+      // 4. Update Live Activity
+      ShiftActivityService.instance.updateStatus('lunch');
+
+      // 5. Try RPC (online path)
+      try {
+        final result = await _shiftService.startLunch(shift.id, at: now);
+
+        if (result.success && result.newShiftId != null) {
+          // Create local lunch segment
+          final lunchSegment = LocalShift(
+            id: result.newShiftId!,
+            employeeId: shift.employeeId,
+            clockedInAt: result.startedAt ?? now,
+            status: 'active',
+            syncStatus: 'synced',
+            serverId: result.newShiftId,
+            workBodyId: result.workBodyId,
+            isLunch: true,
+            createdAt: DateTime.now().toUtc(),
+            updatedAt: DateTime.now().toUtc(),
+          );
+          await localDb.insertShiftSegment(lunchSegment);
+          // Mark the old shift as synced (it's completed on server)
+          await localDb.markShiftSynced(shift.id);
+
+          state = state.copyWith(
+            activeShift: lunchSegment.toShift(),
+            isStartingLunch: false,
+          );
+        } else {
+          throw Exception(result.errorMessage ?? 'RPC failed');
+        }
+      } catch (e) {
+        // 6. Offline fallback — UI already shows lunch state via local DB
+        debugPrint('[ShiftProvider] startLunch RPC failed, offline fallback: $e');
+
+        final offlineLunchShift = shift.copyWith(
+          isLunch: true,
+          workBodyId: shift.workBodyId ?? shift.id,
+        );
+        state = state.copyWith(
+          activeShift: offlineLunchShift,
+          isStartingLunch: false,
+        );
+      }
+
+      // Notify sync
+      _ref.read(syncProvider.notifier).notifyPendingData();
+    } catch (e) {
+      state = state.copyWith(isStartingLunch: false, error: e.toString());
+    }
+  }
+
+  /// End a lunch break — closes the lunch segment, opens a new work segment.
+  Future<void> endLunch() async {
+    final shift = state.activeShift;
+    if (shift == null || !shift.isOnLunch) return;
+    if (state.isEndingLunch) return; // double-tap guard
+
+    state = state.copyWith(isEndingLunch: true, clearError: true);
+    final now = DateTime.now().toUtc();
+    final localDb = _ref.read(localDatabaseProvider);
+
+    try {
+      // 1. Record lunch_ended_at locally (offline safety)
+      await localDb.markLunchEndPending(shift.id, now);
+
+      // 2. Try RPC (online path)
+      try {
+        final result = await _shiftService.endLunch(shift.id, at: now);
+
+        if (result.success && result.newShiftId != null) {
+          // Create local work segment
+          final workSegment = LocalShift(
+            id: result.newShiftId!,
+            employeeId: shift.employeeId,
+            clockedInAt: result.startedAt ?? now,
+            status: 'active',
+            syncStatus: 'synced',
+            serverId: result.newShiftId,
+            workBodyId: result.workBodyId,
+            isLunch: false,
+            createdAt: DateTime.now().toUtc(),
+            updatedAt: DateTime.now().toUtc(),
+          );
+          await localDb.insertShiftSegment(workSegment);
+          // Mark the old lunch shift as synced (completed on server)
+          await localDb.markShiftSynced(shift.id);
+
+          state = state.copyWith(
+            activeShift: workSegment.toShift(),
+            isEndingLunch: false,
+          );
+        } else {
+          throw Exception(result.errorMessage ?? 'RPC failed');
+        }
+      } catch (e) {
+        // 3. Offline fallback — resume GPS with same shift_id
+        debugPrint('[ShiftProvider] endLunch RPC failed, offline fallback: $e');
+
+        final offlineWorkShift = shift.copyWith(isLunch: false);
+        state = state.copyWith(
+          activeShift: offlineWorkShift,
+          isEndingLunch: false,
+        );
+      }
+
+      // 4. Resume GPS tracking
+      await ensureGpsAlive(_ref, source: 'lunch_end');
+      await _ref.read(trackingProvider.notifier).startTracking();
+
+      // 5. Update Live Activity
+      ShiftActivityService.instance.updateStatus('active');
+
+      // Notify sync
+      _ref.read(syncProvider.notifier).notifyPendingData();
+    } catch (e) {
+      state = state.copyWith(isEndingLunch: false, error: e.toString());
+    }
+  }
+
   /// Clock out from the active shift.
   Future<bool> clockOut({
     GeoPoint? location,
@@ -730,9 +968,6 @@ class ShiftNotifier extends StateNotifier<ShiftState>
         } catch (_) {
           // Don't fail clock-out if auto-close fails
         }
-
-        // Clear any active lunch break
-        _ref.read(lunchBreakProvider.notifier).clearOnShiftEnd();
 
         _stopTokenRefreshTimer();
 

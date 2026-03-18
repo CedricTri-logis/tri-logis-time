@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../screens/qr_scanner_screen.dart';
-import '../../shifts/providers/lunch_break_provider.dart';
+import '../../shifts/providers/shift_provider.dart';
 import '../../shifts/widgets/sync_status_indicator.dart';
 import '../models/activity_type.dart';
 import '../models/work_session.dart';
@@ -49,13 +49,13 @@ class _ActiveWorkSessionCardState
 
   void _recalculateElapsed() {
     final session = ref.read(activeWorkSessionProvider);
-    final lunchState = ref.read(lunchBreakProvider);
+    final shiftState = ref.read(shiftProvider);
 
     if (session != null && session.status.isActive) {
       setState(() {
         _elapsed = DateTime.now().difference(session.startedAt);
       });
-    } else if (lunchState.isOnLunch) {
+    } else if (shiftState.activeShift?.isOnLunch ?? false) {
       // Force rebuild so lunch timer updates
       setState(() {});
     }
@@ -181,11 +181,11 @@ class _ActiveWorkSessionCardState
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(activeWorkSessionProvider);
-    final lunchState = ref.watch(lunchBreakProvider);
+    final shiftState = ref.watch(shiftProvider);
     final theme = Theme.of(context);
 
     // Both lunch and work session can be active simultaneously
-    final showLunch = lunchState.isOnLunch;
+    final showLunch = shiftState.activeShift?.isOnLunch ?? false;
     final showSession = session != null;
 
     if (!showLunch && !showSession) {
@@ -194,7 +194,7 @@ class _ActiveWorkSessionCardState
 
     return Column(
       children: [
-        if (showLunch) _buildLunchCard(theme, lunchState),
+        if (showLunch) _buildLunchCard(theme, shiftState),
         if (showLunch && showSession) const SizedBox(height: 12),
         if (showSession) _buildActiveSession(theme, session),
       ],
@@ -237,10 +237,11 @@ class _ActiveWorkSessionCardState
     );
   }
 
-  Widget _buildLunchCard(ThemeData theme, LunchBreakState lunchState) {
-    final lunchBreak = lunchState.activeLunchBreak!;
-    final elapsed = DateTime.now().difference(lunchBreak.startedAt);
+  Widget _buildLunchCard(ThemeData theme, ShiftState shiftState) {
+    final activeShift = shiftState.activeShift!;
+    final elapsed = DateTime.now().difference(activeShift.clockedInAt);
     final color = Colors.orange.shade600;
+    final isEnding = shiftState.isEndingLunch;
 
     String formatTime(DateTime dt) {
       final local = dt.toLocal();
@@ -341,7 +342,7 @@ class _ActiveWorkSessionCardState
             // Start time
             Center(
               child: Text(
-                'Début: ${formatTime(lunchBreak.startedAt)}',
+                'Début: ${formatTime(activeShift.clockedInAt)}',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -353,11 +354,11 @@ class _ActiveWorkSessionCardState
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
-                onPressed: lunchState.isEnding
+                onPressed: isEnding
                     ? null
                     : () =>
-                        ref.read(lunchBreakProvider.notifier).endLunchBreak(),
-                icon: lunchState.isEnding
+                        ref.read(shiftProvider.notifier).endLunch(),
+                icon: isEnding
                     ? const SizedBox(
                         width: 18,
                         height: 18,
@@ -368,7 +369,7 @@ class _ActiveWorkSessionCardState
                       )
                     : const Icon(Icons.check_circle),
                 label: Text(
-                  lunchState.isEnding ? 'Fin en cours...' : 'Fin pause',
+                  isEnding ? 'Fin en cours...' : 'Fin pause',
                 ),
                 style: FilledButton.styleFrom(backgroundColor: Colors.green),
               ),

@@ -921,7 +921,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     _logger?.gps(Severity.info, 'Tracking paused for lunch (resilience mechanisms kept active)');
     await BackgroundTrackingService.stopTracking();
     // Do NOT stop: SLC, CLBackgroundActivitySession, BGAppRefreshTask, lifecycle observer
-    // Do NOT end iOS Live Activity — lunch_break_provider updates its status to 'lunch'
+    // Do NOT end iOS Live Activity — shift_provider updates its status to 'lunch'
     // Stop thermal/activity monitoring (no GPS to adapt)
     _stopThermalMonitoring();
     _stopActivityRecognition();

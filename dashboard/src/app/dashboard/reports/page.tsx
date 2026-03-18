@@ -7,6 +7,7 @@ import {
   Calendar,
   FileDown,
   ArrowRight,
+  Sparkles,
 } from 'lucide-react';
 import {
   Card,
@@ -85,6 +86,20 @@ const reportCards: ReportCard[] = [
       'Analyse des tendances',
     ],
     priority: 'P3',
+  },
+  {
+    type: 'cleaning_utilization',
+    title: 'Utilisation menage',
+    description: 'Taux d\'utilisation et precision GPS des employes de menage',
+    icon: Sparkles,
+    href: '/dashboard/reports/cleaning-utilization',
+    features: [
+      'Utilisation % (sessions / temps disponible)',
+      'Precision GPS % par session',
+      'Ventilation: unites CT, aires communes, LT, bureau',
+      'Filtrage par employe et plage de dates',
+    ],
+    priority: 'P1',
   },
 ];
 

@@ -134,7 +134,7 @@ class _SyncStatusCard extends StatelessWidget {
               ? 'Last sync: ${_formatDateTime(syncState.lastSyncTime!)}'
               : 'Aucune donnée en attente',
         ),
-      SyncStatus.pending => (
+      SyncStatus.pending || SyncStatus.lunchPending || SyncStatus.lunchEndPending => (
           Icons.cloud_upload,
           Colors.orange,
           'En attente de sync',

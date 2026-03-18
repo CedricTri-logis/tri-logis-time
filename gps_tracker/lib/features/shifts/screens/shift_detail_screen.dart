@@ -12,7 +12,6 @@ import '../../tracking/widgets/route_stats_card.dart';
 import '../models/day_approval.dart';
 import '../models/shift.dart';
 import '../providers/approval_provider.dart';
-import '../providers/lunch_break_provider.dart';
 import '../providers/shift_provider.dart';
 import '../../mileage/models/trip.dart';
 import '../widgets/activity_map_sheet.dart';
@@ -121,8 +120,9 @@ class ShiftDetailScreen extends ConsumerWidget {
           // Header card with status and duration
           Consumer(
             builder: (context, ref, _) {
-              final lunchAsync = ref.watch(totalLunchDurationProvider(shift.id));
-              final lunchDuration = lunchAsync.valueOrNull ?? Duration.zero;
+              // TODO: Once lunch segments produce sibling shift data, calculate
+              // total lunch from completed lunch segments. For now, show raw duration.
+              const lunchDuration = Duration.zero;
 
               return Card(
                 elevation: 2,

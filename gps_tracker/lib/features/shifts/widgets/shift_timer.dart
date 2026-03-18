@@ -4,7 +4,6 @@ import 'dart:ui' show FontFeature;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../providers/lunch_break_provider.dart';
 import '../providers/shift_provider.dart';
 
 /// Widget displaying the elapsed shift time with real-time updates.
@@ -57,27 +56,6 @@ class _ShiftTimerState extends ConsumerState<ShiftTimer>
     }
   }
 
-  /// Calculate total lunch duration (completed breaks + current active break).
-  Duration _calculateTotalLunch() {
-    final shiftState = ref.read(shiftProvider);
-    final activeShift = shiftState.activeShift;
-    if (activeShift == null) return Duration.zero;
-
-    final lunchState = ref.read(lunchBreakProvider);
-    final breaks = ref.read(lunchBreaksForShiftProvider(activeShift.id)).valueOrNull ?? [];
-
-    Duration total = Duration.zero;
-    for (final lb in breaks) {
-      if (lb.endedAt != null) {
-        total += lb.endedAt!.difference(lb.startedAt);
-      }
-    }
-    if (lunchState.activeLunchBreak != null) {
-      total += DateTime.now().toUtc().difference(lunchState.activeLunchBreak!.startedAt);
-    }
-    return total;
-  }
-
   String _formatDuration(Duration duration) {
     final hours = duration.inHours;
     final minutes = duration.inMinutes.remainder(60);
@@ -95,12 +73,12 @@ class _ShiftTimerState extends ConsumerState<ShiftTimer>
       return const SizedBox.shrink();
     }
 
-    final lunchState = ref.watch(lunchBreakProvider);
-    // Watch to trigger rebuilds when lunch data changes
-    ref.watch(lunchBreaksForShiftProvider(activeShift.id));
+    final isOnLunch = activeShift.isOnLunch;
 
-    final totalLunch = _calculateTotalLunch();
-    final isOnLunch = lunchState.isOnLunch;
+    // TODO: Once lunch segments produce sibling shift data, calculate
+    // total lunch duration from completed lunch segments sharing the
+    // same work_body_id. For now, show raw elapsed time.
+    final totalLunch = Duration.zero;
 
     // Work time = total elapsed minus all lunch time
     final workTime = _elapsed - totalLunch;
@@ -130,40 +108,19 @@ class _ShiftTimerState extends ConsumerState<ShiftTimer>
                     : null,
               ),
             ),
-            // Lunch timer — always visible when there's lunch time
-            if (totalLunch > Duration.zero) ...[
+            // Lunch indicator when on lunch
+            if (isOnLunch) ...[
               const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.restaurant,
-                    size: 18,
-                    color: isOnLunch ? Colors.orange.shade800 : Colors.orange.shade500,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    _formatDuration(totalLunch),
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      fontFeatures: [const FontFeature.tabularFigures()],
-                      letterSpacing: 2,
-                      color: isOnLunch ? Colors.orange.shade800 : Colors.orange.shade500,
-                    ),
-                  ),
-                ],
-              ),
-              if (isOnLunch)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    'Pause dîner en cours',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.orange.shade700,
-                      fontWeight: FontWeight.w500,
-                    ),
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  'Pause dîner en cours',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: Colors.orange.shade700,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
+              ),
             ],
           ],
         ),

@@ -26,10 +26,6 @@ class Shift {
 
   final ShiftType shiftType;
 
-  final String? workBodyId;
-  final bool isLunch;
-  final String? clockOutReason;
-
   const Shift({
     required this.id,
     required this.employeeId,
@@ -47,9 +43,6 @@ class Shift {
     required this.updatedAt,
     this.gpsPointCount,
     this.shiftType = ShiftType.regular,
-    this.workBodyId,
-    this.isLunch = false,
-    this.clockOutReason,
   });
 
   /// Computed duration of the shift.
@@ -68,12 +61,6 @@ class Shift {
 
   /// Whether this is a callback shift (rappel au travail)
   bool get isCallback => shiftType == ShiftType.call;
-
-  /// Whether this shift is currently on a lunch break
-  bool get isOnLunch => isLunch && status == ShiftStatus.active;
-
-  /// Whether this shift is part of a lunch-split group
-  bool get isPartOfLunchGroup => workBodyId != null;
 
   factory Shift.fromJson(Map<String, dynamic> json) => Shift(
         id: json['id'] as String,
@@ -102,9 +89,6 @@ class Shift {
         shiftType: json['shift_type'] != null
             ? ShiftType.fromJson(json['shift_type'] as String)
             : ShiftType.regular,
-        workBodyId: json['work_body_id'] as String?,
-        isLunch: json['is_lunch'] as bool? ?? false,
-        clockOutReason: json['clock_out_reason'] as String?,
       );
 
   Map<String, dynamic> toJson() => {
@@ -123,9 +107,6 @@ class Shift {
         'created_at': createdAt.toUtc().toIso8601String(),
         'updated_at': updatedAt.toUtc().toIso8601String(),
         'shift_type': shiftType.toJson(),
-        'work_body_id': workBodyId,
-        'is_lunch': isLunch,
-        'clock_out_reason': clockOutReason,
       };
 
   Shift copyWith({
@@ -145,9 +126,6 @@ class Shift {
     DateTime? updatedAt,
     int? gpsPointCount,
     ShiftType? shiftType,
-    String? workBodyId,
-    bool? isLunch,
-    String? clockOutReason,
   }) =>
       Shift(
         id: id ?? this.id,
@@ -166,9 +144,6 @@ class Shift {
         updatedAt: updatedAt ?? this.updatedAt,
         gpsPointCount: gpsPointCount ?? this.gpsPointCount,
         shiftType: shiftType ?? this.shiftType,
-        workBodyId: workBodyId ?? this.workBodyId,
-        isLunch: isLunch ?? this.isLunch,
-        clockOutReason: clockOutReason ?? this.clockOutReason,
       );
 
   @override

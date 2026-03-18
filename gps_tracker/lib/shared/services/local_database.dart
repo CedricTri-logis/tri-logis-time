@@ -24,7 +24,7 @@ import 'session_backup_service.dart';
 /// Local SQLite database service with encrypted storage.
 class LocalDatabase {
   static const String _databaseName = 'gps_tracker.db';
-  static const int _databaseVersion = 10;
+  static const int _databaseVersion = 11;
   static const String _encryptionKeyKey = 'local_db_encryption_key';
 
   static LocalDatabase? _instance;
@@ -198,12 +198,16 @@ class LocalDatabase {
         clock_out_latitude REAL,
         clock_out_longitude REAL,
         clock_out_accuracy REAL,
-        sync_status TEXT NOT NULL DEFAULT 'pending' CHECK (sync_status IN ('pending', 'syncing', 'synced', 'error')),
+        sync_status TEXT NOT NULL DEFAULT 'pending',
         last_sync_attempt TEXT,
         sync_error TEXT,
         server_id TEXT,
         clock_out_reason TEXT,
         shift_type TEXT NOT NULL DEFAULT 'regular',
+        work_body_id TEXT,
+        is_lunch INTEGER NOT NULL DEFAULT 0,
+        lunch_started_at TEXT,
+        lunch_ended_at TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       )
@@ -497,6 +501,13 @@ class LocalDatabase {
     if (oldVersion < 10) {
       await _migrateDiagnosticEventsDropCheck(db);
     }
+    // Migration from v10 to v11: Add lunch shift-split columns
+    if (oldVersion < 11) {
+      await db.execute('ALTER TABLE local_shifts ADD COLUMN work_body_id TEXT');
+      await db.execute('ALTER TABLE local_shifts ADD COLUMN is_lunch INTEGER NOT NULL DEFAULT 0');
+      await db.execute('ALTER TABLE local_shifts ADD COLUMN lunch_started_at TEXT');
+      await db.execute('ALTER TABLE local_shifts ADD COLUMN lunch_ended_at TEXT');
+    }
   }
 
   /// Add extended GPS data columns to local_gps_points.
@@ -708,6 +719,86 @@ class LocalDatabase {
       throw LocalDatabaseException(
         'Failed to mark shift synced',
         operation: 'markShiftSynced',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Mark a local shift as lunch-pending (offline start lunch).
+  Future<void> markLunchPending(String shiftId, DateTime lunchStartedAt) async {
+    try {
+      await _db.update(
+        'local_shifts',
+        {
+          'lunch_started_at': lunchStartedAt.toUtc().toIso8601String(),
+          'sync_status': 'lunchPending',
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        },
+        where: 'id = ?',
+        whereArgs: [shiftId],
+      );
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to mark lunch pending',
+        operation: 'markLunchPending',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Mark a local shift as lunch-end-pending (offline end lunch).
+  Future<void> markLunchEndPending(String shiftId, DateTime lunchEndedAt) async {
+    try {
+      await _db.update(
+        'local_shifts',
+        {
+          'lunch_ended_at': lunchEndedAt.toUtc().toIso8601String(),
+          'sync_status': 'lunchEndPending',
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        },
+        where: 'id = ?',
+        whereArgs: [shiftId],
+      );
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to mark lunch end pending',
+        operation: 'markLunchEndPending',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Get all shifts with pending lunch operations, ordered chronologically.
+  Future<List<LocalShift>> getLunchPendingShifts() async {
+    try {
+      final results = await _db.query(
+        'local_shifts',
+        where: 'sync_status IN (?, ?)',
+        whereArgs: ['lunchPending', 'lunchEndPending'],
+        orderBy: 'lunch_started_at ASC, lunch_ended_at ASC',
+      );
+      return results.map((map) => LocalShift.fromMap(map)).toList();
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to get lunch pending shifts',
+        operation: 'getLunchPendingShifts',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Create a new local shift segment (used when RPC returns new_shift_id).
+  Future<void> insertShiftSegment(LocalShift segment) async {
+    try {
+      await _db.insert(
+        'local_shifts',
+        segment.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to insert shift segment',
+        operation: 'insertShiftSegment',
         originalError: e,
       );
     }
