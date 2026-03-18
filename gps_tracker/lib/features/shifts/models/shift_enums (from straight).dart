@@ -16,9 +16,7 @@ enum SyncStatus {
   pending,
   syncing,
   synced,
-  error,
-  lunchPending,
-  lunchEndPending;
+  error;
 
   String toJson() => name;
 

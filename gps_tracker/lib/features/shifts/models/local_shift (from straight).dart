@@ -22,15 +22,8 @@ class LocalShift {
   final String? serverId;
   final String? clockOutReason;
   final String shiftType; // 'regular' or 'call'
-  final String? workBodyId;
-  final bool isLunch;
-  final DateTime? lunchStartedAt;
-  final DateTime? lunchEndedAt;
   final DateTime createdAt;
   final DateTime updatedAt;
-
-  bool get isOnLunch => isLunch && status == 'active';
-  bool get isPartOfLunchGroup => workBodyId != null;
 
   LocalShift({
     required this.id,
@@ -51,10 +44,6 @@ class LocalShift {
     this.serverId,
     this.clockOutReason,
     this.shiftType = 'regular',
-    this.workBodyId,
-    this.isLunch = false,
-    this.lunchStartedAt,
-    this.lunchEndedAt,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -79,10 +68,6 @@ class LocalShift {
         'server_id': serverId,
         'clock_out_reason': clockOutReason,
         'shift_type': shiftType,
-        'work_body_id': workBodyId,
-        'is_lunch': isLunch ? 1 : 0,
-        'lunch_started_at': lunchStartedAt?.toUtc().toIso8601String(),
-        'lunch_ended_at': lunchEndedAt?.toUtc().toIso8601String(),
         'created_at': createdAt.toUtc().toIso8601String(),
         'updated_at': updatedAt.toUtc().toIso8601String(),
       };
@@ -111,14 +96,6 @@ class LocalShift {
         serverId: map['server_id'] as String?,
         clockOutReason: map['clock_out_reason'] as String?,
         shiftType: map['shift_type'] as String? ?? 'regular',
-        workBodyId: map['work_body_id'] as String?,
-        isLunch: (map['is_lunch'] as int? ?? 0) == 1,
-        lunchStartedAt: map['lunch_started_at'] != null
-            ? DateTime.parse(map['lunch_started_at'] as String)
-            : null,
-        lunchEndedAt: map['lunch_ended_at'] != null
-            ? DateTime.parse(map['lunch_ended_at'] as String)
-            : null,
         createdAt: DateTime.parse(map['created_at'] as String),
         updatedAt: DateTime.parse(map['updated_at'] as String),
       );
@@ -143,9 +120,6 @@ class LocalShift {
         syncStatus: SyncStatus.fromJson(syncStatus),
         serverId: serverId,
         shiftType: ShiftType.fromJson(shiftType),
-        workBodyId: workBodyId,
-        isLunch: isLunch,
-        clockOutReason: clockOutReason,
         createdAt: createdAt,
         updatedAt: updatedAt,
       );
@@ -166,9 +140,6 @@ class LocalShift {
         clockOutAccuracy: shift.clockOutAccuracy,
         syncStatus: shift.syncStatus.toJson(),
         shiftType: shift.shiftType.toJson(),
-        workBodyId: shift.workBodyId,
-        isLunch: shift.isLunch,
-        clockOutReason: shift.clockOutReason,
         createdAt: shift.createdAt,
         updatedAt: shift.updatedAt,
       );
@@ -192,10 +163,6 @@ class LocalShift {
     String? serverId,
     String? clockOutReason,
     String? shiftType,
-    String? workBodyId,
-    bool? isLunch,
-    DateTime? lunchStartedAt,
-    DateTime? lunchEndedAt,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) =>
@@ -218,10 +185,6 @@ class LocalShift {
         serverId: serverId ?? this.serverId,
         clockOutReason: clockOutReason ?? this.clockOutReason,
         shiftType: shiftType ?? this.shiftType,
-        workBodyId: workBodyId ?? this.workBodyId,
-        isLunch: isLunch ?? this.isLunch,
-        lunchStartedAt: lunchStartedAt ?? this.lunchStartedAt,
-        lunchEndedAt: lunchEndedAt ?? this.lunchEndedAt,
         createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
       );
