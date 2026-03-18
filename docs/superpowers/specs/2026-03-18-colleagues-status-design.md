@@ -20,11 +20,15 @@ New screen "Collègues" accessible from the 3-dot menu in the Flutter app. Displ
 | `id` | UUID | Employee profile ID |
 | `full_name` | TEXT | Display name |
 | `work_status` | TEXT | `'on-shift'`, `'on-lunch'`, `'off-shift'` |
+| `active_session_type` | TEXT | `'cleaning'`, `'maintenance'`, `'admin'`, or NULL |
+| `active_session_location` | TEXT | Human-readable location (e.g. "123 — Immeuble X"), or NULL |
 
 **Logic:**
 - Queries `employee_profiles` WHERE `status = 'active'`
 - LEFT JOIN `shifts` WHERE `status = 'active'` to detect on-shift
 - LEFT JOIN `lunch_breaks` WHERE `ended_at IS NULL` to detect on-lunch
+- LEFT JOIN `work_sessions` WHERE `status = 'in_progress'` to get active session type + location
+- Active session location derived from joined studio/building (same CASE logic as `get_monitored_team()`)
 - Status derivation:
   - `lunch_breaks` row exists with `ended_at IS NULL` → `'on-lunch'`
   - `shifts` row exists with `status = 'active'` → `'on-shift'`
@@ -52,6 +56,7 @@ New screen "Collègues" accessible from the 3-dot menu in the Flutter app. Displ
      - Green: "En quart"
      - Orange/yellow: "Diner"
      - Grey: "Hors quart"
+   - Subtitle (if active session): type + location (e.g. "Menage — 123 Immeuble X")
 4. **Pull-to-refresh:** `RefreshIndicator` for manual refresh
 5. **Empty state:** Message when no colleagues found
 
@@ -77,13 +82,23 @@ class ColleagueStatus {
   final String id;
   final String fullName;
   final WorkStatus workStatus;
+  final String? activeSessionType;     // 'cleaning', 'maintenance', 'admin'
+  final String? activeSessionLocation; // human-readable location
 
-  const ColleagueStatus({required this.id, required this.fullName, required this.workStatus});
+  const ColleagueStatus({
+    required this.id,
+    required this.fullName,
+    required this.workStatus,
+    this.activeSessionType,
+    this.activeSessionLocation,
+  });
 
   factory ColleagueStatus.fromJson(Map<String, dynamic> json) => ColleagueStatus(
     id: json['id'] as String,
     fullName: json['full_name'] as String,
     workStatus: _parseWorkStatus(json['work_status'] as String),
+    activeSessionType: json['active_session_type'] as String?,
+    activeSessionLocation: json['active_session_location'] as String?,
   );
 }
 ```
@@ -97,7 +112,7 @@ Add "Collègues" item to the 3-dot menu in `HomeScreen` (available to all roles,
 
 ## What This Feature Does NOT Include
 
-- No details beyond name + status (no clock-in time, location, GPS, duration)
+- No details beyond name + status + active session (no clock-in time, GPS, duration)
 - No Realtime WebSocket subscriptions (polling only)
 - No search or filtering
 - No navigation to employee profile/detail
@@ -108,4 +123,5 @@ Add "Collègues" item to the 3-dot menu in `HomeScreen` (available to all roles,
 - Existing `employee_profiles` table
 - Existing `shifts` table
 - Existing `lunch_breaks` table (migration 129)
+- Existing `work_sessions` table (with studio/building joins for location display)
 - Supabase RPC infrastructure
