@@ -4,7 +4,7 @@
  */
 
 // Report type enum
-export type ReportType = 'timesheet' | 'activity_summary' | 'attendance' | 'shift_history';
+export type ReportType = 'timesheet' | 'activity_summary' | 'attendance' | 'shift_history' | 'cleaning_utilization';
 
 // Report format options
 export type ReportFormat = 'pdf' | 'csv';
@@ -358,6 +358,10 @@ export const REPORT_TYPE_INFO: Record<ReportType, { label: string; description: 
   shift_history: {
     label: 'Shift History Export',
     description: 'Detailed shift data with GPS information',
+  },
+  cleaning_utilization: {
+    label: 'Utilisation menage',
+    description: 'Taux d\'utilisation et precision GPS des employes de menage',
   },
 };
 
