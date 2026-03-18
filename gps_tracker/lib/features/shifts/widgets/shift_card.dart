@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/day_approval.dart';
 import '../models/shift.dart';
-import '../providers/lunch_break_provider.dart';
 import 'sync_status_indicator.dart';
 
 /// Card widget for displaying a shift in the history list.
@@ -48,8 +47,9 @@ class ShiftCard extends ConsumerWidget {
     final theme = Theme.of(context);
     final localClockIn = shift.clockedInAt.toLocal();
     final localClockOut = shift.clockedOutAt?.toLocal();
-    final lunchAsync = ref.watch(totalLunchDurationProvider(shift.id));
-    final lunchDuration = lunchAsync.valueOrNull ?? Duration.zero;
+    // TODO: Once lunch segments produce sibling shift data, calculate
+    // total lunch from completed lunch segments. For now, show raw duration.
+    const lunchDuration = Duration.zero;
 
     return Card(
       elevation: 1,

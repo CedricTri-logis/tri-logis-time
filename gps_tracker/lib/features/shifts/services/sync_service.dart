@@ -172,9 +172,6 @@ class SyncService {
       _triggerTripDetection(userId);
     }
 
-    // Sync pending lunch breaks
-    await _syncLunchBreaks();
-
     // Sync orphaned work sessions (safety net for mid-request failures)
     await _syncWorkSessions();
 
@@ -562,38 +559,6 @@ class SyncService {
         metadata: {'error': e.toString()},
       );
       return 0;
-    }
-  }
-
-  /// Sync pending lunch breaks to Supabase.
-  Future<void> _syncLunchBreaks() async {
-    final pendingBreaks = await _localDb.getPendingLunchBreaks();
-    if (pendingBreaks.isEmpty) return;
-
-    for (final breakMap in pendingBreaks) {
-      try {
-        // Map local shift ID to server ID
-        final shift = await _localDb.getShiftById(breakMap['shift_id'] as String);
-        if (shift == null || shift.serverId == null) continue;
-
-        final result = await _supabase.from('lunch_breaks').upsert({
-          'id': breakMap['id'],
-          'shift_id': shift.serverId,
-          'employee_id': breakMap['employee_id'],
-          'started_at': breakMap['started_at'],
-          'ended_at': breakMap['ended_at'],
-        }, onConflict: 'id').select().single();
-
-        await _localDb.markLunchBreakSynced(
-          breakMap['id'] as String,
-          result['id'] as String,
-        );
-      } catch (e) {
-        _logger?.sync(Severity.warn, 'Failed to sync lunch break', metadata: {
-          'id': breakMap['id'],
-          'error': e.toString(),
-        });
-      }
     }
   }
 

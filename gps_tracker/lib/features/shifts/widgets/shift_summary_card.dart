@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/shift.dart';
-import '../providers/lunch_break_provider.dart';
 
 /// Card showing shift summary after clock-out.
 class ShiftSummaryCard extends ConsumerWidget {
@@ -25,20 +24,14 @@ class ShiftSummaryCard extends ConsumerWidget {
     return '$hour:$minute';
   }
 
-  String _formatLunchDuration(Duration duration) {
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes.remainder(60);
-    if (hours == 0) return '${minutes}m';
-    return '${hours}h ${minutes.toString().padLeft(2, '0')}m';
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final localClockIn = shift.clockedInAt.toLocal();
     final localClockOut = shift.clockedOutAt?.toLocal();
-    final lunchAsync = ref.watch(totalLunchDurationProvider(shift.id));
-    final lunchDuration = lunchAsync.valueOrNull ?? Duration.zero;
+    // TODO: Once lunch segments produce sibling shift data, calculate
+    // total lunch from completed lunch segments. For now, show raw duration.
+    const lunchDuration = Duration.zero;
 
     return Card(
       elevation: 2,
@@ -82,27 +75,6 @@ class ShiftSummaryCard extends ConsumerWidget {
                       fontFeatures: [const FontFeature.tabularFigures()],
                     ),
                   ),
-                  if (lunchDuration.inMinutes > 0) ...[
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.restaurant,
-                          size: 16,
-                          color: Colors.orange.shade700,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Dîner : ${_formatLunchDuration(lunchDuration)}',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: Colors.orange.shade800,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
                 ],
               ),
             ),

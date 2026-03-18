@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../providers/lunch_break_provider.dart';
 import '../providers/shift_provider.dart';
 
 class LunchBreakButton extends ConsumerWidget {
@@ -10,13 +9,12 @@ class LunchBreakButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final shiftState = ref.watch(shiftProvider);
-    final lunchState = ref.watch(lunchBreakProvider);
     final hasActiveShift = shiftState.activeShift != null;
 
     if (!hasActiveShift) return const SizedBox.shrink();
 
-    final isOnLunch = lunchState.isOnLunch;
-    final isLoading = lunchState.isStarting || lunchState.isEnding;
+    final isOnLunch = shiftState.activeShift?.isOnLunch ?? false;
+    final isLoading = shiftState.isStartingLunch || shiftState.isEndingLunch;
 
     return AnimatedSize(
       duration: const Duration(milliseconds: 300),
@@ -29,9 +27,9 @@ class LunchBreakButton extends ConsumerWidget {
                 ? null
                 : () {
                     if (isOnLunch) {
-                      ref.read(lunchBreakProvider.notifier).endLunchBreak();
+                      ref.read(shiftProvider.notifier).endLunch();
                     } else {
-                      ref.read(lunchBreakProvider.notifier).startLunchBreak();
+                      ref.read(shiftProvider.notifier).startLunch();
                     }
                   },
             icon: isLoading

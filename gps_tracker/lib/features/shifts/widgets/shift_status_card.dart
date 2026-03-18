@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../tracking/providers/tracking_provider.dart';
 import '../models/shift.dart';
 import '../models/shift_enums.dart';
-import '../providers/lunch_break_provider.dart';
 import '../providers/shift_provider.dart';
 import '../providers/sync_provider.dart';
 import 'sync_detail_sheet.dart';
@@ -105,19 +104,11 @@ class _ShiftStatusCardState extends ConsumerState<ShiftStatusCard> {
     final trackingState = ref.watch(trackingProvider);
 
     // Calculate work time (elapsed minus lunch)
-    final lunchState = ref.watch(lunchBreakProvider);
-    final breaks = ref.watch(lunchBreaksForShiftProvider(activeShift.id)).valueOrNull ?? [];
-    Duration totalLunch = Duration.zero;
-    for (final lb in breaks) {
-      if (lb.endedAt != null) {
-        totalLunch += lb.endedAt!.difference(lb.startedAt);
-      }
-    }
-    if (lunchState.activeLunchBreak != null) {
-      totalLunch += DateTime.now().toUtc().difference(lunchState.activeLunchBreak!.startedAt);
-    }
+    // TODO: Once lunch segments produce sibling shift data, calculate
+    // total lunch from completed lunch segments. For now, show raw elapsed.
+    const Duration totalLunch = Duration.zero;
     final workTime = elapsed - totalLunch;
-    final isOnLunch = lunchState.isOnLunch;
+    final isOnLunch = activeShift.isOnLunch;
     final pointsCaptured = trackingState.pointsCaptured;
 
     // Determine badge color from sync status
