@@ -87,7 +87,7 @@ BEGIN
     -- GPS accuracy: % of points within session building's geofence
     SELECT
       ws.employee_id,
-      COUNT(gp.id) AS total_gps_points,
+      COUNT(gp.id) FILTER (WHERE loc.id IS NOT NULL) AS total_gps_points,
       COUNT(gp.id) FILTER (WHERE
         loc.id IS NOT NULL AND
         ST_DWithin(
