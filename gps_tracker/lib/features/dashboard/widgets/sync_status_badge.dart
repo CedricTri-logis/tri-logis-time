@@ -94,7 +94,7 @@ class SyncStatusBadge extends StatelessWidget {
     switch (syncState.status) {
       case SyncStatus.synced:
         return Icon(Icons.cloud_done, color: _iconColor(theme), size: 20);
-      case SyncStatus.pending:
+      case SyncStatus.pending: case SyncStatus.lunchPending: case SyncStatus.lunchEndPending:
         return Icon(Icons.cloud_upload, color: _iconColor(theme), size: 20);
       case SyncStatus.syncing:
         return SizedBox(
@@ -114,7 +114,7 @@ class SyncStatusBadge extends StatelessWidget {
     switch (syncState.status) {
       case SyncStatus.synced:
         return Colors.green.withOpacity(0.1);
-      case SyncStatus.pending:
+      case SyncStatus.pending: case SyncStatus.lunchPending: case SyncStatus.lunchEndPending:
         return Colors.orange.withOpacity(0.1);
       case SyncStatus.syncing:
         return Colors.blue.withOpacity(0.1);
@@ -127,7 +127,7 @@ class SyncStatusBadge extends StatelessWidget {
     switch (syncState.status) {
       case SyncStatus.synced:
         return Colors.green.withOpacity(0.3);
-      case SyncStatus.pending:
+      case SyncStatus.pending: case SyncStatus.lunchPending: case SyncStatus.lunchEndPending:
         return Colors.orange.withOpacity(0.3);
       case SyncStatus.syncing:
         return Colors.blue.withOpacity(0.3);
@@ -140,7 +140,7 @@ class SyncStatusBadge extends StatelessWidget {
     switch (syncState.status) {
       case SyncStatus.synced:
         return Colors.green;
-      case SyncStatus.pending:
+      case SyncStatus.pending: case SyncStatus.lunchPending: case SyncStatus.lunchEndPending:
         return Colors.orange;
       case SyncStatus.syncing:
         return Colors.blue;
@@ -153,7 +153,7 @@ class SyncStatusBadge extends StatelessWidget {
     switch (syncState.status) {
       case SyncStatus.synced:
         return Colors.green.shade700;
-      case SyncStatus.pending:
+      case SyncStatus.pending: case SyncStatus.lunchPending: case SyncStatus.lunchEndPending:
         return Colors.orange.shade700;
       case SyncStatus.syncing:
         return Colors.blue.shade700;
@@ -166,7 +166,7 @@ class SyncStatusBadge extends StatelessWidget {
     switch (syncState.status) {
       case SyncStatus.synced:
         return 'All synced';
-      case SyncStatus.pending:
+      case SyncStatus.pending: case SyncStatus.lunchPending: case SyncStatus.lunchEndPending:
         return 'Pending sync';
       case SyncStatus.syncing:
         return 'Syncing...';
@@ -182,7 +182,7 @@ class SyncStatusBadge extends StatelessWidget {
           return 'Last synced ${_formatRelativeTime(syncState.lastSyncTime!)}';
         }
         return null;
-      case SyncStatus.pending:
+      case SyncStatus.pending: case SyncStatus.lunchPending: case SyncStatus.lunchEndPending:
         final total = syncState.totalPending;
         if (total == 0) return null;
         return '$total item${total == 1 ? '' : 's'} waiting';
@@ -276,7 +276,7 @@ class SyncStatusIcon extends StatelessWidget {
     switch (syncState.status) {
       case SyncStatus.synced:
         return Icons.cloud_done;
-      case SyncStatus.pending:
+      case SyncStatus.pending: case SyncStatus.lunchPending: case SyncStatus.lunchEndPending:
         return Icons.cloud_upload;
       case SyncStatus.syncing:
         return Icons.sync;
@@ -289,7 +289,7 @@ class SyncStatusIcon extends StatelessWidget {
     switch (syncState.status) {
       case SyncStatus.synced:
         return Colors.green;
-      case SyncStatus.pending:
+      case SyncStatus.pending: case SyncStatus.lunchPending: case SyncStatus.lunchEndPending:
         return Colors.orange;
       case SyncStatus.syncing:
         return Colors.blue;

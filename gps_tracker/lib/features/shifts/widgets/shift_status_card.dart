@@ -123,14 +123,14 @@ class _ShiftStatusCardState extends ConsumerState<ShiftStatusCard> {
     // Determine badge color from sync status
     final badgeColor = switch (syncState.status) {
       SyncStatus.synced => Colors.green,
-      SyncStatus.pending => Colors.orange,
+      SyncStatus.pending || SyncStatus.lunchPending || SyncStatus.lunchEndPending => Colors.orange,
       SyncStatus.syncing => Colors.blue,
       SyncStatus.error => Colors.red,
     };
 
     final badgeIcon = switch (syncState.status) {
       SyncStatus.synced => Icons.cloud_done,
-      SyncStatus.pending => Icons.cloud_upload,
+      SyncStatus.pending || SyncStatus.lunchPending || SyncStatus.lunchEndPending => Icons.cloud_upload,
       SyncStatus.syncing => Icons.cloud_sync,
       SyncStatus.error => Icons.cloud_off,
     };

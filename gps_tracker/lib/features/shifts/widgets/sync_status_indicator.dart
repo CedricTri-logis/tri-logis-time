@@ -27,7 +27,7 @@ class SyncStatusIndicator extends ConsumerWidget {
 
     final (icon, color, label) = switch (syncStatus) {
       SyncStatus.synced => (Icons.cloud_done, Colors.green, 'Synced'),
-      SyncStatus.pending => (Icons.cloud_upload, Colors.orange, 'Pending'),
+      SyncStatus.pending || SyncStatus.lunchPending || SyncStatus.lunchEndPending => (Icons.cloud_upload, Colors.orange, 'Pending'),
       SyncStatus.syncing => (Icons.cloud_sync, Colors.blue, 'Syncing'),
       SyncStatus.error => (Icons.cloud_off, Colors.red, 'Sync Error'),
     };
@@ -177,7 +177,7 @@ class SimpleSyncStatusIndicator extends StatelessWidget {
 
     final (icon, color, label) = switch (syncStatus) {
       SyncStatus.synced => (Icons.cloud_done, Colors.green, 'Synced'),
-      SyncStatus.pending => (Icons.cloud_upload, Colors.orange, 'Pending'),
+      SyncStatus.pending || SyncStatus.lunchPending || SyncStatus.lunchEndPending => (Icons.cloud_upload, Colors.orange, 'Pending'),
       SyncStatus.syncing => (Icons.cloud_sync, Colors.blue, 'Syncing'),
       SyncStatus.error => (Icons.cloud_off, Colors.red, 'Sync Error'),
     };
