@@ -24,7 +24,7 @@ import 'session_backup_service.dart';
 /// Local SQLite database service with encrypted storage.
 class LocalDatabase {
   static const String _databaseName = 'gps_tracker.db';
-  static const int _databaseVersion = 11;
+  static const int _databaseVersion = 12;
   static const String _encryptionKeyKey = 'local_db_encryption_key';
 
   static LocalDatabase? _instance;
@@ -508,6 +508,13 @@ class LocalDatabase {
       await db.execute('ALTER TABLE local_shifts ADD COLUMN lunch_started_at TEXT');
       await db.execute('ALTER TABLE local_shifts ADD COLUMN lunch_ended_at TEXT');
     }
+    // Migration from v11 to v12: Remove restrictive sync_status CHECK constraint
+    // on local_shifts. Old DBs had CHECK (sync_status IN ('pending','syncing','synced','error'))
+    // but lunch operations need 'lunchPending' and 'lunchEndPending' values.
+    // SQLite doesn't support DROP CONSTRAINT, so we recreate the table.
+    if (oldVersion < 12) {
+      await _migrateLocalShiftsDropSyncCheck(db);
+    }
   }
 
   /// Add extended GPS data columns to local_gps_points.
@@ -537,6 +544,84 @@ class LocalDatabase {
 
     // 4. Drop old table
     await db.execute('DROP TABLE diagnostic_events_old');
+  }
+
+  /// Recreate local_shifts table without the restrictive sync_status CHECK.
+  /// Old databases had CHECK (sync_status IN ('pending','syncing','synced','error'))
+  /// which rejects 'lunchPending' and 'lunchEndPending' values.
+  Future<void> _migrateLocalShiftsDropSyncCheck(Database db) async {
+    // Disable FK constraints during table rebuild
+    await db.execute('PRAGMA foreign_keys = OFF');
+
+    // 1. Rename old table
+    await db.execute('ALTER TABLE local_shifts RENAME TO local_shifts_old');
+
+    // 2. Create new table without sync_status CHECK constraint
+    await db.execute('''
+      CREATE TABLE local_shifts (
+        id TEXT PRIMARY KEY,
+        employee_id TEXT NOT NULL,
+        request_id TEXT UNIQUE,
+        status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed')),
+        clocked_in_at TEXT NOT NULL,
+        clock_in_latitude REAL,
+        clock_in_longitude REAL,
+        clock_in_accuracy REAL,
+        clocked_out_at TEXT,
+        clock_out_latitude REAL,
+        clock_out_longitude REAL,
+        clock_out_accuracy REAL,
+        sync_status TEXT NOT NULL DEFAULT 'pending',
+        last_sync_attempt TEXT,
+        sync_error TEXT,
+        server_id TEXT,
+        clock_out_reason TEXT,
+        shift_type TEXT NOT NULL DEFAULT 'regular',
+        work_body_id TEXT,
+        is_lunch INTEGER NOT NULL DEFAULT 0,
+        lunch_started_at TEXT,
+        lunch_ended_at TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    ''');
+
+    // 3. Copy data (explicit columns for safety)
+    await db.execute('''
+      INSERT INTO local_shifts (
+        id, employee_id, request_id, status,
+        clocked_in_at, clock_in_latitude, clock_in_longitude, clock_in_accuracy,
+        clocked_out_at, clock_out_latitude, clock_out_longitude, clock_out_accuracy,
+        sync_status, last_sync_attempt, sync_error, server_id,
+        clock_out_reason, shift_type, work_body_id, is_lunch,
+        lunch_started_at, lunch_ended_at, created_at, updated_at
+      )
+      SELECT
+        id, employee_id, request_id, status,
+        clocked_in_at, clock_in_latitude, clock_in_longitude, clock_in_accuracy,
+        clocked_out_at, clock_out_latitude, clock_out_longitude, clock_out_accuracy,
+        sync_status, last_sync_attempt, sync_error, server_id,
+        clock_out_reason, shift_type, work_body_id, is_lunch,
+        lunch_started_at, lunch_ended_at, created_at, updated_at
+      FROM local_shifts_old
+    ''');
+
+    // 4. Drop old table
+    await db.execute('DROP TABLE local_shifts_old');
+
+    // 5. Recreate indexes
+    await db.execute('''
+      CREATE INDEX idx_local_shifts_employee ON local_shifts(employee_id)
+    ''');
+    await db.execute('''
+      CREATE INDEX idx_local_shifts_status ON local_shifts(status)
+    ''');
+    await db.execute('''
+      CREATE INDEX idx_local_shifts_sync ON local_shifts(sync_status)
+    ''');
+
+    // Re-enable FK constraints
+    await db.execute('PRAGMA foreign_keys = ON');
   }
 
   /// Ensure database is available.

@@ -280,7 +280,6 @@ class MainActivity : FlutterActivity() {
             UsageStatsManager.STANDBY_BUCKET_FREQUENT -> "FREQUENT"
             UsageStatsManager.STANDBY_BUCKET_RARE -> "RARE"
             UsageStatsManager.STANDBY_BUCKET_RESTRICTED -> "RESTRICTED"
-            5 -> "EXEMPTED"
             else -> "UNKNOWN"
         }
     }

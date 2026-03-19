@@ -1,6 +1,6 @@
 # Background Tracking Resilience - Audit complet
 
-> Dernière mise à jour : 2026-03-18 | Build actuel : v1.0.0+143
+> Dernière mise à jour : 2026-03-19 | Build actuel : v1.0.0+145
 
 ## Table des matières
 
@@ -631,6 +631,7 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +140 | Mar 18 | **Fix QR scan work session** — 2 bugs : (1) DB : doublon `start_work_session` (2 overloads avec ordres de params différents) → supprimé l'overload en trop + advisory lock. (2) Flutter : `buildingId` du studio (table `buildings`) envoyé comme `p_building_id` (FK `property_buildings`) → FK violation. Fix : ne pas envoyer `p_building_id` quand `studioId` est présent. Lunch shift-split, cleaning utilization report, employee utilization detail — aucun changement tracking/résilience | ✅ Fix |
 | +142 | Mar 18 | **Masquage approbations employé** — Tant que la journée n'est pas approuvée (`day_approvals.status != 'approved'`), tous les `ActivityFinalStatus` sont forcés à `needsReview` côté client et les minutes approuvées/rejetées masquées (model `DayApprovalDetail`/`DayApprovalSummary`). Aucun changement tracking/résilience | ✅ UI |
 | +143 | Mar 18 | **Liste collègues en quart** — Nouvel écran « Collègues » (menu 3-points, toutes rôles) : RPC `get_colleagues_status()` SECURITY DEFINER retourne statut (on-shift/on-lunch/off-shift) + session active (ménage/entretien/admin) de tous les employés. Flutter : model, provider autoDispose, screen avec summary bar + badges colorés + pull-to-refresh. Aucun changement tracking/résilience | ✅ Feature |
+| +145 | Mar 19 | **Fix crash bouton dîner (lunch)** — Migration SQLCipher v12 : recrée `local_shifts` sans le CHECK constraint restrictif sur `sync_status` (anciens DB avaient `IN ('pending','syncing','synced','error')` mais les opérations lunch écrivent `lunchPending`/`lunchEndPending`). Même pattern que v10 (diagnostic_events). Aucun changement tracking/résilience — fix DB migration uniquement | ✅ Fix |
 
 ### Chronologie complète Android Watchdog
 
