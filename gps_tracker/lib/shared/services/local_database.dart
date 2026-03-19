@@ -780,6 +780,32 @@ class LocalDatabase {
     }
   }
 
+  /// Get all shifts for an employee for a given date (local time).
+  /// Includes both active and completed shifts, including lunch segments.
+  Future<List<LocalShift>> getShiftsForDate(String employeeId, DateTime date) async {
+    try {
+      final startOfDay = DateTime(date.year, date.month, date.day);
+      final endOfDay = startOfDay.add(const Duration(days: 1));
+      final results = await _db.query(
+        'local_shifts',
+        where: 'employee_id = ? AND clocked_in_at >= ? AND clocked_in_at < ?',
+        whereArgs: [
+          employeeId,
+          startOfDay.toUtc().toIso8601String(),
+          endOfDay.toUtc().toIso8601String(),
+        ],
+        orderBy: 'clocked_in_at ASC',
+      );
+      return results.map((map) => LocalShift.fromMap(map)).toList();
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to get shifts for date',
+        operation: 'getShiftsForDate',
+        originalError: e,
+      );
+    }
+  }
+
   /// Get all shift IDs sharing the same work_body_id (lunch-split siblings).
   Future<List<String>> getShiftIdsByWorkBodyId(String workBodyId) async {
     try {

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../shifts/models/local_shift.dart';
 import '../../shifts/providers/shift_provider.dart';
 import '../../shifts/widgets/sync_status_indicator.dart';
 import '../models/work_session.dart';
@@ -48,13 +49,19 @@ class _WorkSessionHistoryListState
 
     // Use group provider to show sessions from all shift segments (lunch-split)
     final sessionsAsync = ref.watch(shiftGroupWorkSessionsProvider);
+    final todaySummary = ref.watch(todayWorkSummaryProvider);
+
+    // Get lunch segments from today's shifts
+    final lunchShifts = todaySummary.allShifts
+        .where((s) => s.isLunch)
+        .toList();
 
     return sessionsAsync.when(
       data: (sessions) {
-        if (sessions.isEmpty) {
+        if (sessions.isEmpty && lunchShifts.isEmpty) {
           return _buildEmptyState(theme);
         }
-        return _buildList(theme, sessions);
+        return _buildList(theme, sessions, lunchShifts);
       },
       loading: () => const Center(
         child: Padding(
@@ -94,10 +101,28 @@ class _WorkSessionHistoryListState
   Widget _buildList(
     ThemeData theme,
     List<WorkSession> sessions,
+    List<LocalShift> lunchShifts,
   ) {
-    // Sort by start time (newest first)
-    final sorted = List<WorkSession>.from(sessions)
-      ..sort((a, b) => b.startedAt.compareTo(a.startedAt));
+    // Build a unified timeline: work sessions + lunch segments
+    // Each item has a startedAt for sorting
+    final List<({DateTime startedAt, Widget widget})> items = [];
+
+    for (final session in sessions) {
+      items.add((
+        startedAt: session.startedAt,
+        widget: _WorkSessionTile(session: session),
+      ));
+    }
+
+    for (final lunch in lunchShifts) {
+      items.add((
+        startedAt: lunch.clockedInAt,
+        widget: _LunchTile(lunchShift: lunch),
+      ));
+    }
+
+    // Sort newest first
+    items.sort((a, b) => b.startedAt.compareTo(a.startedAt));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -119,7 +144,7 @@ class _WorkSessionHistoryListState
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                '${sorted.length}',
+                '${items.length}',
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: theme.colorScheme.primary,
                   fontWeight: FontWeight.w500,
@@ -129,7 +154,7 @@ class _WorkSessionHistoryListState
           ],
         ),
         const SizedBox(height: 8),
-        ...sorted.map((session) => _WorkSessionTile(session: session)),
+        ...items.map((item) => item.widget),
       ],
     );
   }
@@ -278,6 +303,118 @@ class _WorkSessionTile extends StatelessWidget {
                   showLabel: false,
                 ),
               ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Tile for a lunch break segment in the unified history.
+class _LunchTile extends StatelessWidget {
+  final LocalShift lunchShift;
+
+  const _LunchTile({required this.lunchShift});
+
+  String _formatTime(DateTime dateTime) {
+    final local = dateTime.toLocal();
+    return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _formatDuration(Duration duration) {
+    final h = duration.inHours;
+    final m = duration.inMinutes.remainder(60);
+    final s = duration.inSeconds.remainder(60);
+    if (h > 0) return '${h}h ${m.toString().padLeft(2, '0')}m';
+    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final end = lunchShift.clockedOutAt ?? DateTime.now();
+    final duration = end.difference(lunchShift.clockedInAt);
+    final isActive = lunchShift.status == 'active';
+
+    return Card(
+      elevation: 1,
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            // Lunch icon
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.restaurant,
+                color: Colors.orange,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+
+            // Lunch info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Pause dîner',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: (isActive ? Colors.orange : Colors.green)
+                              .withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: (isActive ? Colors.orange : Colors.green)
+                                .withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Text(
+                          isActive ? 'En cours' : 'Termin\u00e9',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isActive ? Colors.orange : Colors.green,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _formatTime(lunchShift.clockedInAt),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            // Duration
+            Text(
+              _formatDuration(duration),
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                fontFeatures: [const FontFeature.tabularFigures()],
+              ),
             ),
           ],
         ),

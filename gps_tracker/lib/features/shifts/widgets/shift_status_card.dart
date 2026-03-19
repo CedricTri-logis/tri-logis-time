@@ -99,15 +99,25 @@ class _ShiftStatusCardState extends ConsumerState<ShiftStatusCard> {
 
   Widget _buildActiveShiftCard(ThemeData theme, Shift activeShift) {
     final localTime = activeShift.clockedInAt.toLocal();
-    final elapsed = DateTime.now().difference(localTime);
     final syncState = ref.watch(syncProvider);
     final trackingState = ref.watch(trackingProvider);
+    final todaySummary = ref.watch(todayWorkSummaryProvider);
 
-    // Calculate work time (elapsed minus lunch)
-    // TODO: Once lunch segments produce sibling shift data, calculate
-    // total lunch from completed lunch segments. For now, show raw elapsed.
-    const Duration totalLunch = Duration.zero;
-    final workTime = elapsed - totalLunch;
+    // Compute live durations from raw shifts — recalculated every second
+    // because the timer triggers setState which rebuilds with fresh now.
+    Duration workTime = Duration.zero;
+    Duration lunchTime = Duration.zero;
+    final now = DateTime.now();
+    for (final shift in todaySummary.allShifts) {
+      final end = shift.clockedOutAt ?? now;
+      final duration = end.difference(shift.clockedInAt);
+      if (duration.isNegative) continue;
+      if (shift.isLunch) {
+        lunchTime += duration;
+      } else {
+        workTime += duration;
+      }
+    }
     final isOnLunch = activeShift.isOnLunch;
     final pointsCaptured = trackingState.pointsCaptured;
 
@@ -257,6 +267,27 @@ class _ShiftStatusCardState extends ConsumerState<ShiftStatusCard> {
                 ),
               ],
             ),
+            // Lunch duration row (only shown if lunch was taken today)
+            if (lunchTime > Duration.zero) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Icon(
+                    Icons.restaurant,
+                    size: 16,
+                    color: Colors.orange.withValues(alpha: 0.7),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Pause dîner : ${_formatElapsed(lunchTime)}',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: Colors.orange.shade700,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),

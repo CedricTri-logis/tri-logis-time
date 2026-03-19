@@ -1043,3 +1043,70 @@ final hasActiveShiftProvider = Provider<bool>((ref) {
 final activeShiftProvider = Provider<Shift?>((ref) {
   return ref.watch(shiftProvider).activeShift;
 });
+
+/// Summary of today's work: total work duration, total lunch duration.
+class TodayWorkSummary {
+  final Duration totalWork;
+  final Duration totalLunch;
+  final List<LocalShift> allShifts;
+
+  const TodayWorkSummary({
+    required this.totalWork,
+    required this.totalLunch,
+    required this.allShifts,
+  });
+
+  static const empty = TodayWorkSummary(
+    totalWork: Duration.zero,
+    totalLunch: Duration.zero,
+    allShifts: [],
+  );
+}
+
+/// Provider that computes today's work and lunch totals from all shifts.
+final todayWorkSummaryProvider = Provider<TodayWorkSummary>((ref) {
+  final shiftState = ref.watch(shiftProvider);
+
+  final asyncValue = ref.watch(_todayShiftsProvider);
+  return asyncValue.when(
+    data: (shifts) => _computeSummary(shifts, shiftState.activeShift),
+    loading: () => TodayWorkSummary.empty,
+    error: (_, __) => TodayWorkSummary.empty,
+  );
+});
+
+/// Internal: fetches all shifts for today from the local database.
+final _todayShiftsProvider = FutureProvider<List<LocalShift>>((ref) async {
+  // Re-fetch when shift state changes (clock-in, clock-out, lunch)
+  ref.watch(shiftProvider);
+  final localDb = ref.watch(localDatabaseProvider);
+  final supabase = ref.watch(supabaseClientProvider);
+  final userId = supabase.auth.currentUser?.id;
+  if (userId == null) return [];
+  return localDb.getShiftsForDate(userId, DateTime.now());
+});
+
+TodayWorkSummary _computeSummary(List<LocalShift> shifts, Shift? activeShift) {
+  Duration totalWork = Duration.zero;
+  Duration totalLunch = Duration.zero;
+  final now = DateTime.now();
+
+  for (final shift in shifts) {
+    final end = shift.clockedOutAt ?? now;
+    final duration = end.difference(shift.clockedInAt);
+    if (duration.isNegative) continue;
+
+    if (shift.isLunch) {
+      totalLunch += duration;
+    } else {
+      totalWork += duration;
+    }
+  }
+
+  // Net work = total non-lunch time
+  return TodayWorkSummary(
+    totalWork: totalWork,
+    totalLunch: totalLunch,
+    allShifts: shifts,
+  );
+}
