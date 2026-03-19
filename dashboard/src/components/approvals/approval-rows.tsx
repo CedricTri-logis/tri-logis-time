@@ -107,6 +107,14 @@ export function ApprovalActivityIcon({ activity }: { activity: ApprovalActivity 
     if (activity.transport_mode === 'driving') return <Car className="h-4 w-4 text-blue-500" />;
     return <MoveRight className="h-4 w-4 text-gray-400" />;
   }
+  if (activity.activity_type === 'trip_segment') {
+    return activity.transport_mode === 'walking'
+      ? <Footprints className="h-4 w-4 text-blue-500" />
+      : <Car className="h-4 w-4 text-blue-500" />;
+  }
+  if (activity.activity_type === 'gap_segment') {
+    return <WifiOff className="h-4 w-4 text-purple-500" />;
+  }
   // Stop or standalone clock — use location type icon if available
   if (activity.location_name && activity.location_type) {
     const entry = LOCATION_TYPE_ICON_MAP[activity.location_type as LocationType];
@@ -132,8 +140,10 @@ export function TripConnectorRow({
   isExpanded,
   onToggle,
   onOverride,
+  onDetailUpdated,
   projectSessions,
   geocodedAddresses,
+  employeeId,
 }: {
   pa: ProcessedActivity<ApprovalActivity>;
   isApproved: boolean;
@@ -141,8 +151,10 @@ export function TripConnectorRow({
   isExpanded: boolean;
   onToggle: () => void;
   onOverride: (activity: ApprovalActivity, status: 'approved' | 'rejected') => void;
+  onDetailUpdated?: (data: DayApprovalDetailType) => void;
   projectSessions: ProjectSession[];
   geocodedAddresses?: Map<string, GeocodeResult>;
+  employeeId?: string;
 }) {
   const { item: activity } = pa;
   const hasOverride = activity.override_status !== null;
@@ -244,13 +256,27 @@ export function TripConnectorRow({
           ) : <td className="py-1.5" />;
         })()}
 
-        {/* Expand chevron */}
+        {/* Split + Expand chevron */}
         <td className="px-3 py-1.5 text-center">
-          <div className={`rounded-full p-0.5 transition-colors ${isExpanded ? 'bg-muted' : 'group-hover:bg-muted'}`}>
-            {isExpanded
-              ? <ChevronUp className="h-3 w-3 text-primary" />
-              : <ChevronDown className="h-3 w-3 text-muted-foreground" />
-            }
+          <div className="flex items-center justify-center gap-0.5">
+            {!isApproved && onDetailUpdated && (
+              <span onClick={(e) => e.stopPropagation()}>
+                <ActivitySegmentModal
+                  activityType="trip"
+                  activityId={activity.activity_id}
+                  startedAt={activity.started_at}
+                  endedAt={activity.ended_at}
+                  isSegmented={false}
+                  onUpdated={onDetailUpdated}
+                />
+              </span>
+            )}
+            <div className={`rounded-full p-0.5 transition-colors ${isExpanded ? 'bg-muted' : 'group-hover:bg-muted'}`}>
+              {isExpanded
+                ? <ChevronUp className="h-3 w-3 text-primary" />
+                : <ChevronDown className="h-3 w-3 text-muted-foreground" />
+              }
+            </div>
           </div>
         </td>
       </tr>
@@ -693,6 +719,7 @@ export function ActivityRow({
   onDetailUpdated,
   projectSessions,
   geocodedAddresses,
+  employeeId,
 }: {
   pa: ProcessedActivity<ApprovalActivity>;
   isApproved: boolean;
@@ -703,6 +730,7 @@ export function ActivityRow({
   onDetailUpdated?: (data: DayApprovalDetailType) => void;
   projectSessions: ProjectSession[];
   geocodedAddresses?: Map<string, GeocodeResult>;
+  employeeId?: string;
 }) {
   const { item: activity, hasClockIn, hasClockOut, clockInActivity, clockOutActivity } = pa;
   const isStop = activity.activity_type === 'stop';
@@ -710,8 +738,10 @@ export function ActivityRow({
   const isStopLike = isStop || isSegment;
   const isClock = activity.activity_type === 'clock_in' || activity.activity_type === 'clock_out';
   const isGap = activity.activity_type === 'gap';
+  const isGapSegment = activity.activity_type === 'gap_segment';
+  const isAnySegment = isSegment || isGapSegment || activity.activity_type === 'trip_segment';
   const isLunch = activity.activity_type === 'lunch';
-  const canExpand = isStopLike || isGap;
+  const canExpand = isStopLike || isGap || isGapSegment;
   const hasOverride = activity.override_status !== null;
 
   const statusConfig = {
@@ -852,19 +882,7 @@ export function ActivityRow({
             {(activity.gps_gap_seconds ?? 0) > 0 && (
               <AlertTriangle className="h-3.5 w-3.5 text-amber-600 animate-pulse" />
             )}
-            {isStop && !isApproved && onDetailUpdated && (
-              <span onClick={(e) => e.stopPropagation()}>
-                <ActivitySegmentModal
-                  activityType="stop"
-                  activityId={activity.activity_id}
-                  startedAt={activity.started_at}
-                  endedAt={activity.ended_at}
-                  isSegmented={false}
-                  onUpdated={onDetailUpdated}
-                />
-              </span>
-            )}
-            {isSegment && (
+            {isAnySegment && (
               <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1">Segment</Badge>
             )}
           </div>
@@ -1053,16 +1071,31 @@ export function ActivityRow({
           <ProjectCell slices={getProjectSlices(activity.started_at, activity.ended_at, projectSessions)} />
         )}
 
-        {/* Expand chevron */}
+        {/* Split + Expand chevron */}
         <td className="px-3 py-3 text-center">
-          {canExpand && (
-            <div className={`rounded-full p-1 transition-colors ${isExpanded ? 'bg-muted' : 'group-hover:bg-muted'}`}>
-              {isExpanded
-                ? <ChevronUp className="h-4 w-4 text-primary" />
-                : <ChevronDown className="h-4 w-4 text-muted-foreground" />
-              }
-            </div>
-          )}
+          <div className="flex items-center justify-center gap-0.5">
+            {!isApproved && onDetailUpdated && (isStop || isGap) && (
+              <span onClick={(e) => e.stopPropagation()}>
+                <ActivitySegmentModal
+                  activityType={isStop ? 'stop' : 'gap'}
+                  activityId={activity.activity_id}
+                  startedAt={activity.started_at}
+                  endedAt={activity.ended_at}
+                  isSegmented={false}
+                  employeeId={isGap ? employeeId : undefined}
+                  onUpdated={onDetailUpdated}
+                />
+              </span>
+            )}
+            {canExpand && (
+              <div className={`rounded-full p-1 transition-colors ${isExpanded ? 'bg-muted' : 'group-hover:bg-muted'}`}>
+                {isExpanded
+                  ? <ChevronUp className="h-4 w-4 text-primary" />
+                  : <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                }
+              </div>
+            )}
+          </div>
         </td>
       </tr>
 
@@ -1095,6 +1128,7 @@ export function LunchGroupRow({
   onDetailUpdated,
   projectSessions,
   geocodedAddresses,
+  employeeId,
 }: {
   lunch: ProcessedActivity<ApprovalActivity>;
   children: DisplayItem[];
@@ -1108,6 +1142,7 @@ export function LunchGroupRow({
   expandedChildId?: string | null;
   onChildToggle?: (key: string) => void;
   geocodedAddresses?: Map<string, GeocodeResult>;
+  employeeId?: string;
 }) {
   const activity = lunch.item;
   const [open, setOpen] = useState(false);
@@ -1236,8 +1271,10 @@ export function LunchGroupRow({
               isExpanded={expandedChild === key}
               onToggle={() => setExpandedChild(expandedChild === key ? null : key)}
               onOverride={onOverride}
+              onDetailUpdated={onDetailUpdated}
               projectSessions={projectSessions}
               geocodedAddresses={geocodedAddresses}
+              employeeId={employeeId}
             />
           ) : (
             <ActivityRow
@@ -1251,6 +1288,7 @@ export function LunchGroupRow({
               onDetailUpdated={onDetailUpdated}
               projectSessions={projectSessions}
               geocodedAddresses={geocodedAddresses}
+              employeeId={employeeId}
             />
           );
         }

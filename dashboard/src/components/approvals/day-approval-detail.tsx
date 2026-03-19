@@ -630,6 +630,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                                   onDetailUpdated={(data) => { hasChanges.current = true; setDetail(data); }}
                                   projectSessions={ps}
                                   geocodedAddresses={geocodedAddresses}
+                                  employeeId={employeeId}
                                 />
                               );
                             }
@@ -665,8 +666,10 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                                 isExpanded={expandedId === key}
                                 onToggle={() => setExpandedId(expandedId === key ? null : key)}
                                 onOverride={handleOverride}
+                                onDetailUpdated={(data) => { hasChanges.current = true; setDetail(data); }}
                                 projectSessions={ps}
                                 geocodedAddresses={geocodedAddresses}
+                                employeeId={employeeId}
                               />
                             ) : (
                               <ActivityRow
@@ -680,6 +683,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                                 onDetailUpdated={(data) => { hasChanges.current = true; setDetail(data); }}
                                 projectSessions={ps}
                                 geocodedAddresses={geocodedAddresses}
+                                employeeId={employeeId}
                               />
                             );
                           })}
