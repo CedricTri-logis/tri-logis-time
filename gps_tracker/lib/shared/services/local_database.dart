@@ -780,6 +780,25 @@ class LocalDatabase {
     }
   }
 
+  /// Get all shift IDs sharing the same work_body_id (lunch-split siblings).
+  Future<List<String>> getShiftIdsByWorkBodyId(String workBodyId) async {
+    try {
+      final results = await _db.query(
+        'local_shifts',
+        columns: ['id'],
+        where: 'work_body_id = ?',
+        whereArgs: [workBodyId],
+      );
+      return results.map((r) => r['id'] as String).toList();
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to get shifts by work_body_id',
+        operation: 'getShiftIdsByWorkBodyId',
+        originalError: e,
+      );
+    }
+  }
+
   /// Mark a shift as successfully synced.
   Future<void> markShiftSynced(String shiftId, {String? serverId}) async {
     try {

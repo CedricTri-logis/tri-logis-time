@@ -305,6 +305,41 @@ class WorkSessionLocalDb {
     }
   }
 
+  /// Get all sessions for a shift group (all segments sharing the same work_body_id).
+  /// Falls back to single shift query if no sibling segments exist.
+  Future<List<WorkSession>> getSessionsForShiftGroup(List<String> shiftIds) async {
+    await ensureTables();
+    if (shiftIds.isEmpty) return [];
+    try {
+      final placeholders = shiftIds.map((_) => '?').join(', ');
+      final results = await _localDb.transaction((txn) async {
+        return await txn.rawQuery('''
+          SELECT ws.*,
+                 s.studio_number AS _studio_number,
+                 s.building_name AS _studio_building_name,
+                 s.studio_type AS _studio_type,
+                 b.name AS _building_name,
+                 a.unit_number AS _apartment_unit_number
+          FROM local_work_sessions ws
+          LEFT JOIN local_studios s ON ws.studio_id = s.id
+          LEFT JOIN local_property_buildings b ON ws.building_id = b.id
+          LEFT JOIN local_apartments a ON ws.apartment_id = a.id
+          WHERE ws.shift_id IN ($placeholders)
+          ORDER BY ws.started_at DESC
+        ''', shiftIds,);
+      });
+      return results
+          .map((map) => WorkSession.fromLocalDb(_enrichRow(map)))
+          .toList();
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to get sessions for shift group',
+        operation: 'getSessionsForShiftGroup',
+        originalError: e,
+      );
+    }
+  }
+
   /// Get all pending sessions needing sync.
   Future<List<WorkSession>> getPendingWorkSessions(String employeeId) async {
     await ensureTables();

@@ -46,8 +46,8 @@ class _WorkSessionHistoryListState
 
     if (activeShift == null) return const SizedBox.shrink();
 
-    final sessionsAsync =
-        ref.watch(shiftWorkSessionsProvider(activeShift.id));
+    // Use group provider to show sessions from all shift segments (lunch-split)
+    final sessionsAsync = ref.watch(shiftGroupWorkSessionsProvider);
 
     return sessionsAsync.when(
       data: (sessions) {

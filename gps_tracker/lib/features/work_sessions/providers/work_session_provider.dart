@@ -437,6 +437,28 @@ final shiftWorkSessionsProvider =
   return service.getShiftSessions(shiftId);
 });
 
+/// Provider for work sessions across all segments of a lunch-split shift group.
+/// Uses workBodyId to find all sibling shift IDs, then queries sessions for all.
+/// Falls back to single shift if no workBodyId.
+final shiftGroupWorkSessionsProvider =
+    FutureProvider<List<WorkSession>>((ref) async {
+  final shiftState = ref.watch(shiftProvider);
+  ref.watch(workSessionProvider); // Invalidate on session changes
+  final shift = shiftState.activeShift;
+  if (shift == null) return [];
+
+  final service = ref.watch(workSessionServiceProvider);
+
+  if (shift.workBodyId != null) {
+    final localDb = ref.watch(localDatabaseProvider);
+    final siblingIds = await localDb.getShiftIdsByWorkBodyId(shift.workBodyId!);
+    if (siblingIds.isNotEmpty) {
+      return service.getShiftGroupSessions(siblingIds);
+    }
+  }
+  return service.getShiftSessions(shift.id);
+});
+
 /// Provider for the last activity type used in the current shift.
 /// Returns null if no sessions have been completed yet in this shift.
 final lastActivityTypeProvider = FutureProvider<ActivityType?>((ref) async {

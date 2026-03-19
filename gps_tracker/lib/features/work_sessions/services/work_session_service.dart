@@ -536,6 +536,11 @@ class WorkSessionService {
     return _localDb.getSessionsForShift(shiftId);
   }
 
+  /// Get all work sessions across a group of shift segments (lunch-split).
+  Future<List<WorkSession>> getShiftGroupSessions(List<String> shiftIds) async {
+    return _localDb.getSessionsForShiftGroup(shiftIds);
+  }
+
   /// Get count of pending work sessions for an employee.
   Future<int> getPendingCount(String employeeId) async {
     return _localDb.getPendingWorkSessionCount(employeeId);

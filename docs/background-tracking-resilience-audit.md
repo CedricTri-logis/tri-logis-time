@@ -1,6 +1,6 @@
 # Background Tracking Resilience - Audit complet
 
-> Dernière mise à jour : 2026-03-19 | Build actuel : v1.0.0+145
+> Dernière mise à jour : 2026-03-19 | Build actuel : v1.0.0+146
 
 ## Table des matières
 
@@ -632,6 +632,7 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +142 | Mar 18 | **Masquage approbations employé** — Tant que la journée n'est pas approuvée (`day_approvals.status != 'approved'`), tous les `ActivityFinalStatus` sont forcés à `needsReview` côté client et les minutes approuvées/rejetées masquées (model `DayApprovalDetail`/`DayApprovalSummary`). Aucun changement tracking/résilience | ✅ UI |
 | +143 | Mar 18 | **Liste collègues en quart** — Nouvel écran « Collègues » (menu 3-points, toutes rôles) : RPC `get_colleagues_status()` SECURITY DEFINER retourne statut (on-shift/on-lunch/off-shift) + session active (ménage/entretien/admin) de tous les employés. Flutter : model, provider autoDispose, screen avec summary bar + badges colorés + pull-to-refresh. Aucun changement tracking/résilience | ✅ Feature |
 | +145 | Mar 19 | **Fix crash bouton dîner (lunch)** — Migration SQLCipher v12 : recrée `local_shifts` sans le CHECK constraint restrictif sur `sync_status` (anciens DB avaient `IN ('pending','syncing','synced','error')` mais les opérations lunch écrivent `lunchPending`/`lunchEndPending`). Même pattern que v10 (diagnostic_events). Aucun changement tracking/résilience — fix DB migration uniquement | ✅ Fix |
+| +146 | Mar 19 | **Fix historique sessions après lunch-split** — `WorkSessionHistoryList` utilisait `activeShift.id` (segment courant) → sessions pré-lunch invisibles pendant/après dîner. Nouveau `shiftGroupWorkSessionsProvider` récupère tous les IDs segments via `workBodyId` et agrège les sessions de tous les segments. Aucun changement tracking/résilience — UI data fix | ✅ Fix |
 
 ### Chronologie complète Android Watchdog
 
