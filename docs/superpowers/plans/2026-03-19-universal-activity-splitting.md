@@ -15,7 +15,7 @@
 ## Task 1: Database — Table + Constraints
 
 **Files:**
-- Create: `supabase/migrations/20260319000001_universal_activity_segments.sql`
+- Create: `supabase/migrations/20260319100000_universal_activity_segments.sql`
 
 - [ ] **Step 1: Write migration — drop `cluster_segments`, create `activity_segments`**
 
@@ -85,7 +85,7 @@ WHERE conrelid = 'activity_overrides'::regclass AND conname LIKE '%activity_type
 - [ ] **Step 4: Commit**
 
 ```bash
-git add supabase/migrations/20260319000001_universal_activity_segments.sql
+git add supabase/migrations/20260319100000_universal_activity_segments.sql
 git commit -m "feat: create activity_segments table, drop cluster_segments"
 ```
 
@@ -94,7 +94,7 @@ git commit -m "feat: create activity_segments table, drop cluster_segments"
 ## Task 2: Database — `segment_activity` and `unsegment_activity` RPCs
 
 **Files:**
-- Modify: `supabase/migrations/20260319000001_universal_activity_segments.sql` (append)
+- Modify: `supabase/migrations/20260319100000_universal_activity_segments.sql` (append)
 
 **Reference:** Current `segment_cluster` at `supabase/migrations/20260312500002_segment_cluster_rpcs.sql:6-122`
 
@@ -390,7 +390,7 @@ SELECT COUNT(*) FROM activity_segments;  -- should be 0
 - [ ] **Step 5: Commit**
 
 ```bash
-git add supabase/migrations/20260319000001_universal_activity_segments.sql
+git add supabase/migrations/20260319100000_universal_activity_segments.sql
 git commit -m "feat: add segment_activity/unsegment_activity RPCs, drop old segment_cluster RPCs"
 ```
 
@@ -399,7 +399,7 @@ git commit -m "feat: add segment_activity/unsegment_activity RPCs, drop old segm
 ## Task 3: Database — Update `_get_day_approval_detail_base`
 
 **Files:**
-- Modify: `supabase/migrations/20260319000001_universal_activity_segments.sql` (append)
+- Modify: `supabase/migrations/20260319100000_universal_activity_segments.sql` (append)
 
 **Reference:** Current function at `supabase/migrations/20260317000005_lunch_rpc_rewrites.sql:708-1660`
 
@@ -456,7 +456,7 @@ DELETE FROM activity_segments;
 - [ ] **Step 4: Commit**
 
 ```bash
-git add supabase/migrations/20260319000001_universal_activity_segments.sql
+git add supabase/migrations/20260319100000_universal_activity_segments.sql
 git commit -m "feat: update _get_day_approval_detail_base for universal segments"
 ```
 
@@ -465,7 +465,7 @@ git commit -m "feat: update _get_day_approval_detail_base for universal segments
 ## Task 4: Database — Update `get_weekly_approval_summary`
 
 **Files:**
-- Modify: `supabase/migrations/20260319000001_universal_activity_segments.sql` (append)
+- Modify: `supabase/migrations/20260319100000_universal_activity_segments.sql` (append)
 
 **Reference:** Current function at `supabase/migrations/20260317000005_lunch_rpc_rewrites.sql:276-702`. The `live_segment_classification` CTE (lines 397-423) and `live_all_stops` (lines 425-429) reference `cluster_segments`.
 
@@ -491,7 +491,7 @@ SELECT get_weekly_approval_summary('<supervisor_id>', '<week_start_date>');
 - [ ] **Step 5: Commit**
 
 ```bash
-git add supabase/migrations/20260319000001_universal_activity_segments.sql
+git add supabase/migrations/20260319100000_universal_activity_segments.sql
 git commit -m "feat: update get_weekly_approval_summary for activity_segments"
 ```
 
@@ -500,13 +500,27 @@ git commit -m "feat: update get_weekly_approval_summary for activity_segments"
 ## Task 5: Database — Update `save_activity_override` and `remove_activity_override`
 
 **Files:**
-- Modify: `supabase/migrations/20260319000001_universal_activity_segments.sql` (append)
+- Modify: `supabase/migrations/20260319100000_universal_activity_segments.sql` (append)
 
 **Reference:** Current `save_activity_override` at `supabase/migrations/20260317000005_lunch_rpc_rewrites.sql:17-80`. Current `remove_activity_override` at `supabase/migrations/20260312500006_approve_day_segments.sql:11-48`.
 
-- [ ] **Step 1: Update `save_activity_override` lunch guard**
+- [ ] **Step 1: Update `save_activity_override` type whitelist**
 
-The current function only blocks `'lunch'`. No changes needed — it accepts any type that passes the `activity_overrides` CHECK constraint (already updated in Task 1). Verify no explicit type whitelist exists in the function body.
+The current function at `20260317000005_lunch_rpc_rewrites.sql:47` has an **explicit type whitelist**:
+```sql
+IF p_activity_type NOT IN ('trip', 'stop', 'clock_in', 'clock_out', 'gap', 'lunch_start', 'lunch_end', 'lunch', 'stop_segment') THEN
+    RAISE EXCEPTION 'Invalid activity type: %', p_activity_type;
+END IF;
+```
+
+Rewrite the function to add `'trip_segment'` and `'gap_segment'` to the whitelist:
+```sql
+IF p_activity_type NOT IN ('trip', 'stop', 'clock_in', 'clock_out', 'gap', 'lunch_start', 'lunch_end', 'lunch', 'stop_segment', 'trip_segment', 'gap_segment') THEN
+    RAISE EXCEPTION 'Invalid activity type: %', p_activity_type;
+END IF;
+```
+
+**Without this fix, approving/rejecting trip_segment or gap_segment from the frontend will fail with "Invalid activity type".**
 
 - [ ] **Step 2: Update `remove_activity_override` type validation**
 
@@ -523,10 +537,14 @@ RETURNS JSONB AS $$
 -- ... (same body, update type validation to include trip_segment, gap_segment)
 ```
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 3: Verify `approve_day` compatibility**
+
+The `approve_day` function (at `20260312500006_approve_day_segments.sql:54-108`) delegates `needs_review_count` to `_get_day_approval_detail_base`. Since `_get_day_approval_detail_base` is updated in Task 3 to include all segment types in the count, `approve_day` should work without code changes. Verify by reading the function body — if it has any hardcoded type references, update them.
+
+- [ ] **Step 4: Commit**
 
 ```bash
-git add supabase/migrations/20260319000001_universal_activity_segments.sql
+git add supabase/migrations/20260319100000_universal_activity_segments.sql
 git commit -m "feat: update override RPCs for trip_segment and gap_segment"
 ```
 
@@ -745,6 +763,14 @@ const stops = detail.activities.filter(a => a.activity_type === 'stop');
 to:
 ```typescript
 const stops = detail.activities.filter(a => a.activity_type === 'stop' || a.activity_type === 'stop_segment');
+```
+
+- [ ] **Step 1b: Fix `durationStats` for trips and gaps too**
+
+Same location in `day-approval-detail.tsx`, also update:
+```typescript
+const trips = detail.activities.filter(a => a.activity_type === 'trip' || a.activity_type === 'trip_segment');
+const gaps = detail.activities.filter(a => a.activity_type === 'gap' || a.activity_type === 'gap_segment');
 ```
 
 - [ ] **Step 2: Fix `visibleNeedsReviewCount`**
