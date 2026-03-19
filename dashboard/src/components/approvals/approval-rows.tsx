@@ -42,6 +42,7 @@ import {
   type MergedGroup,
 } from './approval-utils';
 import { Fragment, useState } from 'react';
+import { resolveGeocodedName, type GeocodeResult } from '@/lib/hooks/use-reverse-geocode';
 
 // --- Project cell component ---
 
@@ -132,6 +133,7 @@ export function TripConnectorRow({
   onToggle,
   onOverride,
   projectSessions,
+  geocodedAddresses,
 }: {
   pa: ProcessedActivity<ApprovalActivity>;
   isApproved: boolean;
@@ -140,6 +142,7 @@ export function TripConnectorRow({
   onToggle: () => void;
   onOverride: (activity: ApprovalActivity, status: 'approved' | 'rejected') => void;
   projectSessions: ProjectSession[];
+  geocodedAddresses?: Map<string, GeocodeResult>;
 }) {
   const { item: activity } = pa;
   const hasOverride = activity.override_status !== null;
@@ -300,7 +303,7 @@ export function TripConnectorRow({
               )}
 
               {/* Route map */}
-              <TripExpandDetail activity={activity} />
+              <TripExpandDetail activity={activity} geocodedAddresses={geocodedAddresses} />
             </div>
           </td>
         </tr>
@@ -316,11 +319,13 @@ export function GapSubRow({
   isApproved,
   isSaving,
   onOverride,
+  geocodedAddresses,
 }: {
   gap: ApprovalActivity;
   isApproved: boolean;
   isSaving: boolean;
   onOverride: (activity: ApprovalActivity, status: 'approved' | 'rejected') => void;
+  geocodedAddresses?: Map<string, GeocodeResult>;
 }) {
   const finalStatus = gap.override_status ?? gap.auto_status;
   const hasOverride = gap.override_status !== null;
@@ -426,6 +431,7 @@ export function MergedLocationRow({
   onToggle,
   onOverride,
   projectSessions,
+  geocodedAddresses,
 }: {
   group: MergedGroup;
   isApproved: boolean;
@@ -434,6 +440,7 @@ export function MergedLocationRow({
   onToggle: () => void;
   onOverride: (activity: ApprovalActivity, status: 'approved' | 'rejected') => void;
   projectSessions: ProjectSession[];
+  geocodedAddresses?: Map<string, GeocodeResult>;
 }) {
   const activity = group.primaryStop.item;
   const { hasClockIn } = group.primaryStop;
@@ -587,7 +594,7 @@ export function MergedLocationRow({
           <div className="space-y-1">
             <div className={`text-xs flex items-center gap-1.5 ${statusConfig.text}`}>
               <span className={activity.location_name ? 'font-bold underline decoration-current/20' : ''}>
-                {activity.location_name || 'Arret non associe'}
+                {activity.location_name || resolveGeocodedName(activity.latitude, activity.longitude, geocodedAddresses, 'Arrêt non associé')}
               </span>
             </div>
             <div className="flex items-center gap-1.5">
@@ -662,6 +669,7 @@ export function MergedLocationRow({
                     isApproved={isApproved}
                     isSaving={isSaving}
                     onOverride={onOverride}
+                    geocodedAddresses={geocodedAddresses}
                   />
                 ))}
               </div>
@@ -684,6 +692,7 @@ export function ActivityRow({
   onOverride,
   onDetailUpdated,
   projectSessions,
+  geocodedAddresses,
 }: {
   pa: ProcessedActivity<ApprovalActivity>;
   isApproved: boolean;
@@ -693,6 +702,7 @@ export function ActivityRow({
   onOverride: (activity: ApprovalActivity, status: 'approved' | 'rejected') => void;
   onDetailUpdated?: (data: DayApprovalDetailType) => void;
   projectSessions: ProjectSession[];
+  geocodedAddresses?: Map<string, GeocodeResult>;
 }) {
   const { item: activity, hasClockIn, hasClockOut, clockInActivity, clockOutActivity } = pa;
   const isStop = activity.activity_type === 'stop';
@@ -887,7 +897,7 @@ export function ActivityRow({
               </div>
               {(activity.start_location_name || activity.end_location_name) ? (
                 <div className={`text-[10px] flex items-center gap-1 ${statusConfig.subtext}`}>
-                  <span>{activity.start_location_name || 'Inconnu'}</span>
+                  <span>{activity.start_location_name || resolveGeocodedName(activity.latitude, activity.longitude, geocodedAddresses, 'Inconnu')}</span>
                   <ArrowRight className="h-2.5 w-2.5 flex-shrink-0" />
                   <span>{activity.end_location_name || 'Inconnu'}</span>
                 </div>
@@ -911,7 +921,7 @@ export function ActivityRow({
             <div className="space-y-1">
               <div className={`text-xs flex items-center gap-1.5 ${statusConfig.text}`}>
                 <span className={activity.location_name ? 'font-bold underline decoration-current/20' : ''}>
-                  {activity.location_name || 'Arrêt non associé'}
+                  {activity.location_name || resolveGeocodedName(activity.latitude, activity.longitude, geocodedAddresses, 'Arrêt non associé')}
                 </span>
               </div>
               <div className="flex items-center gap-1.5">
@@ -926,7 +936,7 @@ export function ActivityRow({
                 {activity.activity_type === 'clock_in' ? 'POINTAGE ENTRÉE' : 'POINTAGE SORTIE'}
               </span>
               <div className={`text-[10px] italic ${statusConfig.subtext}`}>
-                {activity.location_name || 'Lieu inconnu'}
+                {activity.location_name || resolveGeocodedName(activity.latitude, activity.longitude, geocodedAddresses, 'Lieu inconnu')}
               </div>
             </div>
           )}
@@ -1061,7 +1071,7 @@ export function ActivityRow({
           <td colSpan={9} className="p-0 border-b">
             <div className="px-4 py-6 bg-muted/10 border-t border-b">
               {isGap ? (
-                <GapExpandDetail activity={activity} />
+                <GapExpandDetail activity={activity} geocodedAddresses={geocodedAddresses} />
               ) : (
                 <StopExpandDetail activity={activity} />
               )}
@@ -1083,6 +1093,7 @@ export function LunchGroupRow({
   onOverride,
   onDetailUpdated,
   projectSessions,
+  geocodedAddresses,
 }: {
   lunch: ProcessedActivity<ApprovalActivity>;
   children: DisplayItem[];
@@ -1095,6 +1106,7 @@ export function LunchGroupRow({
   projectSessions: ProjectSession[];
   expandedChildId?: string | null;
   onChildToggle?: (key: string) => void;
+  geocodedAddresses?: Map<string, GeocodeResult>;
 }) {
   const activity = lunch.item;
   const [open, setOpen] = useState(false);
@@ -1204,6 +1216,7 @@ export function LunchGroupRow({
               onToggle={() => setExpandedChild(expandedChild === key ? null : key)}
               onOverride={onOverride}
               projectSessions={projectSessions}
+              geocodedAddresses={geocodedAddresses}
             />
           );
         }
@@ -1223,6 +1236,7 @@ export function LunchGroupRow({
               onToggle={() => setExpandedChild(expandedChild === key ? null : key)}
               onOverride={onOverride}
               projectSessions={projectSessions}
+              geocodedAddresses={geocodedAddresses}
             />
           ) : (
             <ActivityRow
@@ -1235,6 +1249,7 @@ export function LunchGroupRow({
               onOverride={onOverride}
               onDetailUpdated={onDetailUpdated}
               projectSessions={projectSessions}
+              geocodedAddresses={geocodedAddresses}
             />
           );
         }

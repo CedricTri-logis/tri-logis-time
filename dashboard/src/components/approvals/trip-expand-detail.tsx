@@ -7,8 +7,9 @@ import { GoogleTripRouteMap } from '@/components/trips/google-trip-route-map';
 import { detectTripStops, detectGpsClusters } from '@/lib/utils/detect-trip-stops';
 import { formatDurationMinutes, formatDistance } from '@/lib/utils/activity-display';
 import type { ApprovalActivity, TripGpsPoint } from '@/types/mileage';
+import { resolveGeocodedName, type GeocodeResult } from '@/lib/hooks/use-reverse-geocode';
 
-export function TripExpandDetail({ activity }: { activity: ApprovalActivity }) {
+export function TripExpandDetail({ activity, geocodedAddresses }: { activity: ApprovalActivity; geocodedAddresses?: Map<string, GeocodeResult> }) {
   const [gpsPoints, setGpsPoints] = useState<TripGpsPoint[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -74,8 +75,13 @@ export function TripExpandDetail({ activity }: { activity: ApprovalActivity }) {
     tripForMap.gps_point_count = gpsPoints.length;
   }
 
-  const from = activity.start_location_name || 'Inconnu';
-  const to = activity.end_location_name || 'Inconnu';
+  const startLat = gpsPoints.length > 0 ? gpsPoints[0].latitude : activity.latitude;
+  const startLng = gpsPoints.length > 0 ? gpsPoints[0].longitude : activity.longitude;
+  const endLat = gpsPoints.length > 0 ? gpsPoints[gpsPoints.length - 1].latitude : activity.latitude;
+  const endLng = gpsPoints.length > 0 ? gpsPoints[gpsPoints.length - 1].longitude : activity.longitude;
+
+  const from = activity.start_location_name || resolveGeocodedName(startLat, startLng, geocodedAddresses, 'Inconnu');
+  const to = activity.end_location_name || resolveGeocodedName(endLat, endLng, geocodedAddresses, 'Inconnu');
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-4 bg-muted/30 rounded-lg">

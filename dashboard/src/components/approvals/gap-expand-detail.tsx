@@ -6,8 +6,9 @@ import { supabaseClient } from '@/lib/supabase/client';
 import { GoogleTripRouteMap } from '@/components/trips/google-trip-route-map';
 import { formatDistance, formatDurationMinutes } from '@/lib/utils/activity-display';
 import type { ApprovalActivity } from '@/types/mileage';
+import { resolveGeocodedName, type GeocodeResult } from '@/lib/hooks/use-reverse-geocode';
 
-export function GapExpandDetail({ activity }: { activity: ApprovalActivity }) {
+export function GapExpandDetail({ activity, geocodedAddresses }: { activity: ApprovalActivity; geocodedAddresses?: Map<string, GeocodeResult> }) {
   const [endCoords, setEndCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [routeGeometry, setRouteGeometry] = useState<string | null>(null);
   const [roadDistanceKm, setRoadDistanceKm] = useState<number | null>(activity.road_distance_km ?? null);
@@ -96,11 +97,11 @@ export function GapExpandDetail({ activity }: { activity: ApprovalActivity }) {
         </div>
         <div>
           <span className="text-xs text-muted-foreground block">D&eacute;part</span>
-          <span className="font-medium">{activity.start_location_name || 'Inconnu'}</span>
+          <span className="font-medium">{activity.start_location_name || resolveGeocodedName(activity.latitude, activity.longitude, geocodedAddresses, 'Inconnu')}</span>
         </div>
         <div>
           <span className="text-xs text-muted-foreground block">Arriv&eacute;e</span>
-          <span className="font-medium">{activity.end_location_name || 'Inconnu'}</span>
+          <span className="font-medium">{activity.end_location_name || resolveGeocodedName(endCoords?.lat ?? null, endCoords?.lng ?? null, geocodedAddresses, 'Inconnu')}</span>
         </div>
         <div>
           <span className="text-xs text-muted-foreground block">Distance vol d'oiseau</span>

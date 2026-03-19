@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef, Fragment } from 'react';
+import { useReverseGeocode, type GeocodeResult } from '@/lib/hooks/use-reverse-geocode';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -176,6 +177,25 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
       { seconds: 0, count: 0 }
     );
   }, [detail?.activities]);
+
+  // Collect coordinates of activities without a known location name for reverse geocoding
+  const unknownLocationPoints = useMemo(() => {
+    if (!detail?.activities) return [];
+    const points: { latitude: number; longitude: number }[] = [];
+    for (const a of detail.activities) {
+      // Stops/clocks without a geofence match
+      if (!a.location_name && a.latitude != null && a.longitude != null) {
+        points.push({ latitude: a.latitude, longitude: a.longitude });
+      }
+      // Trip/gap start without a name
+      if (!a.start_location_name && a.latitude != null && a.longitude != null) {
+        points.push({ latitude: a.latitude, longitude: a.longitude });
+      }
+    }
+    return points;
+  }, [detail?.activities]);
+
+  const { results: geocodedAddresses } = useReverseGeocode(unknownLocationPoints);
 
   const handleOverride = async (activity: ApprovalActivity, newStatus: 'approved' | 'rejected') => {
     if (activity.override_status === newStatus) {
@@ -609,6 +629,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                                   onOverride={handleOverride}
                                   onDetailUpdated={(data) => { hasChanges.current = true; setDetail(data); }}
                                   projectSessions={ps}
+                                  geocodedAddresses={geocodedAddresses}
                                 />
                               );
                             }
@@ -626,6 +647,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                                   onToggle={() => setExpandedId(expandedId === key ? null : key)}
                                   onOverride={handleOverride}
                                   projectSessions={ps}
+                                  geocodedAddresses={geocodedAddresses}
                                 />
                               );
                             }
@@ -644,6 +666,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                                 onToggle={() => setExpandedId(expandedId === key ? null : key)}
                                 onOverride={handleOverride}
                                 projectSessions={ps}
+                                geocodedAddresses={geocodedAddresses}
                               />
                             ) : (
                               <ActivityRow
@@ -656,6 +679,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                                 onOverride={handleOverride}
                                 onDetailUpdated={(data) => { hasChanges.current = true; setDetail(data); }}
                                 projectSessions={ps}
+                                geocodedAddresses={geocodedAddresses}
                               />
                             );
                           })}
