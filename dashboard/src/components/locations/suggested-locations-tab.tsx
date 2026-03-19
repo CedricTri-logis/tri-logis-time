@@ -37,66 +37,33 @@ interface SuggestedLocationsTabProps {
 }
 
 async function enrichClusters(rawClusters: UnmatchedCluster[]): Promise<UnmatchedCluster[]> {
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-  if (!apiKey || rawClusters.length === 0) return rawClusters;
+  if (rawClusters.length === 0) return rawClusters;
 
-  const enriched = await Promise.all(
-    rawClusters.map(async (cluster) => {
-      let address: string | null = null;
-      let placeName: string | null = null;
+  const points = rawClusters.map((c) => ({
+    latitude: c.centroid_latitude,
+    longitude: c.centroid_longitude,
+  }));
 
-      // 1. Reverse geocode for address
-      try {
-        const geoRes = await fetch(
-          `https://maps.googleapis.com/maps/api/geocode/json?latlng=${cluster.centroid_latitude},${cluster.centroid_longitude}&key=${apiKey}&language=fr`
-        );
-        const geoData = await geoRes.json();
-        address = geoData.results?.[0]?.formatted_address || address;
-      } catch {
-        /* keep fallback */
-      }
+  try {
+    const res = await fetch('/api/reverse-geocode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ points }),
+    });
+    const data = await res.json();
 
-      // 2. Places Nearby Search (New API) for business name
-      try {
-        const placesRes = await fetch(
-          'https://places.googleapis.com/v1/places:searchNearby',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Goog-Api-Key': apiKey,
-              'X-Goog-FieldMask':
-                'places.displayName,places.formattedAddress,places.types',
-            },
-            body: JSON.stringify({
-              locationRestriction: {
-                circle: {
-                  center: {
-                    latitude: cluster.centroid_latitude,
-                    longitude: cluster.centroid_longitude,
-                  },
-                  radius: 50.0,
-                },
-              },
-              maxResultCount: 1,
-              languageCode: 'fr',
-            }),
-          }
-        );
-        const placesData = await placesRes.json();
-        placeName = placesData.places?.[0]?.displayName?.text || null;
-        if (!address && placesData.places?.[0]?.formattedAddress) {
-          address = placesData.places[0].formattedAddress;
-        }
-      } catch {
-        /* no business name found */
-      }
+    if (data.success && data.results) {
+      return rawClusters.map((cluster, i) => ({
+        ...cluster,
+        google_address: data.results[i].formatted_address,
+        place_name: data.results[i].place_name,
+      }));
+    }
+  } catch {
+    /* fallback to raw clusters */
+  }
 
-      return { ...cluster, google_address: address, place_name: placeName };
-    })
-  );
-
-  return enriched;
+  return rawClusters;
 }
 
 function formatDuration(seconds: number): string {
