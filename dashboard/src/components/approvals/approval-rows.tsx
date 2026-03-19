@@ -24,7 +24,7 @@ import { TripExpandDetail } from './trip-expand-detail';
 import { GapExpandDetail } from './gap-expand-detail';
 import { StopExpandDetail } from './stop-expand-detail';
 import { ClockTimeEditPopover } from './clock-time-edit-popover';
-import { ClusterSegmentModal } from './cluster-segment-modal';
+import { ActivitySegmentModal } from './activity-segment-modal';
 import { LOCATION_TYPE_ICON_MAP } from '@/lib/constants/location-icons';
 import { LOCATION_TYPE_LABELS } from '@/lib/validations/location';
 import type { ProcessedActivity } from '@/lib/utils/merge-clock-events';
@@ -854,8 +854,9 @@ export function ActivityRow({
             )}
             {isStop && !isApproved && onDetailUpdated && (
               <span onClick={(e) => e.stopPropagation()}>
-                <ClusterSegmentModal
-                  clusterId={activity.activity_id}
+                <ActivitySegmentModal
+                  activityType="stop"
+                  activityId={activity.activity_id}
                   startedAt={activity.started_at}
                   endedAt={activity.ended_at}
                   isSegmented={false}
