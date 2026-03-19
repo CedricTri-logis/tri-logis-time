@@ -1872,3 +1872,112 @@ BEGIN
     RETURN COALESCE(v_result, '[]'::JSONB);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ============================================================================
+-- Task 5: Update override RPCs for trip_segment and gap_segment
+-- ============================================================================
+
+-- save_activity_override: add trip_segment and gap_segment to type whitelist
+CREATE OR REPLACE FUNCTION save_activity_override(
+    p_employee_id UUID,
+    p_date DATE,
+    p_activity_type TEXT,
+    p_activity_id UUID,
+    p_status TEXT,
+    p_reason TEXT DEFAULT NULL
+)
+RETURNS JSONB AS $$
+DECLARE
+    v_caller UUID := auth.uid();
+    v_day_approval_id UUID;
+    v_result JSONB;
+BEGIN
+    -- Lunch activities cannot be overridden
+    IF p_activity_type = 'lunch' THEN
+        RAISE EXCEPTION 'Lunch activities cannot be overridden';
+    END IF;
+
+    -- Auth check
+    IF NOT is_admin_or_super_admin(v_caller) THEN
+        RAISE EXCEPTION 'Only admins can save overrides';
+    END IF;
+
+    -- Validate override status
+    IF p_status NOT IN ('approved', 'rejected') THEN
+        RAISE EXCEPTION 'Override status must be approved or rejected';
+    END IF;
+
+    -- Validate activity type (now includes stop_segment, trip_segment, gap_segment + lunch types)
+    IF p_activity_type NOT IN ('trip', 'stop', 'clock_in', 'clock_out', 'gap', 'lunch_start', 'lunch_end', 'lunch', 'stop_segment', 'trip_segment', 'gap_segment') THEN
+        RAISE EXCEPTION 'Invalid activity type: %', p_activity_type;
+    END IF;
+
+    -- Get or create day_approval
+    INSERT INTO day_approvals (employee_id, date, status)
+    VALUES (p_employee_id, p_date, 'pending')
+    ON CONFLICT (employee_id, date) DO NOTHING;
+
+    SELECT id INTO v_day_approval_id
+    FROM day_approvals
+    WHERE employee_id = p_employee_id AND date = p_date;
+
+    -- Cannot override on approved days
+    IF (SELECT status FROM day_approvals WHERE id = v_day_approval_id) = 'approved' THEN
+        RAISE EXCEPTION 'Cannot modify overrides on an approved day';
+    END IF;
+
+    -- Upsert override
+    INSERT INTO activity_overrides (day_approval_id, activity_type, activity_id, override_status, reason, created_by)
+    VALUES (v_day_approval_id, p_activity_type, p_activity_id, p_status, p_reason, v_caller)
+    ON CONFLICT (day_approval_id, activity_type, activity_id)
+    DO UPDATE SET
+        override_status = EXCLUDED.override_status,
+        reason = EXCLUDED.reason,
+        created_by = EXCLUDED.created_by,
+        created_at = now();
+
+    -- Return updated day detail
+    SELECT get_day_approval_detail(p_employee_id, p_date) INTO v_result;
+    RETURN v_result;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+-- remove_activity_override: add trip_segment and gap_segment to type whitelist
+CREATE OR REPLACE FUNCTION remove_activity_override(
+    p_employee_id UUID,
+    p_date DATE,
+    p_activity_type TEXT,
+    p_activity_id UUID
+)
+RETURNS JSONB AS $$
+DECLARE
+    v_caller UUID := auth.uid();
+BEGIN
+    IF NOT is_admin_or_super_admin(v_caller) THEN
+        RAISE EXCEPTION 'Only admins can remove overrides';
+    END IF;
+
+    -- Validate activity type (matches save_activity_override accepted types)
+    IF p_activity_type NOT IN ('trip', 'stop', 'clock_in', 'clock_out', 'gap', 'lunch_start', 'lunch_end', 'lunch', 'stop_segment', 'trip_segment', 'gap_segment') THEN
+        RAISE EXCEPTION 'Invalid activity type: %', p_activity_type;
+    END IF;
+
+    -- Check day is not already approved
+    IF EXISTS(
+        SELECT 1 FROM day_approvals
+        WHERE employee_id = p_employee_id AND date = p_date AND status = 'approved'
+    ) THEN
+        RAISE EXCEPTION 'Cannot modify overrides on an already approved day';
+    END IF;
+
+    DELETE FROM activity_overrides ao
+    USING day_approvals da
+    WHERE ao.day_approval_id = da.id
+      AND da.employee_id = p_employee_id
+      AND da.date = p_date
+      AND ao.activity_type = p_activity_type
+      AND ao.activity_id = p_activity_id;
+
+    RETURN get_day_approval_detail(p_employee_id, p_date);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
