@@ -45,10 +45,10 @@ class _ShiftStatusCardState extends ConsumerState<ShiftStatusCard> {
   String _formatElapsed(Duration d) {
     final hours = d.inHours;
     final minutes = d.inMinutes.remainder(60);
-    if (hours > 0) {
-      return '${hours}h ${minutes.toString().padLeft(2, '0')}m';
-    }
     final seconds = d.inSeconds.remainder(60);
+    if (hours > 0) {
+      return '${hours}h ${minutes.toString().padLeft(2, '0')}m ${seconds.toString().padLeft(2, '0')}s';
+    }
     return '${minutes}m ${seconds.toString().padLeft(2, '0')}s';
   }
 

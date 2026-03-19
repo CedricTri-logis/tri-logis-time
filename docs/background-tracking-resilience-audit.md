@@ -1,6 +1,6 @@
 # Background Tracking Resilience - Audit complet
 
-> Dernière mise à jour : 2026-03-19 | Build actuel : v1.0.0+148
+> Dernière mise à jour : 2026-03-19 | Build actuel : v1.0.0+149
 
 ## Table des matières
 
@@ -635,6 +635,7 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +146 | Mar 19 | **Fix historique sessions après lunch-split** — `WorkSessionHistoryList` utilisait `activeShift.id` (segment courant) → sessions pré-lunch invisibles pendant/après dîner. Nouveau `shiftGroupWorkSessionsProvider` récupère tous les IDs segments via `workBodyId` et agrège les sessions de tous les segments. Aucun changement tracking/résilience — UI data fix | ✅ Fix |
 | +147 | Mar 19 | **Temps de travail journalier + dîner visible** — `ShiftStatusCard` affiche maintenant le temps de travail NET de la journée (tous shifts - lunch) via `todayWorkSummaryProvider` + `getShiftsForDate()`. Durée dîner affichée sous le compteur. `WorkSessionHistoryList` inclut les segments lunch (`_LunchTile`) dans l'historique unifié. Temps persiste entre clock-out/clock-in. Aucun changement tracking/résilience | ✅ Feature |
 | +148 | Mar 19 | **Fix durées lunch gonflées** — Bug : `startLunch()`/`endLunch()` (provider + sync service) ne fermaient jamais le segment sortant localement (`clocked_out_at` restait null → durée = `now - start`). Fix : `completeShiftSegment()` appelé dans les 4 chemins (start/end lunch × provider/sync). Fallback display : si `clocked_out_at` null (données legacy), utilise le `clocked_in_at` du segment suivant. Aucun changement tracking/résilience | ✅ Fix |
+| +149 | Mar 19 | **Secondes visibles sur compteurs** — `_formatElapsed` affiche maintenant les secondes en permanence (ex: `2h 34m 12s`), pas juste quand <1h. Permet de voir visuellement quel compteur (travail ou dîner) est actif. Aucun changement tracking/résilience | ✅ UX |
 
 ### Chronologie complète Android Watchdog
 
