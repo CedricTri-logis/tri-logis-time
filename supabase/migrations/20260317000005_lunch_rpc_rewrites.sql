@@ -1614,7 +1614,7 @@ BEGIN
                 a->>'activity_type' IN ('clock_in', 'clock_out', 'lunch')
                 AND EXISTS (
                     SELECT 1 FROM jsonb_array_elements(COALESCE(v_activities, '[]'::JSONB)) s
-                    WHERE s->>'activity_type' IN ('stop', 'stop_segment')
+                    WHERE s->>'activity_type' IN ('stop', 'stop_segment', 'gap')
                       AND (a->>'started_at')::TIMESTAMPTZ >= ((s->>'started_at')::TIMESTAMPTZ - INTERVAL '60 seconds')
                       AND (a->>'started_at')::TIMESTAMPTZ <= ((s->>'ended_at')::TIMESTAMPTZ + INTERVAL '60 seconds')
                 )
