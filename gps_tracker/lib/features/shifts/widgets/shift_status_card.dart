@@ -108,8 +108,13 @@ class _ShiftStatusCardState extends ConsumerState<ShiftStatusCard> {
     Duration workTime = Duration.zero;
     Duration lunchTime = Duration.zero;
     final now = DateTime.now();
-    for (final shift in todaySummary.allShifts) {
-      final end = shift.clockedOutAt ?? now;
+    final shifts = todaySummary.allShifts;
+    for (int i = 0; i < shifts.length; i++) {
+      final shift = shifts[i];
+      // Use clockedOutAt if available; for segments with missing end time
+      // (legacy data), use the next segment's start as fallback.
+      final end = shift.clockedOutAt
+          ?? (i + 1 < shifts.length ? shifts[i + 1].clockedInAt : now);
       final duration = end.difference(shift.clockedInAt);
       if (duration.isNegative) continue;
       if (shift.isLunch) {

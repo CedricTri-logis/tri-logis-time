@@ -61,7 +61,7 @@ class _WorkSessionHistoryListState
         if (sessions.isEmpty && lunchShifts.isEmpty) {
           return _buildEmptyState(theme);
         }
-        return _buildList(theme, sessions, lunchShifts);
+        return _buildList(theme, sessions, lunchShifts, todaySummary);
       },
       loading: () => const Center(
         child: Padding(
@@ -102,6 +102,7 @@ class _WorkSessionHistoryListState
     ThemeData theme,
     List<WorkSession> sessions,
     List<LocalShift> lunchShifts,
+    TodayWorkSummary todaySummary,
   ) {
     // Build a unified timeline: work sessions + lunch segments
     // Each item has a startedAt for sorting
@@ -114,10 +115,20 @@ class _WorkSessionHistoryListState
       ));
     }
 
+    // For lunch shifts with missing clockedOutAt (legacy data),
+    // find the next sibling segment's start as fallback end time.
+    final allShifts = todaySummary.allShifts;
     for (final lunch in lunchShifts) {
+      DateTime? endTime = lunch.clockedOutAt;
+      if (endTime == null) {
+        final idx = allShifts.indexWhere((s) => s.id == lunch.id);
+        if (idx >= 0 && idx + 1 < allShifts.length) {
+          endTime = allShifts[idx + 1].clockedInAt;
+        }
+      }
       items.add((
         startedAt: lunch.clockedInAt,
-        widget: _LunchTile(lunchShift: lunch),
+        widget: _LunchTile(lunchShift: lunch, endOverride: endTime),
       ));
     }
 
@@ -314,8 +325,9 @@ class _WorkSessionTile extends StatelessWidget {
 /// Tile for a lunch break segment in the unified history.
 class _LunchTile extends StatelessWidget {
   final LocalShift lunchShift;
+  final DateTime? endOverride;
 
-  const _LunchTile({required this.lunchShift});
+  const _LunchTile({required this.lunchShift, this.endOverride});
 
   String _formatTime(DateTime dateTime) {
     final local = dateTime.toLocal();
@@ -333,7 +345,7 @@ class _LunchTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final end = lunchShift.clockedOutAt ?? DateTime.now();
+    final end = lunchShift.clockedOutAt ?? endOverride ?? DateTime.now();
     final duration = end.difference(lunchShift.clockedInAt);
     final isActive = lunchShift.status == 'active';
 

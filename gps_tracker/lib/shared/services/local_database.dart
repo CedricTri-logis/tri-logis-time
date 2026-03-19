@@ -934,6 +934,28 @@ class LocalDatabase {
     }
   }
 
+  /// Complete a shift segment (set clocked_out_at and status to completed).
+  Future<void> completeShiftSegment(String shiftId, DateTime clockedOutAt) async {
+    try {
+      await _db.update(
+        'local_shifts',
+        {
+          'clocked_out_at': clockedOutAt.toUtc().toIso8601String(),
+          'status': 'completed',
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        },
+        where: 'id = ?',
+        whereArgs: [shiftId],
+      );
+    } catch (e) {
+      throw LocalDatabaseException(
+        'Failed to complete shift segment',
+        operation: 'completeShiftSegment',
+        originalError: e,
+      );
+    }
+  }
+
   /// Close all active local shifts for an employee (bulk cleanup).
   ///
   /// Used by reconciliation to ensure no stale active shifts linger in the

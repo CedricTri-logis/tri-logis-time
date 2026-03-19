@@ -1,6 +1,6 @@
 # Background Tracking Resilience - Audit complet
 
-> Dernière mise à jour : 2026-03-19 | Build actuel : v1.0.0+147
+> Dernière mise à jour : 2026-03-19 | Build actuel : v1.0.0+148
 
 ## Table des matières
 
@@ -634,6 +634,7 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +145 | Mar 19 | **Fix crash bouton dîner (lunch)** — Migration SQLCipher v12 : recrée `local_shifts` sans le CHECK constraint restrictif sur `sync_status` (anciens DB avaient `IN ('pending','syncing','synced','error')` mais les opérations lunch écrivent `lunchPending`/`lunchEndPending`). Même pattern que v10 (diagnostic_events). Aucun changement tracking/résilience — fix DB migration uniquement | ✅ Fix |
 | +146 | Mar 19 | **Fix historique sessions après lunch-split** — `WorkSessionHistoryList` utilisait `activeShift.id` (segment courant) → sessions pré-lunch invisibles pendant/après dîner. Nouveau `shiftGroupWorkSessionsProvider` récupère tous les IDs segments via `workBodyId` et agrège les sessions de tous les segments. Aucun changement tracking/résilience — UI data fix | ✅ Fix |
 | +147 | Mar 19 | **Temps de travail journalier + dîner visible** — `ShiftStatusCard` affiche maintenant le temps de travail NET de la journée (tous shifts - lunch) via `todayWorkSummaryProvider` + `getShiftsForDate()`. Durée dîner affichée sous le compteur. `WorkSessionHistoryList` inclut les segments lunch (`_LunchTile`) dans l'historique unifié. Temps persiste entre clock-out/clock-in. Aucun changement tracking/résilience | ✅ Feature |
+| +148 | Mar 19 | **Fix durées lunch gonflées** — Bug : `startLunch()`/`endLunch()` (provider + sync service) ne fermaient jamais le segment sortant localement (`clocked_out_at` restait null → durée = `now - start`). Fix : `completeShiftSegment()` appelé dans les 4 chemins (start/end lunch × provider/sync). Fallback display : si `clocked_out_at` null (données legacy), utilise le `clocked_in_at` du segment suivant. Aucun changement tracking/résilience | ✅ Fix |
 
 ### Chronologie complète Android Watchdog
 

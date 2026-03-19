@@ -780,7 +780,8 @@ class ShiftNotifier extends StateNotifier<ShiftState>
             updatedAt: DateTime.now().toUtc(),
           );
           await localDb.insertShiftSegment(lunchSegment);
-          // Mark the old shift as synced (it's completed on server)
+          // Close the pre-lunch work segment locally
+          await localDb.completeShiftSegment(shift.id, now);
           await localDb.markShiftSynced(shift.id);
 
           state = state.copyWith(
@@ -844,7 +845,8 @@ class ShiftNotifier extends StateNotifier<ShiftState>
             updatedAt: DateTime.now().toUtc(),
           );
           await localDb.insertShiftSegment(workSegment);
-          // Mark the old lunch shift as synced (completed on server)
+          // Close the lunch segment locally (set clocked_out_at + completed)
+          await localDb.completeShiftSegment(shift.id, now);
           await localDb.markShiftSynced(shift.id);
 
           state = state.copyWith(
