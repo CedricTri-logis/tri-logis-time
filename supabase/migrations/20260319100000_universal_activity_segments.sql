@@ -716,9 +716,9 @@ BEGIN
             FROM trip_gps_points tgp
             JOIN gps_points gp ON gp.id = tgp.gps_point_id
             WHERE tgp.trip_id = t.id
-              AND gp.recorded_at >= aseg.starts_at
-              AND gp.recorded_at < aseg.ends_at
-            ORDER BY gp.recorded_at ASC
+              AND gp.captured_at >= aseg.starts_at
+              AND gp.captured_at < aseg.ends_at
+            ORDER BY gp.captured_at ASC
             LIMIT 1
         ) first_gps ON TRUE
         LEFT JOIN day_approvals da ON da.employee_id = t.employee_id
