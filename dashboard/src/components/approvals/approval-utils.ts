@@ -367,7 +367,11 @@ export function nestLunchActivities(items: DisplayItem[]): DisplayItem[] {
 
       // Never absorb stop_segments — they are explicitly created by supervisors
       // for independent approval and must always remain visible as standalone rows.
-      if (item.type === 'activity' && item.pa.item.activity_type === 'stop_segment') return;
+      if (item.type === 'activity' && (
+        item.pa.item.activity_type === 'stop_segment' ||
+        item.pa.item.activity_type === 'trip_segment' ||
+        item.pa.item.activity_type === 'gap_segment'
+      )) return;
 
       // Get the activity's time range
       let itemStart: number;

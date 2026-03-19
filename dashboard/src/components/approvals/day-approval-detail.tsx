@@ -154,9 +154,9 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
   // Duration by location type (for summary badges)
   const durationStats = useMemo(() => {
     if (!detail) return { totalTravelSeconds: 0, stopByType: {} as Record<string, number>, totalGapSeconds: 0 };
-    const trips = detail.activities.filter(a => a.activity_type === 'trip');
-    const stops = detail.activities.filter(a => a.activity_type === 'stop');
-    const gaps = detail.activities.filter(a => a.activity_type === 'gap');
+    const trips = detail.activities.filter(a => a.activity_type === 'trip' || a.activity_type === 'trip_segment');
+    const stops = detail.activities.filter(a => a.activity_type === 'stop' || a.activity_type === 'stop_segment');
+    const gaps = detail.activities.filter(a => a.activity_type === 'gap' || a.activity_type === 'gap_segment');
     const totalTravelSeconds = trips.reduce((sum, t) => sum + (t.duration_minutes || 0) * 60, 0);
     const totalGapSeconds = gaps.reduce((sum, g) => sum + (g.duration_minutes || 0) * 60, 0);
     const stopByType: Record<string, number> = {};
