@@ -780,8 +780,8 @@ class ShiftNotifier extends StateNotifier<ShiftState>
             updatedAt: DateTime.now().toUtc(),
           );
           await localDb.insertShiftSegment(lunchSegment);
-          // Close the pre-lunch work segment locally
-          await localDb.completeShiftSegment(shift.id, now);
+          // Close the pre-lunch work segment locally + set its workBodyId
+          await localDb.completeShiftSegment(shift.id, now, workBodyId: result.workBodyId);
           await localDb.markShiftSynced(shift.id);
 
           state = state.copyWith(

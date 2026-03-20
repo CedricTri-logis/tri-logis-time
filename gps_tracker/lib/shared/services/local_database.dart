@@ -935,15 +935,20 @@ class LocalDatabase {
   }
 
   /// Complete a shift segment (set clocked_out_at and status to completed).
-  Future<void> completeShiftSegment(String shiftId, DateTime clockedOutAt) async {
+  /// Optionally sets work_body_id (needed when first lunch splits an original shift).
+  Future<void> completeShiftSegment(String shiftId, DateTime clockedOutAt, {String? workBodyId}) async {
     try {
+      final updates = <String, Object?>{
+        'clocked_out_at': clockedOutAt.toUtc().toIso8601String(),
+        'status': 'completed',
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      };
+      if (workBodyId != null) {
+        updates['work_body_id'] = workBodyId;
+      }
       await _db.update(
         'local_shifts',
-        {
-          'clocked_out_at': clockedOutAt.toUtc().toIso8601String(),
-          'status': 'completed',
-          'updated_at': DateTime.now().toUtc().toIso8601String(),
-        },
+        updates,
         where: 'id = ?',
         whereArgs: [shiftId],
       );
