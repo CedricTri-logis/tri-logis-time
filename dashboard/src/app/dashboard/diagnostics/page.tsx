@@ -9,10 +9,12 @@ import { useGpsDiagnosticsSummary } from '@/lib/hooks/use-gps-diagnostics-summar
 import { useGpsDiagnosticsTrend } from '@/lib/hooks/use-gps-diagnostics-trend';
 import { useGpsDiagnosticsRanking } from '@/lib/hooks/use-gps-diagnostics-ranking';
 import { useGpsDiagnosticsFeed } from '@/lib/hooks/use-gps-diagnostics-feed';
+import { useGpsGapsByDay } from '@/lib/hooks/use-gps-gaps-by-day';
 import { GpsKpiCards } from '@/components/diagnostics/gps-kpi-cards';
 import { GpsTrendChart } from '@/components/diagnostics/gps-trend-chart';
 import { GpsEmployeeRanking } from '@/components/diagnostics/gps-employee-ranking';
 import { GpsIncidentFeed } from '@/components/diagnostics/gps-incident-feed';
+import { GpsGapsByDay } from '@/components/diagnostics/gps-gaps-by-day';
 import { GpsDetailDrawer } from '@/components/diagnostics/gps-detail-drawer';
 import type { DrawerState, DiagnosticSeverity, GpsRankedEmployee, GpsFeedItem } from '@/types/gps-diagnostics';
 
@@ -71,6 +73,7 @@ export default function DiagnosticsPage() {
   const trend = useGpsDiagnosticsTrend(startDate, endDate, employeeFilter);
   const ranking = useGpsDiagnosticsRanking(startDate, endDate);
   const feed = useGpsDiagnosticsFeed(startDate, endDate, activeSeverities, employeeFilter, autoRefresh);
+  const gapsByDay = useGpsGapsByDay(startDate, endDate, employeeFilter);
 
   // Handlers
   const openDrawerForEmployee = useCallback((emp: GpsRankedEmployee) => {
@@ -211,6 +214,9 @@ export default function DiagnosticsPage() {
         activeSeverities={activeSeverities}
         onToggleSeverity={toggleSeverity}
       />
+
+      {/* GPS Gaps by Day */}
+      <GpsGapsByDay data={gapsByDay.data} isLoading={gapsByDay.isLoading} />
 
       {/* Detail Drawer */}
       {drawer.employeeId && (
