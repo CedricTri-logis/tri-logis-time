@@ -461,9 +461,9 @@ class SyncService {
                 updatedAt: DateTime.now().toUtc(),
               );
               await _localDb.insertShiftSegment(lunchSegment);
-              // Close the pre-lunch work segment locally
+              // Close the pre-lunch work segment locally + set its workBodyId
               final lunchStartTime = result.startedAt ?? shift.lunchStartedAt!;
-              await _localDb.completeShiftSegment(shift.id, lunchStartTime);
+              await _localDb.completeShiftSegment(shift.id, lunchStartTime, workBodyId: result.workBodyId);
               await _localDb.markShiftSynced(shift.id);
             }
           } else if (shift.syncStatus == 'lunchEndPending' && shift.lunchEndedAt != null) {
