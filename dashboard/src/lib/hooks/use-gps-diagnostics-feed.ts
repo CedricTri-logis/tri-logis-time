@@ -69,6 +69,13 @@ export function useGpsDiagnosticsFeed(
     setCursor({ time: last.createdAt.toISOString(), id: last.id });
   }, [items]);
 
+  // Reset accumulated items and cursor when filters change
+  useEffect(() => {
+    setAccumulatedItems([]);
+    setCursor(null);
+    setHasMore(true);
+  }, [startDate, endDate, JSON.stringify(severities), employeeId]);
+
   const reset = useCallback(() => {
     setAccumulatedItems([]);
     setCursor(null);

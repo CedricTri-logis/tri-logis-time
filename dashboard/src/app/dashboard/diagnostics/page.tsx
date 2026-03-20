@@ -25,7 +25,8 @@ function todayStart(): string {
 
 function todayEnd(): string {
   const d = new Date();
-  d.setHours(23, 59, 59, 999);
+  d.setDate(d.getDate() + 1);
+  d.setHours(0, 0, 0, 0);
   return d.toISOString();
 }
 
@@ -150,10 +151,10 @@ export default function DiagnosticsPage() {
             onValueChange={(val) => setEmployeeFilter(val === 'all' ? null : val)}
           >
             <SelectTrigger className="w-[180px] h-9">
-              <SelectValue placeholder="Tous les employes" />
+              <SelectValue placeholder="Tous les employés" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Tous les employes</SelectItem>
+              <SelectItem value="all">Tous les employés</SelectItem>
               {ranking.data.map((emp) => (
                 <SelectItem key={emp.employeeId} value={emp.employeeId}>
                   {emp.fullName}
@@ -170,10 +171,10 @@ export default function DiagnosticsPage() {
           <CardContent className="flex items-center gap-3 py-3">
             <AlertCircle className="h-5 w-5 text-red-600" />
             <div className="text-sm text-red-700 flex-1">
-              Erreur lors du chargement des donnees diagnostiques
+              Erreur lors du chargement des données diagnostiques
             </div>
             <Button variant="outline" size="sm" onClick={() => summary.refetch()}>
-              <RefreshCw className="h-3 w-3 mr-1" /> Reessayer
+              <RefreshCw className="h-3 w-3 mr-1" /> Réessayer
             </Button>
           </CardContent>
         </Card>
