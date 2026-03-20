@@ -739,9 +739,10 @@ export function ActivityRow({
   const isClock = activity.activity_type === 'clock_in' || activity.activity_type === 'clock_out';
   const isGap = activity.activity_type === 'gap';
   const isGapSegment = activity.activity_type === 'gap_segment';
+  const isGapLike = isGap || isGapSegment;
   const isAnySegment = isSegment || isGapSegment || activity.activity_type === 'trip_segment';
   const isLunch = activity.activity_type === 'lunch';
-  const canExpand = isStopLike || isGap || isGapSegment;
+  const canExpand = isStopLike || isGapLike;
   const hasOverride = activity.override_status !== null;
 
   const statusConfig = {
@@ -785,7 +786,7 @@ export function ActivityRow({
     <>
       <tr
         className={`${isLunch ? 'bg-slate-50/80 border-l-4 border-l-slate-300 hover:bg-slate-100/80' : statusConfig.row} ${canExpand ? 'cursor-pointer' : ''} transition-all duration-200 group border-b border-white/50`}
-        style={isGap ? { borderLeftStyle: 'dashed' } : undefined}
+        style={isGapLike ? { borderLeftStyle: 'dashed' } : undefined}
         onClick={canExpand ? onToggle : undefined}
       >
         {/* Action / Approbation */}
@@ -899,7 +900,7 @@ export function ActivityRow({
 
         {/* Détails */}
         <td className="px-3 py-3 max-w-[300px]">
-          {isGap ? (
+          {isGapLike ? (
             <div className="space-y-1">
               <div className={`text-xs flex items-center gap-1.5 ${statusConfig.text}`}>
                 {(activity.start_location_name || activity.end_location_name) ? (
@@ -1057,7 +1058,7 @@ export function ActivityRow({
 
         {/* Distance */}
         <td className="px-3 py-3 text-right tabular-nums whitespace-nowrap">
-          {isGap && activity.distance_km ? (
+          {isGapLike && activity.distance_km ? (
             <span className="text-xs text-amber-600">{formatDistance(activity.distance_km)}</span>
           ) : (
             <span className="opacity-20 text-xs font-bold">—</span>
@@ -1082,7 +1083,7 @@ export function ActivityRow({
                   startedAt={activity.started_at}
                   endedAt={activity.ended_at}
                   isSegmented={false}
-                  employeeId={isGap ? employeeId : undefined}
+                  employeeId={isGapLike ? employeeId : undefined}
                   onUpdated={onDetailUpdated}
                 />
               </span>
@@ -1104,7 +1105,7 @@ export function ActivityRow({
         <tr>
           <td colSpan={9} className="p-0 border-b">
             <div className="px-4 py-6 bg-muted/10 border-t border-b">
-              {isGap ? (
+              {isGapLike ? (
                 <GapExpandDetail activity={activity} geocodedAddresses={geocodedAddresses} />
               ) : (
                 <StopExpandDetail activity={activity} />
