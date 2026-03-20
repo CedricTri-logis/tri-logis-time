@@ -1228,14 +1228,14 @@ BEGIN
         FROM shift_boundaries sb
         JOIN stationary_clusters sc
             ON sc.employee_id = p_employee_id
-           AND sc.started_at >= sb.clocked_in_at - INTERVAL '1 minute'
+           AND sc.started_at >= sb.clocked_in_at - INTERVAL '5 minutes'
            AND sc.started_at < sb.clocked_out_at
            AND sc.ended_at > sb.clocked_in_at
            AND sc.duration_seconds >= 180
 
         UNION ALL
 
-        -- Trips (1-min tolerance)
+        -- Trips (5-min tolerance — GPS often starts before clock_in fires)
         SELECT
             sb.shift_id,
             GREATEST(t.started_at, sb.clocked_in_at) AS evt_start,
@@ -1243,7 +1243,7 @@ BEGIN
         FROM shift_boundaries sb
         JOIN trips t
             ON t.employee_id = p_employee_id
-           AND t.started_at >= sb.clocked_in_at - INTERVAL '1 minute'
+           AND t.started_at >= sb.clocked_in_at - INTERVAL '5 minutes'
            AND t.started_at < sb.clocked_out_at
            AND t.ended_at > sb.clocked_in_at
 
