@@ -239,3 +239,60 @@ export interface DrawerState {
   devicePlatform: string | null;
   deviceModel: string | null;
 }
+
+// ---- GPS Gaps By Day (diagnostics section) ----
+
+export interface GpsGapByDayRow {
+  day: string;
+  employee_id: string;
+  full_name: string;
+  device_platform: string | null;
+  device_model: string | null;
+  shift_id: string;
+  gap_start: string;
+  gap_end: string;
+  gap_minutes: number;
+}
+
+export interface GpsGapByDay {
+  day: string;
+  employeeId: string;
+  fullName: string;
+  devicePlatform: string | null;
+  deviceModel: string | null;
+  shiftId: string;
+  gapStart: Date;
+  gapEnd: Date;
+  gapMinutes: number;
+}
+
+export function transformGapByDayRow(row: GpsGapByDayRow): GpsGapByDay {
+  return {
+    day: row.day,
+    employeeId: row.employee_id,
+    fullName: row.full_name,
+    devicePlatform: row.device_platform,
+    deviceModel: row.device_model,
+    shiftId: row.shift_id,
+    gapStart: new Date(row.gap_start),
+    gapEnd: new Date(row.gap_end),
+    gapMinutes: row.gap_minutes,
+  };
+}
+
+// Grouped structure for the component
+export interface GapsByDayGroup {
+  day: string;
+  totalGaps: number;
+  totalEmployees: number;
+  employees: GapsByEmployeeGroup[];
+}
+
+export interface GapsByEmployeeGroup {
+  employeeId: string;
+  fullName: string;
+  devicePlatform: string | null;
+  deviceModel: string | null;
+  gaps: { gapStart: Date; gapEnd: Date; gapMinutes: number }[];
+  totalMinutes: number;
+}
