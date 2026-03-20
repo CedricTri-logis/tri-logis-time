@@ -10,9 +10,11 @@ interface KpiCardProps {
   unit?: string;
   color: string;
   isLoading?: boolean;
+  invertDelta?: boolean;
+  subtitle?: string | null;
 }
 
-function KpiCard({ label, value, previousValue, unit, color, isLoading }: KpiCardProps) {
+function KpiCard({ label, value, previousValue, unit, color, isLoading, invertDelta, subtitle }: KpiCardProps) {
   if (isLoading) {
     return (
       <Card>
@@ -30,6 +32,9 @@ function KpiCard({ label, value, previousValue, unit, color, isLoading }: KpiCar
     ? Math.round(((numValue - previousValue) / previousValue) * 100)
     : null;
 
+  const upColor = invertDelta ? 'text-green-500' : 'text-red-500';
+  const downColor = invertDelta ? 'text-red-500' : 'text-green-500';
+
   return (
     <Card>
       <CardContent className="py-4">
@@ -40,16 +45,19 @@ function KpiCard({ label, value, previousValue, unit, color, isLoading }: KpiCar
         {delta !== null && (
           <div className="flex items-center gap-1 mt-1">
             {delta > 0 ? (
-              <TrendingUp className="h-3 w-3 text-red-500" />
+              <TrendingUp className={`h-3 w-3 ${upColor}`} />
             ) : delta < 0 ? (
-              <TrendingDown className="h-3 w-3 text-green-500" />
+              <TrendingDown className={`h-3 w-3 ${downColor}`} />
             ) : (
               <Minus className="h-3 w-3 text-slate-400" />
             )}
-            <span className={`text-xs ${delta > 0 ? 'text-red-500' : delta < 0 ? 'text-green-500' : 'text-slate-400'}`}>
+            <span className={`text-xs ${delta > 0 ? upColor : delta < 0 ? downColor : 'text-slate-400'}`}>
               {delta > 0 ? '+' : ''}{delta}% vs période préc.
             </span>
           </div>
+        )}
+        {subtitle && (
+          <p className="text-xs text-slate-400 mt-1 truncate">{subtitle}</p>
         )}
       </CardContent>
     </Card>
@@ -93,6 +101,7 @@ export function GpsKpiCards({ primary, comparison, isLoading }: GpsKpiCardsProps
         unit="%"
         color="text-green-600"
         isLoading={isLoading}
+        invertDelta
       />
       <KpiCard
         label="Gap moyen"
@@ -109,6 +118,7 @@ export function GpsKpiCards({ primary, comparison, isLoading }: GpsKpiCardsProps
         unit="m"
         color="text-red-600"
         isLoading={isLoading}
+        subtitle={primary?.maxGapEmployeeName}
       />
     </div>
   );
