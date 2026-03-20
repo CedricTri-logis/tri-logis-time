@@ -7,7 +7,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Scissors, X, Undo2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { MoreVertical, Scissors, X, Undo2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { formatTime } from "@/lib/utils/activity-display";
 
@@ -150,32 +156,40 @@ export function ActivitySegmentModal({
     onUpdated(data);
   };
 
-  if (isSegmented) {
-    return (
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-6 w-6 ml-1"
-        onClick={() => {
-          if (window.confirm("Retirer la segmentation? Les approbations par segment seront supprimées.")) {
-            handleUnsegment();
-          }
-        }}
-        disabled={loading}
-        title="Retirer segmentation"
-      >
-        <Undo2 className="h-3 w-3" />
-      </Button>
-    );
-  }
-
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-6 w-6 ml-1" title={title}>
-          <Scissors className="h-3 w-3" />
-        </Button>
-      </PopoverTrigger>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-7 w-7" disabled={loading}>
+            <MoreVertical className="h-4 w-4 text-muted-foreground" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {!isSegmented && (
+            <DropdownMenuItem onSelect={() => setOpen(true)}>
+              <Scissors className="h-3.5 w-3.5 mr-2" />
+              {title}
+            </DropdownMenuItem>
+          )}
+          {isSegmented && (
+            <DropdownMenuItem
+              onSelect={() => {
+                if (window.confirm("Retirer la segmentation? Les approbations par segment seront supprimées.")) {
+                  handleUnsegment();
+                }
+              }}
+            >
+              <Undo2 className="h-3.5 w-3.5 mr-2" />
+              Retirer la division
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <span />
+        </PopoverTrigger>
       <PopoverContent className="w-80 p-3" align="start">
         <div className="space-y-3">
           <div className="text-sm font-medium">
@@ -261,5 +275,6 @@ export function ActivitySegmentModal({
         </div>
       </PopoverContent>
     </Popover>
+    </>
   );
 }
