@@ -11,21 +11,31 @@ import { Scissors, X, Undo2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { formatTime } from "@/lib/utils/activity-display";
 
-interface ClusterSegmentModalProps {
-  clusterId: string;
+interface ActivitySegmentModalProps {
+  activityType: 'stop' | 'trip' | 'gap';
+  activityId: string;
   startedAt: string;
   endedAt: string;
   isSegmented: boolean;
+  employeeId?: string;  // required for gaps
   onUpdated: (newDetail: any) => void;
 }
 
-export function ClusterSegmentModal({
-  clusterId,
+const TITLE_MAP: Record<ActivitySegmentModalProps['activityType'], string> = {
+  stop: "Diviser l'arrêt",
+  trip: "Diviser le trajet",
+  gap: "Diviser le temps non suivi",
+};
+
+export function ActivitySegmentModal({
+  activityType,
+  activityId,
   startedAt,
   endedAt,
   isSegmented,
+  employeeId,
   onUpdated,
-}: ClusterSegmentModalProps) {
+}: ActivitySegmentModalProps) {
   const [open, setOpen] = useState(false);
   const [cutPoints, setCutPoints] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -33,6 +43,8 @@ export function ClusterSegmentModal({
 
   const startTime = new Date(startedAt);
   const endTime = new Date(endedAt);
+
+  const title = TITLE_MAP[activityType];
 
   const addCutPoint = () => {
     const midpoint = new Date((startTime.getTime() + endTime.getTime()) / 2);
@@ -94,9 +106,15 @@ export function ClusterSegmentModal({
       .sort();
 
     const supabase = createClient();
-    const { data, error: rpcError } = await supabase.rpc("segment_cluster", {
-      p_cluster_id: clusterId,
+    const { data, error: rpcError } = await supabase.rpc("segment_activity", {
+      p_activity_type: activityType,
+      p_activity_id: activityId,
       p_cut_points: cutTimestamps,
+      ...(activityType === 'gap' ? {
+        p_employee_id: employeeId,
+        p_starts_at: startedAt,
+        p_ends_at: endedAt,
+      } : {}),
     });
 
     if (rpcError) {
@@ -116,8 +134,9 @@ export function ClusterSegmentModal({
     setError(null);
 
     const supabase = createClient();
-    const { data, error: rpcError } = await supabase.rpc("unsegment_cluster", {
-      p_cluster_id: clusterId,
+    const { data, error: rpcError } = await supabase.rpc("unsegment_activity", {
+      p_activity_type: activityType,
+      p_activity_id: activityId,
     });
 
     if (rpcError) {
@@ -153,14 +172,14 @@ export function ClusterSegmentModal({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-6 w-6 ml-1" title="Diviser l'arrêt">
+        <Button variant="ghost" size="icon" className="h-6 w-6 ml-1" title={title}>
           <Scissors className="h-3 w-3" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-3" align="start">
         <div className="space-y-3">
           <div className="text-sm font-medium">
-            Diviser l&apos;arrêt ({formatTime(startedAt)} — {formatTime(endedAt)})
+            {title} ({formatTime(startedAt)} — {formatTime(endedAt)})
           </div>
 
           {/* Visual bar */}
