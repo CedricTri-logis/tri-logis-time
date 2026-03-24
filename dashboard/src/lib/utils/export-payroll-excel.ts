@@ -29,17 +29,21 @@ export function exportPayrollToExcel(
         Categorie: emp.primary_category || '',
         'Type paie': emp.pay_type === 'annual' ? 'Annuel' : 'Horaire',
         'Heures approuvees': formatMinutesAsHours(emp.total_approved_minutes),
-        'Rappel bonus': emp.total_callback_bonus_minutes > 0
+        'Heures refusees': emp.total_rejected_minutes > 0
+          ? formatMinutesAsHours(emp.total_rejected_minutes)
+          : '',
+        'Rappel (h)': emp.total_callback_bonus_minutes > 0
           ? formatMinutesAsHours(emp.total_callback_bonus_minutes)
           : '',
         'Pause totale': formatMinutesAsHours(emp.total_break_minutes),
         'Jours sans pause': emp.days_without_break || '',
-        'Déd. pause (min)': emp.total_break_deduction_minutes > 0
+        'Ded. pause (min)': emp.total_break_deduction_minutes > 0
           ? emp.total_break_deduction_minutes
           : '',
         '% Sessions': `${emp.work_session_coverage_pct}%`,
+        'Taux horaire': emp.hourly_rate_display,
         'Prime FDS ($)': emp.total_premium > 0 ? emp.total_premium : '',
-        'Montant base ($)': emp.total_base,
+        'Rappel ($)': emp.total_callback_bonus_amount > 0 ? emp.total_callback_bonus_amount : '',
         'Total ($)': emp.total_amount,
         'Approbation paie': emp.payroll_status === 'approved' ? 'Approuvee' : 'En attente',
       });
@@ -49,7 +53,9 @@ export function exportPayrollToExcel(
     summaryRows.push({
       Employe: `Sous-total ${CATEGORY_LABELS[group.category]}`,
       'Heures approuvees': formatMinutesAsHours(group.totals.approved_minutes),
-      'Montant base ($)': group.totals.base_amount,
+      'Heures refusees': group.totals.rejected_minutes > 0
+        ? formatMinutesAsHours(group.totals.rejected_minutes)
+        : '',
       'Prime FDS ($)': group.totals.premium_amount,
       'Total ($)': group.totals.total_amount,
     });
@@ -69,6 +75,7 @@ export function exportPayrollToExcel(
           Code: emp.employee_id_code,
           Date: day.date,
           'Heures approuvees': formatMinutesAsHours(day.approved_minutes),
+          'Heures refusees': day.rejected_minutes > 0 ? formatMinutesAsHours(day.rejected_minutes) : '',
           'Pause (min)': day.break_minutes,
           'Déd. pause (min)': day.break_deduction_minutes > 0
             ? day.break_deduction_minutes

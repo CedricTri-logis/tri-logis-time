@@ -69,6 +69,7 @@ export function usePayrollReport(period: PayPeriod) {
         total_callback_bonus_minutes: days.reduce((s, d) => s + d.callback_bonus_minutes, 0),
         days_without_break: daysWithoutBreak,
         total_break_deduction_minutes: days.reduce((s, d) => s + d.break_deduction_minutes, 0),
+        total_rejected_minutes: days.reduce((s, d) => s + d.rejected_minutes, 0),
         work_session_coverage_pct: coverage,
         total_premium: days.reduce((s, d) => s + d.premium_amount, 0),
         total_base: days.reduce((s, d) => s + d.base_amount, 0),
@@ -79,6 +80,13 @@ export function usePayrollReport(period: PayPeriod) {
         payroll_status: first.payroll_status,
         payroll_approved_by: first.payroll_approved_by,
         payroll_approved_at: first.payroll_approved_at,
+        hourly_rate: first.pay_type === 'hourly'
+          ? first.hourly_rate
+          : first.annual_salary ? Math.round((first.annual_salary / 2080) * 100) / 100 : null,
+        hourly_rate_display: first.pay_type === 'hourly'
+          ? (first.hourly_rate ? `${first.hourly_rate.toFixed(2)} $/h` : '—')
+          : (first.annual_salary ? `~${(first.annual_salary / 2080).toFixed(2)} $/h` : '—'),
+        annual_salary: first.annual_salary,
         days,
       };
     });
@@ -108,6 +116,7 @@ export function usePayrollReport(period: PayPeriod) {
             premium_amount: emps.reduce((s, e) => s + e.total_premium, 0),
             total_amount: emps.reduce((s, e) => s + e.total_amount, 0),
             break_deduction_minutes: emps.reduce((s, e) => s + e.total_break_deduction_minutes, 0),
+            rejected_minutes: emps.reduce((s, e) => s + e.total_rejected_minutes, 0),
           },
         };
       });
@@ -119,6 +128,7 @@ export function usePayrollReport(period: PayPeriod) {
     premium_amount: employees.reduce((s, e) => s + e.total_premium, 0),
     total_amount: employees.reduce((s, e) => s + e.total_amount, 0),
     break_deduction_minutes: employees.reduce((s, e) => s + e.total_break_deduction_minutes, 0),
+    rejected_minutes: employees.reduce((s, e) => s + e.total_rejected_minutes, 0),
   }), [employees]);
 
   const silentRefetch = useCallback(() => fetchData(true), [fetchData]);
