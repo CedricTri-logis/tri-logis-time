@@ -365,6 +365,10 @@ export interface MileageTripDetail {
   ended_at: string;
   start_address: string | null;
   end_address: string | null;
+  start_latitude: number | null;
+  start_longitude: number | null;
+  end_latitude: number | null;
+  end_longitude: number | null;
   start_location_id: string | null;
   end_location_id: string | null;
   distance_km: number;

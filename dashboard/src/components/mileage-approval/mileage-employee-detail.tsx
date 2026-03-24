@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { ChevronDown, Loader2, CheckCircle, XCircle, AlertCircle } from 'lucide-
 import { toast } from 'sonner';
 import type { PayPeriod } from '@/types/payroll';
 import { useMileageApprovalDetail } from '@/lib/hooks/use-mileage-approval';
+import { useReverseGeocode } from '@/lib/hooks/use-reverse-geocode';
 import {
   updateTripVehicle,
   batchUpdateTripVehicles,
@@ -39,6 +40,23 @@ export function MileageEmployeeDetail({
   const [isSaving, setIsSaving] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string[]>(['approved', 'needs_review']);
   const isApproved = detail?.approval?.status === 'approved';
+
+  // Collect coordinates for trips with missing address names for reverse geocoding
+  const unknownLocationPoints = useMemo(() => {
+    if (!detail) return [];
+    const points: { latitude: number; longitude: number }[] = [];
+    for (const trip of detail.trips) {
+      if (!trip.start_address && trip.start_latitude != null && trip.start_longitude != null) {
+        points.push({ latitude: Number(trip.start_latitude), longitude: Number(trip.start_longitude) });
+      }
+      if (!trip.end_address && trip.end_latitude != null && trip.end_longitude != null) {
+        points.push({ latitude: Number(trip.end_latitude), longitude: Number(trip.end_longitude) });
+      }
+    }
+    return points;
+  }, [detail]);
+
+  const { results: geocodedAddresses } = useReverseGeocode(unknownLocationPoints);
 
   const handleVehicleChange = async (tripId: string, vehicleType: string) => {
     setIsSaving(true);
@@ -214,6 +232,7 @@ export function MileageEmployeeDetail({
                     disabled={isApproved || isSaving}
                     onVehicleChange={handleVehicleChange}
                     onRoleChange={handleRoleChange}
+                    geocodedAddresses={geocodedAddresses}
                   />
                 ))}
               </div>
