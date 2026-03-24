@@ -601,11 +601,13 @@ BEGIN
     );
 
     -- =========================================================================
-    -- PATCH B: Replace hardcoded override_status/final_status in lunch_data
-    -- Old: NULL::TEXT AS override_status, NULL::TEXT AS override_reason,
-    --      'rejected'::TEXT AS final_status,
-    -- New: ao.override_status, NULL::TEXT AS override_reason,
-    --      COALESCE(ao.override_status, 'rejected') AS final_status,
+    -- PATCH BC: Combined replacement of override_status/final_status, children
+    --           CASE WHEN wrapper, FROM/WHERE clause with JOINs, segmented
+    --           exclusion, and lunch_segments CTE injection.
+    --
+    -- Replaces from override_status through the entire children subquery,
+    -- FROM clause, and WHERE clause in a single replacement to avoid
+    -- invalid intermediate SQL states.
     -- =========================================================================
     v_src := replace(
         v_src,
@@ -614,6 +616,7 @@ BEGIN
             NULL::TEXT AS override_reason,
             ''rejected''::TEXT AS final_status,
             NULL::DECIMAL AS distance_km,
+            NULL::DECIMAL AS road_distance_km,
             NULL::TEXT AS transport_mode,
             NULL::BOOLEAN AS has_gps_gap,
             NULL::UUID AS start_location_id,
@@ -627,12 +630,56 @@ BEGIN
             FALSE AS is_edited,
             NULL::TIMESTAMPTZ AS original_value,
             -- Children: stops and trips during lunch
-            (SELECT jsonb_agg(child ORDER BY child->>''started_at'')',
+            (SELECT jsonb_agg(child ORDER BY child->>''started_at'')
+             FROM (
+               SELECT jsonb_build_object(
+                 ''activity_id'', sc.id,
+                 ''activity_type'', ''stop'',
+                 ''started_at'', sc.started_at,
+                 ''ended_at'', sc.ended_at,
+                 ''duration_minutes'', sc.duration_seconds / 60,
+                 ''auto_status'', ''rejected'',
+                 ''auto_reason'', ''Pendant la pause dîner'',
+                 ''location_name'', l.name,
+                 ''location_type'', l.location_type::TEXT,
+                 ''latitude'', sc.centroid_latitude,
+                 ''longitude'', sc.centroid_longitude
+               ) AS child
+               FROM stationary_clusters sc
+               LEFT JOIN locations l ON l.id = sc.matched_location_id
+               WHERE sc.shift_id = s.id AND sc.duration_seconds >= 180
+               UNION ALL
+               SELECT jsonb_build_object(
+                 ''activity_id'', t.id,
+                 ''activity_type'', ''trip'',
+                 ''started_at'', t.started_at,
+                 ''ended_at'', t.ended_at,
+                 ''duration_minutes'', t.duration_minutes,
+                 ''distance_km'', COALESCE(t.road_distance_km, t.distance_km),
+                 ''auto_status'', ''rejected'',
+                 ''auto_reason'', ''Pendant la pause dîner'',
+                 ''transport_mode'', t.transport_mode::TEXT,
+                 ''start_location_name'', sl2.name,
+                 ''end_location_name'', el2.name
+               ) AS child
+               FROM trips t
+               LEFT JOIN locations sl2 ON sl2.id = t.start_location_id
+               LEFT JOIN locations el2 ON el2.id = t.end_location_id
+               WHERE t.shift_id = s.id
+             ) sub
+            ) AS children
+        FROM shifts s
+        WHERE s.employee_id = p_employee_id
+          AND s.is_lunch = true
+          AND (s.clocked_in_at AT TIME ZONE ''America/Montreal'')::date = p_date
+          AND s.clocked_out_at IS NOT NULL
+    ),',
         '''Pause dîner (non payée)''::TEXT AS auto_reason,
             ao.override_status,
             NULL::TEXT AS override_reason,
             COALESCE(ao.override_status, ''rejected'') AS final_status,
             NULL::DECIMAL AS distance_km,
+            NULL::DECIMAL AS road_distance_km,
             NULL::TEXT AS transport_mode,
             NULL::BOOLEAN AS has_gps_gap,
             NULL::UUID AS start_location_id,
@@ -647,39 +694,44 @@ BEGIN
             NULL::TIMESTAMPTZ AS original_value,
             -- Children: stops and trips during lunch (only when not approved)
             CASE WHEN COALESCE(ao.override_status, ''rejected'') != ''approved'' THEN
-                (SELECT jsonb_agg(child ORDER BY child->>''started_at'')'
-    );
-
-    -- =========================================================================
-    -- PATCH C: Replace FROM shifts s WHERE in lunch_data to add JOINs +
-    --          exclude segmented parents + close the CASE WHEN + inject
-    --          lunch_segments CTE
-    -- Old: ) AS children
-    --     FROM shifts s
-    --     WHERE s.employee_id = p_employee_id
-    --       AND s.is_lunch = true
-    --       AND (...)::date = p_date
-    --       AND s.clocked_out_at IS NOT NULL
-    -- ),
-    -- New: ) AS children
-    --     ELSE NULL END AS children
-    --     FROM shifts s
-    --     LEFT JOIN day_approvals da ...
-    --     LEFT JOIN activity_overrides ao ...
-    --     WHERE ... AND NOT IN segments
-    -- ),
-    -- lunch_segments AS ( ... ),
-    -- =========================================================================
-    v_src := replace(
-        v_src,
-        ') AS children
-        FROM shifts s
-        WHERE s.employee_id = p_employee_id
-          AND s.is_lunch = true
-          AND (s.clocked_in_at AT TIME ZONE ''America/Montreal'')::date = p_date
-          AND s.clocked_out_at IS NOT NULL
-    ),',
-        ') AS children
+                (SELECT jsonb_agg(child ORDER BY child->>''started_at'')
+                 FROM (
+                   SELECT jsonb_build_object(
+                     ''activity_id'', sc.id,
+                     ''activity_type'', ''stop'',
+                     ''started_at'', sc.started_at,
+                     ''ended_at'', sc.ended_at,
+                     ''duration_minutes'', sc.duration_seconds / 60,
+                     ''auto_status'', ''rejected'',
+                     ''auto_reason'', ''Pendant la pause dîner'',
+                     ''location_name'', l.name,
+                     ''location_type'', l.location_type::TEXT,
+                     ''latitude'', sc.centroid_latitude,
+                     ''longitude'', sc.centroid_longitude
+                   ) AS child
+                   FROM stationary_clusters sc
+                   LEFT JOIN locations l ON l.id = sc.matched_location_id
+                   WHERE sc.shift_id = s.id AND sc.duration_seconds >= 180
+                   UNION ALL
+                   SELECT jsonb_build_object(
+                     ''activity_id'', t.id,
+                     ''activity_type'', ''trip'',
+                     ''started_at'', t.started_at,
+                     ''ended_at'', t.ended_at,
+                     ''duration_minutes'', t.duration_minutes,
+                     ''distance_km'', COALESCE(t.road_distance_km, t.distance_km),
+                     ''auto_status'', ''rejected'',
+                     ''auto_reason'', ''Pendant la pause dîner'',
+                     ''transport_mode'', t.transport_mode::TEXT,
+                     ''start_location_name'', sl2.name,
+                     ''end_location_name'', el2.name
+                   ) AS child
+                   FROM trips t
+                   LEFT JOIN locations sl2 ON sl2.id = t.start_location_id
+                   LEFT JOIN locations el2 ON el2.id = t.end_location_id
+                   WHERE t.shift_id = s.id
+                 ) sub
+                )
             ELSE NULL
             END AS children
         FROM shifts s
@@ -718,6 +770,7 @@ BEGIN
             NULL::TEXT AS override_reason,
             COALESCE(ao.override_status, ''rejected'') AS final_status,
             NULL::DECIMAL AS distance_km,
+            NULL::DECIMAL AS road_distance_km,
             NULL::TEXT AS transport_mode,
             NULL::BOOLEAN AS has_gps_gap,
             NULL::UUID AS start_location_id,
@@ -803,24 +856,24 @@ BEGIN
     -- =========================================================================
     -- PATCH E: Update summary filters — remove lunch exclusion from
     --          approved_minutes and rejected_minutes.
-    -- Current live state (after gap inclusion patch):
-    --   approved: a->>'activity_type' <> 'lunch'
-    --   rejected: a->>'activity_type' <> 'lunch'
-    -- New: no activity_type exclusion — lunch/lunch_segment now participate
-    --       in approved/rejected, and gaps remain included (per gap inclusion fix)
+    -- Current live state (before gap inclusion patch):
+    --   approved: a->>'activity_type' NOT IN ('lunch', 'gap', 'gap_segment')
+    --   rejected: a->>'activity_type' NOT IN ('gap', 'gap_segment', 'lunch')
+    -- New: remove 'lunch' from both NOT IN lists so lunch/lunch_segment
+    --       participate in approved/rejected totals.
     -- =========================================================================
-    -- Approved filter: remove the lunch exclusion entirely
+    -- Approved filter: remove lunch from NOT IN list
     v_src := replace(
         v_src,
-        'a->>''final_status'' = ''approved'' AND a->>''activity_type'' <> ''lunch''',
-        'a->>''final_status'' = ''approved'''
+        'a->>''activity_type'' NOT IN (''lunch'', ''gap'', ''gap_segment'')',
+        'a->>''activity_type'' NOT IN (''gap'', ''gap_segment'')'
     );
 
-    -- Rejected filter: remove the lunch exclusion entirely
+    -- Rejected filter: remove lunch from NOT IN list
     v_src := replace(
         v_src,
-        'a->>''final_status'' = ''rejected'' AND a->>''activity_type'' <> ''lunch''',
-        'a->>''final_status'' = ''rejected'''
+        'a->>''activity_type'' NOT IN (''gap'', ''gap_segment'', ''lunch'')',
+        'a->>''activity_type'' NOT IN (''gap'', ''gap_segment'')'
     );
 
     -- =========================================================================

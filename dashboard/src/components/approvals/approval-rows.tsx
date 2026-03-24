@@ -19,6 +19,8 @@ import {
   ArrowRight,
   WifiOff,
   UtensilsCrossed,
+  Pencil,
+  X,
 } from 'lucide-react';
 import { TripExpandDetail } from './trip-expand-detail';
 import { GapExpandDetail } from './gap-expand-detail';
@@ -89,7 +91,10 @@ export function ProjectCell({ slices }: { slices: ProjectSlice[] }) {
 // --- Icon helper for approval activities ---
 
 export function ApprovalActivityIcon({ activity }: { activity: ApprovalActivity }) {
-  if (activity.activity_type === 'lunch') {
+  if (activity.activity_type === 'manual_time') {
+    return <Pencil className="h-4 w-4 text-amber-600" />;
+  }
+  if (activity.activity_type === 'lunch' || activity.activity_type === 'lunch_segment') {
     return <UtensilsCrossed className="h-4 w-4 text-orange-500" />;
   }
   if (activity.activity_type === 'gap') {
@@ -717,6 +722,7 @@ export function ActivityRow({
   onToggle,
   onOverride,
   onDetailUpdated,
+  onDeleteManualTime,
   projectSessions,
   geocodedAddresses,
   employeeId,
@@ -728,6 +734,7 @@ export function ActivityRow({
   onToggle: () => void;
   onOverride: (activity: ApprovalActivity, status: 'approved' | 'rejected') => void;
   onDetailUpdated?: (data: DayApprovalDetailType) => void;
+  onDeleteManualTime?: (manualTimeId: string) => void;
   projectSessions: ProjectSession[];
   geocodedAddresses?: Map<string, GeocodeResult>;
   employeeId?: string;
@@ -739,10 +746,11 @@ export function ActivityRow({
   const isClock = activity.activity_type === 'clock_in' || activity.activity_type === 'clock_out';
   const isGap = activity.activity_type === 'gap';
   const isGapSegment = activity.activity_type === 'gap_segment';
-  const isGapLike = isGap || isGapSegment;
-  const isAnySegment = isSegment || isGapSegment || activity.activity_type === 'trip_segment';
   const isLunch = activity.activity_type === 'lunch';
-  const canExpand = isStopLike || isGapLike;
+  const isLunchSegment = activity.activity_type === 'lunch_segment';
+  const isManualTime = activity.activity_type === 'manual_time';
+  const isAnySegment = isSegment || isGapSegment || activity.activity_type === 'trip_segment' || isLunchSegment;
+  const canExpand = isStopLike || isGap || isGapSegment;
   const hasOverride = activity.override_status !== null;
 
   const statusConfig = {
@@ -785,13 +793,29 @@ export function ActivityRow({
   return (
     <>
       <tr
-        className={`${isLunch ? 'bg-slate-50/80 border-l-4 border-l-slate-300 hover:bg-slate-100/80' : statusConfig.row} ${canExpand ? 'cursor-pointer' : ''} transition-all duration-200 group border-b border-white/50`}
-        style={isGapLike ? { borderLeftStyle: 'dashed' } : undefined}
+        className={`${isManualTime ? 'bg-amber-50 border-l-4 border-l-amber-400 hover:bg-amber-100/80' : isLunch ? 'bg-slate-50/80 border-l-4 border-l-slate-300 hover:bg-slate-100/80' : statusConfig.row} ${canExpand ? 'cursor-pointer' : ''} transition-all duration-200 group border-b border-white/50`}
+        style={isGap ? { borderLeftStyle: 'dashed' } : undefined}
         onClick={canExpand ? onToggle : undefined}
       >
         {/* Action / Approbation */}
         <td className="px-3 py-3 text-center">
-          {isLunch ? (
+          {isManualTime ? (
+            <div className="flex justify-center items-center gap-1">
+              <Badge variant="outline" className="font-bold text-[10px] px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border-amber-200">
+                <Pencil className="h-3 w-3 mr-1" />
+                Manuel
+              </Badge>
+              {onDeleteManualTime && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDeleteManualTime(activity.activity_id); }}
+                  className="ml-1 p-0.5 rounded hover:bg-red-100 text-red-400 hover:text-red-600 transition-colors"
+                  title="Supprimer le temps manuel"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          ) : isLunch ? (
             <div className="flex justify-center">
               <Badge variant="outline" className="font-bold text-[10px] px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border-slate-200">
                 <UtensilsCrossed className="h-3 w-3 mr-1" />
@@ -866,6 +890,7 @@ export function ActivityRow({
             {isClock && activity.activity_type === 'clock_in' && <LogIn className="h-3.5 w-3.5 text-emerald-600" />}
             {isClock && activity.activity_type === 'clock_out' && <LogOut className="h-3.5 w-3.5 text-red-600" />}
             {isLunch && <UtensilsCrossed className="h-3.5 w-3.5 text-orange-500" />}
+            {isLunchSegment && <UtensilsCrossed className="h-3.5 w-3.5 text-orange-500" />}
           </div>
         </td>
 
@@ -900,7 +925,25 @@ export function ActivityRow({
 
         {/* Détails */}
         <td className="px-3 py-3 max-w-[300px]">
-          {isGapLike ? (
+          {isManualTime ? (
+            <div className="space-y-1">
+              <div className="text-xs flex items-center gap-1.5 text-amber-800 font-medium">
+                <Pencil className="h-3 w-3" />
+                <span className="font-bold">Temps manuel ajouté</span>
+                <span className="bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-full text-[10px] font-bold border border-amber-200">MANUEL</span>
+              </div>
+              {activity.manual_reason && (
+                <div className="text-[11px] text-amber-700 mt-0.5">
+                  {'\ud83d\udcdd'} {activity.manual_reason} — par {activity.manual_created_by}
+                </div>
+              )}
+              {activity.location_name && (
+                <div className="text-[11px] text-muted-foreground mt-0.5">
+                  {'\ud83d\udccd'} {activity.location_name}
+                </div>
+              )}
+            </div>
+          ) : isGap ? (
             <div className="space-y-1">
               <div className={`text-xs flex items-center gap-1.5 ${statusConfig.text}`}>
                 {(activity.start_location_name || activity.end_location_name) ? (
@@ -932,6 +975,16 @@ export function ActivityRow({
               <div className="text-xs flex items-center gap-1.5 text-orange-700 font-medium">
                 <UtensilsCrossed className="h-3 w-3" />
                 <span className="font-bold">Pause dîner</span>
+              </div>
+              <span className="text-[10px] leading-tight text-orange-600/70">
+                {formatTime(activity.started_at)} — {formatTime(activity.ended_at)}
+              </span>
+            </div>
+          ) : isLunchSegment ? (
+            <div className="space-y-1">
+              <div className="text-xs flex items-center gap-1.5 text-orange-700 font-medium">
+                <UtensilsCrossed className="h-3 w-3" />
+                <span className="font-bold">Segment pause dîner</span>
               </div>
               <span className="text-[10px] leading-tight text-orange-600/70">
                 {formatTime(activity.started_at)} — {formatTime(activity.ended_at)}
@@ -1058,7 +1111,7 @@ export function ActivityRow({
 
         {/* Distance */}
         <td className="px-3 py-3 text-right tabular-nums whitespace-nowrap">
-          {isGapLike && activity.distance_km ? (
+          {isGap && activity.distance_km ? (
             <span className="text-xs text-amber-600">{formatDistance(activity.distance_km)}</span>
           ) : (
             <span className="opacity-20 text-xs font-bold">—</span>
@@ -1083,7 +1136,7 @@ export function ActivityRow({
                   startedAt={activity.started_at}
                   endedAt={activity.ended_at}
                   isSegmented={false}
-                  employeeId={isGapLike ? employeeId : undefined}
+                  employeeId={isGap ? employeeId : undefined}
                   onUpdated={onDetailUpdated}
                 />
               </span>
@@ -1105,7 +1158,7 @@ export function ActivityRow({
         <tr>
           <td colSpan={9} className="p-0 border-b">
             <div className="px-4 py-6 bg-muted/10 border-t border-b">
-              {isGapLike ? (
+              {isGap ? (
                 <GapExpandDetail activity={activity} geocodedAddresses={geocodedAddresses} />
               ) : (
                 <StopExpandDetail activity={activity} />
@@ -1153,17 +1206,31 @@ export function LunchGroupRow({
     <>
       {/* Lunch summary row — always visible */}
       <tr
-        className="bg-slate-50/80 border-l-4 border-l-slate-300 hover:bg-slate-100/80 cursor-pointer transition-all duration-200 group border-b border-white/50"
+        className={`${activity.final_status === 'approved' ? 'bg-green-50/60 border-l-4 border-l-green-400' : 'bg-slate-50/80 border-l-4 border-l-slate-300'} hover:bg-slate-100/80 cursor-pointer transition-all duration-200 group border-b border-white/50`}
         onClick={() => setOpen(!open)}
       >
         {/* Action */}
-        <td className="px-3 py-3 text-center">
-          <div className="flex justify-center">
+        <td className="px-3 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+          {isApproved ? (
             <Badge variant="outline" className="font-bold text-[10px] px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border-slate-200">
-              <UtensilsCrossed className="h-3 w-3 mr-1" />
-              Pause
+              <UtensilsCrossed className="h-3 w-3 mr-1" />Pause
             </Badge>
-          </div>
+          ) : (
+            <div className="flex items-center justify-center gap-1">
+              <Button variant="ghost" size="sm"
+                className={`h-7 px-2 text-[10px] rounded-full transition-all ${
+                  activity.final_status === 'approved'
+                    ? 'bg-green-100 text-green-700 ring-1 ring-green-300'
+                    : 'text-muted-foreground hover:text-green-600 hover:bg-green-50'
+                }`}
+                onClick={() => onOverride(activity, 'approved')}
+                disabled={isSaving}
+              >
+                <CheckCircle2 className="h-3 w-3 mr-1" />
+                {activity.final_status === 'approved' ? 'Travail' : 'Approuver'}
+              </Button>
+            </div>
+          )}
         </td>
 
         {/* Clock icon */}
@@ -1193,6 +1260,11 @@ export function LunchGroupRow({
             <div className="text-xs flex items-center gap-1.5 text-orange-700 font-medium">
               <UtensilsCrossed className="h-3 w-3" />
               <span className="font-bold">Pause dîner</span>
+              {activity.final_status === 'approved' && (
+                <Badge className="ml-1 bg-green-100 text-green-700 text-[9px] px-1.5 py-0 font-bold border-green-200">
+                  Converti en travail
+                </Badge>
+              )}
             </div>
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] leading-tight text-orange-600/70">
@@ -1227,14 +1299,25 @@ export function LunchGroupRow({
 
         {/* Expand chevron */}
         <td className="px-3 py-3 text-center">
-          {childItems.length > 0 && (
-            <div className={`rounded-full p-1 transition-colors ${open ? 'bg-muted' : 'group-hover:bg-muted'}`}>
-              {open
-                ? <ChevronUp className="h-4 w-4 text-primary" />
-                : <ChevronDown className="h-4 w-4 text-muted-foreground" />
-              }
-            </div>
-          )}
+          <div className="flex items-center justify-center gap-0.5">
+            {!isApproved && onDetailUpdated && (
+              <span onClick={(e) => e.stopPropagation()}>
+                <ActivitySegmentModal
+                  activityType="lunch"
+                  activityId={activity.activity_id}
+                  startedAt={activity.started_at}
+                  endedAt={activity.ended_at}
+                  isSegmented={false}
+                  onUpdated={onDetailUpdated}
+                />
+              </span>
+            )}
+            {childItems.length > 0 && (
+              <div className={`rounded-full p-1 transition-colors ${open ? 'bg-muted' : 'group-hover:bg-muted'}`}>
+                {open ? <ChevronUp className="h-4 w-4 text-primary" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+              </div>
+            )}
+          </div>
         </td>
       </tr>
 

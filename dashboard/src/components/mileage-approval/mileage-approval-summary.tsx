@@ -35,12 +35,18 @@ export function MileageApprovalSummaryFooter({
           <div className="text-muted-foreground text-xs">
             Compagnie: {summary.company_km.toFixed(1)} km · Passager: {summary.passenger_km.toFixed(1)} km
           </div>
-          <div className="text-muted-foreground text-xs">
-            YTD: {summary.ytd_km.toFixed(0)} km · Taux: {summary.rate_per_km}$/km
-            {summary.rate_after_threshold && (
-              <> (après {summary.threshold_km} km: {summary.rate_after_threshold}$/km)</>
-            )}
-          </div>
+          {summary.is_forfait ? (
+            <div className="text-muted-foreground text-xs">
+              Forfait: {summary.forfait_amount?.toFixed(2)}$ / paye
+            </div>
+          ) : (
+            <div className="text-muted-foreground text-xs">
+              YTD: {summary.ytd_km.toFixed(0)} km · Taux: {summary.rate_per_km}$/km
+              {summary.rate_after_threshold && (
+                <> (après {summary.threshold_km} km: {summary.rate_after_threshold}$/km)</>
+              )}
+            </div>
+          )}
         </div>
         <div className="text-right">
           <div className="text-2xl font-bold">

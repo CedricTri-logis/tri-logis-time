@@ -247,7 +247,7 @@ export type ApprovalAutoStatus = 'approved' | 'rejected' | 'needs_review';
 export type DayApprovalStatus = 'no_shift' | 'active' | 'pending' | 'needs_review' | 'approved';
 
 export interface ApprovalActivity {
-  activity_type: 'trip' | 'stop' | 'stop_segment' | 'trip_segment' | 'gap_segment' | 'lunch_segment' | 'clock_in' | 'clock_out' | 'gap' | 'lunch';
+  activity_type: 'trip' | 'stop' | 'stop_segment' | 'trip_segment' | 'gap_segment' | 'lunch_segment' | 'clock_in' | 'clock_out' | 'gap' | 'lunch' | 'manual_time';
   activity_id: string;
   shift_id: string;
   started_at: string;
@@ -279,6 +279,10 @@ export interface ApprovalActivity {
   gps_gap_count: number | null;
   shift_type: 'regular' | 'call' | null;
   shift_type_source: 'auto' | 'manual' | null;
+  manual_reason?: string;
+  is_standalone_shift?: boolean;
+  manual_created_by?: string;
+  manual_created_at?: string;
   children?: ApprovalActivity[];
 }
 
@@ -356,6 +360,7 @@ export interface MileageApprovalSummaryRow {
   mileage_status: 'pending' | 'approved' | null;
   approved_km: number | null;
   approved_amount: number | null;
+  is_forfait: boolean;
 }
 
 export interface MileageTripDetail {
@@ -401,6 +406,8 @@ export interface MileageApprovalDetailSummary {
   rate_per_km: number;
   rate_after_threshold: number | null;
   threshold_km: number | null;
+  is_forfait: boolean;
+  forfait_amount: number | null;
 }
 
 export interface MileageApproval {
@@ -416,10 +423,24 @@ export interface MileageApproval {
   unlocked_by: string | null;
   unlocked_at: string | null;
   notes: string | null;
+  is_forfait: boolean;
+  forfait_amount: number | null;
 }
 
 export interface MileageApprovalDetail {
   trips: MileageTripDetail[];
   summary: MileageApprovalDetailSummary;
   approval: MileageApproval | null;
+}
+
+export interface EmployeeMileageAllowance {
+  id: string;
+  employee_id: string;
+  amount_per_period: number;
+  started_at: string;
+  ended_at: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
 }
