@@ -33,6 +33,17 @@ export interface PayrollReportRow {
   break_deduction_minutes: number;
   break_deduction_waived: boolean;
   rejected_minutes: number;
+  // Hour bank
+  bank_deposit_hours: number | null;
+  bank_deposit_amount: number | null;
+  bank_withdrawal_hours: number | null;
+  bank_withdrawal_amount: number | null;
+  bank_balance_dollars: number | null;
+  bank_balance_hours: number | null;
+  // Sick leave
+  sick_leave_hours: number | null;
+  sick_leave_amount: number | null;
+  sick_leave_remaining: number | null;
 }
 
 export interface PayrollEmployeeSummary {
@@ -61,6 +72,18 @@ export interface PayrollEmployeeSummary {
   payroll_status: 'approved' | 'pending';
   payroll_approved_by: string | null;
   payroll_approved_at: string | null;
+  // Hour bank (period totals)
+  bank_deposit_hours: number;
+  bank_deposit_amount: number;
+  bank_withdrawal_hours: number;
+  bank_withdrawal_amount: number;
+  bank_net_amount: number;
+  bank_balance_dollars: number;
+  bank_balance_hours: number;
+  // Sick leave (period totals)
+  sick_leave_hours: number;
+  sick_leave_amount: number;
+  sick_leave_remaining: number;
   days: PayrollReportRow[];
 }
 
@@ -75,6 +98,8 @@ export interface PayrollCategoryGroup {
     break_deduction_minutes: number;
     rejected_minutes: number;
     callback_bonus_minutes: number;
+    bank_net_amount: number;
+    sick_leave_amount: number;
   };
 }
 

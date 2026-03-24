@@ -746,11 +746,12 @@ export function ActivityRow({
   const isClock = activity.activity_type === 'clock_in' || activity.activity_type === 'clock_out';
   const isGap = activity.activity_type === 'gap';
   const isGapSegment = activity.activity_type === 'gap_segment';
+  const isGapLike = isGap || isGapSegment;
   const isLunch = activity.activity_type === 'lunch';
   const isLunchSegment = activity.activity_type === 'lunch_segment';
   const isManualTime = activity.activity_type === 'manual_time';
   const isAnySegment = isSegment || isGapSegment || activity.activity_type === 'trip_segment' || isLunchSegment;
-  const canExpand = isStopLike || isGap || isGapSegment;
+  const canExpand = isStopLike || isGapLike;
   const hasOverride = activity.override_status !== null;
 
   const statusConfig = {

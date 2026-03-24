@@ -298,6 +298,25 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
     fetchDetail();
   };
 
+  const handleDeleteManualTime = async (manualTimeId: string) => {
+    if (!confirm('Supprimer ce quart manuel? Cette action est irréversible.')) return;
+    setIsSaving(true);
+    try {
+      const { data, error } = await supabaseClient.rpc('delete_manual_time', {
+        p_manual_time_id: manualTimeId,
+      });
+      if (error) {
+        toast.error('Erreur: ' + error.message);
+        return;
+      }
+      hasChanges.current = true;
+      setDetail(data as DayApprovalDetailType);
+      toast.success('Quart manuel supprimé');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const isApproved = detail?.approval_status === 'approved';
   const canApprove = detail && !isApproved && visibleNeedsReviewCount === 0 && !detail.has_active_shift;
 

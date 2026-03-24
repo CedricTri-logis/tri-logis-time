@@ -30,7 +30,7 @@ import {
 import { toast } from 'sonner';
 import { supabaseClient } from '@/lib/supabase/client';
 import { ActivityTab } from '@/components/mileage/activity-tab';
-import { VehiclePeriodsTab } from '@/components/mileage/vehicle-periods-tab';
+
 import { CarpoolingTab } from '@/components/mileage/carpooling-tab';
 import { MileageAllowancesTab } from '@/components/mileage/mileage-allowances-tab';
 
@@ -229,17 +229,12 @@ export default function MileagePage() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="activity">Activit&eacute;</TabsTrigger>
-          <TabsTrigger value="vehicles">V&eacute;hicules</TabsTrigger>
           <TabsTrigger value="carpools">Covoiturages</TabsTrigger>
           <TabsTrigger value="allowances">Forfaits kilom&eacute;trage</TabsTrigger>
         </TabsList>
 
         <TabsContent value="activity" className="mt-4">
           <ActivityTab />
-        </TabsContent>
-
-        <TabsContent value="vehicles" className="mt-4">
-          <VehiclePeriodsTab />
         </TabsContent>
 
         <TabsContent value="carpools" className="mt-4">
