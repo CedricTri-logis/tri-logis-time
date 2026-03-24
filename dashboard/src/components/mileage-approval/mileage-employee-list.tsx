@@ -71,6 +71,9 @@ export function MileageEmployeeList({
                   : emp.estimated_amount > 0
                   ? ` · ~${emp.estimated_amount.toFixed(2)} $`
                   : ''}
+                {emp.is_forfait && (
+                  <Badge variant="secondary" className="text-xs ml-1">Forfait</Badge>
+                )}
                 {emp.carpool_group_count > 0 && (
                   <span className="ml-1 text-yellow-600">
                     <Users className="inline h-3 w-3" /> {emp.carpool_group_count}
