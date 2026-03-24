@@ -16,8 +16,8 @@ export function usePayrollReport(period: PayPeriod) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
+  const fetchData = useCallback(async (silent = false) => {
+    if (!silent) setIsLoading(true);
     setError(null);
     try {
       const data = await getPayrollPeriodReport(period.start, period.end);
@@ -121,6 +121,8 @@ export function usePayrollReport(period: PayPeriod) {
     break_deduction_minutes: employees.reduce((s, e) => s + e.total_break_deduction_minutes, 0),
   }), [employees]);
 
+  const silentRefetch = useCallback(() => fetchData(true), [fetchData]);
+
   return {
     rows,
     employees,
@@ -129,5 +131,6 @@ export function usePayrollReport(period: PayPeriod) {
     isLoading,
     error,
     refetch: fetchData,
+    silentRefetch,
   };
 }
