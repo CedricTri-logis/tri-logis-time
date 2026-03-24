@@ -89,7 +89,7 @@ export function ProjectCell({ slices }: { slices: ProjectSlice[] }) {
 // --- Icon helper for approval activities ---
 
 export function ApprovalActivityIcon({ activity }: { activity: ApprovalActivity }) {
-  if (activity.activity_type === 'lunch') {
+  if (activity.activity_type === 'lunch' || activity.activity_type === 'lunch_segment') {
     return <UtensilsCrossed className="h-4 w-4 text-orange-500" />;
   }
   if (activity.activity_type === 'gap') {
@@ -739,8 +739,9 @@ export function ActivityRow({
   const isClock = activity.activity_type === 'clock_in' || activity.activity_type === 'clock_out';
   const isGap = activity.activity_type === 'gap';
   const isGapSegment = activity.activity_type === 'gap_segment';
-  const isAnySegment = isSegment || isGapSegment || activity.activity_type === 'trip_segment';
   const isLunch = activity.activity_type === 'lunch';
+  const isLunchSegment = activity.activity_type === 'lunch_segment';
+  const isAnySegment = isSegment || isGapSegment || activity.activity_type === 'trip_segment' || isLunchSegment;
   const canExpand = isStopLike || isGap || isGapSegment;
   const hasOverride = activity.override_status !== null;
 
@@ -865,6 +866,7 @@ export function ActivityRow({
             {isClock && activity.activity_type === 'clock_in' && <LogIn className="h-3.5 w-3.5 text-emerald-600" />}
             {isClock && activity.activity_type === 'clock_out' && <LogOut className="h-3.5 w-3.5 text-red-600" />}
             {isLunch && <UtensilsCrossed className="h-3.5 w-3.5 text-orange-500" />}
+            {isLunchSegment && <UtensilsCrossed className="h-3.5 w-3.5 text-orange-500" />}
           </div>
         </td>
 
@@ -931,6 +933,16 @@ export function ActivityRow({
               <div className="text-xs flex items-center gap-1.5 text-orange-700 font-medium">
                 <UtensilsCrossed className="h-3 w-3" />
                 <span className="font-bold">Pause dîner</span>
+              </div>
+              <span className="text-[10px] leading-tight text-orange-600/70">
+                {formatTime(activity.started_at)} — {formatTime(activity.ended_at)}
+              </span>
+            </div>
+          ) : isLunchSegment ? (
+            <div className="space-y-1">
+              <div className="text-xs flex items-center gap-1.5 text-orange-700 font-medium">
+                <UtensilsCrossed className="h-3 w-3" />
+                <span className="font-bold">Segment pause dîner</span>
               </div>
               <span className="text-[10px] leading-tight text-orange-600/70">
                 {formatTime(activity.started_at)} — {formatTime(activity.ended_at)}
