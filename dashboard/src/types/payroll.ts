@@ -32,6 +32,7 @@ export interface PayrollReportRow {
   reimbursement_amount?: number | null;
   break_deduction_minutes: number;
   break_deduction_waived: boolean;
+  rejected_minutes: number;
 }
 
 export interface PayrollEmployeeSummary {
@@ -46,6 +47,10 @@ export interface PayrollEmployeeSummary {
   total_callback_bonus_minutes: number;
   days_without_break: number;
   total_break_deduction_minutes: number;
+  total_rejected_minutes: number;
+  hourly_rate: number | null;
+  hourly_rate_display: string;
+  annual_salary: number | null;
   work_session_coverage_pct: number;
   total_premium: number;
   total_base: number;
@@ -68,6 +73,7 @@ export interface PayrollCategoryGroup {
     premium_amount: number;
     total_amount: number;
     break_deduction_minutes: number;
+    rejected_minutes: number;
   };
 }
 
