@@ -116,6 +116,31 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
         toast.error('Erreur lors du chargement: ' + error.message);
         return;
       }
+      if (!data) {
+        // No shift recorded for this day — show empty state
+        setDetail({
+          employee_id: employeeId,
+          date,
+          has_active_shift: false,
+          approval_status: 'pending',
+          approved_by: null,
+          approved_at: null,
+          notes: null,
+          activities: [],
+          project_sessions: [],
+          summary: {
+            total_shift_minutes: 0,
+            approved_minutes: 0,
+            rejected_minutes: 0,
+            needs_review_count: 0,
+            lunch_minutes: 0,
+            call_count: 0,
+            call_billed_minutes: 0,
+            call_bonus_minutes: 0,
+          },
+        });
+        return;
+      }
       setDetail(data as DayApprovalDetailType);
     } catch {
       toast.error('Erreur lors du chargement');
@@ -378,6 +403,15 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
         {isLoading ? (
           <div className="flex items-center justify-center py-24">
             <Loader2 className="h-10 w-10 animate-spin text-primary/40" />
+          </div>
+        ) : detail && detail.activities.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-4 text-muted-foreground animate-in fade-in duration-300">
+            <Clock className="h-10 w-10 text-muted-foreground/30" />
+            <p className="text-sm">Aucun quart enregistré pour cette journée</p>
+            <Button variant="outline" onClick={() => setShowAddManual(true)}
+              className="bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100">
+              + Ajouter du temps manuel
+            </Button>
           </div>
         ) : detail ? (
           <div className="mt-6 space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">

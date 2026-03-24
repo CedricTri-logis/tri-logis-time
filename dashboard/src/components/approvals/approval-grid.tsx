@@ -33,7 +33,7 @@ const STATUS_COLORS: Record<DayApprovalStatus, string> = {
   pending: 'bg-blue-50 text-blue-700 hover:bg-blue-100 cursor-pointer',
   needs_review: 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200 cursor-pointer',
   active: 'bg-gray-100 text-gray-500',
-  no_shift: 'bg-white text-gray-300',
+  no_shift: 'bg-white text-gray-300 hover:bg-amber-50/50 cursor-pointer',
 };
 
 const DAY_HEADERS = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
@@ -164,11 +164,13 @@ export function ApprovalGrid() {
 
   const handleCellClick = (row: WeeklyEmployeeRow, dayIndex: number) => {
     const day = row.days[dayIndex];
-    if (!day || day.status === 'no_shift' || day.status === 'active') return;
+    if (!day || day.status === 'active') return;
+    // For no_shift days, day.date may be empty — fall back to computed date from week columns
+    const date = day.date || weekDates[dayIndex];
     setSelectedCell({
       employeeId: row.employee_id,
       employeeName: row.employee_name,
-      date: day.date,
+      date,
     });
   };
 
