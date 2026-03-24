@@ -5,12 +5,14 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Users, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import type { MileageTripDetail } from '@/types/mileage';
+import { resolveGeocodedName, type GeocodeResult } from '@/lib/hooks/use-reverse-geocode';
 
 interface MileageTripRowProps {
   trip: MileageTripDetail;
   disabled: boolean;
   onVehicleChange: (tripId: string, vehicleType: string) => void;
   onRoleChange: (tripId: string, role: string) => void;
+  geocodedAddresses?: Map<string, GeocodeResult>;
 }
 
 const STATUS_CONFIG = {
@@ -37,10 +39,15 @@ const STATUS_CONFIG = {
   },
 } as const;
 
-export function MileageTripRow({ trip, disabled, onVehicleChange, onRoleChange }: MileageTripRowProps) {
+export function MileageTripRow({ trip, disabled, onVehicleChange, onRoleChange, geocodedAddresses }: MileageTripRowProps) {
   const isResolved = trip.vehicle_type !== null && trip.role !== null;
   const isReimbursable = trip.vehicle_type === 'personal' && trip.role === 'driver' && trip.trip_status === 'approved';
   const isRejected = trip.trip_status === 'rejected';
+
+  const startName = trip.start_address
+    || resolveGeocodedName(trip.start_latitude ? Number(trip.start_latitude) : null, trip.start_longitude ? Number(trip.start_longitude) : null, geocodedAddresses, 'Inconnu');
+  const endName = trip.end_address
+    || resolveGeocodedName(trip.end_latitude ? Number(trip.end_latitude) : null, trip.end_longitude ? Number(trip.end_longitude) : null, geocodedAddresses, 'Inconnu');
 
   const status = STATUS_CONFIG[trip.trip_status];
   const StatusIcon = status.icon;
@@ -67,7 +74,7 @@ export function MileageTripRow({ trip, disabled, onVehicleChange, onRoleChange }
             </Tooltip>
           </TooltipProvider>
           <span className={`truncate ${isRejected ? 'line-through text-muted-foreground' : ''}`}>
-            {trip.start_address ?? 'Inconnu'} → {trip.end_address ?? 'Inconnu'}
+            {startName} → {endName}
           </span>
           <span className="text-muted-foreground text-xs whitespace-nowrap">
             {trip.distance_km.toFixed(1)} km
