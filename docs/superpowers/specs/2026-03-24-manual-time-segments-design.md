@@ -1,7 +1,7 @@
 # Manual Time Segments — Design Spec
 
 **Date:** 2026-03-24
-**Status:** Draft
+**Status:** Review
 
 ## Problem
 
@@ -51,6 +51,8 @@ CREATE TABLE manual_time_entries (
 
 **`activity_overrides.activity_type` CHECK constraint** — add `'manual_time'` to allowed values.
 
+**`save_activity_override` and `remove_activity_override` RPCs** — add `'manual_time'` to the hardcoded `IF p_activity_type NOT IN (...)` validation whitelist. Without this, admins cannot approve/reject manual_time activities.
+
 ---
 
 ## RPCs
@@ -75,7 +77,7 @@ add_manual_time(
 - Day not approved
 - `p_reason` not empty
 - `p_ends_at > p_starts_at`
-- No overlap with existing shifts of same employee on same day
+- No overlap with existing shifts or other manual_time_entries of same employee on same day
 - Date of `p_starts_at` must match `p_date` (business day)
 
 **Behavior:**
@@ -99,7 +101,8 @@ delete_manual_time(
 
 **Behavior:**
 1. If `shift_time_edit_id IS NOT NULL` (clock extension):
-   - Delete the linked `shift_time_edits` row (reverts the clock time to previous effective value)
+   - Look up the `shift_id` and `field` from the linked `shift_time_edits` row
+   - Delete ALL `shift_time_edits` rows for that `(shift_id, field)` — fully reverts to the original clock time (not just the latest edit). This avoids orphaned intermediate edits that silently affect effective time.
    - Delete any `activity_overrides` for this manual_time entry
 2. Delete the `manual_time_entries` row
 3. Return `get_day_approval_detail(employee_id, date)`
@@ -121,6 +124,7 @@ When a clock edit **adds time** (new clock-out > old clock-out, or new clock-in 
 3. If delta removes time (shortens the shift):
    - No manual_time_entry created
    - Check if there's an existing manual_time_entry for a previous extension on this field — if so, delete it
+4. **Overlap check**: validate that the new clock extension range does not overlap with any standalone `manual_time_entries` for this employee/date
 
 ### 4. Modify `_get_day_approval_detail_base` (existing RPC)
 
@@ -152,6 +156,22 @@ manual_time_activities AS (
 ```
 
 Include in the UNION ALL that builds the activities array. For standalone entries (`shift_id IS NULL`), use `mte.id` as `shift_id` so `groupDisplayItemsByShift` creates a separate quart container.
+
+The JSONB object for each `manual_time` activity must include ALL fields from the `ApprovalActivity` type (set unused fields to NULL: `distance_km`, `road_distance_km`, `transport_mode`, `has_gps_gap`, `gps_gap_seconds`, `gps_gap_count`, etc.) to match the existing classified CTE pattern.
+
+**Gap detection exclusion:** The gap detection CTEs (`activity_evts`, clock-in/out gaps) must exclude time ranges covered by `manual_time_entries`. Without this, a clock extension from 16:05→16:30 would produce both a `manual_time` segment AND a `gap` activity for the same period. Add a filter: `WHERE NOT EXISTS (SELECT 1 FROM manual_time_entries mte WHERE mte.employee_id = ... AND tsrange(mte.starts_at, mte.ends_at) && tsrange(gap_start, gap_end))`.
+
+**`total_shift_minutes` for standalone entries:** The `v_total_shift_minutes` calculation sums from the `shifts` table via `effective_shift_times()`. Standalone manual entries have no `shifts` row, so they are excluded. Add:
+
+```sql
+v_total_shift_minutes := v_total_shift_minutes + COALESCE((
+    SELECT SUM(EXTRACT(EPOCH FROM (ends_at - starts_at)) / 60)::INTEGER
+    FROM manual_time_entries
+    WHERE employee_id = p_employee_id AND date = p_date AND shift_id IS NULL
+), 0);
+```
+
+**Clock extension double-count prevention:** For clock extensions (`shift_id IS NOT NULL`), the extended time is already counted in `total_shift_minutes` via the shift's effective duration. The `manual_time` activity's `duration_minutes` must NOT be added again to `approved_minutes`/`rejected_minutes` sums. Instead, clock extension `manual_time` activities have `duration_minutes = 0` for summary purposes — they exist purely as visual markers in the timeline. The actual time accounting flows through the shift's effective duration. Only standalone entries (`shift_id IS NULL`) contribute their `duration_minutes` to the approval sums.
 
 ### 5. Modify `approve_day` / `reopen_day`
 
@@ -208,15 +228,21 @@ When the new time **shortens** the shift:
 - Shift header gets amber border and `MANUEL` badge
 - Delete button on the shift header ("Supprimer le quart")
 
+### Dashboard — `merge-clock-events.ts`
+
+`mergeClockEvents` must NOT merge clock events into `manual_time` activities. Clock extensions sit at shift boundaries (exactly where clock events are) and could fall within the 60-second merge tolerance. Add `manual_time` to the exclusion check so clock-in/out icons don't end up on the wrong row.
+
 ### Dashboard — `approval-utils.ts`
 
-- `manual_time` activities should NOT be absorbed by `nestLunchActivities`
-- `manual_time` activities should NOT be merged by `mergeSameLocationGaps`
-- Standalone manual entries need synthetic shift grouping (use `mte.id` as shift_id)
+- `nestLunchActivities`: add `'manual_time'` to the exclusion list (alongside `stop_segment`, `trip_segment`, `gap_segment`) — manual time must never be absorbed into lunch groups
+- `mergeSameLocationGaps`: `manual_time` activities should NOT be merged
+- `groupDisplayItemsByShift`: standalone manual entries use `mte.id` as shift_id — disable `handleShiftTypeToggle` for these quarts (no real shift to toggle)
 
 ### TypeScript types
 
-Add to `ApprovalActivity.activity_type`: `'manual_time'`
+Add `'manual_time'` to:
+- `ApprovalActivity.activity_type` in `dashboard/src/types/mileage.ts`
+- `MergeableActivity.activity_type` in `dashboard/src/lib/utils/merge-clock-events.ts`
 
 Add fields:
 ```typescript
@@ -230,10 +256,16 @@ manual_created_at?: string;    // creation timestamp
 
 ## Summary Calculations
 
-Manual time minutes contribute to:
-- `total_shift_minutes` (for standalone quarts) or already included via shift duration (for clock extensions)
-- `approved_minutes` / `rejected_minutes` / `needs_review_count` based on `final_status`
-- The "Répartition" badges: new `✏️ Manuel` badge showing total manual time
+**Standalone quarts (`shift_id IS NULL`):**
+- Added to `total_shift_minutes` (explicit sum, see RPC section)
+- Their `duration_minutes` contributes to `approved_minutes` / `rejected_minutes` / `needs_review_count` based on `final_status`
+
+**Clock extensions (`shift_id IS NOT NULL`):**
+- Already counted in `total_shift_minutes` via `effective_shift_times()` on the parent shift
+- `duration_minutes = 0` for summary calculation purposes (visual marker only, no double-count)
+- The parent shift's existing activities (stops, trips, gaps) are what get approved/rejected — the manual_time row controls whether the extension time appears as `needs_review`
+
+**Répartition badges:** New `✏️ Manuel` badge showing total manual time (sum of standalone durations + display-only duration of clock extensions for the badge only)
 
 ---
 
