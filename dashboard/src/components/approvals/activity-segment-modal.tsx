@@ -18,7 +18,7 @@ import { createClient } from "@/lib/supabase/client";
 import { formatTime } from "@/lib/utils/activity-display";
 
 interface ActivitySegmentModalProps {
-  activityType: 'stop' | 'trip' | 'gap';
+  activityType: 'stop' | 'trip' | 'gap' | 'lunch';
   activityId: string;
   startedAt: string;
   endedAt: string;
@@ -31,6 +31,7 @@ const TITLE_MAP: Record<ActivitySegmentModalProps['activityType'], string> = {
   stop: "Diviser l'arrêt",
   trip: "Diviser le trajet",
   gap: "Diviser le temps non suivi",
+  lunch: "Diviser la pause dîner",
 };
 
 export function ActivitySegmentModal({
