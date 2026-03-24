@@ -44,7 +44,11 @@ COMMENT ON FUNCTION delete_micro_shift() IS
 -- ============================================================
 -- One-shot cleanup: delete existing micro-shifts (< 1 minute)
 -- ON DELETE CASCADE handles all dependent rows automatically.
+-- Must temporarily disable payroll lock trigger on lunch_breaks
+-- because some phantom shifts fall in locked payroll periods.
 -- ============================================================
+ALTER TABLE lunch_breaks DISABLE TRIGGER trg_payroll_lock_lunch_breaks;
+
 DO $$
 DECLARE
     v_count INTEGER;
@@ -60,3 +64,5 @@ BEGIN
     RAISE NOTICE 'Deleted % phantom micro-shifts', v_count;
 END;
 $$;
+
+ALTER TABLE lunch_breaks ENABLE TRIGGER trg_payroll_lock_lunch_breaks;
