@@ -32,6 +32,10 @@ export function exportPayrollToExcel(
         'Heures refusees': emp.total_rejected_minutes > 0
           ? formatMinutesAsHours(emp.total_rejected_minutes)
           : '',
+        'Banque +/- ($)': emp.bank_net_amount !== 0 ? emp.bank_net_amount.toFixed(2) : '',
+        'Solde banque ($)': emp.bank_balance_dollars > 0 ? emp.bank_balance_dollars.toFixed(2) : '',
+        'Maladie (h)': emp.sick_leave_hours > 0 ? emp.sick_leave_hours.toFixed(1) : '',
+        'Solde maladie (h)': emp.sick_leave_remaining.toFixed(1),
         'Rappel (h)': emp.total_callback_bonus_minutes > 0
           ? formatMinutesAsHours(emp.total_callback_bonus_minutes)
           : '',
@@ -68,13 +72,16 @@ export function exportPayrollToExcel(
   const detailRows: Record<string, unknown>[] = [];
   for (const group of categoryGroups) {
     for (const emp of group.employees) {
-      for (const day of emp.days) {
+      emp.days.forEach((day, index) => {
+        const isFirstRow = index === 0;
         detailRows.push({
           Employe: emp.full_name,
           Code: emp.employee_id_code,
           Date: day.date,
           'Heures approuvees': formatMinutesAsHours(day.approved_minutes),
           'Heures refusees': day.rejected_minutes > 0 ? formatMinutesAsHours(day.rejected_minutes) : '',
+          'Banque +/- ($)': isFirstRow && emp.bank_net_amount !== 0 ? emp.bank_net_amount.toFixed(2) : '',
+          'Maladie (h)': isFirstRow && emp.sick_leave_hours > 0 ? emp.sick_leave_hours.toFixed(1) : '',
           'Pause (min)': day.break_minutes,
           'Déd. pause (min)': day.break_deduction_minutes > 0
             ? day.break_deduction_minutes
@@ -98,7 +105,7 @@ export function exportPayrollToExcel(
           'Montant ($)': day.total_amount,
           'Statut jour': day.day_approval_status === 'approved' ? 'Approuve' : 'En attente',
         });
-      }
+      });
       detailRows.push({}); // Separator between employees
     }
   }

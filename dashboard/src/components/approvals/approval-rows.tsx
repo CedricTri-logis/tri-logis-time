@@ -800,12 +800,55 @@ export function ActivityRow({
       >
         {/* Action / Approbation */}
         <td className="px-3 py-3 text-center">
-          {isManualTime ? (
-            <div className="flex justify-center items-center gap-1">
-              <Badge variant="outline" className="font-bold text-[10px] px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border-amber-200">
-                <Pencil className="h-3 w-3 mr-1" />
-                Manuel
-              </Badge>
+          {isManualTime && !isApproved ? (
+            <div className="flex items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
+              {/* Approve Button */}
+              <div className="relative group/btn">
+                {activity.override_status === 'approved' && (
+                  <>
+                    <div className="absolute -inset-1 rounded-full border border-blue-500/40 shadow-[0_0_12px_rgba(59,130,246,0.3)]" />
+                    <div className="absolute -inset-[3px] rounded-full border border-blue-500/10" />
+                  </>
+                )}
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className={`h-9 w-9 rounded-full transition-all relative z-0 hover:scale-105 active:scale-95 border-2 ${
+                    activity.override_status === 'approved'
+                      ? 'border-blue-600 bg-white text-green-600 shadow-sm'
+                      : statusConfig.btnApprove + ' border-transparent shadow-none'
+                  }`}
+                  onClick={() => onOverride(activity, 'approved')}
+                  disabled={isSaving}
+                >
+                  <CheckCircle2 className={`h-4.5 w-4.5 ${activity.override_status === 'approved' ? 'stroke-[2.5px]' : ''}`} />
+                </Button>
+              </div>
+
+              {/* Reject Button */}
+              <div className="relative group/btn">
+                {activity.override_status === 'rejected' && (
+                  <>
+                    <div className="absolute -inset-1 rounded-full border border-blue-500/40 shadow-[0_0_12px_rgba(59,130,246,0.3)]" />
+                    <div className="absolute -inset-[3px] rounded-full border border-blue-500/10" />
+                  </>
+                )}
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className={`h-9 w-9 rounded-full transition-all relative z-0 hover:scale-105 active:scale-95 border-2 ${
+                    activity.override_status === 'rejected'
+                      ? 'border-blue-600 bg-white text-red-600 shadow-sm'
+                      : statusConfig.btnReject + ' border-transparent shadow-none'
+                  }`}
+                  onClick={() => onOverride(activity, 'rejected')}
+                  disabled={isSaving}
+                >
+                  <XCircle className={`h-4.5 w-4.5 ${activity.override_status === 'rejected' ? 'stroke-[2.5px]' : ''}`} />
+                </Button>
+              </div>
+
+              {/* Delete Button */}
               {onDeleteManualTime && (
                 <button
                   onClick={(e) => { e.stopPropagation(); onDeleteManualTime(activity.activity_id); }}
@@ -815,6 +858,13 @@ export function ActivityRow({
                   <X className="h-3.5 w-3.5" />
                 </button>
               )}
+            </div>
+          ) : isManualTime && isApproved ? (
+            <div className="flex justify-center">
+              <Badge variant="outline" className={`font-bold text-[10px] px-2.5 py-0.5 rounded-full shadow-sm ${statusConfig.badge}`}>
+                {(() => { const StatusIcon = statusConfig.icon; return <StatusIcon className="h-3 w-3 mr-1" />; })()}
+                Manuel
+              </Badge>
             </div>
           ) : isLunch ? (
             <div className="flex justify-center">
