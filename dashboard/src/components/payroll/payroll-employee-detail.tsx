@@ -37,7 +37,7 @@ function WeekSubtotal({ days, weekLabel, periodSalaryHalf }: WeekSubtotalProps) 
 
   return (
     <TableRow className="bg-muted/20 font-medium text-sm">
-      <TableCell colSpan={2}>{weekLabel}</TableCell>
+      <TableCell>{weekLabel}</TableCell>
       <TableCell className="text-right font-mono">{formatMinutesAsHours(totalMin)}</TableCell>
       <TableCell className="text-right font-mono">{formatMinutesAsHours(totalBreak)}</TableCell>
       <TableCell />
