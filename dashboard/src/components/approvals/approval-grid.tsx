@@ -133,12 +133,14 @@ export function ApprovalGrid() {
     };
     for (const row of data) {
       for (const day of row.days) {
-        totals.approved += day.approved_minutes ?? 0;
+        const dayApproved = day.approved_minutes ?? 0;
+        totals.approved += dayApproved;
         totals.rejected += day.rejected_minutes ?? 0;
         totals.needsReview += day.needs_review_count ?? 0;
         totals.total += day.total_shift_minutes ?? 0;
         totals.lunch += day.lunch_minutes ?? 0;
-        totals.callBonus += day.call_bonus_minutes ?? 0;
+        // No callback bonus when all activities are rejected
+        totals.callBonus += dayApproved > 0 ? (day.call_bonus_minutes ?? 0) : 0;
         totals.gap += day.gap_minutes ?? 0;
       }
     }
@@ -203,10 +205,11 @@ export function ApprovalGrid() {
       return <Clock className="h-4 w-4 text-gray-400 mx-auto" />;
     }
 
-    const bonus = day.call_bonus_minutes ?? 0;
-    const billedTotal = day.total_shift_minutes + bonus;
     const approved = day.approved_minutes ?? 0;
     const rejected = day.rejected_minutes ?? 0;
+    // No callback bonus when all activities are rejected
+    const bonus = approved > 0 ? (day.call_bonus_minutes ?? 0) : 0;
+    const billedTotal = day.total_shift_minutes + bonus;
     const needsReviewMinutes = billedTotal - approved - rejected;
 
     if (day.status === 'approved') {
