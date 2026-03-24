@@ -47,7 +47,7 @@ export function usePayrollReport(period: PayPeriod) {
       const daysWorked = days.filter(d => d.day_approval_status !== 'no_shift').length;
       const daysApproved = days.filter(d => d.day_approval_status === 'approved').length;
       const daysWithoutBreak = days.filter(
-        d => d.approved_minutes >= MIN_HOURS_FOR_BREAK_WARNING && d.break_minutes === 0
+        d => d.approved_minutes >= MIN_HOURS_FOR_BREAK_WARNING && d.break_minutes < 30
       ).length;
 
       const totalApprovedMin = days.reduce((s, d) => s + d.approved_minutes, 0);
@@ -68,6 +68,7 @@ export function usePayrollReport(period: PayPeriod) {
         total_break_minutes: days.reduce((s, d) => s + d.break_minutes, 0),
         total_callback_bonus_minutes: days.reduce((s, d) => s + d.callback_bonus_minutes, 0),
         days_without_break: daysWithoutBreak,
+        total_break_deduction_minutes: days.reduce((s, d) => s + d.break_deduction_minutes, 0),
         work_session_coverage_pct: coverage,
         total_premium: days.reduce((s, d) => s + d.premium_amount, 0),
         total_base: days.reduce((s, d) => s + d.base_amount, 0),
@@ -106,6 +107,7 @@ export function usePayrollReport(period: PayPeriod) {
             base_amount: emps.reduce((s, e) => s + e.total_base, 0),
             premium_amount: emps.reduce((s, e) => s + e.total_premium, 0),
             total_amount: emps.reduce((s, e) => s + e.total_amount, 0),
+            break_deduction_minutes: emps.reduce((s, e) => s + e.total_break_deduction_minutes, 0),
           },
         };
       });
@@ -116,6 +118,7 @@ export function usePayrollReport(period: PayPeriod) {
     base_amount: employees.reduce((s, e) => s + e.total_base, 0),
     premium_amount: employees.reduce((s, e) => s + e.total_premium, 0),
     total_amount: employees.reduce((s, e) => s + e.total_amount, 0),
+    break_deduction_minutes: employees.reduce((s, e) => s + e.total_break_deduction_minutes, 0),
   }), [employees]);
 
   return {

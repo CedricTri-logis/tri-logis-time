@@ -44,3 +44,15 @@ export async function unlockPayroll(
   if (error) throw error;
   return data;
 }
+
+export async function toggleBreakDeductionWaiver(
+  employeeId: string,
+  date: string
+): Promise<boolean> {
+  const { data, error } = await supabaseClient.rpc('toggle_break_deduction_waiver', {
+    p_employee_id: employeeId,
+    p_date: date,
+  });
+  if (error) throw error;
+  return data as boolean;
+}
