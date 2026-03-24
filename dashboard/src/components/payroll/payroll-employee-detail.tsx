@@ -206,6 +206,9 @@ export function PayrollEmployeeDetail({ employee, period, onRefetch }: PayrollEm
         <TableBody>
           {week1.map(renderDay)}
           {week1.length > 0 && <WeekSubtotal days={week1} weekLabel="Semaine 1" periodSalaryHalf={periodSalaryHalf} />}
+          {week1.length > 0 && week2.length > 0 && (
+            <TableRow><TableCell colSpan={9} className="h-4 p-0 border-0" /></TableRow>
+          )}
           {week2.map(renderDay)}
           {week2.length > 0 && <WeekSubtotal days={week2} weekLabel="Semaine 2" periodSalaryHalf={periodSalaryHalf} />}
         </TableBody>
