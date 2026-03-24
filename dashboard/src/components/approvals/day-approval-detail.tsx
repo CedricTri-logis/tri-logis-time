@@ -47,6 +47,7 @@ import {
   ActivityRow,
   LunchGroupRow,
 } from './approval-rows';
+import { AddManualTimeModal } from './add-manual-time-modal';
 
 interface DayApprovalDetailProps {
   employeeId: string;
@@ -64,6 +65,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
   const [notes, setNotes] = useState('');
   const [showNotes, setShowNotes] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [showAddManual, setShowAddManual] = useState(false);
   const hasChanges = useRef(false);
 
   // Resizable panel
@@ -356,12 +358,20 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
               </div>
             </div>
             
-            {isApproved && (
-              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 px-3 py-1 text-xs font-semibold rounded-full shadow-sm animate-in fade-in zoom-in duration-300">
-                <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
-                Approuvée
-              </Badge>
-            )}
+            <div className="flex items-center gap-2">
+              {!isApproved && (
+                <Button variant="outline" size="sm" onClick={() => setShowAddManual(true)}
+                  className="bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100">
+                  + Temps manuel
+                </Button>
+              )}
+              {isApproved && (
+                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 px-3 py-1 text-xs font-semibold rounded-full shadow-sm animate-in fade-in zoom-in duration-300">
+                  <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+                  Approuvée
+                </Badge>
+              )}
+            </div>
           </div>
         </div>
 
@@ -746,6 +756,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                                 projectSessions={ps}
                                 geocodedAddresses={geocodedAddresses}
                                 employeeId={employeeId}
+                                onDeleteManualTime={!isApproved ? handleDeleteManualTime : undefined}
                               />
                             );
                           })}
@@ -816,6 +827,14 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
             )}
           </div>
         ) : null}
+
+        <AddManualTimeModal
+          open={showAddManual}
+          onOpenChange={setShowAddManual}
+          employeeId={employeeId}
+          date={date}
+          onUpdated={(d) => { setDetail(d); hasChanges.current = true; }}
+        />
       </SheetContent>
     </Sheet>
   );
