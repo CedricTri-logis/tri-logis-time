@@ -1,6 +1,6 @@
 # Background Tracking Resilience - Audit complet
 
-> Dernière mise à jour : 2026-03-20 | Build actuel : v1.0.0+150
+> Dernière mise à jour : 2026-03-12 | Build actuel : v1.0.0+134
 
 ## Table des matières
 
@@ -41,14 +41,14 @@ L'architecture de résilience utilise une approche **multi-couches** (defense in
 │  CLBackgroundActivitySession (iOS 17+),      │
 │  beginBackgroundTask, SLC (~500m),           │
 │  BGAppRefreshTask (~5min), Live Activity,    │
-│  NativeGpsBuffer (JSONL file append)          │
+│  NativeGpsBuffer (UserDefaults, 500pts)      │
 ├─────────────────────────────────────────────┤
 │           COUCHE NATIVE Android              │
 │  setAlarmClock (45s rescue chain),           │
 │  WorkManager (5min periodic),                │
 │  Boot/Package receiver, OEM battery guide,   │
 │  GeofenceWakeReceiver (200m exit),           │
-│  NativeGpsBuffer (JSONL file append)         │
+│  NativeGpsBuffer (SharedPreferences, 500pts) │
 └─────────────────────────────────────────────┘
 ```
 
@@ -108,21 +108,16 @@ L'architecture de résilience utilise une approche **multi-couches** (defense in
 | **Statut** | ✅ ACTIF |
 | **Principe** | Affiche le statut du shift sur le Lock Screen. Donne une visibilité à l'utilisateur que le tracking est actif. |
 
-### 2.5 NativeGpsBuffer (JSONL file append)
+### 2.5 NativeGpsBuffer (UserDefaults)
 
 | Attribut | Valeur |
 |----------|--------|
 | **Fichier** | `ios/Runner/NativeGpsBuffer.swift` |
-| **Introduit** | Build +98, migré JSONL build +138 |
+| **Introduit** | Build +98 |
 | **Statut** | ✅ ACTIF |
-| **Principe** | Capture des points GPS en JSONL (append-only) dans `Application Support/native_gps_buffer.jsonl` quand le SLC callback se déclenche. Permet de sauver des points même si Flutter engine est mort. Drainé dans SQLCipher au prochain sync. |
+| **Principe** | Capture des points GPS dans UserDefaults quand le SLC callback se déclenche. Permet de sauver des points même si Flutter engine est mort. Drainé dans SQLCipher au prochain sync. |
 
-**Évolution** :
-- **Build +98** : UserDefaults JSON array, max 100 points
-- **Build +101** : Max étendu à 500 points
-- **Build +138** : JSONL file append — plus de cap, écriture O(1), DispatchQueue pour thread safety, migration automatique depuis UserDefaults
-
-**Caractéristiques** : Pas de limite de points. Source tag : `native_slc`. Singleton pattern. Thread-safe (DispatchQueue). Intégré dans `SignificantLocationPlugin.didUpdateLocations`.
+**Limites** : Max 100 points. Source tag : `native_slc`. Singleton pattern. Intégré dans `SignificantLocationPlugin.didUpdateLocations`.
 
 ### 2.6 BGAppRefreshTask (iOS 13+)
 
@@ -195,21 +190,16 @@ L'architecture de résilience utilise une approche **multi-couches** (defense in
 
 **Boucle** : Alarme toutes les 45s → vérifie si shift actif → si le service FFT est mort, le redémarre → re-programme la prochaine alarme.
 
-### 3.3 NativeGpsBuffer (JSONL file append)
+### 3.3 NativeGpsBuffer (SharedPreferences)
 
 | Attribut | Valeur |
 |----------|--------|
 | **Fichier** | `android/.../NativeGpsBuffer.kt` |
-| **Introduit** | Build +98, migré JSONL build +138 |
+| **Introduit** | Build +98 |
 | **Statut** | ✅ ACTIF |
-| **Principe** | Capture native via `FusedLocationProviderClient` dans le rescue alarm callback. Append-only JSONL dans `filesDir/native_gps_buffer.jsonl`. Drainé dans SQLCipher au prochain sync via MethodChannel. |
+| **Principe** | Capture native via `FusedLocationProviderClient` dans le rescue alarm callback. Sauve dans SharedPreferences (JSON array). Drainé dans SQLCipher au prochain sync via MethodChannel. |
 
-**Évolution** :
-- **Build +98** : SharedPreferences JSON array, max 100 points
-- **Build +101** : Max étendu à 500 points
-- **Build +138** : JSONL file append — plus de cap, écriture O(1), élimine le risque ANR, migration automatique depuis SharedPreferences
-
-**Caractéristiques** : Pas de limite de points. Source tag : `native_rescue`. Timeout GPS : 10s. `client_id` déterministe (UUID v5) pour dedup. Intégré dans `TrackingRescueReceiver`.
+**Limites** : Max 100 points. Source tag : `native_rescue`. Timeout GPS : 10s. Intégré dans `TrackingRescueReceiver`.
 
 ### 3.4 TrackingWatchdogService (WorkManager — 5min)
 
@@ -500,7 +490,7 @@ Tentative 4+ → attente 15 min (cap)
 
 **Comment ça marche** :
 1. pg_cron appelle `send-wake-push` Edge Function toutes les 2 min via pg_net
-2. La fonction appelle `get_stale_active_devices()` (shifts actifs + (heartbeat > 5 min OU GPS silencieux > 5 min) + FCM token valide)
+2. La fonction appelle `get_stale_active_devices()` (shifts actifs + heartbeat > 5 min + FCM token valide)
 3. Pour chaque device stale : envoie un silent push FCM v1 (Android `priority: high`, iOS `content-available: 1`)
 4. `record_wake_push()` met à jour `last_wake_push_at` pour le throttle
 
@@ -513,7 +503,7 @@ Tentative 4+ → attente 15 min (cap)
 | **Migration** | 126 (advisory_locks_detect_trips) |
 | **Introduit** | Build +98 |
 | **Statut** | ✅ ACTIF |
-| **Principe** | `pg_advisory_xact_lock` empêche l'exécution concurrente de `detect_trips` (clé: shift_id) et `detect_carpools` (clé: date). Prévient les deadlocks DB intra-fonction. Migration 132 : `detect_carpools` INSERT atomique via `JOIN trips` pour gérer la race condition cross-fonction (stale trip IDs). |
+| **Principe** | `pg_advisory_xact_lock` empêche l'exécution concurrente de `detect_trips` (clé: shift_id) et `detect_carpools` (clé: date). Prévient les deadlocks DB. |
 
 ### 5.6 Minimum App Version Enforcement
 
@@ -624,19 +614,6 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +132 | Mar 12 | **Failsafe serveur direct pour `NO_SERVER_SHIFT`** — Si `serverShiftId` est null ET la résolution locale échoue (5 retries), `startSession()` fait maintenant une requête directe Supabase `shifts WHERE employee_id AND status='active'` comme dernier recours avant d'échouer. Élimine toute dépendance sur la cohérence du `server_id` local pour démarrer une session | ✅ Fix |
 | +133 | Mar 12 | Dashboard : positions pointage carte monitoring, dîner historique, auto-close session sur lunch, sessions serveur-requises, fix crash RPC `start_work_session`, fix `NO_SERVER_SHIFT`, failsafe serveur direct — aucun changement tracking/résilience | ✅ Stable |
 | +134 | Mar 12 | **Exit Reason Collection** — Nouveau mécanisme de diagnostic : **ExitReasonPlugin Android** (Kotlin) lit `ApplicationExitInfo` (API 30+) au lancement, `setProcessStateSummary()` écrit état shift/GPS toutes les 30s depuis `_handleHeartbeat()` (main isolate). **ExitReasonPlugin iOS** (Swift) lit `MXAppExitMetric` (iOS 15+) via `pastPayloads` avec delta UserDefaults, buffer crash diagnostics MetricKit. **ExitReasonCollector** (Dart) insère directement dans SQLCipher (`EventCategory.exitInfo`), `deviceId` comme `employee_id` temporaire → résolu en `auth.uid()` au sync. MetricKit retiré de `DiagnosticNativePlugin` (centralisé dans ExitReasonPlugin). Migration v10 SQLCipher : supprimé CHECK `event_category` (limitait à 9 catégories, l'app en a 18+). Migration Supabase : supprimé CHECK `diagnostic_logs_event_category_check`. Dashboard : corrections manuelles de temps, taux horaires employés, prime ménage weekend, export feuille de temps enrichie | ✅ Diagnostic |
-| +136 | Mar 16 | **ProGuard GSON TypeToken fix** — règles keep pour `com.google.gson.reflect.TypeToken` (R8 strippait les signatures génériques → crash `flutter_local_notifications`). **EXEMPTED bucket** (5) ajouté à `standbyBucketName()` (`MainActivity.kt` + `DiagnosticNativePlugin.kt`) — `@SystemApi STANDBY_BUCKET_EXEMPTED` correctement mappé. Pas de changement tracking/résilience directement — améliore stabilité Android et diagnostic | ✅ Stable |
-| +137 | Mar 16 | **Post-kill diagnostic enrichment** — 3 améliorations forensiques : (1) `_logPostKillDiagnostic()` dans `ShiftProvider` : quand l'app cold-start avec un shift actif mais foreground service mort → log `standby_bucket`, `gap_duration_seconds`, `last_gps_point_at`. (2) `GpsHealthGuard` : `standby_bucket` + `standby_bucket_code` ajoutés au metadata quand `service_was_alive=false` (hard + soft tiers). (3) `_syncWatchdogLog()` : bucket fetch au moment du sync des breadcrumbs watchdog (bucket pas dispo dans l'isolate WorkManager). Aucun nouveau mécanisme de résilience — diagnostic seulement | ✅ Diagnostic |
-| +138 | Mar 17 | **NativeGpsBuffer JSONL** (Android + iOS) — migration de SharedPreferences/UserDefaults vers JSONL file append. Élimine le cap de 500 points et le risque ANR (Android QueuedWork). Ajout DispatchQueue thread safety (iOS). Migration automatique des anciennes données. | ✅ Actif |
-| +139 | Mar 17 | **Fix stampede detect_trips/carpools + GPS staleness detection** — 3 correctifs : (1) `_triggerTripDetection` réduit de 10 shifts fire-and-forget à 1 shift sérialisé avec cooldown 5min (240→~24 RPCs max). (2) Migration 132 : `detect_carpools` INSERT atomique via `JOIN trips` au lieu de boucle FOR — élimine FK violations sur trip_ids supprimés par `detect_trips` concurrent. (3) Migration 133 : `get_stale_active_devices()` détecte maintenant les GPS silencieux (shift >5min ET aucun GPS point en 5min) même si heartbeat frais — corrige le cas iOS où le GPS service meurt mais le main isolate survit | ✅ Résilience |
-| +140 | Mar 18 | **Fix QR scan work session** — 2 bugs : (1) DB : doublon `start_work_session` (2 overloads avec ordres de params différents) → supprimé l'overload en trop + advisory lock. (2) Flutter : `buildingId` du studio (table `buildings`) envoyé comme `p_building_id` (FK `property_buildings`) → FK violation. Fix : ne pas envoyer `p_building_id` quand `studioId` est présent. Lunch shift-split, cleaning utilization report, employee utilization detail — aucun changement tracking/résilience | ✅ Fix |
-| +142 | Mar 18 | **Masquage approbations employé** — Tant que la journée n'est pas approuvée (`day_approvals.status != 'approved'`), tous les `ActivityFinalStatus` sont forcés à `needsReview` côté client et les minutes approuvées/rejetées masquées (model `DayApprovalDetail`/`DayApprovalSummary`). Aucun changement tracking/résilience | ✅ UI |
-| +143 | Mar 18 | **Liste collègues en quart** — Nouvel écran « Collègues » (menu 3-points, toutes rôles) : RPC `get_colleagues_status()` SECURITY DEFINER retourne statut (on-shift/on-lunch/off-shift) + session active (ménage/entretien/admin) de tous les employés. Flutter : model, provider autoDispose, screen avec summary bar + badges colorés + pull-to-refresh. Aucun changement tracking/résilience | ✅ Feature |
-| +145 | Mar 19 | **Fix crash bouton dîner (lunch)** — Migration SQLCipher v12 : recrée `local_shifts` sans le CHECK constraint restrictif sur `sync_status` (anciens DB avaient `IN ('pending','syncing','synced','error')` mais les opérations lunch écrivent `lunchPending`/`lunchEndPending`). Même pattern que v10 (diagnostic_events). Aucun changement tracking/résilience — fix DB migration uniquement | ✅ Fix |
-| +146 | Mar 19 | **Fix historique sessions après lunch-split** — `WorkSessionHistoryList` utilisait `activeShift.id` (segment courant) → sessions pré-lunch invisibles pendant/après dîner. Nouveau `shiftGroupWorkSessionsProvider` récupère tous les IDs segments via `workBodyId` et agrège les sessions de tous les segments. Aucun changement tracking/résilience — UI data fix | ✅ Fix |
-| +147 | Mar 19 | **Temps de travail journalier + dîner visible** — `ShiftStatusCard` affiche maintenant le temps de travail NET de la journée (tous shifts - lunch) via `todayWorkSummaryProvider` + `getShiftsForDate()`. Durée dîner affichée sous le compteur. `WorkSessionHistoryList` inclut les segments lunch (`_LunchTile`) dans l'historique unifié. Temps persiste entre clock-out/clock-in. Aucun changement tracking/résilience | ✅ Feature |
-| +148 | Mar 19 | **Fix durées lunch gonflées** — Bug : `startLunch()`/`endLunch()` (provider + sync service) ne fermaient jamais le segment sortant localement (`clocked_out_at` restait null → durée = `now - start`). Fix : `completeShiftSegment()` appelé dans les 4 chemins (start/end lunch × provider/sync). Fallback display : si `clocked_out_at` null (données legacy), utilise le `clocked_in_at` du segment suivant. Aucun changement tracking/résilience | ✅ Fix |
-| +149 | Mar 19 | **Secondes visibles sur compteurs** — `_formatElapsed` affiche maintenant les secondes en permanence (ex: `2h 34m 12s`), pas juste quand <1h. Permet de voir visuellement quel compteur (travail ou dîner) est actif. Aucun changement tracking/résilience | ✅ UX |
-| +150 | Mar 20 | **Fix session disparue après 1er lunch** — `startLunch` ne propageait pas `workBodyId` au segment pré-lunch localement → `getShiftIdsByWorkBodyId` ne trouvait pas le 1er segment → ses sessions invisibles. Fix : `completeShiftSegment` accepte maintenant `workBodyId` optionnel, propagé dans les 2 chemins startLunch (provider + sync). Nettoyage 2 sessions orphelines serveur (Cedric + Fabrice). Aucun changement tracking/résilience | ✅ Fix |
 
 ### Chronologie complète Android Watchdog
 
@@ -733,12 +710,12 @@ TrackingRescueReceiver v2 (Kotlin natif, setAlarmClock tier principal, 45s)
 | `ios/Runner/SignificantLocationPlugin.swift` | SLC — relance après kill iOS |
 | `ios/Runner/BackgroundTaskPlugin.swift` | CLBackgroundActivitySession + beginBackgroundTask + thermal |
 | `ios/Runner/LiveActivityPlugin.swift` | Lock Screen tracking status |
-| `ios/Runner/NativeGpsBuffer.swift` | JSONL file append GPS buffer (no cap, thread-safe) |
+| `ios/Runner/NativeGpsBuffer.swift` | UserDefaults GPS buffer (max 500 pts) |
 | `ios/Runner/BackgroundAppRefreshPlugin.swift` | BGAppRefreshTask — relance app quand stationnaire (~5min) |
 | `lib/features/tracking/services/bg_app_refresh_service.dart` | Dart bridge pour BGAppRefreshTask iOS |
 | `android/.../TrackingRescueReceiver.kt` | Rescue alarm chain (setAlarmClock 45s) + native GPS capture |
 | `android/.../GeofenceWakeReceiver.kt` | Geofence 200m — redémarre tracking après kill Samsung |
-| `android/.../NativeGpsBuffer.kt` | JSONL file append GPS buffer (no cap) |
+| `android/.../NativeGpsBuffer.kt` | SharedPreferences GPS buffer (max 500 pts) |
 | `android/.../TrackingBootReceiver.kt` | Boot/update recovery |
 | `android/.../MainActivity.kt` | OEM battery guide + thermal + rescue alarm + native buffer drain |
 | `lib/features/tracking/services/background_tracking_service.dart` | FFT lifecycle manager |
