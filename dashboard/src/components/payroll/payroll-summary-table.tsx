@@ -38,9 +38,19 @@ export function PayrollSummaryTable({
   onRefetch,
 }: PayrollSummaryTableProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
 
   const toggleExpand = (employeeId: string) => {
     setExpandedId(prev => prev === employeeId ? null : employeeId);
+  };
+
+  const toggleCategory = (category: string) => {
+    setCollapsedCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(category)) next.delete(category);
+      else next.add(category);
+      return next;
+    });
   };
 
   const fmtMoney = (n: number) => `${n.toFixed(2)} $`;
@@ -78,17 +88,73 @@ export function PayrollSummaryTable({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {categoryGroups.map((group) => (
+        {categoryGroups.map((group, groupIdx) => {
+          const isCollapsed = collapsedCategories.has(group.category);
+          return (
           <Fragment key={`group-${group.category}`}>
-            {/* Category header */}
-            <TableRow className="bg-muted/50">
-              <TableCell colSpan={17} className="font-semibold">
-                {CATEGORY_LABELS[group.category] || group.category}
+            {/* Spacing between categories */}
+            {groupIdx > 0 && (
+              <TableRow className="border-0">
+                <TableCell colSpan={17} className="py-2 border-0" />
+              </TableRow>
+            )}
+
+            {/* Category header — clickable, shows totals when collapsed */}
+            <TableRow
+              className="bg-muted/50 cursor-pointer hover:bg-muted/70"
+              onClick={() => toggleCategory(group.category)}
+            >
+              <TableCell className="w-8">
+                {isCollapsed
+                  ? <ChevronRight className="h-4 w-4" />
+                  : <ChevronDown className="h-4 w-4" />}
               </TableCell>
+              {isCollapsed ? (
+                <>
+                  <TableCell colSpan={2} className="font-semibold">
+                    {CATEGORY_LABELS[group.category] || group.category}
+                    <span className="text-xs text-muted-foreground font-normal ml-2">
+                      ({group.employees.length} employés)
+                    </span>
+                  </TableCell>
+                  {/* Heures */}
+                  <TableCell className="text-right font-mono font-semibold border-l-2">
+                    {formatMinutesAsHours(group.totals.approved_minutes)}
+                  </TableCell>
+                  {/* Refusées */}
+                  <TableCell className="text-right font-mono text-destructive">
+                    {group.totals.rejected_minutes > 0
+                      ? formatMinutesAsHours(group.totals.rejected_minutes)
+                      : ''}
+                  </TableCell>
+                  {/* Rappel / Pause / Sans pause / Déd. pause */}
+                  <TableCell colSpan={4} />
+                  {/* % Sessions */}
+                  <TableCell className="border-l-2" />
+                  {/* Taux/h */}
+                  <TableCell className="border-l-2" />
+                  {/* Prime FDS */}
+                  <TableCell className="text-right font-mono font-semibold">
+                    {group.totals.premium_amount > 0 ? fmtMoney(group.totals.premium_amount) : ''}
+                  </TableCell>
+                  {/* Rappel $ */}
+                  <TableCell />
+                  {/* Total */}
+                  <TableCell className="text-right font-mono font-semibold text-amber-600">
+                    {fmtMoney(group.totals.total_amount)}
+                  </TableCell>
+                  {/* Jours / Paie */}
+                  <TableCell colSpan={2} className="border-l-2" />
+                </>
+              ) : (
+                <TableCell colSpan={16} className="font-semibold">
+                  {CATEGORY_LABELS[group.category] || group.category}
+                </TableCell>
+              )}
             </TableRow>
 
-            {/* Employee rows */}
-            {group.employees.map((emp: PayrollEmployeeSummary) => (
+            {/* Employee rows — hidden when collapsed */}
+            {!isCollapsed && group.employees.map((emp: PayrollEmployeeSummary) => (
               <Fragment key={emp.employee_id}>
                 <TableRow
                   className={`cursor-pointer hover:bg-muted/30 ${
@@ -123,7 +189,7 @@ export function PayrollSummaryTable({
                       <AlertTriangle className="h-3 w-3 inline ml-1 text-amber-500" />
                     )}
                   </TableCell>
-                  {/* Refusées (NEW) */}
+                  {/* Refusées */}
                   <TableCell className="text-right font-mono text-destructive">
                     {emp.total_rejected_minutes > 0
                       ? formatMinutesAsHours(emp.total_rejected_minutes)
@@ -155,7 +221,7 @@ export function PayrollSummaryTable({
                   <TableCell className="text-right font-mono border-l-2">
                     {emp.work_session_coverage_pct}%
                   </TableCell>
-                  {/* Taux/h (NEW) */}
+                  {/* Taux/h */}
                   <TableCell className="text-right font-mono text-amber-600 border-l-2">
                     {emp.hourly_rate_display}
                   </TableCell>
@@ -163,7 +229,7 @@ export function PayrollSummaryTable({
                   <TableCell className="text-right font-mono">
                     {emp.total_premium > 0 ? fmtMoney(emp.total_premium) : '—'}
                   </TableCell>
-                  {/* Rappel $ (NEW) */}
+                  {/* Rappel $ */}
                   <TableCell className="text-right font-mono">
                     {emp.total_callback_bonus_amount > 0 ? fmtMoney(emp.total_callback_bonus_amount) : '—'}
                   </TableCell>
@@ -207,39 +273,46 @@ export function PayrollSummaryTable({
               </Fragment>
             ))}
 
-            {/* Category sub-total */}
-            <TableRow className="bg-muted/30 font-semibold">
-              <TableCell colSpan={3}>
-                Sous-total {CATEGORY_LABELS[group.category]}
-              </TableCell>
-              {/* Heures */}
-              <TableCell className="text-right font-mono border-l-2">
-                {formatMinutesAsHours(group.totals.approved_minutes)}
-              </TableCell>
-              {/* Refusées */}
-              <TableCell className="text-right font-mono text-destructive">
-                {group.totals.rejected_minutes > 0
-                  ? formatMinutesAsHours(group.totals.rejected_minutes)
-                  : '—'}
-              </TableCell>
-              {/* Rappel / Pause / Sans pause / Déd. pause */}
-              <TableCell colSpan={4} />
-              {/* % Sessions */}
-              <TableCell className="border-l-2" />
-              {/* Taux/h */}
-              <TableCell className="border-l-2" />
-              {/* Prime FDS */}
-              <TableCell className="text-right font-mono">{fmtMoney(group.totals.premium_amount)}</TableCell>
-              {/* Rappel $ */}
-              <TableCell />
-              {/* Total */}
-              <TableCell className="text-right font-mono text-amber-600">{fmtMoney(group.totals.total_amount)}</TableCell>
-              {/* Jours / Paie */}
-              <TableCell colSpan={2} className="border-l-2" />
-            </TableRow>
+            {/* Category sub-total — hidden when collapsed */}
+            {!isCollapsed && (
+              <TableRow className="bg-muted/30 font-semibold">
+                <TableCell colSpan={3}>
+                  Sous-total {CATEGORY_LABELS[group.category]}
+                </TableCell>
+                {/* Heures */}
+                <TableCell className="text-right font-mono border-l-2">
+                  {formatMinutesAsHours(group.totals.approved_minutes)}
+                </TableCell>
+                {/* Refusées */}
+                <TableCell className="text-right font-mono text-destructive">
+                  {group.totals.rejected_minutes > 0
+                    ? formatMinutesAsHours(group.totals.rejected_minutes)
+                    : '—'}
+                </TableCell>
+                {/* Rappel / Pause / Sans pause / Déd. pause */}
+                <TableCell colSpan={4} />
+                {/* % Sessions */}
+                <TableCell className="border-l-2" />
+                {/* Taux/h */}
+                <TableCell className="border-l-2" />
+                {/* Prime FDS */}
+                <TableCell className="text-right font-mono">{fmtMoney(group.totals.premium_amount)}</TableCell>
+                {/* Rappel $ */}
+                <TableCell />
+                {/* Total */}
+                <TableCell className="text-right font-mono text-amber-600">{fmtMoney(group.totals.total_amount)}</TableCell>
+                {/* Jours / Paie */}
+                <TableCell colSpan={2} className="border-l-2" />
+              </TableRow>
+            )}
           </Fragment>
-        ))}
+          );
+        })}
 
+        {/* Spacing before grand total */}
+        <TableRow className="border-0">
+          <TableCell colSpan={17} className="py-2 border-0" />
+        </TableRow>
         {/* Grand total */}
         <TableRow className="bg-muted font-bold">
           <TableCell colSpan={3}>Grand total</TableCell>
