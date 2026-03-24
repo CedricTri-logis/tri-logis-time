@@ -83,6 +83,9 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
   bool _isClockInPreparing = false;
   bool _cancelClockInPreparing = false;
 
+  /// Timestamp of the last clock-in or clock-out action, used for debouncing.
+  DateTime? _lastClockActionAt;
+
   /// Tracks whether the regression banner has been shown this session
   /// to avoid repeating it every resume.
   bool _regressionBannerShown = false;
@@ -338,6 +341,14 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
   }
 
   Future<void> _handleClockIn() async {
+    // Debounce: ignore if last clock action was < 10 seconds ago
+    final now = DateTime.now();
+    if (_lastClockActionAt != null &&
+        now.difference(_lastClockActionAt!) < const Duration(seconds: 10)) {
+      return;
+    }
+    _lastClockActionAt = now;
+
     if (_isClockInPreparing) return;
     setState(() {
       _isClockInPreparing = true;
@@ -971,6 +982,14 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
   }
 
   Future<void> _handleClockOut() async {
+    // Debounce: ignore if last clock action was < 10 seconds ago
+    final now = DateTime.now();
+    if (_lastClockActionAt != null &&
+        now.difference(_lastClockActionAt!) < const Duration(seconds: 10)) {
+      return;
+    }
+    _lastClockActionAt = now;
+
     // Show confirmation dialog
     final confirmed = await showModalBottomSheet<bool>(
       context: context,
