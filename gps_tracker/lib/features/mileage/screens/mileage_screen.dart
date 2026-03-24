@@ -30,10 +30,10 @@ class _MileageScreenState extends ConsumerState<MileageScreen> {
   @override
   void initState() {
     super.initState();
-    // Default to this week
+    // Default to this week (Sunday to Saturday)
     final now = DateTime.now();
-    final monday = now.subtract(Duration(days: now.weekday - 1));
-    _periodStart = DateTime(monday.year, monday.month, monday.day);
+    final sunday = now.subtract(Duration(days: now.weekday % 7));
+    _periodStart = DateTime(sunday.year, sunday.month, sunday.day);
     _periodEnd = _periodStart.add(const Duration(days: 7));
   }
 

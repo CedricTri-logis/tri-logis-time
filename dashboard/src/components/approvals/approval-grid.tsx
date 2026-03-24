@@ -10,7 +10,7 @@ import { Loader2, ChevronLeft, ChevronRight, CheckCircle2, XCircle, AlertTriangl
 import { supabaseClient } from '@/lib/supabase/client';
 import type { WeeklyEmployeeRow, DayApprovalStatus } from '@/types/mileage';
 import { DayApprovalDetail } from './day-approval-detail';
-import { getMonday, toLocalDateString, parseLocalDate, addDays } from '@/lib/utils/date-utils';
+import { getWeekStart, toLocalDateString, parseLocalDate, addDays } from '@/lib/utils/date-utils';
 import { formatDuration } from '@/lib/utils/activity-display';
 import { LOCATION_TYPE_ICON_MAP } from '@/lib/constants/location-icons';
 import { LOCATION_TYPE_LABELS } from '@/lib/validations/location';
@@ -36,7 +36,7 @@ const STATUS_COLORS: Record<DayApprovalStatus, string> = {
   no_shift: 'bg-white text-gray-300',
 };
 
-const DAY_HEADERS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+const DAY_HEADERS = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 
 interface WeeklyBreakdown {
   travel_seconds: number;
@@ -44,7 +44,7 @@ interface WeeklyBreakdown {
 }
 
 export function ApprovalGrid() {
-  const [weekStart, setWeekStart] = useState(() => getMonday());
+  const [weekStart, setWeekStart] = useState(() => getWeekStart());
   const [data, setData] = useState<WeeklyEmployeeRow[]>([]);
   const [breakdown, setBreakdown] = useState<WeeklyBreakdown | null>(null);
   const [isLoading, setIsLoading] = useState(false);

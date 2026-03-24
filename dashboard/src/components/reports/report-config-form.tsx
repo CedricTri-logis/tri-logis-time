@@ -101,12 +101,12 @@ export function ReportConfigForm({
 
     switch (datePreset) {
       case 'this_week':
-        from = startOfWeek(now, { weekStartsOn: 1 });
-        to = endOfWeek(now, { weekStartsOn: 1 });
+        from = startOfWeek(now, { weekStartsOn: 0 });
+        to = endOfWeek(now, { weekStartsOn: 0 });
         break;
       case 'last_week':
-        from = startOfWeek(subDays(now, 7), { weekStartsOn: 1 });
-        to = endOfWeek(subDays(now, 7), { weekStartsOn: 1 });
+        from = startOfWeek(subDays(now, 7), { weekStartsOn: 0 });
+        to = endOfWeek(subDays(now, 7), { weekStartsOn: 0 });
         break;
       case 'this_month':
         from = startOfMonth(now);
