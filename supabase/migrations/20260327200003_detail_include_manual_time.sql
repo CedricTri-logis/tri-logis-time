@@ -1258,11 +1258,6 @@ DECLARE
     v_day_approval_id UUID;
     v_result JSONB;
 BEGIN
-    -- Lunch activities cannot be overridden
-    IF p_activity_type = 'lunch' THEN
-        RAISE EXCEPTION 'Lunch activities cannot be overridden';
-    END IF;
-
     -- Auth check
     IF NOT is_admin_or_super_admin(v_caller) THEN
         RAISE EXCEPTION 'Only admins can save overrides';
@@ -1274,7 +1269,7 @@ BEGIN
     END IF;
 
     -- Validate activity type (now includes stop_segment, trip_segment, gap_segment, manual_time)
-    IF p_activity_type NOT IN ('trip', 'stop', 'clock_in', 'clock_out', 'gap', 'lunch_start', 'lunch_end', 'lunch', 'stop_segment', 'trip_segment', 'gap_segment', 'manual_time') THEN
+    IF p_activity_type NOT IN ('trip', 'stop', 'clock_in', 'clock_out', 'gap', 'lunch_start', 'lunch_end', 'lunch', 'stop_segment', 'trip_segment', 'gap_segment', 'lunch_segment', 'manual_time') THEN
         RAISE EXCEPTION 'Invalid activity type: %', p_activity_type;
     END IF;
 
@@ -1326,7 +1321,7 @@ BEGIN
     END IF;
 
     -- Validate activity type (matches save_activity_override accepted types)
-    IF p_activity_type NOT IN ('trip', 'stop', 'clock_in', 'clock_out', 'gap', 'lunch_start', 'lunch_end', 'lunch', 'stop_segment', 'trip_segment', 'gap_segment', 'manual_time') THEN
+    IF p_activity_type NOT IN ('trip', 'stop', 'clock_in', 'clock_out', 'gap', 'lunch_start', 'lunch_end', 'lunch', 'stop_segment', 'trip_segment', 'gap_segment', 'lunch_segment', 'manual_time') THEN
         RAISE EXCEPTION 'Invalid activity type: %', p_activity_type;
     END IF;
 
