@@ -7,7 +7,9 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Coffee, Undo2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { toggleBreakDeductionWaiver } from '@/lib/api/payroll';
 import { DayApprovalDetail } from '@/components/approvals/day-approval-detail';
 import type { PayrollEmployeeSummary, PayPeriod, PayrollReportRow } from '@/types/payroll';
 import { formatMinutesAsHours } from '@/lib/utils/pay-periods';
@@ -40,7 +42,12 @@ function WeekSubtotal({ days, weekLabel, periodSalaryHalf }: WeekSubtotalProps) 
       <TableCell>{weekLabel}</TableCell>
       <TableCell className="text-right font-mono">{formatMinutesAsHours(totalMin)}</TableCell>
       <TableCell className="text-right font-mono">{formatMinutesAsHours(totalBreak)}</TableCell>
-      <TableCell />
+      <TableCell className="text-right font-mono text-destructive">
+        {(() => {
+          const totalDed = days.reduce((s, d) => s + d.break_deduction_minutes, 0);
+          return totalDed > 0 ? `-${totalDed}min` : '';
+        })()}
+      </TableCell>
       <TableCell />
       <TableCell />
       <TableCell className="text-right font-mono">{weekAmount.toFixed(2)} $</TableCell>
@@ -74,6 +81,16 @@ export function PayrollEmployeeDetail({ employee, period, onRefetch }: PayrollEm
     ? Math.round((employee.days[0].period_salary / 2) * 100) / 100
     : undefined;
 
+  const handleToggleWaiver = async (day: PayrollReportRow) => {
+    try {
+      const newValue = await toggleBreakDeductionWaiver(employee.employee_id, day.date);
+      toast.success(newValue ? 'Déduction annulée' : 'Déduction appliquée');
+      onRefetch();
+    } catch {
+      toast.error('Erreur lors de la modification');
+    }
+  };
+
   const renderDay = (day: PayrollReportRow) => {
     const dateLabel = format(parseISO(day.date), 'EEE d MMM', { locale: fr });
     const noBreak = day.approved_minutes >= 300 && day.break_minutes === 0;
@@ -98,6 +115,33 @@ export function PayrollEmployeeDetail({ employee, period, onRefetch }: PayrollEm
             </span>
           ) : (
             `${day.break_minutes}min`
+          )}
+        </TableCell>
+        <TableCell className="text-right font-mono">
+          {day.break_deduction_minutes > 0 ? (
+            <span className="flex items-center justify-end gap-1">
+              <span className="text-destructive">-{day.break_deduction_minutes}min</span>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleToggleWaiver(day); }}
+                className="text-muted-foreground hover:text-primary"
+                title="Annuler la déduction"
+              >
+                <Undo2 className="h-3 w-3" />
+              </button>
+            </span>
+          ) : day.break_deduction_waived && day.approved_minutes >= 300 && day.break_minutes < 30 ? (
+            <span className="flex items-center justify-end gap-1">
+              <span className="text-muted-foreground line-through">-{30 - day.break_minutes}min</span>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleToggleWaiver(day); }}
+                className="text-muted-foreground hover:text-primary"
+                title="Réappliquer la déduction"
+              >
+                <Coffee className="h-3 w-3" />
+              </button>
+            </span>
+          ) : (
+            '—'
           )}
         </TableCell>
         <TableCell className="text-right font-mono">
@@ -148,6 +192,7 @@ export function PayrollEmployeeDetail({ employee, period, onRefetch }: PayrollEm
             <TableHead>Jour</TableHead>
             <TableHead className="text-right">Heures</TableHead>
             <TableHead className="text-right">Pause</TableHead>
+            <TableHead className="text-right">Déd. pause</TableHead>
             <TableHead className="text-right">Rappel bonus</TableHead>
             <TableHead>Work Sessions</TableHead>
             <TableHead className="text-right">Prime FDS</TableHead>
