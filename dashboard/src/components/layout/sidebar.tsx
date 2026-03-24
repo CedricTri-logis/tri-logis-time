@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, MapPin, MapPinned, UserCog, Radio, History, FileBarChart, ClipboardList, Car, ClipboardCheck, UtensilsCrossed, DollarSign, Activity } from 'lucide-react';
+import { LayoutDashboard, Users, MapPin, MapPinned, UserCog, Radio, History, FileBarChart, ClipboardList, Car, ClipboardCheck, UtensilsCrossed, DollarSign, Activity, Receipt } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMonitoringBadges } from '@/lib/hooks/use-monitoring-badges';
 
@@ -56,6 +56,11 @@ const navigation = [
     name: 'Rémunération',
     href: '/dashboard/remuneration',
     icon: DollarSign,
+  },
+  {
+    name: 'Paie',
+    href: '/dashboard/remuneration/payroll',
+    icon: Receipt,
   },
   {
     name: 'Diagnostics GPS',
