@@ -14,11 +14,11 @@ import { PayrollAdjustmentsModal } from './payroll-adjustments-modal';
 import { HourBankHistoryDialog } from './hour-bank-history-dialog';
 
 const CATEGORY_LABELS: Record<string, string> = {
-  menage: 'M\u00e9nage',
+  menage: 'Ménage',
   maintenance: 'Maintenance',
-  renovation: 'R\u00e9novation',
+  renovation: 'Rénovation',
   admin: 'Administration',
-  'Non cat\u00e9goris\u00e9': 'Non cat\u00e9goris\u00e9',
+  'Non catégorisé': 'Non catégorisé',
 };
 
 /** Total column count: 15 original + 4 bank/sick + 1 ajustements + 1 header = 21 */
@@ -80,7 +80,7 @@ export function PayrollSummaryTable({
         {/* Row 1 \u2014 Group labels */}
         <TableRow className="border-b-0">
           <TableHead className="w-8" />
-          <TableHead colSpan={2} className="text-xs text-green-600 tracking-wider font-normal">EMPLOY\u00c9</TableHead>
+          <TableHead colSpan={2} className="text-xs text-green-600 tracking-wider font-normal">EMPLOYÉ</TableHead>
           <TableHead colSpan={6} className="text-xs text-blue-600 tracking-wider text-center font-normal border-l-2">TEMPS</TableHead>
           <TableHead className="text-xs text-muted-foreground tracking-wider text-center font-normal border-l-2">QUAL.</TableHead>
           <TableHead colSpan={4} className="text-xs text-amber-600 tracking-wider text-center font-normal border-l-2">CALCUL PAIE</TableHead>
@@ -92,13 +92,13 @@ export function PayrollSummaryTable({
         {/* Row 2 \u2014 Column labels */}
         <TableRow>
           <TableHead className="w-8" />
-          <TableHead>Employ\u00e9</TableHead>
+          <TableHead>Employé</TableHead>
           <TableHead>Type</TableHead>
           <TableHead className="text-right border-l-2">Heures</TableHead>
-          <TableHead className="text-right text-destructive">Refus\u00e9es</TableHead>
+          <TableHead className="text-right text-destructive">Refusées</TableHead>
           <TableHead className="text-right">Rappel</TableHead>
           <TableHead className="text-right">Pause</TableHead>
-          <TableHead className="text-right text-destructive">D\u00e9d. pause</TableHead>
+          <TableHead className="text-right text-destructive">Déd. pause</TableHead>
           <TableHead className="text-right border-l-2">% Sess.</TableHead>
           <TableHead className="text-right border-l-2 text-amber-600">Taux/h</TableHead>
           <TableHead className="text-right">Prime FDS</TableHead>
@@ -140,14 +140,14 @@ export function PayrollSummaryTable({
                   <TableCell colSpan={2} className="font-semibold">
                     {CATEGORY_LABELS[group.category] || group.category}
                     <span className="text-xs text-muted-foreground font-normal ml-2">
-                      ({group.employees.length} employ\u00e9s)
+                      ({group.employees.length} employés)
                     </span>
                   </TableCell>
                   {/* Heures */}
                   <TableCell className="text-right font-mono font-semibold border-l-2">
                     {formatMinutesAsHours(group.totals.approved_minutes)}
                   </TableCell>
-                  {/* Refus\u00e9es */}
+                  {/* Refusées */}
                   <TableCell className="text-right font-mono text-destructive">
                     {group.totals.rejected_minutes > 0
                       ? formatMinutesAsHours(group.totals.rejected_minutes)
@@ -159,7 +159,7 @@ export function PayrollSummaryTable({
                       ? `+${formatMinutesAsHours(group.totals.callback_bonus_minutes)}`
                       : ''}
                   </TableCell>
-                  {/* Pause / D\u00e9d. pause */}
+                  {/* Pause / Déd. pause */}
                   <TableCell colSpan={2} />
                   {/* % Sessions */}
                   <TableCell className="border-l-2" />
@@ -220,7 +220,7 @@ export function PayrollSummaryTable({
                       ? <ChevronDown className="h-4 w-4" />
                       : <ChevronRight className="h-4 w-4" />}
                   </TableCell>
-                  {/* Employ\u00e9 */}
+                  {/* Employé */}
                   <TableCell>
                     <div className="font-medium">{emp.full_name}</div>
                     <div className="text-xs text-muted-foreground">{emp.employee_id_code}</div>
@@ -241,7 +241,7 @@ export function PayrollSummaryTable({
                       <AlertTriangle className="h-3 w-3 inline ml-1 text-amber-500" />
                     )}
                   </TableCell>
-                  {/* Refus\u00e9es */}
+                  {/* Refusées */}
                   <TableCell className="text-right font-mono text-destructive">
                     {emp.total_rejected_minutes > 0
                       ? formatMinutesAsHours(emp.total_rejected_minutes)
@@ -257,7 +257,7 @@ export function PayrollSummaryTable({
                   <TableCell className="text-right font-mono">
                     {formatMinutesAsHours(emp.total_break_minutes)}
                   </TableCell>
-                  {/* D\u00e9d. pause */}
+                  {/* Déd. pause */}
                   <TableCell className="text-right font-mono text-destructive">
                     {emp.total_break_deduction_minutes > 0
                       ? `-${formatMinutesAsHours(emp.total_break_deduction_minutes)}`
@@ -284,7 +284,7 @@ export function PayrollSummaryTable({
                     {fmtMoney(emp.total_amount)}
                     {emp.pay_type === 'annual' && emp.hourly_rate && (
                       <div className="text-xs text-muted-foreground font-normal">
-                        80h \u00d7 {emp.hourly_rate.toFixed(2)}
+                        80h × {emp.hourly_rate.toFixed(2)}
                       </div>
                     )}
                   </TableCell>
@@ -327,7 +327,7 @@ export function PayrollSummaryTable({
                   {/* Paie */}
                   <TableCell className="text-center">
                     {emp.payroll_status === 'approved' ? (
-                      <Badge className="bg-green-600">Approuv\u00e9e</Badge>
+                      <Badge className="bg-green-600">Approuvée</Badge>
                     ) : (
                       <Badge variant="outline">En attente</Badge>
                     )}
@@ -373,7 +373,7 @@ export function PayrollSummaryTable({
                 <TableCell className="text-right font-mono border-l-2">
                   {formatMinutesAsHours(group.totals.approved_minutes)}
                 </TableCell>
-                {/* Refus\u00e9es */}
+                {/* Refusées */}
                 <TableCell className="text-right font-mono text-destructive">
                   {group.totals.rejected_minutes > 0
                     ? formatMinutesAsHours(group.totals.rejected_minutes)
@@ -385,7 +385,7 @@ export function PayrollSummaryTable({
                     ? `+${formatMinutesAsHours(group.totals.callback_bonus_minutes)}`
                     : ''}
                 </TableCell>
-                {/* Pause / Sans pause / D\u00e9d. pause */}
+                {/* Pause / Sans pause / Déd. pause */}
                 <TableCell colSpan={3} />
                 {/* % Sessions */}
                 <TableCell className="border-l-2" />
@@ -436,7 +436,7 @@ export function PayrollSummaryTable({
           <TableCell className="text-right font-mono border-l-2">
             {formatMinutesAsHours(grandTotal.approved_minutes)}
           </TableCell>
-          {/* Refus\u00e9es */}
+          {/* Refusées */}
           <TableCell className="text-right font-mono text-destructive">
             {grandTotal.rejected_minutes > 0
               ? formatMinutesAsHours(grandTotal.rejected_minutes)
@@ -448,7 +448,7 @@ export function PayrollSummaryTable({
               ? `+${formatMinutesAsHours(grandTotal.callback_bonus_minutes)}`
               : ''}
           </TableCell>
-          {/* Pause / Sans pause / D\u00e9d. pause */}
+          {/* Pause / Sans pause / Déd. pause */}
           <TableCell colSpan={3} />
           {/* % Sessions */}
           <TableCell className="border-l-2" />
