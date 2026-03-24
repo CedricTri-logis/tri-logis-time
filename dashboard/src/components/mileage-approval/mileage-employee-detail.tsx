@@ -5,7 +5,7 @@ import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { ChevronDown, Loader2, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { ChevronDown, Loader2, CheckCircle, XCircle, AlertCircle, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import type { PayPeriod } from '@/types/payroll';
 import { useMileageApprovalDetail } from '@/lib/hooks/use-mileage-approval';
@@ -19,6 +19,7 @@ import {
 } from '@/lib/api/mileage-approval';
 import { MileageTripRow } from './mileage-trip-row';
 import { MileageApprovalSummaryFooter } from './mileage-approval-summary';
+import { DayApprovalDetail } from '@/components/approvals/day-approval-detail';
 
 interface MileageEmployeeDetailProps {
   employeeId: string;
@@ -39,6 +40,7 @@ export function MileageEmployeeDetail({
   );
   const [isSaving, setIsSaving] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string[]>(['approved', 'needs_review']);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const isApproved = detail?.approval?.status === 'approved';
 
   // Collect coordinates for trips with missing address names for reverse geocoding
@@ -221,9 +223,13 @@ export function MileageEmployeeDetail({
           if (filteredTrips.length === 0) return null;
           return (
             <div key={date}>
-              <div className="text-xs font-semibold text-muted-foreground uppercase mb-2">
+              <button
+                onClick={() => setSelectedDate(date)}
+                className="flex items-center gap-1 text-xs font-semibold text-muted-foreground uppercase mb-2 hover:text-foreground transition-colors"
+              >
                 {format(parseISO(date), 'EEEE d MMMM', { locale: fr })}
-              </div>
+                <ExternalLink className="h-3 w-3" />
+              </button>
               <div className="space-y-1">
                 {filteredTrips.map((trip) => (
                   <MileageTripRow
@@ -254,6 +260,19 @@ export function MileageEmployeeDetail({
           onApprove={handleApprove}
           onReopen={handleReopen}
           isSaving={isSaving}
+        />
+      )}
+
+      {/* Day approval sidebar */}
+      {selectedDate && (
+        <DayApprovalDetail
+          employeeId={employeeId}
+          employeeName={employeeName}
+          date={selectedDate}
+          onClose={(hasChanges) => {
+            setSelectedDate(null);
+            if (hasChanges) refetch();
+          }}
         />
       )}
     </div>
