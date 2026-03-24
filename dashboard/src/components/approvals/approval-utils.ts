@@ -359,6 +359,8 @@ export function nestLunchActivities(items: DisplayItem[]): DisplayItem[] {
 
   items.forEach((item, i) => {
     if (item.type === 'activity' && item.pa.item.activity_type === 'lunch') {
+      // Approved lunches (converted to work) should not be grouped — they render as standalone rows
+      if (item.pa.item.final_status === 'approved') return;
       lunchRanges.push({
         index: i,
         start: new Date(item.pa.item.started_at).getTime(),
@@ -387,7 +389,8 @@ export function nestLunchActivities(items: DisplayItem[]): DisplayItem[] {
       if (item.type === 'activity' && (
         item.pa.item.activity_type === 'stop_segment' ||
         item.pa.item.activity_type === 'trip_segment' ||
-        item.pa.item.activity_type === 'gap_segment'
+        item.pa.item.activity_type === 'gap_segment' ||
+        item.pa.item.activity_type === 'lunch_segment'
       )) return;
 
       // Get the activity's time range
