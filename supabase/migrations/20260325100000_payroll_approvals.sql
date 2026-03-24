@@ -429,7 +429,7 @@ BEGIN
     SELECT ehr.employee_id, ehr.rate,
            ehr.effective_from, ehr.effective_to
     FROM employee_hourly_rates ehr
-    WHERE ehr.employee_id IN (SELECT id FROM target_employees WHERE pay_type = 'hourly')
+    WHERE ehr.employee_id IN (SELECT te2.id FROM target_employees te2 WHERE te2.pay_type = 'hourly')
   ),
 
   -- Annual salaries
@@ -437,7 +437,7 @@ BEGIN
     SELECT eas.employee_id, eas.salary,
            eas.effective_from, eas.effective_to
     FROM employee_annual_salaries eas
-    WHERE eas.employee_id IN (SELECT id FROM target_employees WHERE pay_type = 'annual')
+    WHERE eas.employee_id IN (SELECT te2.id FROM target_employees te2 WHERE te2.pay_type = 'annual')
   ),
 
   -- Payroll approval status
