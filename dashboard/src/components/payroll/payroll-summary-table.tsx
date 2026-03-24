@@ -77,7 +77,6 @@ export function PayrollSummaryTable({
           <TableHead className="text-right text-destructive">Refusées</TableHead>
           <TableHead className="text-right">Rappel</TableHead>
           <TableHead className="text-right">Pause</TableHead>
-          <TableHead className="text-center">Sans pause</TableHead>
           <TableHead className="text-right text-destructive">Déd. pause</TableHead>
           <TableHead className="text-right border-l-2">% Sess.</TableHead>
           <TableHead className="text-right border-l-2 text-amber-600">Taux/h</TableHead>
@@ -96,7 +95,7 @@ export function PayrollSummaryTable({
             {/* Spacing between categories */}
             {groupIdx > 0 && (
               <TableRow className="border-0">
-                <TableCell colSpan={17} className="py-2 border-0" />
+                <TableCell colSpan={16} className="py-2 border-0" />
               </TableRow>
             )}
 
@@ -134,8 +133,8 @@ export function PayrollSummaryTable({
                       ? `+${formatMinutesAsHours(group.totals.callback_bonus_minutes)}`
                       : ''}
                   </TableCell>
-                  {/* Pause / Sans pause / Déd. pause */}
-                  <TableCell colSpan={3} />
+                  {/* Pause / Déd. pause */}
+                  <TableCell colSpan={2} />
                   {/* % Sessions */}
                   <TableCell className="border-l-2" />
                   {/* Taux/h */}
@@ -211,12 +210,6 @@ export function PayrollSummaryTable({
                   {/* Pause */}
                   <TableCell className="text-right font-mono">
                     {formatMinutesAsHours(emp.total_break_minutes)}
-                  </TableCell>
-                  {/* Sans pause */}
-                  <TableCell className="text-center">
-                    {emp.days_without_break > 0 ? (
-                      <Badge variant="destructive">{emp.days_without_break}</Badge>
-                    ) : '—'}
                   </TableCell>
                   {/* Déd. pause */}
                   <TableCell className="text-right font-mono text-destructive">
@@ -324,7 +317,7 @@ export function PayrollSummaryTable({
 
         {/* Spacing before grand total */}
         <TableRow className="border-0">
-          <TableCell colSpan={17} className="py-2 border-0" />
+          <TableCell colSpan={16} className="py-2 border-0" />
         </TableRow>
         {/* Grand total */}
         <TableRow className="bg-muted font-bold">
