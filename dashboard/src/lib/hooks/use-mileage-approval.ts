@@ -59,8 +59,12 @@ export function useMileageApprovalDetail(
     setIsLoading(true);
     setError(null);
     try {
-      // Prefill defaults first, then fetch detail
-      await prefillMileageDefaults(employeeId, period.start, period.end);
+      // Prefill defaults (best-effort — don't block detail load if it fails)
+      try {
+        await prefillMileageDefaults(employeeId, period.start, period.end);
+      } catch (prefillErr) {
+        console.warn('Prefill mileage defaults failed (non-blocking):', prefillErr);
+      }
       const data = await getMileageApprovalDetail(employeeId, period.start, period.end);
       setDetail(data);
     } catch (err: unknown) {
