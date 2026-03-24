@@ -19,11 +19,21 @@ interface PayrollEmployeeDetailProps {
   onRefetch: () => void;
 }
 
-function WeekSubtotal({ days, weekLabel }: { days: PayrollReportRow[]; weekLabel: string }) {
+interface WeekSubtotalProps {
+  days: PayrollReportRow[];
+  weekLabel: string;
+  periodSalaryHalf?: number; // For annual employees: period_salary / 2
+}
+
+function WeekSubtotal({ days, weekLabel, periodSalaryHalf }: WeekSubtotalProps) {
   const totalMin = days.reduce((s, d) => s + d.approved_minutes, 0);
   const totalBreak = days.reduce((s, d) => s + d.break_minutes, 0);
-  const totalAmount = days.reduce((s, d) => s + d.total_amount, 0);
   const isAnnual = days[0]?.pay_type === 'annual';
+  const weekPremium = days.reduce((s, d) => s + d.premium_amount, 0);
+  // Annual: fixed salary/2 + premiums. Hourly: sum of daily amounts.
+  const weekAmount = isAnnual
+    ? (periodSalaryHalf ?? 0) + weekPremium
+    : days.reduce((s, d) => s + d.total_amount, 0);
 
   return (
     <TableRow className="bg-muted/20 font-medium text-sm">
@@ -33,7 +43,7 @@ function WeekSubtotal({ days, weekLabel }: { days: PayrollReportRow[]; weekLabel
       <TableCell />
       <TableCell />
       <TableCell />
-      <TableCell className="text-right font-mono">{totalAmount.toFixed(2)} $</TableCell>
+      <TableCell className="text-right font-mono">{weekAmount.toFixed(2)} $</TableCell>
       <TableCell>
         {isAnnual && totalMin < 40 * 60 && (
           <Badge variant="outline" className="text-amber-600">
@@ -59,6 +69,10 @@ export function PayrollEmployeeDetail({ employee, period, onRefetch }: PayrollEm
     const dayDate = parseISO(d.date);
     return dayDate >= new Date(midpoint.getTime() + 7 * 86400000);
   });
+  // For annual employees: split period salary evenly across 2 weeks
+  const periodSalaryHalf = employee.pay_type === 'annual' && employee.days[0]?.period_salary
+    ? Math.round((employee.days[0].period_salary / 2) * 100) / 100
+    : undefined;
 
   const renderDay = (day: PayrollReportRow) => {
     const dateLabel = format(parseISO(day.date), 'EEE d MMM', { locale: fr });
@@ -112,7 +126,9 @@ export function PayrollEmployeeDetail({ employee, period, onRefetch }: PayrollEm
         <TableCell className="text-right font-mono">
           {day.premium_amount > 0 ? fmtMoney(day.premium_amount) : '—'}
         </TableCell>
-        <TableCell className="text-right font-mono">{fmtMoney(day.total_amount)}</TableCell>
+        <TableCell className="text-right font-mono">
+          {day.pay_type === 'annual' ? '—' : fmtMoney(day.total_amount)}
+        </TableCell>
         <TableCell className="text-center">
           {day.day_approval_status === 'approved' ? (
             <Badge className="bg-green-600 text-xs">✓</Badge>
@@ -141,9 +157,9 @@ export function PayrollEmployeeDetail({ employee, period, onRefetch }: PayrollEm
         </TableHeader>
         <TableBody>
           {week1.map(renderDay)}
-          {week1.length > 0 && <WeekSubtotal days={week1} weekLabel="Semaine 1" />}
+          {week1.length > 0 && <WeekSubtotal days={week1} weekLabel="Semaine 1" periodSalaryHalf={periodSalaryHalf} />}
           {week2.map(renderDay)}
-          {week2.length > 0 && <WeekSubtotal days={week2} weekLabel="Semaine 2" />}
+          {week2.length > 0 && <WeekSubtotal days={week2} weekLabel="Semaine 2" periodSalaryHalf={periodSalaryHalf} />}
         </TableBody>
       </Table>
 
