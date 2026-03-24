@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -12,23 +13,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -40,7 +24,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Plus, Pencil, Trash2, Car, Building2, Loader2, RefreshCw } from 'lucide-react';
+import { Car, Building2, Loader2, RefreshCw, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabaseClient } from '@/lib/supabase/client';
 import { toLocalDateString } from '@/lib/utils/date-utils';
@@ -52,8 +36,12 @@ interface Employee {
   email: string | null;
 }
 
-type TypeFilter = 'all' | 'personal' | 'company';
-type StatusFilter = 'all' | 'active' | 'expired';
+interface EmployeeRow {
+  employee_id: string;
+  employee_name: string;
+  personal: EmployeeVehiclePeriod | null;
+  company: EmployeeVehiclePeriod | null;
+}
 
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00');
@@ -61,93 +49,40 @@ function formatDate(dateStr: string): string {
 }
 
 export function VehiclePeriodsTab() {
-  // Data state
   const [periods, setPeriods] = useState<EmployeeVehiclePeriod[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Filter state
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-
-  // Dialog state (add/edit)
   const [showDialog, setShowDialog] = useState(false);
-  const [editingPeriod, setEditingPeriod] = useState<EmployeeVehiclePeriod | null>(null);
+  const [editingEmployee, setEditingEmployee] = useState<EmployeeRow | null>(null);
+  const [formPersonal, setFormPersonal] = useState(false);
+  const [formCompany, setFormCompany] = useState(false);
+  const [formPersonalSince, setFormPersonalSince] = useState('');
+  const [formCompanySince, setFormCompanySince] = useState('');
+  const [formNotes, setFormNotes] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
-  // Form state
-  const [formEmployeeId, setFormEmployeeId] = useState('');
-  const [formVehicleType, setFormVehicleType] = useState<'personal' | 'company'>('personal');
-  const [formStartedAt, setFormStartedAt] = useState('');
-  const [formEndedAt, setFormEndedAt] = useState('');
-  const [formNotes, setFormNotes] = useState('');
-
-  // Delete confirmation state
-  const [deletingPeriod, setDeletingPeriod] = useState<EmployeeVehiclePeriod | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  // Fetch all employee profiles (for dropdown)
   useEffect(() => {
     (async () => {
       const { data } = await supabaseClient
         .from('employee_profiles')
         .select('id, full_name, email')
         .order('full_name');
-      if (data) {
-        setEmployees(data as Employee[]);
-      }
+      if (data) setEmployees(data as Employee[]);
     })();
   }, []);
 
-  // Fetch vehicle periods — uses two separate queries to avoid PostgREST recursive RLS
   const fetchPeriods = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      // 1. Fetch vehicle periods
-      const { data: periodsData, error: periodsError } = await supabaseClient
+      const { data, error: fetchError } = await supabaseClient
         .from('employee_vehicle_periods')
         .select('*')
         .order('started_at', { ascending: false });
-
-      if (periodsError) {
-        setError(periodsError.message);
-        return;
-      }
-
-      if (!periodsData || periodsData.length === 0) {
-        setPeriods([]);
-        return;
-      }
-
-      // 2. Fetch employee profiles for all unique employee_ids
-      const employeeIds = [...new Set(periodsData.map((p) => p.employee_id).filter(Boolean))];
-      const employeeMap: Record<string, { id: string; name: string }> = {};
-
-      if (employeeIds.length > 0) {
-        const { data: emps } = await supabaseClient
-          .from('employee_profiles')
-          .select('id, full_name, email')
-          .in('id', employeeIds);
-
-        if (emps) {
-          for (const emp of emps) {
-            employeeMap[emp.id] = {
-              id: emp.id,
-              name: emp.full_name || emp.email || 'Inconnu',
-            };
-          }
-        }
-      }
-
-      // 3. Merge employee data into periods
-      const merged = periodsData.map((period: any) => ({
-        ...period,
-        employee: employeeMap[period.employee_id] ?? { id: period.employee_id, name: 'Inconnu' },
-      }));
-
-      setPeriods(merged as EmployeeVehiclePeriod[]);
+      if (fetchError) { setError(fetchError.message); return; }
+      setPeriods((data ?? []) as EmployeeVehiclePeriod[]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur lors du chargement');
     } finally {
@@ -155,110 +90,65 @@ export function VehiclePeriodsTab() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchPeriods();
-  }, [fetchPeriods]);
+  useEffect(() => { fetchPeriods(); }, [fetchPeriods]);
 
-  // Summary stats
-  const stats = useMemo(() => {
-    const total = periods.length;
-    const personal = periods.filter((p) => p.vehicle_type === 'personal').length;
-    const company = periods.filter((p) => p.vehicle_type === 'company').length;
-    const active = periods.filter((p) => !p.ended_at).length;
-    const expired = periods.filter((p) => !!p.ended_at).length;
-    return { total, personal, company, active, expired };
-  }, [periods]);
-
-  // Filter periods
-  const filteredPeriods = useMemo(() => {
-    let filtered = periods;
-    if (typeFilter !== 'all') {
-      filtered = filtered.filter((p) => p.vehicle_type === typeFilter);
+  const employeeRows = useMemo((): EmployeeRow[] => {
+    const today = toLocalDateString(new Date());
+    const personalMap = new Map<string, EmployeeVehiclePeriod>();
+    const companyMap = new Map<string, EmployeeVehiclePeriod>();
+    for (const p of periods) {
+      const isActive = !p.ended_at || p.ended_at >= today;
+      if (!isActive) continue;
+      if (p.vehicle_type === 'personal' && !personalMap.has(p.employee_id)) personalMap.set(p.employee_id, p);
+      if (p.vehicle_type === 'company' && !companyMap.has(p.employee_id)) companyMap.set(p.employee_id, p);
     }
-    if (statusFilter === 'active') {
-      filtered = filtered.filter((p) => !p.ended_at);
-    } else if (statusFilter === 'expired') {
-      filtered = filtered.filter((p) => !!p.ended_at);
-    }
-    return filtered;
-  }, [periods, typeFilter, statusFilter]);
+    return employees.map((emp) => ({
+      employee_id: emp.id,
+      employee_name: emp.full_name || emp.email || 'Inconnu',
+      personal: personalMap.get(emp.id) ?? null,
+      company: companyMap.get(emp.id) ?? null,
+    })).sort((a, b) => a.employee_name.localeCompare(b.employee_name));
+  }, [periods, employees]);
 
-  // Open add dialog
-  const openAddDialog = useCallback(() => {
-    setEditingPeriod(null);
-    setFormEmployeeId('');
-    setFormVehicleType('personal');
-    setFormStartedAt(toLocalDateString(new Date()));
-    setFormEndedAt('');
+  const stats = useMemo(() => ({
+    total: employees.length,
+    withPersonal: employeeRows.filter(r => r.personal).length,
+    withCompany: employeeRows.filter(r => r.company).length,
+  }), [employees, employeeRows]);
+
+  const openEditDialog = useCallback((row: EmployeeRow) => {
+    setEditingEmployee(row);
+    setFormPersonal(!!row.personal);
+    setFormCompany(!!row.company);
+    setFormPersonalSince(row.personal?.started_at?.split('T')[0] || toLocalDateString(new Date()));
+    setFormCompanySince(row.company?.started_at?.split('T')[0] || toLocalDateString(new Date()));
     setFormNotes('');
     setShowDialog(true);
   }, []);
 
-  // Open edit dialog
-  const openEditDialog = useCallback((period: EmployeeVehiclePeriod) => {
-    setEditingPeriod(period);
-    setFormEmployeeId(period.employee_id);
-    setFormVehicleType(period.vehicle_type);
-    setFormStartedAt(period.started_at.split('T')[0]);
-    setFormEndedAt(period.ended_at ? period.ended_at.split('T')[0] : '');
-    setFormNotes(period.notes || '');
-    setShowDialog(true);
-  }, []);
-
-  // Save (insert or update)
   const handleSave = useCallback(async () => {
-    if (!formEmployeeId) {
-      toast.error('Veuillez sélectionner un employé.');
-      return;
-    }
-    if (!formStartedAt) {
-      toast.error('Veuillez sélectionner une date de début.');
-      return;
-    }
-
+    if (!editingEmployee) return;
     setIsSaving(true);
+    const empId = editingEmployee.employee_id;
+    const today = toLocalDateString(new Date());
     try {
-      const payload: any = {
-        employee_id: formEmployeeId,
-        vehicle_type: formVehicleType,
-        started_at: formStartedAt,
-        ended_at: formEndedAt || null,
-        notes: formNotes.trim() || null,
-      };
-
-      if (editingPeriod) {
-        // Update
-        const { error: updateError } = await supabaseClient
-          .from('employee_vehicle_periods')
-          .update(payload)
-          .eq('id', editingPeriod.id);
-
-        if (updateError) {
-          if (updateError.message.includes('overlap')) {
-            toast.error('Cette période chevauche une période existante pour cet employé.');
-          } else {
-            toast.error(`Erreur: ${updateError.message}`);
-          }
-          return;
-        }
-        toast.success('Période mise à jour avec succès.');
-      } else {
-        // Insert
-        const { error: insertError } = await supabaseClient
-          .from('employee_vehicle_periods')
-          .insert(payload);
-
-        if (insertError) {
-          if (insertError.message.includes('overlap')) {
-            toast.error('Cette période chevauche une période existante pour cet employé.');
-          } else {
-            toast.error(`Erreur: ${insertError.message}`);
-          }
-          return;
-        }
-        toast.success('Période ajoutée avec succès.');
+      if (formPersonal && !editingEmployee.personal) {
+        const { error } = await supabaseClient.from('employee_vehicle_periods')
+          .insert({ employee_id: empId, vehicle_type: 'personal', started_at: formPersonalSince, notes: formNotes.trim() || null });
+        if (error) { toast.error(error.message.includes('overlap') ? 'Chevauchement de période personnel.' : error.message); setIsSaving(false); return; }
+      } else if (!formPersonal && editingEmployee.personal) {
+        const { error } = await supabaseClient.from('employee_vehicle_periods').update({ ended_at: today }).eq('id', editingEmployee.personal.id);
+        if (error) { toast.error(error.message); setIsSaving(false); return; }
       }
-
+      if (formCompany && !editingEmployee.company) {
+        const { error } = await supabaseClient.from('employee_vehicle_periods')
+          .insert({ employee_id: empId, vehicle_type: 'company', started_at: formCompanySince, notes: formNotes.trim() || null });
+        if (error) { toast.error(error.message.includes('overlap') ? 'Chevauchement de période compagnie.' : error.message); setIsSaving(false); return; }
+      } else if (!formCompany && editingEmployee.company) {
+        const { error } = await supabaseClient.from('employee_vehicle_periods').update({ ended_at: today }).eq('id', editingEmployee.company.id);
+        if (error) { toast.error(error.message); setIsSaving(false); return; }
+      }
+      toast.success('Véhicules mis à jour.');
       setShowDialog(false);
       fetchPeriods();
     } catch (err) {
@@ -266,238 +156,92 @@ export function VehiclePeriodsTab() {
     } finally {
       setIsSaving(false);
     }
-  }, [editingPeriod, formEmployeeId, formVehicleType, formStartedAt, formEndedAt, formNotes, fetchPeriods]);
-
-  // Delete
-  const handleDelete = useCallback(async () => {
-    if (!deletingPeriod) return;
-
-    setIsDeleting(true);
-    try {
-      const { error: deleteError } = await supabaseClient
-        .from('employee_vehicle_periods')
-        .delete()
-        .eq('id', deletingPeriod.id);
-
-      if (deleteError) {
-        toast.error(`Erreur: ${deleteError.message}`);
-        return;
-      }
-
-      toast.success('Période supprimée avec succès.');
-      setDeletingPeriod(null);
-      fetchPeriods();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erreur inattendue');
-    } finally {
-      setIsDeleting(false);
-    }
-  }, [deletingPeriod, fetchPeriods]);
-
-  const getEmployeeName = (emp: Employee) => emp.full_name || emp.email || 'Inconnu';
+  }, [editingEmployee, formPersonal, formCompany, formPersonalSince, formCompanySince, formNotes, fetchPeriods]);
 
   return (
     <div className="space-y-6">
-      {/* Type filter cards */}
       <div className="grid grid-cols-3 gap-4">
-        <Card
-          className={`cursor-pointer hover:ring-2 hover:ring-primary/20 ${typeFilter === 'all' ? 'ring-2 ring-primary' : ''}`}
-          onClick={() => setTypeFilter('all')}
-        >
+        <Card>
           <CardContent className="pt-4 pb-3 text-center">
             <p className="text-2xl font-bold">{stats.total}</p>
-            <p className="text-xs text-muted-foreground">Toutes les périodes</p>
+            <p className="text-xs text-muted-foreground">Employés</p>
           </CardContent>
         </Card>
-        <Card
-          className={`cursor-pointer hover:ring-2 hover:ring-blue-500/20 ${typeFilter === 'personal' ? 'ring-2 ring-blue-500' : ''}`}
-          onClick={() => setTypeFilter('personal')}
-        >
+        <Card>
           <CardContent className="pt-4 pb-3 text-center">
             <div className="flex items-center justify-center gap-1.5 mb-0.5">
               <Car className="h-4 w-4 text-blue-600" />
-              <p className="text-2xl font-bold text-blue-600">{stats.personal}</p>
+              <p className="text-2xl font-bold text-blue-600">{stats.withPersonal}</p>
             </div>
-            <p className="text-xs text-muted-foreground">Personnel</p>
+            <p className="text-xs text-muted-foreground">Véhicule personnel</p>
           </CardContent>
         </Card>
-        <Card
-          className={`cursor-pointer hover:ring-2 hover:ring-purple-500/20 ${typeFilter === 'company' ? 'ring-2 ring-purple-500' : ''}`}
-          onClick={() => setTypeFilter('company')}
-        >
+        <Card>
           <CardContent className="pt-4 pb-3 text-center">
             <div className="flex items-center justify-center gap-1.5 mb-0.5">
               <Building2 className="h-4 w-4 text-purple-600" />
-              <p className="text-2xl font-bold text-purple-600">{stats.company}</p>
+              <p className="text-2xl font-bold text-purple-600">{stats.withCompany}</p>
             </div>
-            <p className="text-xs text-muted-foreground">Entreprise</p>
+            <p className="text-xs text-muted-foreground">Véhicule compagnie</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Main table card */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <Car className="h-5 w-5" />
-              Périodes de véhicule
-              {typeFilter !== 'all' && (
-                <Badge variant="secondary" className="ml-2 text-xs">
-                  {typeFilter === 'personal' ? 'Personnel' : 'Entreprise'} ({filteredPeriods.length})
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setTypeFilter('all'); }}
-                    className="ml-1 hover:text-destructive"
-                  >
-                    &times;
-                  </button>
-                </Badge>
-              )}
-              {statusFilter !== 'all' && (
-                <Badge variant="secondary" className="ml-2 text-xs">
-                  {statusFilter === 'active' ? 'Active' : 'Expirée'} ({filteredPeriods.length})
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setStatusFilter('all'); }}
-                    className="ml-1 hover:text-destructive"
-                  >
-                    &times;
-                  </button>
-                </Badge>
-              )}
+              Véhicules par employé
             </CardTitle>
-            <div className="flex items-center gap-2">
-              {/* Active/Expired toggle */}
-              <div className="flex items-center rounded-md border">
-                <button
-                  className={`px-3 py-1.5 text-xs font-medium rounded-l-md transition-colors ${
-                    statusFilter === 'all' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
-                  }`}
-                  onClick={() => setStatusFilter('all')}
-                >
-                  Tous ({stats.total})
-                </button>
-                <button
-                  className={`px-3 py-1.5 text-xs font-medium border-l transition-colors ${
-                    statusFilter === 'active' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
-                  }`}
-                  onClick={() => setStatusFilter('active')}
-                >
-                  Active ({stats.active})
-                </button>
-                <button
-                  className={`px-3 py-1.5 text-xs font-medium rounded-r-md border-l transition-colors ${
-                    statusFilter === 'expired' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
-                  }`}
-                  onClick={() => setStatusFilter('expired')}
-                >
-                  Expirée ({stats.expired})
-                </button>
-              </div>
-
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={fetchPeriods}
-                disabled={isLoading}
-              >
-                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-              </Button>
-
-              <Button size="sm" onClick={openAddDialog}>
-                <Plus className="h-4 w-4 mr-1" />
-                Ajouter une période
-              </Button>
-            </div>
+            <Button variant="ghost" size="sm" onClick={fetchPeriods} disabled={isLoading}>
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
-          {error && (
-            <div className="rounded-md bg-red-50 p-3 text-sm text-red-700 mb-4">
-              {error}
-            </div>
-          )}
-
+          {error && <div className="rounded-md bg-red-50 p-3 text-sm text-red-700 mb-4">{error}</div>}
           {isLoading ? (
             <div className="animate-pulse space-y-3">
               {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="flex gap-4 py-3">
-                  <div className="h-4 w-28 rounded bg-slate-200" />
-                  <div className="h-4 w-20 rounded bg-slate-200" />
-                  <div className="h-4 w-24 rounded bg-slate-200" />
-                  <div className="h-4 w-24 rounded bg-slate-200" />
                   <div className="h-4 w-32 rounded bg-slate-200" />
+                  <div className="h-4 w-24 rounded bg-slate-200" />
+                  <div className="h-4 w-24 rounded bg-slate-200" />
                   <div className="h-4 w-16 rounded bg-slate-200" />
                 </div>
               ))}
-            </div>
-          ) : filteredPeriods.length === 0 ? (
-            <div className="py-8 text-center text-sm text-muted-foreground">
-              {periods.length === 0
-                ? 'Aucune période de véhicule trouvée.'
-                : 'Aucune période ne correspond aux filtres sélectionnés.'}
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Employé</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Début</TableHead>
-                  <TableHead>Fin</TableHead>
-                  <TableHead>Notes</TableHead>
+                  <TableHead className="text-center">
+                    <div className="flex items-center justify-center gap-1"><Car className="h-3.5 w-3.5 text-blue-600" /> Personnel</div>
+                  </TableHead>
+                  <TableHead className="text-center">
+                    <div className="flex items-center justify-center gap-1"><Building2 className="h-3.5 w-3.5 text-purple-600" /> Compagnie</div>
+                  </TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredPeriods.map((period) => (
-                  <TableRow key={period.id}>
-                    <TableCell className="font-medium">
-                      {period.employee?.name || 'Inconnu'}
+                {employeeRows.map((row) => (
+                  <TableRow key={row.employee_id}>
+                    <TableCell className="font-medium">{row.employee_name}</TableCell>
+                    <TableCell className="text-center">
+                      {row.personal ? (
+                        <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">Depuis {formatDate(row.personal.started_at)}</Badge>
+                      ) : <span className="text-muted-foreground">&mdash;</span>}
                     </TableCell>
-                    <TableCell>
-                      {period.vehicle_type === 'personal' ? (
-                        <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">
-                          <Car className="h-3 w-3 mr-1" />
-                          Personnel
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100">
-                          <Building2 className="h-3 w-3 mr-1" />
-                          Entreprise
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>{formatDate(period.started_at)}</TableCell>
-                    <TableCell>
-                      {period.ended_at ? (
-                        formatDate(period.ended_at)
-                      ) : (
-                        <Badge variant="outline" className="text-green-600 border-green-300">
-                          En cours
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="max-w-[200px] truncate text-muted-foreground">
-                      {period.notes || '—'}
+                    <TableCell className="text-center">
+                      {row.company ? (
+                        <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100">Depuis {formatDate(row.company.started_at)}</Badge>
+                      ) : <span className="text-muted-foreground">&mdash;</span>}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openEditDialog(period)}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setDeletingPeriod(period)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => openEditDialog(row)}><Pencil className="h-3.5 w-3.5" /></Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -507,150 +251,58 @@ export function VehiclePeriodsTab() {
         </CardContent>
       </Card>
 
-      {/* Add/Edit Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="sm:max-w-[480px]">
+        <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
-            <DialogTitle>
-              {editingPeriod ? 'Modifier la période' : 'Ajouter une période'}
-            </DialogTitle>
-            <DialogDescription>
-              {editingPeriod
-                ? 'Modifiez les détails de la période de véhicule.'
-                : 'Définissez une nouvelle période de véhicule pour un employé.'}
-            </DialogDescription>
+            <DialogTitle>Véhicules &mdash; {editingEmployee?.employee_name}</DialogTitle>
+            <DialogDescription>Cochez les types de véhicule auxquels cet employé a accès.</DialogDescription>
           </DialogHeader>
-
           <div className="space-y-4 py-2">
-            {/* Employee select */}
-            <div className="space-y-2">
-              <Label htmlFor="employee">Employé</Label>
-              <Select value={formEmployeeId} onValueChange={setFormEmployeeId}>
-                <SelectTrigger id="employee">
-                  <SelectValue placeholder="Sélectionner un employé" />
-                </SelectTrigger>
-                <SelectContent>
-                  {employees.map((emp) => (
-                    <SelectItem key={emp.id} value={emp.id}>
-                      {getEmployeeName(emp)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="flex items-start gap-3 p-3 rounded-lg border">
+              <Checkbox id="personal" checked={formPersonal} onCheckedChange={(checked) => setFormPersonal(!!checked)} />
+              <div className="flex-1">
+                <label htmlFor="personal" className="flex items-center gap-2 font-medium cursor-pointer">
+                  <Car className="h-4 w-4 text-blue-600" /> Véhicule personnel
+                </label>
+                {formPersonal && !editingEmployee?.personal && (
+                  <div className="mt-2">
+                    <Label htmlFor="personal-since" className="text-xs text-muted-foreground">Depuis</Label>
+                    <Input id="personal-since" type="date" value={formPersonalSince} onChange={(e) => setFormPersonalSince(e.target.value)} className="mt-1 h-8" />
+                  </div>
+                )}
+                {editingEmployee?.personal && <p className="text-xs text-muted-foreground mt-1">Actif depuis {formatDate(editingEmployee.personal.started_at)}</p>}
+              </div>
             </div>
-
-            {/* Vehicle type */}
-            <div className="space-y-2">
-              <Label htmlFor="vehicle-type">Type de véhicule</Label>
-              <Select value={formVehicleType} onValueChange={(v) => setFormVehicleType(v as 'personal' | 'company')}>
-                <SelectTrigger id="vehicle-type">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="personal">
-                    <div className="flex items-center gap-2">
-                      <Car className="h-3.5 w-3.5 text-blue-600" />
-                      Personnel
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="company">
-                    <div className="flex items-center gap-2">
-                      <Building2 className="h-3.5 w-3.5 text-purple-600" />
-                      Entreprise
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="flex items-start gap-3 p-3 rounded-lg border">
+              <Checkbox id="company" checked={formCompany} onCheckedChange={(checked) => setFormCompany(!!checked)} />
+              <div className="flex-1">
+                <label htmlFor="company" className="flex items-center gap-2 font-medium cursor-pointer">
+                  <Building2 className="h-4 w-4 text-purple-600" /> Véhicule compagnie
+                </label>
+                {formCompany && !editingEmployee?.company && (
+                  <div className="mt-2">
+                    <Label htmlFor="company-since" className="text-xs text-muted-foreground">Depuis</Label>
+                    <Input id="company-since" type="date" value={formCompanySince} onChange={(e) => setFormCompanySince(e.target.value)} className="mt-1 h-8" />
+                  </div>
+                )}
+                {editingEmployee?.company && <p className="text-xs text-muted-foreground mt-1">Actif depuis {formatDate(editingEmployee.company.started_at)}</p>}
+              </div>
             </div>
-
-            {/* Start date */}
-            <div className="space-y-2">
-              <Label htmlFor="started-at">Date de début</Label>
-              <Input
-                id="started-at"
-                type="date"
-                value={formStartedAt}
-                onChange={(e) => setFormStartedAt(e.target.value)}
-              />
-            </div>
-
-            {/* End date */}
-            <div className="space-y-2">
-              <Label htmlFor="ended-at">Date de fin (optionnel)</Label>
-              <Input
-                id="ended-at"
-                type="date"
-                value={formEndedAt}
-                onChange={(e) => setFormEndedAt(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Laissez vide pour une période en cours.
-              </p>
-            </div>
-
-            {/* Notes */}
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notes (optionnel)</Label>
-              <Textarea
-                id="notes"
-                value={formNotes}
-                onChange={(e) => setFormNotes(e.target.value)}
-                placeholder="Ex: Honda Civic 2022, plaque ABC-1234"
-                rows={3}
-              />
-            </div>
+            {((formPersonal && !editingEmployee?.personal) || (formCompany && !editingEmployee?.company)) && (
+              <div className="space-y-2">
+                <Label htmlFor="notes">Notes (optionnel)</Label>
+                <Textarea id="notes" value={formNotes} onChange={(e) => setFormNotes(e.target.value)} placeholder="Ex: Honda Civic 2022" rows={2} />
+              </div>
+            )}
           </div>
-
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDialog(false)} disabled={isSaving}>
-              Annuler
-            </Button>
+            <Button variant="outline" onClick={() => setShowDialog(false)} disabled={isSaving}>Annuler</Button>
             <Button onClick={handleSave} disabled={isSaving}>
-              {isSaving ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Enregistrement...
-                </>
-              ) : editingPeriod ? (
-                'Mettre à jour'
-              ) : (
-                'Ajouter'
-              )}
+              {isSaving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Enregistrement...</> : 'Enregistrer'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Delete confirmation dialog */}
-      <AlertDialog open={!!deletingPeriod} onOpenChange={(open) => !open && setDeletingPeriod(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer la période ?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Êtes-vous sûr de vouloir supprimer cette période de véhicule pour{' '}
-              <span className="font-medium">{deletingPeriod?.employee?.name || 'cet employé'}</span> ?
-              Cette action est irréversible.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Annuler</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              disabled={isDeleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {isDeleting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Suppression...
-                </>
-              ) : (
-                'Supprimer'
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
