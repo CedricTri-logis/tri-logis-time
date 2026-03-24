@@ -28,6 +28,8 @@ export interface PayrollReportRow {
   payroll_status: 'approved' | 'pending';
   payroll_approved_by: string | null;
   payroll_approved_at: string | null;
+  reimbursable_km?: number | null;
+  reimbursement_amount?: number | null;
 }
 
 export interface PayrollEmployeeSummary {
