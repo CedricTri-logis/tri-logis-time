@@ -1224,11 +1224,11 @@ export function LunchGroupRow({
                     ? 'bg-green-100 text-green-700 ring-1 ring-green-300'
                     : 'text-muted-foreground hover:text-green-600 hover:bg-green-50'
                 }`}
-                onClick={() => onOverride(activity, 'approved')}
+                onClick={(e) => { e.stopPropagation(); onOverride(activity, 'approved'); }}
                 disabled={isSaving}
               >
                 <CheckCircle2 className="h-3 w-3 mr-1" />
-                {activity.final_status === 'approved' ? 'Travail' : 'Approuver'}
+                {activity.final_status === 'approved' ? 'Travail' : 'Convertir en travail'}
               </Button>
             </div>
           )}
