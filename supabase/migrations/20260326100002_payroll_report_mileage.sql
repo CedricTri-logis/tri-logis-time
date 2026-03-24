@@ -41,7 +41,9 @@ RETURNS TABLE (
   payroll_approved_by TEXT,
   payroll_approved_at TIMESTAMPTZ,
   reimbursable_km DECIMAL(10,2),
-  reimbursement_amount DECIMAL(10,2)
+  reimbursement_amount DECIMAL(10,2),
+  break_deduction_minutes INTEGER,
+  break_deduction_waived BOOLEAN
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -121,7 +123,8 @@ BEGIN
   -- Day approvals in period
   approvals AS (
     SELECT da.employee_id, da.date, da.status,
-           COALESCE(da.approved_minutes, 0) AS approved_minutes
+           COALESCE(da.approved_minutes, 0) AS approved_minutes,
+           COALESCE(da.break_deduction_waived, false) AS break_deduction_waived
     FROM day_approvals da
     WHERE da.date BETWEEN p_period_start AND p_period_end
       AND da.employee_id IN (SELECT id FROM target_employees)
@@ -314,7 +317,15 @@ BEGIN
       -- Base amount
       CASE
         WHEN te.pay_type = 'hourly' AND r.rate IS NOT NULL THEN
-          ROUND((COALESCE(a.approved_minutes, 0) / 60.0) * r.rate, 2)
+          ROUND(((COALESCE(a.approved_minutes, 0)
+            - CASE
+                WHEN COALESCE(a.approved_minutes, 0) >= 300
+                     AND COALESCE(b.break_minutes, 0) < 30
+                     AND NOT a.break_deduction_waived
+                THEN 30 - COALESCE(b.break_minutes, 0)
+                ELSE 0
+              END
+          ) / 60.0) * r.rate, 2)
         WHEN te.pay_type = 'annual' AND sal.salary IS NOT NULL THEN
           -- Period salary on first day row only (handled in window function below)
           0
@@ -336,6 +347,15 @@ BEGIN
       -- Mileage fields (same value repeated on every day row for this employee)
       md.reimbursable_km,
       md.reimbursement_amount,
+      -- Break deduction: if ≥5h worked and <30min break, deduct (30 - break_minutes)
+      CASE
+        WHEN COALESCE(a.approved_minutes, 0) >= 300
+             AND COALESCE(b.break_minutes, 0) < 30
+             AND NOT a.break_deduction_waived
+        THEN 30 - COALESCE(b.break_minutes, 0)
+        ELSE 0
+      END AS break_deduction_minutes,
+      a.break_deduction_waived,
       -- Row number for annual salary assignment
       ROW_NUMBER() OVER (PARTITION BY te.id ORDER BY a.date) AS rn
     FROM target_employees te
@@ -408,7 +428,9 @@ BEGIN
     c.payroll_approved_by,
     c.payroll_approved_at,
     c.reimbursable_km,
-    c.reimbursement_amount
+    c.reimbursement_amount,
+    c.break_deduction_minutes,
+    c.break_deduction_waived
   FROM combined c
   ORDER BY c.primary_category NULLS LAST, c.full_name, c.date;
 END;
