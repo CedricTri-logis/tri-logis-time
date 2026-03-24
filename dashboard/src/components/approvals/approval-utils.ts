@@ -278,24 +278,36 @@ export function groupDisplayItemsByShift(displayItems: DisplayItem[]): ShiftGrou
   }>();
 
   for (const item of displayItems) {
-    const activity = item.type === 'merged'
-      ? item.group.primaryStop.item
+    // Extract the ProcessedActivity to access both the activity and merged clock events
+    const pa = item.type === 'merged'
+      ? item.group.primaryStop
       : item.type === 'lunch_group'
-        ? item.lunch.item
-        : item.pa.item;
+        ? item.lunch
+        : item.pa;
+    const activity = pa.item;
     const shiftId = activity.shift_id;
+
+    // Stops/trips/gaps return NULL shift_type from the RPC. Clock events carry
+    // the real value, but mergeClockEvents absorbs them into stops. Read it
+    // from the merged clockInActivity/clockOutActivity instead.
+    const shiftType = activity.shift_type
+      ?? pa.clockInActivity?.shift_type
+      ?? pa.clockOutActivity?.shift_type
+      ?? null;
+    const shiftTypeSource = activity.shift_type_source
+      ?? pa.clockInActivity?.shift_type_source
+      ?? pa.clockOutActivity?.shift_type_source
+      ?? null;
 
     if (!groupMap.has(shiftId)) {
       groupMap.set(shiftId, {
         items: [],
-        shiftType: activity.shift_type,
-        shiftTypeSource: activity.shift_type_source,
+        shiftType: shiftType as 'regular' | 'call' | null,
+        shiftTypeSource: shiftTypeSource as 'auto' | 'manual' | null,
       });
-    } else if (!groupMap.get(shiftId)!.shiftType && activity.shift_type) {
-      // Stops/trips/gaps return NULL shift_type from the RPC; only clock events
-      // carry the actual value. Update the group when we find a non-null value.
-      groupMap.get(shiftId)!.shiftType = activity.shift_type;
-      groupMap.get(shiftId)!.shiftTypeSource = activity.shift_type_source;
+    } else if (!groupMap.get(shiftId)!.shiftType && shiftType) {
+      groupMap.get(shiftId)!.shiftType = shiftType as 'regular' | 'call' | null;
+      groupMap.get(shiftId)!.shiftTypeSource = shiftTypeSource as 'auto' | 'manual' | null;
     }
     groupMap.get(shiftId)!.items.push(item);
   }
