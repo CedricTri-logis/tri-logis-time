@@ -87,6 +87,18 @@ export function usePayrollReport(period: PayPeriod) {
           ? (first.hourly_rate ? `${first.hourly_rate.toFixed(2)} $/h` : '—')
           : (first.annual_salary ? `~${(first.annual_salary / 2080).toFixed(2)} $/h` : '—'),
         annual_salary: first.annual_salary,
+        // Hour bank (from first row — SQL puts these on rn=1 only)
+        bank_deposit_hours: first.bank_deposit_hours ?? 0,
+        bank_deposit_amount: first.bank_deposit_amount ?? 0,
+        bank_withdrawal_hours: first.bank_withdrawal_hours ?? 0,
+        bank_withdrawal_amount: first.bank_withdrawal_amount ?? 0,
+        bank_net_amount: (first.bank_withdrawal_amount ?? 0) - (first.bank_deposit_amount ?? 0),
+        bank_balance_dollars: first.bank_balance_dollars ?? 0,
+        bank_balance_hours: first.bank_balance_hours ?? 0,
+        // Sick leave (from first row — SQL puts these on rn=1 only)
+        sick_leave_hours: first.sick_leave_hours ?? 0,
+        sick_leave_amount: first.sick_leave_amount ?? 0,
+        sick_leave_remaining: first.sick_leave_remaining ?? 14,
         days,
       };
     });
