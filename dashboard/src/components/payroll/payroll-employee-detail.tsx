@@ -1,12 +1,14 @@
 'use client';
 
+import { useState } from 'react';
 import { parseISO, format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, ExternalLink } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
+import { DayApprovalDetail } from '@/components/approvals/day-approval-detail';
 import type { PayrollEmployeeSummary, PayPeriod, PayrollReportRow } from '@/types/payroll';
 import { formatMinutesAsHours } from '@/lib/utils/pay-periods';
 import { PayrollApprovalButton } from './payroll-approval-button';
@@ -45,6 +47,7 @@ function WeekSubtotal({ days, weekLabel }: { days: PayrollReportRow[]; weekLabel
 }
 
 export function PayrollEmployeeDetail({ employee, period, onRefetch }: PayrollEmployeeDetailProps) {
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const fmtMoney = (n: number | null) => n != null ? `${n.toFixed(2)} $` : '—';
   const midpoint = parseISO(period.start);
   // Split into 2 weeks: days 0-6 = week 1, days 7-13 = week 2
@@ -64,16 +67,12 @@ export function PayrollEmployeeDetail({ employee, period, onRefetch }: PayrollEm
     return (
       <TableRow key={day.date} className="text-sm">
         <TableCell>
-          {/* NOTE: Approval page does not currently support query param deep-linking.
-              This navigates to the approvals page — user must manually select the employee/date.
-              Deep-linking can be added as a follow-up enhancement. */}
-          <a
-            href={`/dashboard/approvals`}
-            className="flex items-center gap-1 hover:underline"
+          <button
+            onClick={() => setSelectedDate(day.date)}
+            className="text-left hover:underline cursor-pointer text-primary"
           >
             {dateLabel}
-            <ExternalLink className="h-3 w-3 text-muted-foreground" />
-          </a>
+          </button>
         </TableCell>
         <TableCell className="text-right font-mono">
           {formatMinutesAsHours(day.approved_minutes)}
@@ -155,6 +154,18 @@ export function PayrollEmployeeDetail({ employee, period, onRefetch }: PayrollEm
           onRefetch={onRefetch}
         />
       </div>
+
+      {selectedDate && (
+        <DayApprovalDetail
+          employeeId={employee.employee_id}
+          employeeName={employee.full_name}
+          date={selectedDate}
+          onClose={(hasChanges) => {
+            setSelectedDate(null);
+            if (hasChanges) onRefetch();
+          }}
+        />
+      )}
     </div>
   );
 }
