@@ -34,6 +34,9 @@ export function exportPayrollToExcel(
           : '',
         'Pause totale': formatMinutesAsHours(emp.total_break_minutes),
         'Jours sans pause': emp.days_without_break || '',
+        'Déd. pause (min)': emp.total_break_deduction_minutes > 0
+          ? emp.total_break_deduction_minutes
+          : '',
         '% Sessions': `${emp.work_session_coverage_pct}%`,
         'Prime FDS ($)': emp.total_premium > 0 ? emp.total_premium : '',
         'Montant base ($)': emp.total_base,
@@ -67,6 +70,9 @@ export function exportPayrollToExcel(
           Date: day.date,
           'Heures approuvees': formatMinutesAsHours(day.approved_minutes),
           'Pause (min)': day.break_minutes,
+          'Déd. pause (min)': day.break_deduction_minutes > 0
+            ? day.break_deduction_minutes
+            : '',
           'Rappel bonus (h)': day.callback_bonus_minutes > 0
             ? formatMinutesAsHours(day.callback_bonus_minutes)
             : '',
