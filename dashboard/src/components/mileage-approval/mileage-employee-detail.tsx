@@ -68,7 +68,7 @@ export function MileageEmployeeDetail({
   const handleBatchUpdate = async (vehicleType: string | null, role: string | null, tripIds?: string[]) => {
     setIsSaving(true);
     try {
-      const ids = tripIds ?? detail!.trips.filter(t => t.eligible).map(t => t.trip_id);
+      const ids = tripIds ?? detail!.trips.filter(t => t.trip_status !== 'rejected').map(t => t.trip_id);
       await batchUpdateTripVehicles(ids, vehicleType, role);
       await refetch();
       onChanged();
@@ -84,7 +84,7 @@ export function MileageEmployeeDetail({
     setIsSaving(true);
     try {
       // Clear vehicle_type and role on all trips first
-      const tripIds = detail!.trips.filter(t => t.eligible).map(t => t.trip_id);
+      const tripIds = detail!.trips.filter(t => t.trip_status !== 'rejected').map(t => t.trip_id);
       await batchUpdateTripVehicles(tripIds, null, null);
       // Re-prefill
       await prefillMileageDefaults(employeeId, period.start, period.end);

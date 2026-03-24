@@ -375,7 +375,9 @@ export interface MileageTripDetail {
   carpool_group_id: string | null;
   carpool_detected_role: string | null;
   carpool_members: CarpoolMemberInfo[] | null;
-  eligible: boolean;
+  trip_status: 'approved' | 'rejected' | 'needs_review';
+  start_location_type: string | null;
+  end_location_type: string | null;
 }
 
 export interface CarpoolMemberInfo {
