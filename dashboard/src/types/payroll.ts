@@ -74,6 +74,7 @@ export interface PayrollCategoryGroup {
     total_amount: number;
     break_deduction_minutes: number;
     rejected_minutes: number;
+    callback_bonus_minutes: number;
   };
 }
 
