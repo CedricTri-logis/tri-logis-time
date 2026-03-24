@@ -19,6 +19,7 @@ import {
   UtensilsCrossed,
   MapPin,
   Phone,
+  Pencil,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabaseClient } from '@/lib/supabase/client';
@@ -177,6 +178,16 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
       { seconds: 0, count: 0 }
     );
   }, [detail?.activities]);
+
+  const manualTimeSeconds = useMemo(() => {
+    return processedActivities
+      .filter(pa => pa.item.activity_type === 'manual_time')
+      .reduce((sum, pa) => {
+        const start = new Date(pa.item.started_at).getTime();
+        const end = new Date(pa.item.ended_at).getTime();
+        return sum + (end - start) / 1000;
+      }, 0);
+  }, [processedActivities]);
 
   // Collect coordinates of activities without a known location name for reverse geocoding
   const unknownLocationPoints = useMemo(() => {
@@ -506,6 +517,15 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                   >
                     <Phone className="h-3 w-3" />
                     +{formatHours(detail.summary.call_bonus_minutes)}
+                  </span>
+                )}
+                {manualTimeSeconds > 0 && (
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 border border-amber-100"
+                    title="Temps manuel ajouté"
+                  >
+                    <Pencil className="h-3 w-3" />
+                    {formatDuration(manualTimeSeconds)}
                   </span>
                 )}
               </div>
