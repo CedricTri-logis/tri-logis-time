@@ -933,7 +933,7 @@ BEGIN
     END IF;
 
     EXECUTE format(
-        'CREATE OR REPLACE FUNCTION get_weekly_approval_summary(p_week_start DATE) RETURNS JSONB AS %s LANGUAGE plpgsql SECURITY DEFINER',
+        'CREATE OR REPLACE FUNCTION get_weekly_approval_summary(p_week_start DATE) RETURNS JSONB AS %s LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions',
         quote_literal(v_src)
     );
 

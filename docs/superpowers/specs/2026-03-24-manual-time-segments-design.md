@@ -49,7 +49,7 @@ CREATE TABLE manual_time_entries (
 
 ### Schema changes to existing tables
 
-**`activity_overrides.activity_type` CHECK constraint** — add `'manual_time'` to allowed values.
+**`activity_overrides.activity_type` CHECK constraint** — `ALTER TABLE` to drop and recreate the CHECK constraint, adding `'manual_time'` to allowed values. Without this, the INSERT into `activity_overrides` fails even if the RPC whitelist passes.
 
 **`save_activity_override` and `remove_activity_override` RPCs** — add `'manual_time'` to the hardcoded `IF p_activity_type NOT IN (...)` validation whitelist. Without this, admins cannot approve/reject manual_time activities.
 
@@ -147,9 +147,18 @@ manual_time_activities AS (
         l.location_type,
         mte.shift_id IS NULL AS is_standalone_shift,
         mte.created_by,
-        mte.created_at
+        mte.created_at,
+        ep.full_name AS manual_created_by_name,
+        -- Override lookup (same pattern as all other activity types)
+        ao.override_status,
+        ao.reason AS override_reason,
+        COALESCE(ao.override_status, 'needs_review') AS final_status
     FROM manual_time_entries mte
     LEFT JOIN locations l ON l.id = mte.location_id
+    LEFT JOIN employee_profiles ep ON ep.id = mte.created_by
+    LEFT JOIN day_approvals da ON da.employee_id = p_employee_id AND da.date = p_date
+    LEFT JOIN activity_overrides ao ON ao.day_approval_id = da.id
+        AND ao.activity_type = 'manual_time' AND ao.activity_id = mte.id
     WHERE mte.employee_id = p_employee_id
       AND mte.date = p_date
 )
@@ -182,12 +191,20 @@ v_total_shift_minutes := v_total_shift_minutes + COALESCE((
 
 ## UI Changes
 
+### Dashboard — Approval grid (empty days clickable)
+
+Days with `no_shift` status must be clickable in the approval grid. Clicking opens the day-approval-detail panel with an empty state showing only the "+ Temps manuel" button. This allows admins to add manual quarts for employees who had no tracked shifts on a given day (forgotten clock-in, off-site training, etc.).
+
+The `get_day_approval_detail` RPC already returns a valid response for days with no shifts (empty activities, zero totals). The grid cell just needs to be clickable and the panel needs to handle the empty case gracefully.
+
 ### Dashboard — `day-approval-detail.tsx`
 
 **Header area:**
 - Add "+ Temps manuel" button next to "Approuver la journée"
 - Button opens a dialog/modal (not a popover — the form is too large)
 - Hidden when day is approved
+
+**Empty state:** When there are no activities and no manual entries, show a centered message: "Aucun quart enregistré" with the "+ Temps manuel" button prominently displayed.
 
 **New component: `AddManualTimeModal`**
 
@@ -288,6 +305,7 @@ Both deletions are **permanent** — no audit trail (per user requirement).
 4. **Overlap with existing manual quart and real shift** — Validated: `add_manual_time` checks for overlaps.
 5. **Day approved with manual time** — Manual time frozen in approved/rejected totals. Cannot delete while approved (must reopen first).
 6. **Clock extension on clock-in** — Segment appears at the START of the quart (before the first GPS activity): `new_clock_in → old_clock_in`.
+7. **Manual quart on empty day** — Employee had no shifts. Admin clicks the empty day cell, opens panel with empty state, clicks "+ Temps manuel" to add a standalone quart. The day transitions from `no_shift` to having activities.
 
 ---
 
