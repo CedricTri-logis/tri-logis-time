@@ -87,7 +87,7 @@ export function usePayrollReport(period: PayPeriod) {
           ? (first.hourly_rate ? `${first.hourly_rate.toFixed(2)} $/h` : '—')
           : (first.annual_salary ? `~${(first.annual_salary / 2080).toFixed(2)} $/h` : '—'),
         annual_salary: first.annual_salary,
-        // Hour bank (from first row — SQL returns these on rn=1 only, others are NULL)
+        // Hour bank (from first row — per-employee fields)
         bank_deposit_hours: first.bank_deposit_hours ?? 0,
         bank_deposit_amount: first.bank_deposit_amount ?? 0,
         bank_withdrawal_hours: first.bank_withdrawal_hours ?? 0,
@@ -95,7 +95,7 @@ export function usePayrollReport(period: PayPeriod) {
         bank_net_amount: (first.bank_withdrawal_amount ?? 0) - (first.bank_deposit_amount ?? 0),
         bank_balance_dollars: first.bank_balance_dollars ?? 0,
         bank_balance_hours: first.bank_balance_hours ?? 0,
-        // Sick leave (from first row — SQL returns these on rn=1 only, others are NULL)
+        // Sick leave (from first row — per-employee fields)
         sick_leave_hours: first.sick_leave_hours ?? 0,
         sick_leave_amount: first.sick_leave_amount ?? 0,
         sick_leave_remaining: first.sick_leave_remaining ?? 14,
@@ -130,8 +130,6 @@ export function usePayrollReport(period: PayPeriod) {
             break_deduction_minutes: emps.reduce((s, e) => s + e.total_break_deduction_minutes, 0),
             rejected_minutes: emps.reduce((s, e) => s + e.total_rejected_minutes, 0),
             callback_bonus_minutes: emps.reduce((s, e) => s + e.total_callback_bonus_minutes, 0),
-            bank_net_amount: emps.reduce((s, e) => s + e.bank_net_amount, 0),
-            sick_leave_amount: emps.reduce((s, e) => s + e.sick_leave_amount, 0),
           },
         };
       });
@@ -145,8 +143,6 @@ export function usePayrollReport(period: PayPeriod) {
     break_deduction_minutes: employees.reduce((s, e) => s + e.total_break_deduction_minutes, 0),
     rejected_minutes: employees.reduce((s, e) => s + e.total_rejected_minutes, 0),
     callback_bonus_minutes: employees.reduce((s, e) => s + e.total_callback_bonus_minutes, 0),
-    bank_net_amount: employees.reduce((s, e) => s + e.bank_net_amount, 0),
-    sick_leave_amount: employees.reduce((s, e) => s + e.sick_leave_amount, 0),
   }), [employees]);
 
   const silentRefetch = useCallback(() => fetchData(true), [fetchData]);
