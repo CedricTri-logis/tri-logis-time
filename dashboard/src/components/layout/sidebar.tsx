@@ -53,6 +53,11 @@ const navigation = [
     icon: ClipboardCheck,
   },
   {
+    name: 'Kilométrage',
+    href: '/dashboard/mileage-approval',
+    icon: Car,
+  },
+  {
     name: 'Rémunération',
     href: '/dashboard/remuneration',
     icon: DollarSign,

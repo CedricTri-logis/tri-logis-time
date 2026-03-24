@@ -339,3 +339,81 @@ export interface WeeklyEmployeeRow {
   employee_name: string;
   days: WeeklyDayEntry[];
 }
+
+// ============================================================
+// Mileage Approval Types
+// ============================================================
+
+export interface MileageApprovalSummaryRow {
+  employee_id: string;
+  employee_name: string;
+  trip_count: number;
+  reimbursable_km: number;
+  company_km: number;
+  needs_review_count: number;
+  carpool_group_count: number;
+  estimated_amount: number;
+  mileage_status: 'pending' | 'approved' | null;
+  approved_km: number | null;
+  approved_amount: number | null;
+}
+
+export interface MileageTripDetail {
+  trip_date: string;
+  trip_id: string;
+  started_at: string;
+  ended_at: string;
+  start_address: string | null;
+  end_address: string | null;
+  start_location_id: string | null;
+  end_location_id: string | null;
+  distance_km: number;
+  vehicle_type: 'personal' | 'company' | null;
+  role: 'driver' | 'passenger' | null;
+  transport_mode: string;
+  has_gps_gap: boolean;
+  carpool_group_id: string | null;
+  carpool_detected_role: string | null;
+  carpool_members: CarpoolMemberInfo[] | null;
+  eligible: boolean;
+}
+
+export interface CarpoolMemberInfo {
+  employee_id: string;
+  employee_name: string;
+  role: string;
+  trip_id: string;
+}
+
+export interface MileageApprovalDetailSummary {
+  reimbursable_km: number;
+  company_km: number;
+  passenger_km: number;
+  needs_review_count: number;
+  estimated_amount: number;
+  ytd_km: number;
+  rate_per_km: number;
+  rate_after_threshold: number | null;
+  threshold_km: number | null;
+}
+
+export interface MileageApproval {
+  id: string;
+  employee_id: string;
+  period_start: string;
+  period_end: string;
+  status: 'pending' | 'approved';
+  reimbursable_km: number | null;
+  reimbursement_amount: number | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  unlocked_by: string | null;
+  unlocked_at: string | null;
+  notes: string | null;
+}
+
+export interface MileageApprovalDetail {
+  trips: MileageTripDetail[];
+  summary: MileageApprovalDetailSummary;
+  approval: MileageApproval | null;
+}
