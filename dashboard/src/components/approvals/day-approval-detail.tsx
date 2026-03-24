@@ -574,29 +574,62 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                     shiftGroups.map((shift) => {
                       const isCall = shift.shiftType === 'call';
                       const ps = detail?.project_sessions ?? [];
+
+                      // Detect standalone manual quart: any item with activity_type === 'manual_time' and is_standalone_shift === true
+                      const isManualQuart = shift.items.some((item) => {
+                        const pa = item.type === 'merged'
+                          ? item.group.primaryStop
+                          : item.type === 'lunch_group'
+                            ? item.lunch
+                            : item.pa;
+                        return pa.item.activity_type === 'manual_time' && pa.item.is_standalone_shift === true;
+                      });
+
+                      // Find the manual_time activity_id for the delete button
+                      const manualActivityId = isManualQuart
+                        ? (() => {
+                            for (const item of shift.items) {
+                              const pa = item.type === 'merged'
+                                ? item.group.primaryStop
+                                : item.type === 'lunch_group'
+                                  ? item.lunch
+                                  : item.pa;
+                              if (pa.item.activity_type === 'manual_time' && pa.item.is_standalone_shift === true) {
+                                return pa.item.activity_id;
+                              }
+                            }
+                            return null;
+                          })()
+                        : null;
+
                       return (
                         <Fragment key={shift.shiftId}>
                           {/* Shift header row */}
                           <tr className={`border-b-2 ${
-                            isCall
-                              ? 'bg-orange-100/80 border-b-orange-300'
-                              : 'bg-slate-100/80 border-b-slate-200'
+                            isManualQuart
+                              ? 'bg-amber-50/50 border-b-amber-200'
+                              : isCall
+                                ? 'bg-orange-100/80 border-b-orange-300'
+                                : 'bg-slate-100/80 border-b-slate-200'
                           }`}>
-                            <td colSpan={9} className="px-4 py-2.5">
+                            <td colSpan={9} className={`px-4 py-2.5 ${isManualQuart ? 'border-l-2 border-l-amber-200' : ''}`}>
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                   <span className={`text-xs font-bold uppercase tracking-wider ${
-                                    isCall ? 'text-orange-800' : 'text-slate-600'
+                                    isManualQuart ? 'text-amber-800' : isCall ? 'text-orange-800' : 'text-slate-600'
                                   }`}>
                                     Quart {shift.shiftNumber}
                                   </span>
+                                  {isManualQuart && (
+                                    <span className="bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-full text-[10px] font-bold border border-amber-200">MANUEL</span>
+                                  )}
                                   <span className={`text-xs tabular-nums ${
-                                    isCall ? 'text-orange-700' : 'text-slate-500'
+                                    isManualQuart ? 'text-amber-700' : isCall ? 'text-orange-700' : 'text-slate-500'
                                   }`}>
                                     {formatTime(shift.startedAt)} → {formatTime(shift.endedAt)}
                                   </span>
                                   <span className={`text-xs font-semibold ${
-                                    isCall ? 'text-orange-800' : 'text-slate-700'
+                                    isManualQuart ? 'text-amber-800' : isCall ? 'text-orange-800' : 'text-slate-700'
                                   }`}>
                                     ({formatHours(shift.durationMinutes)})
                                   </span>
@@ -608,7 +641,17 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                                   )}
                                 </div>
                                 <div onClick={(e) => e.stopPropagation()}>
-                                  {isCall ? (
+                                  {isManualQuart ? (
+                                    manualActivityId && (
+                                      <button
+                                        onClick={() => handleDeleteManualTime(manualActivityId)}
+                                        className="ml-auto text-xs text-red-400 hover:text-red-600 px-2 py-0.5 rounded hover:bg-red-50 transition-colors"
+                                        disabled={isSaving || isApproved}
+                                      >
+                                        ✕ Supprimer le quart
+                                      </button>
+                                    )
+                                  ) : isCall ? (
                                     <Button
                                       variant="ghost"
                                       size="sm"
