@@ -1152,17 +1152,31 @@ export function LunchGroupRow({
     <>
       {/* Lunch summary row — always visible */}
       <tr
-        className="bg-slate-50/80 border-l-4 border-l-slate-300 hover:bg-slate-100/80 cursor-pointer transition-all duration-200 group border-b border-white/50"
+        className={`${activity.final_status === 'approved' ? 'bg-green-50/60 border-l-4 border-l-green-400' : 'bg-slate-50/80 border-l-4 border-l-slate-300'} hover:bg-slate-100/80 cursor-pointer transition-all duration-200 group border-b border-white/50`}
         onClick={() => setOpen(!open)}
       >
         {/* Action */}
-        <td className="px-3 py-3 text-center">
-          <div className="flex justify-center">
+        <td className="px-3 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+          {isApproved ? (
             <Badge variant="outline" className="font-bold text-[10px] px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border-slate-200">
-              <UtensilsCrossed className="h-3 w-3 mr-1" />
-              Pause
+              <UtensilsCrossed className="h-3 w-3 mr-1" />Pause
             </Badge>
-          </div>
+          ) : (
+            <div className="flex items-center justify-center gap-1">
+              <Button variant="ghost" size="sm"
+                className={`h-7 px-2 text-[10px] rounded-full transition-all ${
+                  activity.final_status === 'approved'
+                    ? 'bg-green-100 text-green-700 ring-1 ring-green-300'
+                    : 'text-muted-foreground hover:text-green-600 hover:bg-green-50'
+                }`}
+                onClick={() => onOverride(activity, 'approved')}
+                disabled={isSaving}
+              >
+                <CheckCircle2 className="h-3 w-3 mr-1" />
+                {activity.final_status === 'approved' ? 'Travail' : 'Approuver'}
+              </Button>
+            </div>
+          )}
         </td>
 
         {/* Clock icon */}
@@ -1192,6 +1206,11 @@ export function LunchGroupRow({
             <div className="text-xs flex items-center gap-1.5 text-orange-700 font-medium">
               <UtensilsCrossed className="h-3 w-3" />
               <span className="font-bold">Pause dîner</span>
+              {activity.final_status === 'approved' && (
+                <Badge className="ml-1 bg-green-100 text-green-700 text-[9px] px-1.5 py-0 font-bold border-green-200">
+                  Converti en travail
+                </Badge>
+              )}
             </div>
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] leading-tight text-orange-600/70">
@@ -1226,14 +1245,25 @@ export function LunchGroupRow({
 
         {/* Expand chevron */}
         <td className="px-3 py-3 text-center">
-          {childItems.length > 0 && (
-            <div className={`rounded-full p-1 transition-colors ${open ? 'bg-muted' : 'group-hover:bg-muted'}`}>
-              {open
-                ? <ChevronUp className="h-4 w-4 text-primary" />
-                : <ChevronDown className="h-4 w-4 text-muted-foreground" />
-              }
-            </div>
-          )}
+          <div className="flex items-center justify-center gap-0.5">
+            {!isApproved && onDetailUpdated && (
+              <span onClick={(e) => e.stopPropagation()}>
+                <ActivitySegmentModal
+                  activityType="lunch"
+                  activityId={activity.activity_id}
+                  startedAt={activity.started_at}
+                  endedAt={activity.ended_at}
+                  isSegmented={false}
+                  onUpdated={onDetailUpdated}
+                />
+              </span>
+            )}
+            {childItems.length > 0 && (
+              <div className={`rounded-full p-1 transition-colors ${open ? 'bg-muted' : 'group-hover:bg-muted'}`}>
+                {open ? <ChevronUp className="h-4 w-4 text-primary" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+              </div>
+            )}
+          </div>
         </td>
       </tr>
 
