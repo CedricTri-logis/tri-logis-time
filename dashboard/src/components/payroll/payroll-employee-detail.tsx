@@ -30,6 +30,7 @@ interface WeekSubtotalProps {
 function WeekSubtotal({ days, weekLabel, periodSalaryHalf }: WeekSubtotalProps) {
   const totalMin = days.reduce((s, d) => s + d.approved_minutes, 0);
   const totalBreak = days.reduce((s, d) => s + d.break_minutes, 0);
+  const totalCallbackBonus = days.reduce((s, d) => s + d.callback_bonus_minutes, 0);
   const isAnnual = days[0]?.pay_type === 'annual';
   const weekPremium = days.reduce((s, d) => s + d.premium_amount, 0);
   // Annual: fixed salary/2 + premiums. Hourly: sum of daily amounts.
@@ -38,7 +39,7 @@ function WeekSubtotal({ days, weekLabel, periodSalaryHalf }: WeekSubtotalProps) 
     : days.reduce((s, d) => s + d.total_amount, 0);
 
   return (
-    <TableRow className="bg-muted/20 font-medium text-sm">
+    <TableRow className="bg-muted/40 font-semibold text-sm border-b-2 border-border">
       <TableCell>{weekLabel}</TableCell>
       <TableCell className="text-right font-mono">{formatMinutesAsHours(totalMin)}</TableCell>
       <TableCell className="text-right font-mono">{formatMinutesAsHours(totalBreak)}</TableCell>
@@ -48,7 +49,9 @@ function WeekSubtotal({ days, weekLabel, periodSalaryHalf }: WeekSubtotalProps) 
           return totalDed > 0 ? `-${totalDed}min` : '';
         })()}
       </TableCell>
-      <TableCell />
+      <TableCell className="text-right font-mono">
+        {totalCallbackBonus > 0 ? `+${formatMinutesAsHours(totalCallbackBonus)}` : ''}
+      </TableCell>
       <TableCell />
       <TableCell className="text-right font-mono">{weekAmount.toFixed(2)} $</TableCell>
       <TableCell>
