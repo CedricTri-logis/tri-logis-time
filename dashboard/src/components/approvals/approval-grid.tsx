@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, ChevronLeft, ChevronRight, CheckCircle2, XCircle, AlertTriangle, Clock, Minus, Car, WifiOff, MapPin, UtensilsCrossed, Phone } from 'lucide-react';
+import { Loader2, ChevronLeft, ChevronRight, CheckCircle2, XCircle, AlertTriangle, Clock, Minus, Car, WifiOff, MapPin, UtensilsCrossed, Phone, PenLine } from 'lucide-react';
 import { supabaseClient } from '@/lib/supabase/client';
 import type { WeeklyEmployeeRow, DayApprovalStatus } from '@/types/mileage';
 import { DayApprovalDetail } from './day-approval-detail';
@@ -130,6 +130,7 @@ export function ApprovalGrid() {
       lunch: 0,
       callBonus: 0,
       gap: 0,
+      added: 0,
     };
     for (const row of data) {
       for (const day of row.days) {
@@ -142,6 +143,7 @@ export function ApprovalGrid() {
         // No callback bonus when all activities are rejected
         totals.callBonus += dayApproved > 0 ? (day.call_bonus_minutes ?? 0) : 0;
         totals.gap += day.gap_minutes ?? 0;
+        totals.added += day.added_minutes ?? 0;
       }
     }
     return totals;
@@ -361,6 +363,14 @@ export function ApprovalGrid() {
                   <div className="flex flex-col p-3 bg-orange-50/50 rounded-xl border border-orange-100">
                     <span className="text-[10px] uppercase tracking-wider text-orange-700/60 font-bold">Dîner</span>
                     <span className="text-xl font-black text-orange-700 tracking-tight">{formatHours(weekTotals.lunch)}</span>
+                  </div>
+                )}
+                {weekTotals.added > 0 && (
+                  <div className="flex flex-col p-3 bg-cyan-50/50 rounded-xl border border-cyan-100">
+                    <span className="text-[10px] uppercase tracking-wider text-cyan-700/60 font-bold flex items-center gap-1">
+                      <PenLine className="h-3 w-3" /> Temps ajout&#233;
+                    </span>
+                    <span className="text-xl font-black text-cyan-700 tracking-tight">{formatHours(weekTotals.added)}</span>
                   </div>
                 )}
                 {weekTotals.gap > 0 && (

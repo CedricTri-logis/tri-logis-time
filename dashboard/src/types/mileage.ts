@@ -336,6 +336,7 @@ export interface WeeklyDayEntry {
   call_billed_minutes: number;
   call_bonus_minutes: number;
   gap_minutes: number;
+  added_minutes?: number;
 }
 
 export interface WeeklyEmployeeRow {
