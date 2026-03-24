@@ -5,7 +5,7 @@ import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { ChevronDown, Loader2 } from 'lucide-react';
+import { ChevronDown, Loader2, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import type { PayPeriod } from '@/types/payroll';
 import { useMileageApprovalDetail } from '@/lib/hooks/use-mileage-approval';
@@ -37,6 +37,7 @@ export function MileageEmployeeDetail({
     period
   );
   const [isSaving, setIsSaving] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string[]>(['approved', 'needs_review']);
   const isApproved = detail?.approval?.status === 'approved';
 
   const handleVehicleChange = async (tripId: string, vehicleType: string) => {
@@ -145,7 +146,32 @@ export function MileageEmployeeDetail({
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b">
         <h3 className="font-semibold">{employeeName}</h3>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          <div className="flex gap-0.5">
+            {([
+              { value: 'approved', label: 'Approuvés', icon: CheckCircle, onBg: 'bg-green-100 text-green-700', offBg: 'bg-muted/50 text-muted-foreground' },
+              { value: 'rejected', label: 'Refusés', icon: XCircle, onBg: 'bg-red-100 text-red-700', offBg: 'bg-muted/50 text-muted-foreground' },
+              { value: 'needs_review', label: 'À vérifier', icon: AlertCircle, onBg: 'bg-yellow-100 text-yellow-700', offBg: 'bg-muted/50 text-muted-foreground' },
+            ] as const).map(({ value, label, icon: Icon, onBg, offBg }) => {
+              const isOn = statusFilter.includes(value);
+              return (
+                <button
+                  key={value}
+                  onClick={() => {
+                    const next = isOn
+                      ? statusFilter.filter(s => s !== value)
+                      : [...statusFilter, value];
+                    if (next.length > 0) setStatusFilter(next);
+                  }}
+                  className={`inline-flex items-center gap-1 h-7 px-2 text-xs rounded-md border transition-colors ${
+                    isOn ? onBg + ' border-transparent' : offBg + ' border-transparent hover:bg-muted'
+                  }`}
+                >
+                  <Icon className="h-3 w-3" /> {label}
+                </button>
+              );
+            })}
+          </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" disabled={isApproved || isSaving}>
@@ -172,24 +198,28 @@ export function MileageEmployeeDetail({
 
       {/* Trip list grouped by day */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {Array.from(tripsByDay.entries()).map(([date, trips]) => (
-          <div key={date}>
-            <div className="text-xs font-semibold text-muted-foreground uppercase mb-2">
-              {format(parseISO(date), 'EEEE d MMMM', { locale: fr })}
+        {Array.from(tripsByDay.entries()).map(([date, trips]) => {
+          const filteredTrips = trips.filter(t => statusFilter.includes(t.trip_status));
+          if (filteredTrips.length === 0) return null;
+          return (
+            <div key={date}>
+              <div className="text-xs font-semibold text-muted-foreground uppercase mb-2">
+                {format(parseISO(date), 'EEEE d MMMM', { locale: fr })}
+              </div>
+              <div className="space-y-1">
+                {filteredTrips.map((trip) => (
+                  <MileageTripRow
+                    key={trip.trip_id}
+                    trip={trip}
+                    disabled={isApproved || isSaving}
+                    onVehicleChange={handleVehicleChange}
+                    onRoleChange={handleRoleChange}
+                  />
+                ))}
+              </div>
             </div>
-            <div className="space-y-1">
-              {trips.map((trip) => (
-                <MileageTripRow
-                  key={trip.trip_id}
-                  trip={trip}
-                  disabled={isApproved || isSaving}
-                  onVehicleChange={handleVehicleChange}
-                  onRoleChange={handleRoleChange}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
+          );
+        })}
         {detail.trips.length === 0 && (
           <div className="text-center text-muted-foreground py-8">
             Aucun trajet en véhicule pour cette période
