@@ -16,7 +16,7 @@ export default function PayrollPage() {
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const [period, setPeriod] = useState<PayPeriod>(() => getLastCompletedPeriod(todayStr));
 
-  const { categoryGroups, grandTotal, isLoading, error, refetch } = usePayrollReport(period);
+  const { categoryGroups, grandTotal, isLoading, error, silentRefetch } = usePayrollReport(period);
 
   return (
     <div className="space-y-6">
@@ -63,7 +63,7 @@ export default function PayrollPage() {
               categoryGroups={categoryGroups}
               grandTotal={grandTotal}
               period={period}
-              onRefetch={refetch}
+              onRefetch={silentRefetch}
             />
           )}
         </CardContent>
