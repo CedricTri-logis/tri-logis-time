@@ -25,6 +25,7 @@ DECLARE
   v_rate_per_km DECIMAL;
   v_threshold_km DECIMAL;
   v_rate_after DECIMAL;
+  v_forfait_amount DECIMAL;
 BEGIN
   IF NOT is_admin_or_super_admin(v_caller) THEN
     RAISE EXCEPTION 'Only admins can view mileage approval detail';
@@ -145,6 +146,12 @@ BEGIN
     v_estimated_amount := v_reimbursable_km * v_rate_per_km;
   END IF;
 
+  -- Check for fixed mileage allowance (forfait)
+  v_forfait_amount := get_active_mileage_allowance(p_employee_id, p_period_start);
+  IF v_forfait_amount IS NOT NULL THEN
+    v_estimated_amount := v_forfait_amount;
+  END IF;
+
   v_summary := jsonb_build_object(
     'reimbursable_km', ROUND(v_reimbursable_km, 2),
     'company_km', ROUND(v_company_km, 2),
@@ -154,7 +161,9 @@ BEGIN
     'ytd_km', ROUND(v_ytd_km, 2),
     'rate_per_km', v_rate_per_km,
     'rate_after_threshold', v_rate_after,
-    'threshold_km', v_threshold_km
+    'threshold_km', v_threshold_km,
+    'is_forfait', v_forfait_amount IS NOT NULL,
+    'forfait_amount', v_forfait_amount
   );
 
   SELECT to_jsonb(ma)
