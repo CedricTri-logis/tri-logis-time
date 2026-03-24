@@ -8,6 +8,7 @@ import { useMileageApprovalSummary } from '@/lib/hooks/use-mileage-approval';
 import { MileageEmployeeList } from './mileage-employee-list';
 import { MileageEmployeeDetail } from './mileage-employee-detail';
 import { VehiclePeriodsTab } from '@/components/mileage/vehicle-periods-tab';
+import { MileageAllowancesTab } from '@/components/mileage/mileage-allowances-tab';
 import { getLastCompletedPeriod } from '@/lib/utils/pay-periods';
 import type { PayPeriod } from '@/types/payroll';
 import { Loader2, AlertTriangle } from 'lucide-react';
@@ -31,6 +32,7 @@ export function MileageApprovalPage() {
             <TabsList>
               <TabsTrigger value="approval">Approbation</TabsTrigger>
               <TabsTrigger value="vehicles">Véhicules</TabsTrigger>
+              <TabsTrigger value="allowances">Forfaits</TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
@@ -89,9 +91,13 @@ export function MileageApprovalPage() {
             </div>
           </div>
         )
-      ) : (
+      ) : activeTab === 'vehicles' ? (
         <div className="flex-1 overflow-auto p-6">
           <VehiclePeriodsTab />
+        </div>
+      ) : (
+        <div className="flex-1 overflow-auto p-6">
+          <MileageAllowancesTab />
         </div>
       )}
     </div>

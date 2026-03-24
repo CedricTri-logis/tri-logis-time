@@ -32,7 +32,6 @@ import { supabaseClient } from '@/lib/supabase/client';
 import { ActivityTab } from '@/components/mileage/activity-tab';
 
 import { CarpoolingTab } from '@/components/mileage/carpooling-tab';
-import { MileageAllowancesTab } from '@/components/mileage/mileage-allowances-tab';
 
 interface BatchResult {
   trip_id: string;
@@ -230,7 +229,6 @@ export default function MileagePage() {
         <TabsList>
           <TabsTrigger value="activity">Activit&eacute;</TabsTrigger>
           <TabsTrigger value="carpools">Covoiturages</TabsTrigger>
-          <TabsTrigger value="allowances">Forfaits kilom&eacute;trage</TabsTrigger>
         </TabsList>
 
         <TabsContent value="activity" className="mt-4">
@@ -239,10 +237,6 @@ export default function MileagePage() {
 
         <TabsContent value="carpools" className="mt-4">
           <CarpoolingTab />
-        </TabsContent>
-
-        <TabsContent value="allowances" className="mt-4">
-          <MileageAllowancesTab />
         </TabsContent>
       </Tabs>
 
