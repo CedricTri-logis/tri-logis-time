@@ -291,6 +291,11 @@ export function groupDisplayItemsByShift(displayItems: DisplayItem[]): ShiftGrou
         shiftType: activity.shift_type,
         shiftTypeSource: activity.shift_type_source,
       });
+    } else if (!groupMap.get(shiftId)!.shiftType && activity.shift_type) {
+      // Stops/trips/gaps return NULL shift_type from the RPC; only clock events
+      // carry the actual value. Update the group when we find a non-null value.
+      groupMap.get(shiftId)!.shiftType = activity.shift_type;
+      groupMap.get(shiftId)!.shiftTypeSource = activity.shift_type_source;
     }
     groupMap.get(shiftId)!.items.push(item);
   }

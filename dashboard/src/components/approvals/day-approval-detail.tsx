@@ -393,9 +393,9 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                 </div>
                 <span className="text-[10px] uppercase tracking-[0.1em] text-slate-500 font-bold mb-1">Total</span>
                 <div className="flex items-baseline gap-1 mt-auto">
-                  <span className="text-2xl font-black text-slate-800 tracking-tight">{formatHours(detail.summary.total_shift_minutes + (detail.summary.call_bonus_minutes ?? 0))}</span>
+                  <span className="text-2xl font-black text-slate-800 tracking-tight">{formatHours(detail.summary.total_shift_minutes + ((detail.summary.approved_minutes ?? 0) > 0 ? (detail.summary.call_bonus_minutes ?? 0) : 0))}</span>
                 </div>
-                {(detail.summary.call_bonus_minutes ?? 0) > 0 && (
+                {(detail.summary.approved_minutes ?? 0) > 0 && (detail.summary.call_bonus_minutes ?? 0) > 0 && (
                   <span className="text-[10px] text-orange-600 font-medium mt-0.5">+{formatHours(detail.summary.call_bonus_minutes)} rappel</span>
                 )}
               </div>
@@ -480,7 +480,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                       </span>
                     );
                   })}
-                {(detail.summary.call_bonus_minutes ?? 0) > 0 && (
+                {(detail.summary.approved_minutes ?? 0) > 0 && (detail.summary.call_bonus_minutes ?? 0) > 0 && (
                   <span
                     className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 text-xs font-medium text-orange-700 border border-orange-200"
                     title="Bonus rappel (min. 3h)"
