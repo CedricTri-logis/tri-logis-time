@@ -386,11 +386,13 @@ export function nestLunchActivities(items: DisplayItem[]): DisplayItem[] {
 
       // Never absorb stop_segments — they are explicitly created by supervisors
       // for independent approval and must always remain visible as standalone rows.
+      // manual_time entries are also excluded as they are standalone user-created records.
       if (item.type === 'activity' && (
         item.pa.item.activity_type === 'stop_segment' ||
         item.pa.item.activity_type === 'trip_segment' ||
         item.pa.item.activity_type === 'gap_segment' ||
-        item.pa.item.activity_type === 'lunch_segment'
+        item.pa.item.activity_type === 'lunch_segment' ||
+        item.pa.item.activity_type === 'manual_time'
       )) return;
 
       // Get the activity's time range

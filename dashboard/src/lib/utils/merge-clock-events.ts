@@ -6,7 +6,7 @@
 
 /** Minimal interface required for merging — works with both ActivityItem and ApprovalActivity */
 export interface MergeableActivity {
-  activity_type: 'trip' | 'stop' | 'stop_segment' | 'trip_segment' | 'gap_segment' | 'clock_in' | 'clock_out' | 'gap' | 'lunch' | 'lunch_segment';
+  activity_type: 'trip' | 'stop' | 'stop_segment' | 'trip_segment' | 'gap_segment' | 'clock_in' | 'clock_out' | 'gap' | 'lunch' | 'lunch_segment' | 'manual_time';
   shift_id: string;
   started_at: string;
   ended_at: string;
