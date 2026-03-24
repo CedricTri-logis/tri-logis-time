@@ -32,25 +32,25 @@ This is distinct from the existing `/reports/timesheet` page — it is a **payro
 - Bookmarkable via query params: `?from=2026-03-08&to=2026-03-21`
 
 ### Client-Side Period Calculation
-Periods are computed client-side from the anchor date. No server-side period table needed.
+Periods are computed client-side from the anchor date using **date strings (YYYY-MM-DD)** to avoid timezone issues. Use `date-fns` for date arithmetic (already a dependency). No server-side period table needed.
 
 ```typescript
-const PAY_PERIOD_ANCHOR = new Date('2026-03-08'); // Sunday
+// Work with date strings, not Date objects, to avoid timezone edge cases
+const PAY_PERIOD_ANCHOR = '2026-03-08'; // Sunday
 const PAY_PERIOD_DAYS = 14;
 
-function getPayPeriod(date: Date): { start: Date; end: Date } {
-  const diffMs = date.getTime() - PAY_PERIOD_ANCHOR.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+function getPayPeriod(dateStr: string): { start: string; end: string } {
+  const diffDays = differenceInCalendarDays(parseISO(dateStr), parseISO(PAY_PERIOD_ANCHOR));
   const periodOffset = Math.floor(diffDays / PAY_PERIOD_DAYS);
-  const start = addDays(PAY_PERIOD_ANCHOR, periodOffset * PAY_PERIOD_DAYS);
-  const end = addDays(start, PAY_PERIOD_DAYS - 1);
+  const start = formatISO(addDays(parseISO(PAY_PERIOD_ANCHOR), periodOffset * PAY_PERIOD_DAYS), { representation: 'date' });
+  const end = formatISO(addDays(parseISO(start), PAY_PERIOD_DAYS - 1), { representation: 'date' });
   return { start, end };
 }
 
-function getLastCompletedPeriod(today: Date): { start: Date; end: Date } {
-  const current = getPayPeriod(today);
-  if (today > current.end) return current;
-  return getPayPeriod(subDays(current.start, 1));
+function getLastCompletedPeriod(todayStr: string): { start: string; end: string } {
+  const current = getPayPeriod(todayStr);
+  if (todayStr > current.end) return current;
+  return getPayPeriod(formatISO(subDays(parseISO(current.start), 1), { representation: 'date' }));
 }
 ```
 
@@ -68,6 +68,8 @@ Employees are grouped by their **primary** category (`employee_categories.is_pri
 - Maintenance
 - Rénovation
 - Admin
+
+The `is_primary` column was added to `employee_categories` (BOOLEAN NOT NULL DEFAULT true). Constraint: at most one `is_primary = true` per employee among active categories (where `ended_at IS NULL`). Employees with no category are grouped under "Non catégorisé".
 
 Employees with a secondary category show it as a tag (e.g., "Maintenance · +ménage").
 
@@ -93,7 +95,7 @@ One row per employee, grouped by primary category with sub-totals per group and 
 | % Work Sessions | % of approved time covered by work sessions (cleaning + maintenance + admin) |
 | Prime FDS ($) | Weekend cleaning premium amount (only for eligible ménage employees) |
 | Montant base ($) | Hourly: hours × rate. Annual: salary / 26 |
-| Total ($) | Base + premium + callback bonus amount |
+| Total ($) | Base + premium + callback bonus amount. For annual employees, callback bonus shows hours only (no dollar amount — absorbed in salary) |
 | Approbation jours | Badge: "14/14 ✓" (green) or "12/14 ⚠" (orange) — approved days / worked days |
 | Approbation paie | Badge: "Approuvée ✓" (green) / "En attente" (grey) / locked icon |
 
@@ -165,6 +167,8 @@ CREATE TABLE payroll_approvals (
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved')),
   approved_by UUID REFERENCES employee_profiles(id),
   approved_at TIMESTAMPTZ,
+  unlocked_by UUID REFERENCES employee_profiles(id),
+  unlocked_at TIMESTAMPTZ,
   notes TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -173,19 +177,31 @@ CREATE TABLE payroll_approvals (
 ```
 
 ### Locking Mechanism
-- When `payroll_approvals.status = 'approved'`, a trigger/check on `day_approvals` and `activity_overrides` prevents UPDATE/INSERT for that employee within the period date range
-- The `approve_day` and `save_activity_override` RPCs check for an active payroll lock before proceeding
+When `payroll_approvals.status = 'approved'`, the following operations are **blocked** via `BEFORE` triggers that raise an exception:
+
+| Table | Blocked Operations |
+|---|---|
+| `day_approvals` | UPDATE (prevents changing approved_minutes, status, etc.) |
+| `activity_overrides` | INSERT, UPDATE, DELETE (prevents adding/changing/removing overrides) |
+| `lunch_breaks` | INSERT, UPDATE, DELETE (prevents modifying break records) |
+
+Each trigger checks: does an active payroll lock exist for this employee where `period_start <= record.date <= period_end` and `status = 'approved'`? If yes, raise exception `'Payroll is locked for this period. Unlock payroll first.'`
+
+The existing RPCs (`approve_day`, `save_activity_override`, `remove_activity_override`) will naturally be blocked by these triggers.
 
 ### RPCs
 
 **`approve_payroll(p_employee_id, p_period_start, p_period_end, p_notes)`**
 - Verifies all worked days are day-approved (else raises exception)
-- Creates/updates `payroll_approvals` record with `status = 'approved'`
-- Sets `approved_by` to current user, `approved_at` to now()
+- Uses UPSERT: `INSERT ... ON CONFLICT (employee_id, period_start, period_end) DO UPDATE`
+- Sets `status = 'approved'`, `approved_by` to current user, `approved_at` to now()
+- Clears `unlocked_by`/`unlocked_at`
 - Returns the payroll approval record
 
 **`unlock_payroll(p_employee_id, p_period_start, p_period_end)`**
-- Sets `payroll_approvals.status = 'pending'`, clears `approved_by`/`approved_at`
+- Sets `status = 'pending'`
+- **Preserves** `approved_by`/`approved_at` (audit trail of last approval)
+- Sets `unlocked_by` to current user, `unlocked_at` to now()
 - Day approvals become modifiable again
 - Returns the updated record
 
@@ -201,6 +217,10 @@ p_employee_ids UUID[] DEFAULT NULL  -- optional filter
 ```
 
 ### Returns (per employee, per day)
+
+For **hourly** employees: one row per worked day.
+For **annual** employees: one row per worked day (shows hours, breaks, sessions) but `base_amount` is the period salary (`salary / 26`) on the **first row only** — other day rows show `base_amount = 0`. The UI aggregates this into a single period total. This mirrors the existing `get_timesheet_with_pay` pattern.
+
 ```sql
 RETURNS TABLE (
   -- Employee info
@@ -208,8 +228,8 @@ RETURNS TABLE (
   full_name TEXT,
   employee_id_code TEXT,
   pay_type TEXT,                    -- 'hourly' or 'annual'
-  primary_category TEXT,            -- from employee_categories WHERE is_primary
-  secondary_categories TEXT[],      -- other active categories
+  primary_category TEXT,            -- from employee_categories WHERE is_primary = true
+  secondary_categories TEXT[],      -- other active categories (is_primary = false)
 
   -- Day data
   date DATE,
@@ -218,7 +238,7 @@ RETURNS TABLE (
   approved_minutes INTEGER,         -- from day_approvals
 
   -- Breaks
-  break_minutes INTEGER,            -- lunch_breaks + is_lunch shifts duration
+  break_minutes INTEGER,            -- lunch_breaks + shifts WHERE is_lunch = true
 
   -- Callbacks
   callback_worked_minutes INTEGER,  -- actual time worked on callback shifts
@@ -229,25 +249,25 @@ RETURNS TABLE (
   cleaning_minutes INTEGER,         -- work_sessions activity_type='cleaning'
   maintenance_minutes INTEGER,      -- work_sessions activity_type='maintenance'
   admin_minutes INTEGER,            -- work_sessions activity_type='admin'
-  uncovered_minutes INTEGER,        -- approved_minutes - (cleaning + maintenance + admin)
+  uncovered_minutes INTEGER,        -- GREATEST(0, approved_minutes - (cleaning + maintenance + admin))
 
   -- Pay
   hourly_rate DECIMAL(10,2),        -- NULL for annual
   annual_salary DECIMAL(12,2),      -- NULL for hourly
   period_salary DECIMAL(12,2),      -- annual_salary / 26, NULL for hourly
-  base_amount DECIMAL(10,2),        -- hourly: (approved_min / 60) × rate. annual: salary/26 (on first day only)
-  weekend_cleaning_minutes INTEGER, -- cleaning on Sat/Sun if eligible
+  base_amount DECIMAL(10,2),        -- hourly: (approved_min / 60) × rate. annual: salary/26 on first row, 0 on others
+  weekend_cleaning_minutes INTEGER, -- cleaning on Sat/Sun if eligible (checks employee_categories.weekend_premium_eligible for ALL pay types)
   weekend_premium_rate DECIMAL(10,2),
   premium_amount DECIMAL(10,2),     -- weekend_cleaning_min / 60 × premium_rate
-  callback_bonus_amount DECIMAL(10,2), -- callback_bonus_min / 60 × hourly_rate
-  total_amount DECIMAL(10,2),       -- base + premium + callback bonus
+  callback_bonus_amount DECIMAL(10,2), -- hourly: callback_bonus_min / 60 × hourly_rate. annual: NULL (absorbed in salary)
+  total_amount DECIMAL(10,2),       -- base + premium + callback bonus (where applicable)
 
   -- Approval status
   day_approval_status TEXT,         -- 'approved' / 'pending' / 'no_shift'
 
   -- Payroll approval
   payroll_status TEXT,              -- 'approved' / 'pending' (same for all rows of this employee)
-  payroll_approved_by TEXT,         -- admin name
+  payroll_approved_by TEXT,         -- admin name who last approved
   payroll_approved_at TIMESTAMPTZ
 )
 ```
@@ -258,7 +278,7 @@ RETURNS TABLE (
 - `shifts` WHERE `shift_type = 'call'` + existing call bonus logic → callback fields
 - `work_sessions` → cleaning/maintenance/admin minutes
 - `employee_hourly_rates` / `employee_annual_salaries` → pay calculation
-- `employee_categories` → primary/secondary categories
+- `employee_categories` → primary/secondary categories, weekend_premium_eligible (checked for ALL pay types, not just hourly)
 - `pay_settings` → weekend_premium_rate
 - `payroll_approvals` → payroll lock status
 
@@ -340,7 +360,7 @@ dashboard/src/types/payroll.ts        # TypeScript types
 3. **Create `approve_payroll` RPC** — validates all days approved, creates lock record
 4. **Create `unlock_payroll` RPC** — removes lock
 5. **Create `get_payroll_period_report` RPC** — aggregates all data sources
-6. **Add locking triggers** on `day_approvals` and `activity_overrides` — check for active payroll lock before UPDATE/INSERT
+6. **Add locking triggers** — `BEFORE UPDATE` on `day_approvals`, `BEFORE INSERT/UPDATE/DELETE` on `activity_overrides`, `BEFORE INSERT/UPDATE/DELETE` on `lunch_breaks` — each checks for active payroll lock and raises exception if locked
 7. **RLS policies** on `payroll_approvals` — admin/super_admin full access, managers read-only for supervised employees
 8. **COMMENT ON** for all new objects
 
@@ -352,6 +372,9 @@ dashboard/src/types/payroll.ts        # TypeScript types
 - **Mid-period rate change:** Day-level calculation uses the rate effective on that specific day (already handled by `employee_hourly_rates.effective_from/to`)
 - **Employee category change mid-period:** Uses the category active on each day for work session classification. Summary groups by current primary category.
 - **Callback spanning midnight:** Assigned to the day the callback shift started (clocked_in_at)
-- **Break detection:** Includes `lunch_breaks` table entries AND shifts with `is_lunch = true` (clock-out/clock-in lunch pattern)
+- **Break detection:** Includes `lunch_breaks` table entries AND shifts with `is_lunch = true` (lunch split shifts from migration 20260317000001)
 - **Partial period (new hire / termination):** Only days with shifts are counted. No penalty for missing days.
 - **Already approved payroll + day unlock attempt:** Blocked by trigger. Must unlock payroll first.
+- **Uncovered minutes negative:** Floored at 0 via `GREATEST(0, ...)`. If work sessions exceed approved minutes, uncovered shows as 0 (not negative).
+- **Callback bonus for annual employees:** Show bonus hours in the report for visibility, but `callback_bonus_amount` is NULL (bonus is absorbed in salary, not a separate line item).
+- **Re-approval after unlock:** UPSERT semantics — the existing `payroll_approvals` row is updated (not duplicated). Previous `approved_by`/`approved_at` are preserved until re-approved, at which point they are overwritten with the new approver.
