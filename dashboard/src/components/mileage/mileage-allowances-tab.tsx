@@ -45,7 +45,7 @@ interface Employee {
 type StatusFilter = 'all' | 'active' | 'expired';
 
 function formatDate(dateStr: string): string {
-  const d = new Date(dateStr);
+  const d = new Date(dateStr + 'T00:00:00');
   return d.toLocaleDateString('fr-CA', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
