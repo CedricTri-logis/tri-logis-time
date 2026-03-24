@@ -18,6 +18,8 @@ interface ClockTimeEditPopoverProps {
   originalTime?: string; // ISO string, if already edited
   isEdited: boolean;
   onUpdated: (newDetail: any) => void;
+  effectiveClockIn?: string;  // current effective clock-in ISO
+  effectiveClockOut?: string; // current effective clock-out ISO
 }
 
 export function ClockTimeEditPopover({
@@ -27,6 +29,8 @@ export function ClockTimeEditPopover({
   originalTime,
   isEdited,
   onUpdated,
+  effectiveClockIn,
+  effectiveClockOut,
 }: ClockTimeEditPopoverProps) {
   const [open, setOpen] = useState(false);
   const [time, setTime] = useState(() => {
@@ -36,6 +40,32 @@ export function ClockTimeEditPopover({
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const addsTime = (() => {
+    if (!time) return false;
+    const [h, m] = time.split(':').map(Number);
+    const currentDate = new Date(currentTime);
+    const newDate = new Date(currentDate);
+    newDate.setHours(h, m, 0, 0);
+
+    if (field === 'clocked_out_at') {
+      const currentEffective = new Date(effectiveClockOut || currentTime);
+      return newDate > currentEffective;
+    } else {
+      const currentEffective = new Date(effectiveClockIn || currentTime);
+      return newDate < currentEffective;
+    }
+  })();
+
+  const addedMinutes = (() => {
+    if (!addsTime) return 0;
+    const [h, m] = time.split(':').map(Number);
+    const currentDate = new Date(currentTime);
+    const newDate = new Date(currentDate);
+    newDate.setHours(h, m, 0, 0);
+    const effective = new Date(field === 'clocked_out_at' ? (effectiveClockOut || currentTime) : (effectiveClockIn || currentTime));
+    return Math.abs(Math.round((newDate.getTime() - effective.getTime()) / 60000));
+  })();
 
   const handleSave = async () => {
     setLoading(true);
@@ -90,9 +120,15 @@ export function ClockTimeEditPopover({
             />
           </div>
 
+          {addsTime && addedMinutes > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-md px-3 py-2 text-xs text-amber-800 flex items-center gap-1.5">
+              <strong>+{addedMinutes} min</strong> seront ajoutées comme « Temps manuel »
+            </div>
+          )}
+
           <div>
             <label className="text-xs text-muted-foreground">
-              Raison (optionnel)
+              Raison {addsTime ? <span className="text-destructive">*</span> : '(optionnel)'}
             </label>
             <Textarea
               value={reason}
@@ -118,7 +154,7 @@ export function ClockTimeEditPopover({
             <Button
               size="sm"
               onClick={handleSave}
-              disabled={loading}
+              disabled={loading || (addsTime && !reason.trim())}
             >
               {loading ? "Enregistrement..." : "Enregistrer"}
             </Button>
