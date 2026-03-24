@@ -55,6 +55,7 @@ export function PayrollSummaryTable({
           <TableHead className="text-right">Rappel bonus</TableHead>
           <TableHead className="text-right">Pause</TableHead>
           <TableHead className="text-center">Sans pause</TableHead>
+          <TableHead className="text-right">Déd. pause</TableHead>
           <TableHead className="text-right">% Sessions</TableHead>
           <TableHead className="text-right">Prime FDS</TableHead>
           <TableHead className="text-right">Base</TableHead>
@@ -68,7 +69,7 @@ export function PayrollSummaryTable({
           <Fragment key={`group-${group.category}`}>
             {/* Category header */}
             <TableRow className="bg-muted/50">
-              <TableCell colSpan={13} className="font-semibold">
+              <TableCell colSpan={14} className="font-semibold">
                 {CATEGORY_LABELS[group.category] || group.category}
               </TableCell>
             </TableRow>
@@ -118,6 +119,11 @@ export function PayrollSummaryTable({
                       <Badge variant="destructive">{emp.days_without_break}</Badge>
                     ) : '—'}
                   </TableCell>
+                  <TableCell className="text-right font-mono text-destructive">
+                    {emp.total_break_deduction_minutes > 0
+                      ? `-${formatMinutesAsHours(emp.total_break_deduction_minutes)}`
+                      : '—'}
+                  </TableCell>
                   <TableCell className="text-right font-mono">
                     {emp.work_session_coverage_pct}%
                   </TableCell>
@@ -143,7 +149,7 @@ export function PayrollSummaryTable({
                 {/* Expanded detail */}
                 {expandedId === emp.employee_id && (
                   <TableRow>
-                    <TableCell colSpan={13} className="p-0">
+                    <TableCell colSpan={14} className="p-0">
                       <PayrollEmployeeDetail
                         employee={emp}
                         period={period}
@@ -163,7 +169,7 @@ export function PayrollSummaryTable({
               <TableCell className="text-right font-mono">
                 {formatMinutesAsHours(group.totals.approved_minutes)}
               </TableCell>
-              <TableCell colSpan={4} />
+              <TableCell colSpan={5} />
               <TableCell className="text-right font-mono">{fmtMoney(group.totals.premium_amount)}</TableCell>
               <TableCell className="text-right font-mono">{fmtMoney(group.totals.base_amount)}</TableCell>
               <TableCell className="text-right font-mono">{fmtMoney(group.totals.total_amount)}</TableCell>
@@ -178,7 +184,7 @@ export function PayrollSummaryTable({
           <TableCell className="text-right font-mono">
             {formatMinutesAsHours(grandTotal.approved_minutes)}
           </TableCell>
-          <TableCell colSpan={4} />
+          <TableCell colSpan={5} />
           <TableCell className="text-right font-mono">{fmtMoney(grandTotal.premium_amount)}</TableCell>
           <TableCell className="text-right font-mono">{fmtMoney(grandTotal.base_amount)}</TableCell>
           <TableCell className="text-right font-mono">{fmtMoney(grandTotal.total_amount)}</TableCell>
