@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LayoutDashboard, Users, MapPin, MapPinned, UserCog, Radio, History, FileBarChart, ClipboardList, Car, ClipboardCheck, UtensilsCrossed, DollarSign, Activity, Receipt } from 'lucide-react';
+import { useGetIdentity } from '@refinedev/core';
+import type { UserIdentity } from '@/types/dashboard';
 import { cn } from '@/lib/utils';
 import { useMonitoringBadges } from '@/lib/hooks/use-monitoring-badges';
 
@@ -21,6 +23,7 @@ const navigation = [
     name: 'Équipes',
     href: '/dashboard/teams',
     icon: Users,
+    adminOnly: true,
   },
   {
     name: 'Employés',
@@ -36,6 +39,7 @@ const navigation = [
     name: 'Emplacements',
     href: '/dashboard/locations',
     icon: MapPinned,
+    adminOnly: true,
   },
   {
     name: 'Sessions de travail',
@@ -71,17 +75,25 @@ const navigation = [
     name: 'Diagnostics GPS',
     href: '/dashboard/diagnostics',
     icon: Activity,
+    adminOnly: true,
   },
   {
     name: 'Rapports',
     href: '/dashboard/reports',
     icon: FileBarChart,
+    adminOnly: true,
   },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const badges = useMonitoringBadges();
+  const { data: user } = useGetIdentity<UserIdentity>();
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+
+  const visibleNavigation = navigation.filter(
+    (item) => !item.adminOnly || isAdmin
+  );
 
   return (
     <aside className="hidden w-64 flex-shrink-0 border-r border-slate-200 bg-white lg:flex lg:flex-col">
@@ -90,7 +102,7 @@ export function Sidebar() {
         <span className="ml-2 text-lg font-semibold text-slate-900">Tri-Logis Time</span>
       </div>
       <nav className="flex-1 space-y-1 p-4">
-        {navigation.map((item) => {
+        {visibleNavigation.map((item) => {
           // Support nested routes: /dashboard/employees/123 matches /dashboard/employees
           const isActive = item.href === '/dashboard'
             ? pathname === item.href
