@@ -168,7 +168,7 @@ export type ReportHistoryFilterInput = z.infer<typeof reportHistoryFilterSchema>
 /**
  * Helper function to resolve date range to actual dates
  */
-import { toLocalDateString, addDays, getMonday } from '@/lib/utils/date-utils';
+import { toLocalDateString, addDays, getWeekStart } from '@/lib/utils/date-utils';
 
 export function resolveDateRange(dateRange: DateRangeInput): { start: string; end: string } {
   if (dateRange.start && dateRange.end) {
@@ -180,9 +180,9 @@ export function resolveDateRange(dateRange: DateRangeInput): { start: string; en
 
   switch (dateRange.preset) {
     case 'this_week':
-      return { start: getMonday(today), end: today };
+      return { start: getWeekStart(today), end: today };
     case 'last_week': {
-      const lastMonday = addDays(getMonday(today), -7);
+      const lastMonday = addDays(getWeekStart(today), -7);
       return { start: lastMonday, end: addDays(lastMonday, 6) };
     }
     case 'this_month':

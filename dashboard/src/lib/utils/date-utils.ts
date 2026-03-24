@@ -26,10 +26,12 @@ export function addDays(dateStr: string, days: number): string {
   return toLocalDateString(d);
 }
 
-/** Get the Monday (ISO week start) of the week containing the given date */
-export function getMonday(dateStr?: string): string {
+/** Get the Sunday (week start) of the week containing the given date */
+export function getWeekStart(dateStr?: string): string {
   const d = dateStr ? parseLocalDate(dateStr) : new Date();
-  const day = d.getDay();
-  d.setDate(d.getDate() - day + (day === 0 ? -6 : 1));
+  d.setDate(d.getDate() - d.getDay());
   return toLocalDateString(d);
 }
+
+/** @deprecated Use getWeekStart instead */
+export const getMonday = getWeekStart;

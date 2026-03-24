@@ -66,17 +66,17 @@ class MileagePeriodPicker extends StatelessWidget {
 
   bool get _isThisWeek {
     final now = DateTime.now();
-    final monday = now.subtract(Duration(days: now.weekday - 1));
-    final weekStart = DateTime(monday.year, monday.month, monday.day);
+    final sunday = now.subtract(Duration(days: now.weekday % 7));
+    final weekStart = DateTime(sunday.year, sunday.month, sunday.day);
     final weekEnd = weekStart.add(const Duration(days: 7));
     return periodStart == weekStart && periodEnd == weekEnd;
   }
 
   bool get _isLastWeek {
     final now = DateTime.now();
-    final monday = now.subtract(Duration(days: now.weekday - 1));
-    final lastMonday = monday.subtract(const Duration(days: 7));
-    final weekStart = DateTime(lastMonday.year, lastMonday.month, lastMonday.day);
+    final sunday = now.subtract(Duration(days: now.weekday % 7));
+    final lastSunday = sunday.subtract(const Duration(days: 7));
+    final weekStart = DateTime(lastSunday.year, lastSunday.month, lastSunday.day);
     final weekEnd = weekStart.add(const Duration(days: 7));
     return periodStart == weekStart && periodEnd == weekEnd;
   }
@@ -90,8 +90,8 @@ class MileagePeriodPicker extends StatelessWidget {
 
   void _selectThisWeek(BuildContext context) {
     final now = DateTime.now();
-    final monday = now.subtract(Duration(days: now.weekday - 1));
-    final weekStart = DateTime(monday.year, monday.month, monday.day);
+    final sunday = now.subtract(Duration(days: now.weekday % 7));
+    final weekStart = DateTime(sunday.year, sunday.month, sunday.day);
     onPeriodChanged(DateTimeRange(
       start: weekStart,
       end: weekStart.add(const Duration(days: 7)),
@@ -100,9 +100,9 @@ class MileagePeriodPicker extends StatelessWidget {
 
   void _selectLastWeek(BuildContext context) {
     final now = DateTime.now();
-    final monday = now.subtract(Duration(days: now.weekday - 1));
-    final lastMonday = monday.subtract(const Duration(days: 7));
-    final weekStart = DateTime(lastMonday.year, lastMonday.month, lastMonday.day);
+    final sunday = now.subtract(Duration(days: now.weekday % 7));
+    final lastSunday = sunday.subtract(const Duration(days: 7));
+    final weekStart = DateTime(lastSunday.year, lastSunday.month, lastSunday.day);
     onPeriodChanged(DateTimeRange(
       start: weekStart,
       end: weekStart.add(const Duration(days: 7)),

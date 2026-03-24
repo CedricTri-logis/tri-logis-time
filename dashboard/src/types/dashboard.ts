@@ -79,7 +79,7 @@ export interface DataFreshnessInfo {
 }
 
 // Utility functions for date ranges
-import { toLocalDateString, addDays, getMonday } from '@/lib/utils/date-utils';
+import { toLocalDateString, addDays, getWeekStart } from '@/lib/utils/date-utils';
 
 export function getDateRangeDates(range: DateRange): { start: string; end: string } {
   const today = toLocalDateString(new Date());
@@ -88,7 +88,7 @@ export function getDateRangeDates(range: DateRange): { start: string; end: strin
     case 'today':
       return { start: today, end: today };
     case 'this_week':
-      return { start: getMonday(today), end: addDays(getMonday(today), 6) };
+      return { start: getWeekStart(today), end: addDays(getWeekStart(today), 6) };
     case 'this_month': {
       const now = new Date();
       const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
