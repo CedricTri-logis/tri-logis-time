@@ -21,7 +21,30 @@ const CATEGORY_LABELS: Record<string, string> = {
   'Non catégorisé': 'Non catégorisé',
 };
 
-/** Total column count: 15 original + 4 bank/sick + 1 ajustements + 1 header = 21 */
+/*
+ * Column layout (21 columns):
+ *  1  Chevron
+ *  2  Employé        ─┐ EMPLOYÉ (colSpan 2)
+ *  3  Type           ─┘
+ *  4  Heures         ─┐
+ *  5  Refusées        │
+ *  6  Rappel          │ TEMPS (colSpan 6)
+ *  7  Pause           │
+ *  8  Sans pause      │
+ *  9  Déd. pause     ─┘
+ * 10  % Sess.         ─  QUAL. (colSpan 1)
+ * 11  Taux/h         ─┐
+ * 12  Prime FDS       │ CALCUL PAIE (colSpan 4)
+ * 13  Rappel $        │
+ * 14  Total          ─┘
+ * 15  Banque +/-     ─┐ BANQUE (colSpan 2)
+ * 16  Solde banque   ─┘
+ * 17  Maladie        ─┐ MALADIE (colSpan 2)
+ * 18  Solde mal.     ─┘
+ * 19  Jours          ─┐ STATUT (colSpan 2)
+ * 20  Paie           ─┘
+ * 21  Ajust.          ─  (colSpan 1)
+ */
 const TOTAL_COLS = 21;
 
 interface PayrollSummaryTableProps {
@@ -40,7 +63,6 @@ interface PayrollSummaryTableProps {
   onRefetch: () => void;
 }
 
-/** Format decimal hours (e.g. 9.333) as "9h20" */
 function formatDecimalHours(h: number): string {
   const hours = Math.floor(Math.abs(h));
   const mins = Math.round((Math.abs(h) - hours) * 60);
@@ -72,24 +94,25 @@ export function PayrollSummaryTable({
   };
 
   const fmtMoney = (n: number) => `${n.toFixed(2)} $`;
+  const dash = '—';
 
   return (
     <>
     <Table>
       <TableHeader>
-        {/* Row 1 \u2014 Group labels */}
+        {/* Row 1 — Group labels */}
         <TableRow className="border-b-0">
           <TableHead className="w-8" />
           <TableHead colSpan={2} className="text-xs text-green-600 tracking-wider font-normal">EMPLOYÉ</TableHead>
           <TableHead colSpan={6} className="text-xs text-blue-600 tracking-wider text-center font-normal border-l-2">TEMPS</TableHead>
           <TableHead className="text-xs text-muted-foreground tracking-wider text-center font-normal border-l-2">QUAL.</TableHead>
           <TableHead colSpan={4} className="text-xs text-amber-600 tracking-wider text-center font-normal border-l-2">CALCUL PAIE</TableHead>
-          <TableHead colSpan={2} className="text-xs text-blue-700 tracking-wider text-center font-normal border-l-2 bg-blue-50">BANQUE</TableHead>
-          <TableHead colSpan={2} className="text-xs text-green-700 tracking-wider text-center font-normal border-l-2 bg-green-50">MALADIE</TableHead>
+          <TableHead colSpan={2} className="text-xs text-blue-700 tracking-wider text-center font-normal border-l-2 bg-blue-50/50">BANQUE</TableHead>
+          <TableHead colSpan={2} className="text-xs text-green-700 tracking-wider text-center font-normal border-l-2 bg-green-50/50">MALADIE</TableHead>
           <TableHead colSpan={2} className="text-xs text-muted-foreground tracking-wider text-center font-normal border-l-2">STATUT</TableHead>
-          <TableHead className="text-xs text-muted-foreground tracking-wider text-center font-normal" />
+          <TableHead />
         </TableRow>
-        {/* Row 2 \u2014 Column labels */}
+        {/* Row 2 — Column labels (21 columns) */}
         <TableRow>
           <TableHead className="w-8" />
           <TableHead>Employé</TableHead>
@@ -98,16 +121,17 @@ export function PayrollSummaryTable({
           <TableHead className="text-right text-destructive">Refusées</TableHead>
           <TableHead className="text-right">Rappel</TableHead>
           <TableHead className="text-right">Pause</TableHead>
+          <TableHead className="text-center">Sans pause</TableHead>
           <TableHead className="text-right text-destructive">Déd. pause</TableHead>
           <TableHead className="text-right border-l-2">% Sess.</TableHead>
           <TableHead className="text-right border-l-2 text-amber-600">Taux/h</TableHead>
           <TableHead className="text-right">Prime FDS</TableHead>
           <TableHead className="text-right">Rappel $</TableHead>
           <TableHead className="text-right text-amber-600 font-semibold">Total</TableHead>
-          <TableHead className="text-right border-l-2 text-blue-700 bg-blue-50">Banque +/-</TableHead>
-          <TableHead className="text-right text-blue-700 bg-blue-50">Solde banque</TableHead>
-          <TableHead className="text-right border-l-2 text-green-700 bg-green-50">Maladie</TableHead>
-          <TableHead className="text-right text-green-700 bg-green-50">Solde mal.</TableHead>
+          <TableHead className="text-right border-l-2 text-blue-700 bg-blue-50/50">Banque +/-</TableHead>
+          <TableHead className="text-right text-blue-700 bg-blue-50/50">Solde</TableHead>
+          <TableHead className="text-right border-l-2 text-green-700 bg-green-50/50">Maladie</TableHead>
+          <TableHead className="text-right text-green-700 bg-green-50/50">Solde</TableHead>
           <TableHead className="text-center border-l-2">Jours</TableHead>
           <TableHead className="text-center">Paie</TableHead>
           <TableHead className="text-center">Ajust.</TableHead>
@@ -118,84 +142,44 @@ export function PayrollSummaryTable({
           const isCollapsed = collapsedCategories.has(group.category);
           return (
           <Fragment key={`group-${group.category}`}>
-            {/* Spacing between categories */}
             {groupIdx > 0 && (
               <TableRow className="border-0">
                 <TableCell colSpan={TOTAL_COLS} className="py-2 border-0" />
               </TableRow>
             )}
 
-            {/* Category header \u2014 clickable, shows totals when collapsed */}
+            {/* Category header */}
             <TableRow
               className="bg-muted/50 cursor-pointer hover:bg-muted/70"
               onClick={() => toggleCategory(group.category)}
             >
               <TableCell className="w-8">
-                {isCollapsed
-                  ? <ChevronRight className="h-4 w-4" />
-                  : <ChevronDown className="h-4 w-4" />}
+                {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </TableCell>
               {isCollapsed ? (
                 <>
                   <TableCell colSpan={2} className="font-semibold">
                     {CATEGORY_LABELS[group.category] || group.category}
-                    <span className="text-xs text-muted-foreground font-normal ml-2">
-                      ({group.employees.length} employés)
-                    </span>
+                    <span className="text-xs text-muted-foreground font-normal ml-2">({group.employees.length} employés)</span>
                   </TableCell>
-                  {/* Heures */}
-                  <TableCell className="text-right font-mono font-semibold border-l-2">
-                    {formatMinutesAsHours(group.totals.approved_minutes)}
-                  </TableCell>
-                  {/* Refusées */}
-                  <TableCell className="text-right font-mono text-destructive">
-                    {group.totals.rejected_minutes > 0
-                      ? formatMinutesAsHours(group.totals.rejected_minutes)
-                      : ''}
-                  </TableCell>
-                  {/* Rappel */}
-                  <TableCell className="text-right font-mono">
-                    {group.totals.callback_bonus_minutes > 0
-                      ? `+${formatMinutesAsHours(group.totals.callback_bonus_minutes)}`
-                      : ''}
-                  </TableCell>
-                  {/* Pause / Déd. pause */}
-                  <TableCell colSpan={2} />
-                  {/* % Sessions */}
+                  <TableCell className="text-right font-mono font-semibold border-l-2">{formatMinutesAsHours(group.totals.approved_minutes)}</TableCell>
+                  <TableCell className="text-right font-mono text-destructive">{group.totals.rejected_minutes > 0 ? formatMinutesAsHours(group.totals.rejected_minutes) : ''}</TableCell>
+                  <TableCell className="text-right font-mono">{group.totals.callback_bonus_minutes > 0 ? `+${formatMinutesAsHours(group.totals.callback_bonus_minutes)}` : ''}</TableCell>
+                  <TableCell colSpan={3} />
                   <TableCell className="border-l-2" />
-                  {/* Taux/h */}
                   <TableCell className="border-l-2" />
-                  {/* Prime FDS */}
-                  <TableCell className="text-right font-mono font-semibold">
-                    {group.totals.premium_amount > 0 ? fmtMoney(group.totals.premium_amount) : ''}
-                  </TableCell>
-                  {/* Rappel $ */}
+                  <TableCell className="text-right font-mono font-semibold">{group.totals.premium_amount > 0 ? fmtMoney(group.totals.premium_amount) : ''}</TableCell>
                   <TableCell />
-                  {/* Total */}
-                  <TableCell className="text-right font-mono font-semibold text-amber-600">
-                    {fmtMoney(group.totals.total_amount)}
-                  </TableCell>
-                  {/* Banque +/- */}
-                  <TableCell className="text-right font-mono border-l-2 bg-blue-50">
+                  <TableCell className="text-right font-mono font-semibold text-amber-600">{fmtMoney(group.totals.total_amount)}</TableCell>
+                  <TableCell className="text-right font-mono border-l-2 bg-blue-50/30">
                     {group.totals.bank_net_amount !== 0
-                      ? (group.totals.bank_net_amount > 0
-                        ? <span className="text-green-600">+{fmtMoney(group.totals.bank_net_amount)}</span>
-                        : <span className="text-red-600">{fmtMoney(group.totals.bank_net_amount)}</span>)
+                      ? <span className={group.totals.bank_net_amount > 0 ? 'text-green-600' : 'text-red-600'}>{group.totals.bank_net_amount > 0 ? '+' : ''}{fmtMoney(group.totals.bank_net_amount)}</span>
                       : ''}
                   </TableCell>
-                  {/* Solde banque \u2014 no subtotal for balance */}
-                  <TableCell className="bg-blue-50" />
-                  {/* Maladie */}
-                  <TableCell className="text-right font-mono border-l-2 bg-green-50">
-                    {group.totals.sick_leave_amount > 0
-                      ? fmtMoney(group.totals.sick_leave_amount)
-                      : ''}
-                  </TableCell>
-                  {/* Solde mal. \u2014 no subtotal for balance */}
-                  <TableCell className="bg-green-50" />
-                  {/* Jours / Paie */}
+                  <TableCell className="bg-blue-50/30" />
+                  <TableCell className="text-right font-mono border-l-2 bg-green-50/30">{group.totals.sick_leave_amount > 0 ? fmtMoney(group.totals.sick_leave_amount) : ''}</TableCell>
+                  <TableCell className="bg-green-50/30" />
                   <TableCell colSpan={2} className="border-l-2" />
-                  {/* Ajustements */}
                   <TableCell />
                 </>
               ) : (
@@ -205,22 +189,16 @@ export function PayrollSummaryTable({
               )}
             </TableRow>
 
-            {/* Employee rows \u2014 hidden when collapsed */}
+            {/* Employee rows */}
             {!isCollapsed && group.employees.map((emp: PayrollEmployeeSummary) => (
               <Fragment key={emp.employee_id}>
                 <TableRow
-                  className={`cursor-pointer hover:bg-muted/30 ${
-                    emp.payroll_status === 'approved' ? 'bg-green-50' : ''
-                  }`}
+                  className={`cursor-pointer hover:bg-muted/30 ${emp.payroll_status === 'approved' ? 'bg-green-50' : ''}`}
                   onClick={() => toggleExpand(emp.employee_id)}
                 >
-                  {/* Chevron */}
                   <TableCell>
-                    {expandedId === emp.employee_id
-                      ? <ChevronDown className="h-4 w-4" />
-                      : <ChevronRight className="h-4 w-4" />}
+                    {expandedId === emp.employee_id ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                   </TableCell>
-                  {/* Employé */}
                   <TableCell>
                     <div className="font-medium">{emp.full_name}</div>
                     <div className="text-xs text-muted-foreground">{emp.employee_id_code}</div>
@@ -228,103 +206,79 @@ export function PayrollSummaryTable({
                       <Badge key={cat} variant="outline" className="text-xs ml-1">+{cat}</Badge>
                     ))}
                   </TableCell>
-                  {/* Type */}
                   <TableCell>
                     <Badge variant={emp.pay_type === 'annual' ? 'secondary' : 'default'}>
                       {emp.pay_type === 'annual' ? 'Annuel' : 'Horaire'}
                     </Badge>
                   </TableCell>
-                  {/* Heures */}
                   <TableCell className="text-right font-mono border-l-2">
                     {formatMinutesAsHours(emp.total_approved_minutes)}
                     {emp.pay_type === 'annual' && emp.total_approved_minutes < 80 * 60 && (
                       <AlertTriangle className="h-3 w-3 inline ml-1 text-amber-500" />
                     )}
                   </TableCell>
-                  {/* Refusées */}
                   <TableCell className="text-right font-mono text-destructive">
-                    {emp.total_rejected_minutes > 0
-                      ? formatMinutesAsHours(emp.total_rejected_minutes)
-                      : '\u2014'}
+                    {emp.total_rejected_minutes > 0 ? formatMinutesAsHours(emp.total_rejected_minutes) : dash}
                   </TableCell>
-                  {/* Rappel */}
                   <TableCell className="text-right font-mono">
-                    {emp.total_callback_bonus_minutes > 0
-                      ? `+${formatMinutesAsHours(emp.total_callback_bonus_minutes)}`
-                      : '\u2014'}
+                    {emp.total_callback_bonus_minutes > 0 ? `+${formatMinutesAsHours(emp.total_callback_bonus_minutes)}` : dash}
                   </TableCell>
-                  {/* Pause */}
                   <TableCell className="text-right font-mono">
                     {formatMinutesAsHours(emp.total_break_minutes)}
                   </TableCell>
-                  {/* Déd. pause */}
-                  <TableCell className="text-right font-mono text-destructive">
-                    {emp.total_break_deduction_minutes > 0
-                      ? `-${formatMinutesAsHours(emp.total_break_deduction_minutes)}`
-                      : '\u2014'}
+                  <TableCell className="text-center">
+                    {emp.days_without_break > 0 && (
+                      <Badge variant="destructive" className="text-xs">{emp.days_without_break}</Badge>
+                    )}
                   </TableCell>
-                  {/* % Sessions */}
+                  <TableCell className="text-right font-mono text-destructive">
+                    {emp.total_break_deduction_minutes > 0 ? `-${formatMinutesAsHours(emp.total_break_deduction_minutes)}` : dash}
+                  </TableCell>
                   <TableCell className="text-right font-mono border-l-2">
                     {emp.work_session_coverage_pct}%
                   </TableCell>
-                  {/* Taux/h */}
                   <TableCell className="text-right font-mono text-amber-600 border-l-2">
                     {emp.hourly_rate_display}
                   </TableCell>
-                  {/* Prime FDS */}
                   <TableCell className="text-right font-mono">
-                    {emp.total_premium > 0 ? fmtMoney(emp.total_premium) : '\u2014'}
+                    {emp.total_premium > 0 ? fmtMoney(emp.total_premium) : dash}
                   </TableCell>
-                  {/* Rappel $ */}
                   <TableCell className="text-right font-mono">
-                    {emp.total_callback_bonus_amount > 0 ? fmtMoney(emp.total_callback_bonus_amount) : '\u2014'}
+                    {emp.total_callback_bonus_amount > 0 ? fmtMoney(emp.total_callback_bonus_amount) : dash}
                   </TableCell>
-                  {/* Total */}
                   <TableCell className="text-right font-mono font-semibold text-amber-600">
                     {fmtMoney(emp.total_amount)}
                     {emp.pay_type === 'annual' && emp.hourly_rate && (
-                      <div className="text-xs text-muted-foreground font-normal">
-                        80h × {emp.hourly_rate.toFixed(2)}
-                      </div>
+                      <div className="text-xs text-muted-foreground font-normal">80h × {emp.hourly_rate.toFixed(2)}</div>
                     )}
                   </TableCell>
-                  {/* Banque +/- */}
-                  <TableCell className="text-right font-mono border-l-2 bg-blue-50/50">
+                  <TableCell className="text-right font-mono border-l-2 bg-blue-50/30">
                     {emp.bank_net_amount !== 0
-                      ? (emp.bank_net_amount > 0
-                        ? <span className="text-green-600">+{fmtMoney(emp.bank_net_amount)}</span>
-                        : <span className="text-red-600">{fmtMoney(emp.bank_net_amount)}</span>)
-                      : '\u2014'}
+                      ? <span className={emp.bank_net_amount > 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>{emp.bank_net_amount > 0 ? '+' : ''}{fmtMoney(emp.bank_net_amount)}</span>
+                      : dash}
                   </TableCell>
-                  {/* Solde banque */}
-                  <TableCell className="text-right bg-blue-50/50">
+                  <TableCell className="text-right bg-blue-50/30">
                     {emp.pay_type === 'hourly' && emp.bank_balance_dollars != null ? (
                       <Badge variant="outline" className="text-blue-700 border-blue-300 bg-blue-50 font-mono text-xs">
-                        {fmtMoney(emp.bank_balance_dollars)} ({formatDecimalHours(emp.bank_balance_hours)})
+                        {fmtMoney(emp.bank_balance_dollars)}
                       </Badge>
-                    ) : '\u2014'}
+                    ) : dash}
                   </TableCell>
-                  {/* Maladie */}
-                  <TableCell className="text-right font-mono border-l-2 bg-green-50/50">
-                    {emp.sick_leave_hours > 0
-                      ? `${formatDecimalHours(emp.sick_leave_hours)}`
-                      : '\u2014'}
+                  <TableCell className="text-right font-mono border-l-2 bg-green-50/30">
+                    {emp.sick_leave_hours > 0 ? formatDecimalHours(emp.sick_leave_hours) : dash}
                   </TableCell>
-                  {/* Solde mal. */}
-                  <TableCell className="text-right bg-green-50/50">
+                  <TableCell className="text-right bg-green-50/30">
                     {emp.sick_leave_remaining != null ? (
                       <Badge variant="outline" className="text-green-700 border-green-300 bg-green-50 font-mono text-xs">
                         {formatDecimalHours(emp.sick_leave_remaining)}/14h
                       </Badge>
-                    ) : '\u2014'}
+                    ) : dash}
                   </TableCell>
-                  {/* Jours */}
                   <TableCell className="text-center border-l-2">
                     <Badge variant={emp.days_approved === emp.days_worked ? 'default' : 'secondary'}>
                       {emp.days_approved}/{emp.days_worked}
                     </Badge>
                   </TableCell>
-                  {/* Paie */}
                   <TableCell className="text-center">
                     {emp.payroll_status === 'approved' ? (
                       <Badge className="bg-green-600">Approuvée</Badge>
@@ -332,92 +286,46 @@ export function PayrollSummaryTable({
                       <Badge variant="outline">En attente</Badge>
                     )}
                   </TableCell>
-                  {/* Ajustements */}
                   <TableCell className="text-center">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-xs h-7 px-2"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setAdjustmentEmployee(emp);
-                      }}
-                    >
-                      Ajustements
+                    <Button variant="outline" size="sm" className="text-xs h-7 px-2"
+                      onClick={(e) => { e.stopPropagation(); setAdjustmentEmployee(emp); }}>
+                      Ajust.
                     </Button>
                   </TableCell>
                 </TableRow>
 
-                {/* Expanded detail */}
                 {expandedId === emp.employee_id && (
                   <TableRow>
                     <TableCell colSpan={TOTAL_COLS} className="p-0">
-                      <PayrollEmployeeDetail
-                        employee={emp}
-                        period={period}
-                        onRefetch={onRefetch}
-                      />
+                      <PayrollEmployeeDetail employee={emp} period={period} onRefetch={onRefetch} />
                     </TableCell>
                   </TableRow>
                 )}
               </Fragment>
             ))}
 
-            {/* Category sub-total \u2014 hidden when collapsed */}
+            {/* Category sub-total */}
             {!isCollapsed && (
               <TableRow className="bg-muted/30 font-semibold">
-                <TableCell colSpan={3}>
-                  Sous-total {CATEGORY_LABELS[group.category]}
-                </TableCell>
-                {/* Heures */}
-                <TableCell className="text-right font-mono border-l-2">
-                  {formatMinutesAsHours(group.totals.approved_minutes)}
-                </TableCell>
-                {/* Refusées */}
-                <TableCell className="text-right font-mono text-destructive">
-                  {group.totals.rejected_minutes > 0
-                    ? formatMinutesAsHours(group.totals.rejected_minutes)
-                    : '\u2014'}
-                </TableCell>
-                {/* Rappel */}
-                <TableCell className="text-right font-mono">
-                  {group.totals.callback_bonus_minutes > 0
-                    ? `+${formatMinutesAsHours(group.totals.callback_bonus_minutes)}`
-                    : ''}
-                </TableCell>
-                {/* Pause / Sans pause / Déd. pause */}
+                <TableCell colSpan={3}>Sous-total {CATEGORY_LABELS[group.category]}</TableCell>
+                <TableCell className="text-right font-mono border-l-2">{formatMinutesAsHours(group.totals.approved_minutes)}</TableCell>
+                <TableCell className="text-right font-mono text-destructive">{group.totals.rejected_minutes > 0 ? formatMinutesAsHours(group.totals.rejected_minutes) : dash}</TableCell>
+                <TableCell className="text-right font-mono">{group.totals.callback_bonus_minutes > 0 ? `+${formatMinutesAsHours(group.totals.callback_bonus_minutes)}` : ''}</TableCell>
                 <TableCell colSpan={3} />
-                {/* % Sessions */}
                 <TableCell className="border-l-2" />
-                {/* Taux/h */}
                 <TableCell className="border-l-2" />
-                {/* Prime FDS */}
-                <TableCell className="text-right font-mono">{fmtMoney(group.totals.premium_amount)}</TableCell>
-                {/* Rappel $ */}
+                <TableCell className="text-right font-mono">{group.totals.premium_amount > 0 ? fmtMoney(group.totals.premium_amount) : ''}</TableCell>
                 <TableCell />
-                {/* Total */}
                 <TableCell className="text-right font-mono text-amber-600">{fmtMoney(group.totals.total_amount)}</TableCell>
-                {/* Banque +/- */}
                 <TableCell className="text-right font-mono border-l-2 bg-blue-50/30">
                   {group.totals.bank_net_amount !== 0
-                    ? (group.totals.bank_net_amount > 0
-                      ? <span className="text-green-600">+{fmtMoney(group.totals.bank_net_amount)}</span>
-                      : <span className="text-red-600">{fmtMoney(group.totals.bank_net_amount)}</span>)
+                    ? <span className={group.totals.bank_net_amount > 0 ? 'text-green-600' : 'text-red-600'}>{group.totals.bank_net_amount > 0 ? '+' : ''}{fmtMoney(group.totals.bank_net_amount)}</span>
                     : ''}
                 </TableCell>
-                {/* Solde banque \u2014 no subtotal */}
                 <TableCell className="bg-blue-50/30" />
-                {/* Maladie */}
-                <TableCell className="text-right font-mono border-l-2 bg-green-50/30">
-                  {group.totals.sick_leave_amount > 0
-                    ? fmtMoney(group.totals.sick_leave_amount)
-                    : ''}
-                </TableCell>
-                {/* Solde mal. \u2014 no subtotal */}
+                <TableCell className="text-right font-mono border-l-2 bg-green-50/30">{group.totals.sick_leave_amount > 0 ? fmtMoney(group.totals.sick_leave_amount) : ''}</TableCell>
                 <TableCell className="bg-green-50/30" />
-                {/* Jours / Paie */}
                 <TableCell colSpan={2} className="border-l-2" />
-                {/* Ajustements */}
                 <TableCell />
               </TableRow>
             )}
@@ -425,68 +333,35 @@ export function PayrollSummaryTable({
           );
         })}
 
-        {/* Spacing before grand total */}
+        {/* Grand total */}
         <TableRow className="border-0">
           <TableCell colSpan={TOTAL_COLS} className="py-2 border-0" />
         </TableRow>
-        {/* Grand total */}
         <TableRow className="bg-muted font-bold">
           <TableCell colSpan={3}>Grand total</TableCell>
-          {/* Heures */}
-          <TableCell className="text-right font-mono border-l-2">
-            {formatMinutesAsHours(grandTotal.approved_minutes)}
-          </TableCell>
-          {/* Refusées */}
-          <TableCell className="text-right font-mono text-destructive">
-            {grandTotal.rejected_minutes > 0
-              ? formatMinutesAsHours(grandTotal.rejected_minutes)
-              : '\u2014'}
-          </TableCell>
-          {/* Rappel */}
-          <TableCell className="text-right font-mono">
-            {grandTotal.callback_bonus_minutes > 0
-              ? `+${formatMinutesAsHours(grandTotal.callback_bonus_minutes)}`
-              : ''}
-          </TableCell>
-          {/* Pause / Sans pause / Déd. pause */}
+          <TableCell className="text-right font-mono border-l-2">{formatMinutesAsHours(grandTotal.approved_minutes)}</TableCell>
+          <TableCell className="text-right font-mono text-destructive">{grandTotal.rejected_minutes > 0 ? formatMinutesAsHours(grandTotal.rejected_minutes) : dash}</TableCell>
+          <TableCell className="text-right font-mono">{grandTotal.callback_bonus_minutes > 0 ? `+${formatMinutesAsHours(grandTotal.callback_bonus_minutes)}` : ''}</TableCell>
           <TableCell colSpan={3} />
-          {/* % Sessions */}
           <TableCell className="border-l-2" />
-          {/* Taux/h */}
           <TableCell className="border-l-2" />
-          {/* Prime FDS */}
           <TableCell className="text-right font-mono">{fmtMoney(grandTotal.premium_amount)}</TableCell>
-          {/* Rappel $ */}
           <TableCell />
-          {/* Total */}
           <TableCell className="text-right font-mono text-amber-600">{fmtMoney(grandTotal.total_amount)}</TableCell>
-          {/* Banque +/- */}
           <TableCell className="text-right font-mono border-l-2 bg-blue-50/30">
             {grandTotal.bank_net_amount !== 0
-              ? (grandTotal.bank_net_amount > 0
-                ? <span className="text-green-600">+{fmtMoney(grandTotal.bank_net_amount)}</span>
-                : <span className="text-red-600">{fmtMoney(grandTotal.bank_net_amount)}</span>)
+              ? <span className={grandTotal.bank_net_amount > 0 ? 'text-green-600' : 'text-red-600'}>{grandTotal.bank_net_amount > 0 ? '+' : ''}{fmtMoney(grandTotal.bank_net_amount)}</span>
               : ''}
           </TableCell>
-          {/* Solde banque \u2014 no grand total */}
           <TableCell className="bg-blue-50/30" />
-          {/* Maladie */}
-          <TableCell className="text-right font-mono border-l-2 bg-green-50/30">
-            {grandTotal.sick_leave_amount > 0
-              ? fmtMoney(grandTotal.sick_leave_amount)
-              : ''}
-          </TableCell>
-          {/* Solde mal. \u2014 no grand total */}
+          <TableCell className="text-right font-mono border-l-2 bg-green-50/30">{grandTotal.sick_leave_amount > 0 ? fmtMoney(grandTotal.sick_leave_amount) : ''}</TableCell>
           <TableCell className="bg-green-50/30" />
-          {/* Jours / Paie */}
           <TableCell colSpan={2} className="border-l-2" />
-          {/* Ajustements */}
           <TableCell />
         </TableRow>
       </TableBody>
     </Table>
 
-    {/* Adjustments modal */}
     {adjustmentEmployee && (
       <PayrollAdjustmentsModal
         open={!!adjustmentEmployee}
@@ -496,8 +371,6 @@ export function PayrollSummaryTable({
         onSuccess={onRefetch}
       />
     )}
-
-    {/* Hour bank history dialog */}
     {historyEmployee && (
       <HourBankHistoryDialog
         open={!!historyEmployee}
