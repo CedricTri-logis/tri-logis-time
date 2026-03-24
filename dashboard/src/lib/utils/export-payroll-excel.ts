@@ -36,7 +36,6 @@ export function exportPayrollToExcel(
           ? formatMinutesAsHours(emp.total_callback_bonus_minutes)
           : '',
         'Pause totale': formatMinutesAsHours(emp.total_break_minutes),
-        'Jours sans pause': emp.days_without_break || '',
         'Ded. pause (min)': emp.total_break_deduction_minutes > 0
           ? emp.total_break_deduction_minutes
           : '',
