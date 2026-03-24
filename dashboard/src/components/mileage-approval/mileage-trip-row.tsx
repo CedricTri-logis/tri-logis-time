@@ -3,7 +3,7 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Users } from 'lucide-react';
+import { Users, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import type { MileageTripDetail } from '@/types/mileage';
 
 interface MileageTripRowProps {
@@ -13,21 +13,60 @@ interface MileageTripRowProps {
   onRoleChange: (tripId: string, role: string) => void;
 }
 
+const STATUS_CONFIG = {
+  approved: {
+    icon: CheckCircle,
+    label: 'Approuvé',
+    borderColor: 'border-l-green-500',
+    iconColor: 'text-green-600',
+    bgColor: '',
+  },
+  rejected: {
+    icon: XCircle,
+    label: 'Refusé',
+    borderColor: 'border-l-red-400',
+    iconColor: 'text-red-500',
+    bgColor: 'bg-red-50/30',
+  },
+  needs_review: {
+    icon: AlertCircle,
+    label: 'À vérifier',
+    borderColor: 'border-l-yellow-500',
+    iconColor: 'text-yellow-600',
+    bgColor: 'bg-yellow-50/30',
+  },
+} as const;
+
 export function MileageTripRow({ trip, disabled, onVehicleChange, onRoleChange }: MileageTripRowProps) {
   const isResolved = trip.vehicle_type !== null && trip.role !== null;
-  const isReimbursable = trip.vehicle_type === 'personal' && trip.role === 'driver';
+  const isReimbursable = trip.vehicle_type === 'personal' && trip.role === 'driver' && trip.trip_status === 'approved';
+  const isRejected = trip.trip_status === 'rejected';
 
-  const borderColor = isResolved
-    ? isReimbursable ? 'border-l-green-500' : 'border-l-slate-400'
-    : 'border-l-yellow-500';
+  const status = STATUS_CONFIG[trip.trip_status];
+  const StatusIcon = status.icon;
+
+  // Border: trip_status takes priority for color
+  const borderColor = isRejected
+    ? status.borderColor
+    : isResolved
+      ? isReimbursable ? 'border-l-green-500' : 'border-l-slate-400'
+      : 'border-l-yellow-500';
 
   return (
     <div className={`flex items-center justify-between gap-2 px-3 py-2 rounded-r border-l-[3px] ${borderColor} ${
-      !trip.eligible ? 'opacity-50' : ''
-    } ${isReimbursable ? 'bg-green-50/50' : 'bg-white'}`}>
+      isRejected ? 'opacity-60 ' + status.bgColor : ''
+    } ${isReimbursable ? 'bg-green-50/50' : ''}`}>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 text-sm">
-          <span className="truncate">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger>
+                <StatusIcon className={`h-4 w-4 shrink-0 ${status.iconColor}`} />
+              </TooltipTrigger>
+              <TooltipContent>{status.label}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <span className={`truncate ${isRejected ? 'line-through text-muted-foreground' : ''}`}>
             {trip.start_address ?? 'Inconnu'} → {trip.end_address ?? 'Inconnu'}
           </span>
           <span className="text-muted-foreground text-xs whitespace-nowrap">
@@ -35,7 +74,7 @@ export function MileageTripRow({ trip, disabled, onVehicleChange, onRoleChange }
           </span>
         </div>
         {trip.carpool_members && trip.carpool_members.length > 0 && (
-          <div className="flex items-center gap-1 mt-1">
+          <div className="flex items-center gap-1 mt-1 ml-6">
             <Users className="h-3 w-3 text-yellow-600" />
             <span className="text-xs text-yellow-700">
               Covoit. avec {trip.carpool_members.map(m => m.employee_name.split(' ')[0]).join(', ')}
@@ -43,25 +82,16 @@ export function MileageTripRow({ trip, disabled, onVehicleChange, onRoleChange }
           </div>
         )}
         {trip.has_gps_gap && (
-          <Badge variant="outline" className="text-xs mt-1 text-orange-600 border-orange-300">
+          <Badge variant="outline" className="text-xs mt-1 ml-6 text-orange-600 border-orange-300">
             Écart GPS
           </Badge>
         )}
       </div>
       <div className="flex items-center gap-2 shrink-0">
-        {!trip.eligible ? (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger>
-                <Badge variant="outline" className="text-xs text-muted-foreground">
-                  Non éligible
-                </Badge>
-              </TooltipTrigger>
-              <TooltipContent>
-                Stops de départ ou d&apos;arrivée non approuvés
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+        {isRejected ? (
+          <Badge variant="outline" className="text-xs text-red-600 border-red-300">
+            Refusé
+          </Badge>
         ) : (
           <>
             <Select
