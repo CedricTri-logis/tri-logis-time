@@ -19,6 +19,8 @@ import {
   ArrowRight,
   WifiOff,
   UtensilsCrossed,
+  Pencil,
+  X,
 } from 'lucide-react';
 import { TripExpandDetail } from './trip-expand-detail';
 import { GapExpandDetail } from './gap-expand-detail';
@@ -89,6 +91,9 @@ export function ProjectCell({ slices }: { slices: ProjectSlice[] }) {
 // --- Icon helper for approval activities ---
 
 export function ApprovalActivityIcon({ activity }: { activity: ApprovalActivity }) {
+  if (activity.activity_type === 'manual_time') {
+    return <Pencil className="h-4 w-4 text-amber-600" />;
+  }
   if (activity.activity_type === 'lunch' || activity.activity_type === 'lunch_segment') {
     return <UtensilsCrossed className="h-4 w-4 text-orange-500" />;
   }
@@ -717,6 +722,7 @@ export function ActivityRow({
   onToggle,
   onOverride,
   onDetailUpdated,
+  onDeleteManualTime,
   projectSessions,
   geocodedAddresses,
   employeeId,
@@ -728,6 +734,7 @@ export function ActivityRow({
   onToggle: () => void;
   onOverride: (activity: ApprovalActivity, status: 'approved' | 'rejected') => void;
   onDetailUpdated?: (data: DayApprovalDetailType) => void;
+  onDeleteManualTime?: (manualTimeId: string) => void;
   projectSessions: ProjectSession[];
   geocodedAddresses?: Map<string, GeocodeResult>;
   employeeId?: string;
@@ -741,6 +748,7 @@ export function ActivityRow({
   const isGapSegment = activity.activity_type === 'gap_segment';
   const isLunch = activity.activity_type === 'lunch';
   const isLunchSegment = activity.activity_type === 'lunch_segment';
+  const isManualTime = activity.activity_type === 'manual_time';
   const isAnySegment = isSegment || isGapSegment || activity.activity_type === 'trip_segment' || isLunchSegment;
   const canExpand = isStopLike || isGap || isGapSegment;
   const hasOverride = activity.override_status !== null;
@@ -785,13 +793,29 @@ export function ActivityRow({
   return (
     <>
       <tr
-        className={`${isLunch ? 'bg-slate-50/80 border-l-4 border-l-slate-300 hover:bg-slate-100/80' : statusConfig.row} ${canExpand ? 'cursor-pointer' : ''} transition-all duration-200 group border-b border-white/50`}
+        className={`${isManualTime ? 'bg-amber-50 border-l-4 border-l-amber-400 hover:bg-amber-100/80' : isLunch ? 'bg-slate-50/80 border-l-4 border-l-slate-300 hover:bg-slate-100/80' : statusConfig.row} ${canExpand ? 'cursor-pointer' : ''} transition-all duration-200 group border-b border-white/50`}
         style={isGap ? { borderLeftStyle: 'dashed' } : undefined}
         onClick={canExpand ? onToggle : undefined}
       >
         {/* Action / Approbation */}
         <td className="px-3 py-3 text-center">
-          {isLunch ? (
+          {isManualTime ? (
+            <div className="flex justify-center items-center gap-1">
+              <Badge variant="outline" className="font-bold text-[10px] px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border-amber-200">
+                <Pencil className="h-3 w-3 mr-1" />
+                Manuel
+              </Badge>
+              {onDeleteManualTime && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDeleteManualTime(activity.activity_id); }}
+                  className="ml-1 p-0.5 rounded hover:bg-red-100 text-red-400 hover:text-red-600 transition-colors"
+                  title="Supprimer le temps manuel"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          ) : isLunch ? (
             <div className="flex justify-center">
               <Badge variant="outline" className="font-bold text-[10px] px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border-slate-200">
                 <UtensilsCrossed className="h-3 w-3 mr-1" />
@@ -901,7 +925,25 @@ export function ActivityRow({
 
         {/* Détails */}
         <td className="px-3 py-3 max-w-[300px]">
-          {isGap ? (
+          {isManualTime ? (
+            <div className="space-y-1">
+              <div className="text-xs flex items-center gap-1.5 text-amber-800 font-medium">
+                <Pencil className="h-3 w-3" />
+                <span className="font-bold">Temps manuel ajouté</span>
+                <span className="bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-full text-[10px] font-bold border border-amber-200">MANUEL</span>
+              </div>
+              {activity.manual_reason && (
+                <div className="text-[11px] text-amber-700 mt-0.5">
+                  {'\ud83d\udcdd'} {activity.manual_reason} — par {activity.manual_created_by}
+                </div>
+              )}
+              {activity.location_name && (
+                <div className="text-[11px] text-muted-foreground mt-0.5">
+                  {'\ud83d\udccd'} {activity.location_name}
+                </div>
+              )}
+            </div>
+          ) : isGap ? (
             <div className="space-y-1">
               <div className={`text-xs flex items-center gap-1.5 ${statusConfig.text}`}>
                 {(activity.start_location_name || activity.end_location_name) ? (
