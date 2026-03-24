@@ -79,7 +79,7 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    if (!userRole || !['admin', 'super_admin'].includes(userRole)) {
+    if (!userRole || !['admin', 'super_admin', 'manager'].includes(userRole)) {
       return NextResponse.redirect(new URL('/login?error=unauthorized', request.url));
     }
   }
