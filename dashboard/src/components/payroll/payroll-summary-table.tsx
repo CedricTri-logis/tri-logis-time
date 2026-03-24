@@ -26,6 +26,7 @@ interface PayrollSummaryTableProps {
     premium_amount: number;
     total_amount: number;
     rejected_minutes: number;
+    callback_bonus_minutes: number;
   };
   period: PayPeriod;
   onRefetch: () => void;
@@ -127,8 +128,14 @@ export function PayrollSummaryTable({
                       ? formatMinutesAsHours(group.totals.rejected_minutes)
                       : ''}
                   </TableCell>
-                  {/* Rappel / Pause / Sans pause / Déd. pause */}
-                  <TableCell colSpan={4} />
+                  {/* Rappel */}
+                  <TableCell className="text-right font-mono">
+                    {group.totals.callback_bonus_minutes > 0
+                      ? `+${formatMinutesAsHours(group.totals.callback_bonus_minutes)}`
+                      : ''}
+                  </TableCell>
+                  {/* Pause / Sans pause / Déd. pause */}
+                  <TableCell colSpan={3} />
                   {/* % Sessions */}
                   <TableCell className="border-l-2" />
                   {/* Taux/h */}
@@ -289,8 +296,14 @@ export function PayrollSummaryTable({
                     ? formatMinutesAsHours(group.totals.rejected_minutes)
                     : '—'}
                 </TableCell>
-                {/* Rappel / Pause / Sans pause / Déd. pause */}
-                <TableCell colSpan={4} />
+                {/* Rappel */}
+                <TableCell className="text-right font-mono">
+                  {group.totals.callback_bonus_minutes > 0
+                    ? `+${formatMinutesAsHours(group.totals.callback_bonus_minutes)}`
+                    : ''}
+                </TableCell>
+                {/* Pause / Sans pause / Déd. pause */}
+                <TableCell colSpan={3} />
                 {/* % Sessions */}
                 <TableCell className="border-l-2" />
                 {/* Taux/h */}
@@ -326,8 +339,14 @@ export function PayrollSummaryTable({
               ? formatMinutesAsHours(grandTotal.rejected_minutes)
               : '—'}
           </TableCell>
-          {/* Rappel / Pause / Sans pause / Déd. pause */}
-          <TableCell colSpan={4} />
+          {/* Rappel */}
+          <TableCell className="text-right font-mono">
+            {grandTotal.callback_bonus_minutes > 0
+              ? `+${formatMinutesAsHours(grandTotal.callback_bonus_minutes)}`
+              : ''}
+          </TableCell>
+          {/* Pause / Sans pause / Déd. pause */}
+          <TableCell colSpan={3} />
           {/* % Sessions */}
           <TableCell className="border-l-2" />
           {/* Taux/h */}

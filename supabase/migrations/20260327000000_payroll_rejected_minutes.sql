@@ -260,6 +260,8 @@ BEGIN
       END AS reimbursable_km,
       CASE
         WHEN ma.status = 'approved' THEN ma.reimbursement_amount
+        WHEN get_active_mileage_allowance(te.id, p_period_start) IS NOT NULL
+          THEN get_active_mileage_allowance(te.id, p_period_start)
         ELSE ROUND(COALESCE(SUM(
           CASE WHEN t.vehicle_type = 'personal' AND t.role = 'driver'
           THEN COALESCE(t.road_distance_km, t.distance_km) ELSE 0 END
