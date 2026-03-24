@@ -395,12 +395,6 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
             </div>
             
             <div className="flex items-center gap-2">
-              {!isApproved && (
-                <Button variant="outline" size="sm" onClick={() => setShowAddManual(true)}
-                  className="bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100">
-                  + Temps manuel
-                </Button>
-              )}
               {isApproved && (
                 <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 px-3 py-1 text-xs font-semibold rounded-full shadow-sm animate-in fade-in zoom-in duration-300">
                   <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
@@ -507,6 +501,16 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
                 </div>
               )}
             </div>
+
+            {/* Add manual time button */}
+            {!isApproved && (
+              <div className="flex justify-end">
+                <Button variant="outline" size="sm" onClick={() => setShowAddManual(true)}
+                  className="bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100">
+                  + Temps manuel
+                </Button>
+              </div>
+            )}
 
             {/* Duration by type badges */}
             {(durationStats.totalTravelSeconds > 0 || Object.keys(durationStats.stopByType).length > 0 || durationStats.totalGapSeconds > 0) && (
