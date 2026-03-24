@@ -118,6 +118,8 @@ export function usePayrollReport(period: PayPeriod) {
             break_deduction_minutes: emps.reduce((s, e) => s + e.total_break_deduction_minutes, 0),
             rejected_minutes: emps.reduce((s, e) => s + e.total_rejected_minutes, 0),
             callback_bonus_minutes: emps.reduce((s, e) => s + e.total_callback_bonus_minutes, 0),
+            bank_net_amount: emps.reduce((s, e) => s + e.bank_net_amount, 0),
+            sick_leave_amount: emps.reduce((s, e) => s + e.sick_leave_amount, 0),
           },
         };
       });
@@ -131,6 +133,8 @@ export function usePayrollReport(period: PayPeriod) {
     break_deduction_minutes: employees.reduce((s, e) => s + e.total_break_deduction_minutes, 0),
     rejected_minutes: employees.reduce((s, e) => s + e.total_rejected_minutes, 0),
     callback_bonus_minutes: employees.reduce((s, e) => s + e.total_callback_bonus_minutes, 0),
+    bank_net_amount: employees.reduce((s, e) => s + e.bank_net_amount, 0),
+    sick_leave_amount: employees.reduce((s, e) => s + e.sick_leave_amount, 0),
   }), [employees]);
 
   const silentRefetch = useCallback(() => fetchData(true), [fetchData]);

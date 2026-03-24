@@ -103,6 +103,20 @@ export interface PayrollCategoryGroup {
   };
 }
 
+export interface HourBankTransaction {
+  transaction_id: string;
+  created_at: string;
+  type: 'deposit' | 'withdrawal' | 'sick_leave';
+  hours: number;
+  hourly_rate: number;
+  amount: number;
+  period_start: string;
+  period_end: string;
+  reason: string;
+  created_by_name: string;
+  can_delete: boolean;
+}
+
 export interface PayPeriod {
   start: string; // YYYY-MM-DD
   end: string;   // YYYY-MM-DD
