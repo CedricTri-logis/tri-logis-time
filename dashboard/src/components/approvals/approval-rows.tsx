@@ -1262,26 +1262,20 @@ export function LunchGroupRow({
       >
         {/* Action */}
         <td className="px-3 py-3 text-center" onClick={(e) => e.stopPropagation()}>
-          {isApproved ? (
-            <Badge variant="outline" className="font-bold text-[10px] px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border-slate-200">
-              <UtensilsCrossed className="h-3 w-3 mr-1" />Pause
-            </Badge>
-          ) : (
-            <div className="flex items-center justify-center gap-1">
-              <Button variant="ghost" size="sm"
-                className={`h-7 px-2 text-[10px] rounded-full transition-all ${
-                  activity.final_status === 'approved'
-                    ? 'bg-green-100 text-green-700 ring-1 ring-green-300'
-                    : 'text-muted-foreground hover:text-green-600 hover:bg-green-50'
-                }`}
-                onClick={(e) => { e.stopPropagation(); onOverride(activity, 'approved'); }}
-                disabled={isSaving}
-              >
-                <CheckCircle2 className="h-3 w-3 mr-1" />
-                {activity.final_status === 'approved' ? 'Travail' : 'Convertir en travail'}
-              </Button>
-            </div>
-          )}
+          <div className="flex items-center justify-center gap-1">
+            <Button variant="ghost" size="sm"
+              className={`h-7 px-2 text-[10px] rounded-full transition-all ${
+                activity.final_status === 'approved'
+                  ? 'bg-green-100 text-green-700 ring-1 ring-green-300'
+                  : 'text-muted-foreground hover:text-green-600 hover:bg-green-50'
+              }`}
+              onClick={(e) => { e.stopPropagation(); onOverride(activity, 'approved'); }}
+              disabled={isSaving}
+            >
+              <CheckCircle2 className="h-3 w-3 mr-1" />
+              {activity.final_status === 'approved' ? 'Travail' : 'Convertir en travail'}
+            </Button>
+          </div>
         </td>
 
         {/* Clock icon */}
