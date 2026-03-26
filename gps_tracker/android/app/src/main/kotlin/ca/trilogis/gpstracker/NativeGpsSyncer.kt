@@ -8,11 +8,15 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 import java.util.concurrent.TimeUnit
 
 /**
  * Syncs native GPS buffer directly to Supabase via HTTP POST.
  * Used by TrackingRescueReceiver when the Dart engine is dead.
+ *
+ * Reads points from the JSONL file written by NativeGpsBuffer.save(),
+ * plus any leftover data in the old SharedPreferences store (migration).
  *
  * Reads Supabase credentials from FlutterForegroundTask SharedPreferences
  * (saved by BackgroundTrackingService.startTracking() on the Dart side).
@@ -21,6 +25,9 @@ object NativeGpsSyncer {
     private const val TAG = "NativeGpsSyncer"
     private const val FGT_PREFS = "FlutterSharedPreferences"
     private const val KEY_PREFIX = "flutter.com.pravera.flutter_foreground_task.prefs."
+    private const val BUFFER_FILE = "native_gps_buffer.jsonl"
+    private const val OLD_PREFS_NAME = "native_gps_buffer"
+    private const val OLD_KEY_POINTS = "points"
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
@@ -47,14 +54,44 @@ object NativeGpsSyncer {
             return 0
         }
 
-        val bufferPrefs = context.getSharedPreferences("native_gps_buffer", Context.MODE_PRIVATE)
-        val json = bufferPrefs.getString("points", null)
-        if (json.isNullOrEmpty() || json == "[]") return 0
+        // Read points from JSONL file (current format)
+        val points = JSONArray()
+        val file = File(context.filesDir, BUFFER_FILE)
+        if (file.exists()) {
+            try {
+                file.bufferedReader(Charsets.UTF_8).useLines { lines ->
+                    for (line in lines) {
+                        val trimmed = line.trim()
+                        if (trimmed.isEmpty()) continue
+                        try {
+                            points.put(JSONObject(trimmed))
+                        } catch (_: Exception) {
+                            // Corrupted/truncated line — skip
+                        }
+                    }
+                }
+            } catch (_: Exception) {
+                // File read error — continue with whatever we have
+            }
+        }
+
+        // Also read from old SharedPreferences store (migration)
+        val bufferPrefs = context.getSharedPreferences(OLD_PREFS_NAME, Context.MODE_PRIVATE)
+        try {
+            val oldJson = bufferPrefs.getString(OLD_KEY_POINTS, "[]") ?: "[]"
+            if (oldJson != "[]") {
+                val oldArray = JSONArray(oldJson)
+                for (i in 0 until oldArray.length()) {
+                    points.put(oldArray.getJSONObject(i))
+                }
+            }
+        } catch (_: Exception) {
+            // Old format read failed — continue with JSONL points
+        }
+
+        if (points.length() == 0) return 0
 
         return try {
-            val points = JSONArray(json)
-            if (points.length() == 0) return 0
-
             val payload = JSONArray()
             for (i in 0 until points.length()) {
                 val p = points.getJSONObject(i)
@@ -97,7 +134,10 @@ object NativeGpsSyncer {
             response.use {
                 if (it.isSuccessful) {
                     val count = points.length()
-                    bufferPrefs.edit().putString("points", "[]").apply()
+                    // Clear JSONL file
+                    if (file.exists()) file.delete()
+                    // Clear old SharedPreferences
+                    bufferPrefs.edit().putString(OLD_KEY_POINTS, "[]").apply()
                     Log.i(TAG, "Synced $count native GPS points to Supabase")
                     count
                 } else {

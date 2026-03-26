@@ -120,9 +120,7 @@ class DiagnosticNativePlugin(private val context: Context) {
                 override fun onFirstFix(ttffMillis: Int) {
                     try {
                         sendEvent(JSONObject().apply {
-                            put("type", "gnss_status")
-                            put("satellite_count", -1)
-                            put("avg_cn0", 0.0)
+                            put("type", "gnss_first_fix")
                             put("ttff_ms", ttffMillis)
                         })
                     } catch (_: Exception) {}
@@ -210,6 +208,7 @@ class DiagnosticNativePlugin(private val context: Context) {
     }
 
     private fun bucketName(bucket: Int): String = when (bucket) {
+        5 -> "EXEMPTED" // STANDBY_BUCKET_EXEMPTED (API 31+), best possible bucket
         UsageStatsManager.STANDBY_BUCKET_ACTIVE -> "ACTIVE"
         UsageStatsManager.STANDBY_BUCKET_WORKING_SET -> "WORKING_SET"
         UsageStatsManager.STANDBY_BUCKET_FREQUENT -> "FREQUENT"

@@ -108,6 +108,8 @@ class DiagnosticNativeService {
         // Android: GNSS satellite status
         case 'gnss_status':
           final satCount = event['satellite_count'] as int? ?? 0;
+          // Ignore invalid sentinel values (e.g. -1 from unavailable data)
+          if (satCount < 0) break;
           logger.log(
             category: EventCategory.satellite,
             severity: satCount < 4 ? Severity.warn : Severity.info,
@@ -116,6 +118,18 @@ class DiagnosticNativeService {
               'satellite_count': satCount,
               if (event['avg_cn0'] != null) 'avg_cn0': event['avg_cn0'],
               if (event['ttff_ms'] != null) 'ttff_ms': event['ttff_ms'],
+            },
+          );
+
+        // Android: GNSS first fix (time-to-first-fix only)
+        case 'gnss_first_fix':
+          final ttff = event['ttff_ms'] as int? ?? 0;
+          logger.log(
+            category: EventCategory.satellite,
+            severity: Severity.info,
+            message: 'GNSS first fix: ${ttff}ms',
+            metadata: {
+              'ttff_ms': ttff,
             },
           );
 

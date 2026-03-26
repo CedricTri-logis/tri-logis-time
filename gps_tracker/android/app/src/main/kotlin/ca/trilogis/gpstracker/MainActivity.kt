@@ -275,6 +275,7 @@ class MainActivity : FlutterActivity() {
 
     private fun standbyBucketName(bucket: Int): String {
         return when (bucket) {
+            5 -> "EXEMPTED" // STANDBY_BUCKET_EXEMPTED (API 31+), best possible bucket
             UsageStatsManager.STANDBY_BUCKET_ACTIVE -> "ACTIVE"
             UsageStatsManager.STANDBY_BUCKET_WORKING_SET -> "WORKING_SET"
             UsageStatsManager.STANDBY_BUCKET_FREQUENT -> "FREQUENT"

@@ -1,7 +1,7 @@
 name: gps_tracker
 description: GPS Clock-In Tracker mobile application for employee shift tracking with location verification.
 publish_to: 'none'
-version: 1.0.0+134
+version: 1.0.0+152
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -14,7 +14,6 @@ dependencies:
   fl_chart: ^1.1.1
   mobile_scanner: ^7.1.4
   cupertino_icons: ^1.0.6
-  disable_battery_optimization: ^1.1.1
   flutter:
     sdk: flutter
   flutter_dotenv: ^5.1.0

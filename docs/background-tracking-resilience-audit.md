@@ -1,6 +1,6 @@
 # Background Tracking Resilience - Audit complet
 
-> Dernière mise à jour : 2026-03-12 | Build actuel : v1.0.0+134
+> Dernière mise à jour : 2026-03-26 | Build actuel : v1.0.0+152
 
 ## Table des matières
 
@@ -614,6 +614,9 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +132 | Mar 12 | **Failsafe serveur direct pour `NO_SERVER_SHIFT`** — Si `serverShiftId` est null ET la résolution locale échoue (5 retries), `startSession()` fait maintenant une requête directe Supabase `shifts WHERE employee_id AND status='active'` comme dernier recours avant d'échouer. Élimine toute dépendance sur la cohérence du `server_id` local pour démarrer une session | ✅ Fix |
 | +133 | Mar 12 | Dashboard : positions pointage carte monitoring, dîner historique, auto-close session sur lunch, sessions serveur-requises, fix crash RPC `start_work_session`, fix `NO_SERVER_SHIFT`, failsafe serveur direct — aucun changement tracking/résilience | ✅ Stable |
 | +134 | Mar 12 | **Exit Reason Collection** — Nouveau mécanisme de diagnostic : **ExitReasonPlugin Android** (Kotlin) lit `ApplicationExitInfo` (API 30+) au lancement, `setProcessStateSummary()` écrit état shift/GPS toutes les 30s depuis `_handleHeartbeat()` (main isolate). **ExitReasonPlugin iOS** (Swift) lit `MXAppExitMetric` (iOS 15+) via `pastPayloads` avec delta UserDefaults, buffer crash diagnostics MetricKit. **ExitReasonCollector** (Dart) insère directement dans SQLCipher (`EventCategory.exitInfo`), `deviceId` comme `employee_id` temporaire → résolu en `auth.uid()` au sync. MetricKit retiré de `DiagnosticNativePlugin` (centralisé dans ExitReasonPlugin). Migration v10 SQLCipher : supprimé CHECK `event_category` (limitait à 9 catégories, l'app en a 18+). Migration Supabase : supprimé CHECK `diagnostic_logs_event_category_check`. Dashboard : corrections manuelles de temps, taux horaires employés, prime ménage weekend, export feuille de temps enrichie | ✅ Diagnostic |
+| +135→+150 | Mar 12-25 | Dashboard/DB changes only — payroll, mileage approval, break deductions, hour bank, manual time entries, lunch overrides, manager access, GPS diagnostics dashboard. 10s debounce clock-in/clock-out (+136). Auto-delete micro-shifts <1min (+136). Aucun changement tracking/résilience mobile | ✅ Stable |
+| +151 | Mar 25 | **GPS diagnostics RPCs** — 6 fonctions analytics serveur (summary, trend, ranking, feed, gaps, events). `classify_gps_event()` helper. `get_employee_gps_gaps()` via LAG() window function. Dashboard GPS diagnostics page complète (KPIs, trend chart, ranking, incident feed, gap-by-day). Gap tolerance 1min→5min pour stops/trips | ✅ Dashboard |
+| +152 | Mar 26 | **Fix ProGuard TypeToken crash** — Règles ProGuard pour Gson TypeToken + `flutter_local_notifications` (51 crashes/semaine, 13/13 Android). **Fix GNSS satellite reporting** — `onFirstFix` envoyait `gnss_status` avec `satellite_count:-1` → séparé en `gnss_first_fix` event, guard Dart pour `satellite_count<0` (2030 faux warnings/semaine). **Fix standby bucket mapping** — `UNKNOWN(5)` → `EXEMPTED` dans `MainActivity.kt` et `DiagnosticNativePlugin.kt` (bucket 5 = `STANDBY_BUCKET_EXEMPTED` API 31+, meilleur bucket). **Fix NativeGpsSyncer** — lisait SharedPreferences (ancien format) au lieu du fichier JSONL (format actuel) → points natifs rescue jamais syncés directement. **Cleanup** — supprimé `disable_battery_optimization` (déclaré mais jamais importé) | ✅ Résilience + Diagnostic |
 
 ### Chronologie complète Android Watchdog
 
@@ -669,6 +672,7 @@ TrackingRescueReceiver v2 (Kotlin natif, setAlarmClock tier principal, 45s)
 | `setExactAndAllowWhileIdle()` comme méthode principale | Android | **Throttled par Doze sur Android 16** | +90→+94 (rétrogradé en tier 2) |
 | SLC activé immédiatement au clock-in | iOS | Consommation batterie inutile si GPS fonctionne bien | +55→remplacé par activation différée |
 | Notifications GPS lost/restored | Both | Anxiogène pour l'utilisateur, pas actionnable | +65 (supprimé) |
+| `disable_battery_optimization` plugin | Android | Déclaré dans pubspec mais jamais importé/utilisé — `FlutterForegroundTask` gère l'exemption batterie | +152 (supprimé) |
 | Auto clock-out sur heartbeat timeout | Both | Fermait le shift des travailleurs hors réseau | +26 (supprimé) |
 | 15-min heartbeat cap / 16h shift cap | Server | Trop restrictif pour les longs shifts | Migration 030 (supprimé, remplacé par midnight-only) |
 

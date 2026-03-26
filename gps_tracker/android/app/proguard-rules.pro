@@ -35,9 +35,6 @@
 # Keep Flutter Activity Recognition (fixes K3.e component error on Android 16)
 -keep class com.pravera.flutter_activity_recognition.** { *; }
 
-# Keep Disable Battery Optimization (fixes K3.e component error on Samsung)
--keep class in.jvapps.disable_battery_optimization.** { *; }
-
 # Keep WorkManager (watchdog mechanism)
 -keep class dev.fluttercommunity.workmanager.** { *; }
 
@@ -52,8 +49,28 @@
 -keep class com.google.mlkit.vision.barcode.** { *; }
 -keep class com.google.mlkit.vision.common.** { *; }
 
+# Keep Gson TypeToken and its generic signatures (fixes flutter_local_notifications crash)
+# R8 strips generic type info from TypeToken anonymous subclasses, causing:
+#   "TypeToken must be created with a type argument: new TypeToken<...>() {}"
+# See: https://github.com/google/gson/blob/main/gson/src/main/resources/META-INF/proguard/gson.pro
+-keep class com.google.gson.reflect.TypeToken { *; }
+-keep class * extends com.google.gson.reflect.TypeToken
+-keep,allowobfuscation,allowshrinking class com.google.gson.reflect.TypeToken
+-keep,allowobfuscation,allowshrinking class * extends com.google.gson.reflect.TypeToken
+
+# Keep Gson internals used by flutter_local_notifications
+-keep class com.google.gson.** { *; }
+-keepclassmembers class * {
+    @com.google.gson.annotations.SerializedName <fields>;
+}
+
+# Keep flutter_local_notifications plugin and its models (uses Gson TypeToken generics)
+-keep class com.dexterous.flutterlocalnotifications.** { *; }
+
 # Preserve annotations
 -keepattributes *Annotation*
 -keepattributes SourceFile,LineNumberTable
 -keepattributes Signature
 -keepattributes Exceptions
+-keepattributes InnerClasses
+-keepattributes EnclosingMethod
