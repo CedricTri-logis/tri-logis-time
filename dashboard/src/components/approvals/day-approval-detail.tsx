@@ -172,12 +172,15 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
   }, [displayItems]);
 
   // Client-side visible needs_review count (excludes trips — they derive from stops)
-  const visibleNeedsReviewCount = useMemo(() =>
-    processedActivities.filter(pa =>
+  // For approved days, use the frozen summary count (0) — live activity list may contain
+  // ghost needs_review activities created by post-approval migrations
+  const visibleNeedsReviewCount = useMemo(() => {
+    if (detail?.approval_status === 'approved') return detail.summary.needs_review_count;
+    return processedActivities.filter(pa =>
       pa.item.final_status === 'needs_review' &&
       pa.item.activity_type !== 'trip'
-    ).length
-  , [processedActivities]);
+    ).length;
+  }, [processedActivities, detail?.approval_status, detail?.summary.needs_review_count]);
 
   // Duration by location type (for summary badges)
   const durationStats = useMemo(() => {

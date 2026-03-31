@@ -26,6 +26,7 @@ import { TripExpandDetail } from './trip-expand-detail';
 import { GapExpandDetail } from './gap-expand-detail';
 import { StopExpandDetail } from './stop-expand-detail';
 import { ClockTimeEditPopover } from './clock-time-edit-popover';
+import { LunchTimeEditPopover } from './lunch-time-edit-popover';
 import { ActivitySegmentModal } from './activity-segment-modal';
 import { LOCATION_TYPE_ICON_MAP } from '@/lib/constants/location-icons';
 import { LOCATION_TYPE_LABELS } from '@/lib/validations/location';
@@ -794,7 +795,7 @@ export function ActivityRow({
   return (
     <>
       <tr
-        className={`${isManualTime ? 'bg-amber-50 border-l-4 border-l-amber-400 hover:bg-amber-100/80' : isLunch ? 'bg-slate-50/80 border-l-4 border-l-slate-300 hover:bg-slate-100/80' : statusConfig.row} ${canExpand ? 'cursor-pointer' : ''} transition-all duration-200 group border-b border-white/50`}
+        className={`${isManualTime ? (hasOverride ? statusConfig.row : 'bg-amber-50 border-l-4 border-l-amber-400 hover:bg-amber-100/80') : isLunch ? 'bg-slate-50/80 border-l-4 border-l-slate-300 hover:bg-slate-100/80' : statusConfig.row} ${canExpand ? 'cursor-pointer' : ''} transition-all duration-200 group border-b border-white/50`}
         style={isGap ? { borderLeftStyle: 'dashed' } : undefined}
         onClick={canExpand ? onToggle : undefined}
       >
@@ -963,7 +964,11 @@ export function ActivityRow({
         {/* Durée */}
         <td className="px-3 py-3 whitespace-nowrap">
           <div className={`flex items-center gap-1.5 tabular-nums text-xs ${statusConfig.text}`}>
-            {isClock ? '—' : formatDurationMinutes(activity.duration_minutes)}
+            {isClock ? '—' : formatDurationMinutes(
+              isManualTime && activity.duration_minutes === 0
+                ? Math.round((new Date(activity.ended_at).getTime() - new Date(activity.started_at).getTime()) / 60000)
+                : activity.duration_minutes
+            )}
             {(activity.gps_gap_seconds ?? 0) > 0 && (
               <AlertTriangle className="h-3.5 w-3.5 text-amber-600 animate-pulse" />
             )}
@@ -1333,10 +1338,30 @@ export function LunchGroupRow({
         </td>
 
         {/* Horaire */}
-        <td className="px-3 py-3 whitespace-nowrap">
+        <td className="px-3 py-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
           <div className="flex flex-col">
-            <span className="text-xs font-black text-slate-700">{formatTime(activity.started_at)}</span>
-            <span className="text-[10px] font-medium text-slate-500">{formatTime(activity.ended_at)}</span>
+            <span className="flex items-center gap-0.5">
+              <span className="text-xs font-black text-slate-700">{formatTime(activity.started_at)}</span>
+              {!isApproved && onDetailUpdated && (
+                <LunchTimeEditPopover
+                  lunchShiftId={activity.activity_id}
+                  field="clocked_in_at"
+                  currentTime={activity.started_at}
+                  onUpdated={onDetailUpdated}
+                />
+              )}
+            </span>
+            <span className="flex items-center gap-0.5">
+              <span className="text-[10px] font-medium text-slate-500">{formatTime(activity.ended_at)}</span>
+              {!isApproved && onDetailUpdated && (
+                <LunchTimeEditPopover
+                  lunchShiftId={activity.activity_id}
+                  field="clocked_out_at"
+                  currentTime={activity.ended_at}
+                  onUpdated={onDetailUpdated}
+                />
+              )}
+            </span>
           </div>
         </td>
 
