@@ -31,6 +31,8 @@ interface LocationMapProps {
   readOnly?: boolean;
   apiKey?: string;
   nearbyLocations?: NearbyLocationCircle[];
+  mapType?: 'roadmap' | 'hybrid';
+  onMapTypeChange?: (type: 'roadmap' | 'hybrid') => void;
 }
 
 export function GoogleLocationMap({
@@ -42,10 +44,15 @@ export function GoogleLocationMap({
   readOnly = false,
   apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
   nearbyLocations,
+  mapType: mapTypeProp,
+  onMapTypeChange,
 }: LocationMapProps) {
   const center = position ? { lat: position[0], lng: position[1] } : { lat: 45.5017, lng: -73.5673 };
   const lastDragEndRef = useRef(0);
-  const [mapType, setMapType] = useState<'roadmap' | 'hybrid'>('roadmap');
+  // Use controlled state from parent if provided, otherwise local state
+  const [localMapType, setLocalMapType] = useState<'roadmap' | 'hybrid'>('roadmap');
+  const mapType = mapTypeProp ?? localMapType;
+  const setMapType = onMapTypeChange ?? setLocalMapType;
 
   const handleMapClick = (e: MapMouseEvent) => {
     if (!readOnly && e.detail.latLng) {
@@ -67,6 +74,7 @@ export function GoogleLocationMap({
           disableDefaultUI={readOnly}
           gestureHandling={readOnly ? 'none' : 'auto'}
         >
+          <MapTypeEnforcer mapType={mapType} />
           {position && (
             <>
               <AdvancedMarker
@@ -121,6 +129,28 @@ export function GoogleLocationMap({
       )}
     </Card>
   );
+}
+
+/**
+ * Enforces the map type via the Google Maps instance directly.
+ * Catches cases where the Maps API internally resets the type
+ * (e.g. vector maps with mapId, tile reloads after overlay changes).
+ */
+function MapTypeEnforcer({ mapType }: { mapType: 'roadmap' | 'hybrid' }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!map) return;
+    map.setMapTypeId(mapType);
+    const listener = map.addListener('maptypeid_changed', () => {
+      if (map.getMapTypeId() !== mapType) {
+        map.setMapTypeId(mapType);
+      }
+    });
+    return () => listener.remove();
+  }, [map, mapType]);
+
+  return null;
 }
 
 function GeofenceCircle({ center, radius, locationType }: { center: google.maps.LatLngLiteral, radius: number, locationType: LocationType }) {

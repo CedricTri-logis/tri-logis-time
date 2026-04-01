@@ -86,6 +86,7 @@ export function LocationForm({
 }: LocationFormProps) {
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [geocodeError, setGeocodeError] = useState<string | null>(null);
+  const [mapType, setMapType] = useState<'roadmap' | 'hybrid'>('roadmap');
 
   const form = useForm<LocationFormInput>({
     resolver: zodResolver(locationFormSchema),
@@ -355,6 +356,8 @@ export function LocationForm({
               onPositionChange={handlePositionChange}
               className="h-[350px] w-full rounded-lg border"
               nearbyLocations={nearbyCircles}
+              mapType={mapType}
+              onMapTypeChange={setMapType}
             />
 
             {hasOverlap && (
