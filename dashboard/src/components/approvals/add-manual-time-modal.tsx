@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { createClient } from '@/lib/supabase/client';
+import { workforceClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import type { DayApprovalDetail } from '@/types/mileage';
 
@@ -47,7 +47,7 @@ export function AddManualTimeModal({ open, onOpenChange, employeeId, date, onUpd
     const startsAt = new Date(`${date}T${startTime}:00`).toISOString();
     const endsAt = new Date(`${date}T${endTime}:00`).toISOString();
 
-    const supabase = createClient();
+    const supabase = workforceClient();
     const { data, error: rpcError } = await supabase.rpc('add_manual_time', {
       p_employee_id: employeeId,
       p_date: date,

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { supabaseClient } from '@/lib/supabase/client';
+import { supabaseClient, workforceClient } from '@/lib/supabase/client';
 import type { MonitoredTeamRow } from '@/types/monitoring';
 import { STALENESS_THRESHOLDS } from '@/types/monitoring';
 
@@ -61,7 +61,7 @@ export function useMonitoringBadges(): MonitoringBadgeCounts {
   }, []);
 
   const fetchData = useCallback(async () => {
-    const { data } = await supabaseClient.rpc('get_monitored_team', {
+    const { data } = await workforceClient().rpc('get_monitored_team', {
       p_search: null,
       p_shift_status: 'all',
     });
@@ -80,7 +80,7 @@ export function useMonitoringBadges(): MonitoringBadgeCounts {
       .channel('sidebar-shifts')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'shifts' },
+        { event: '*', schema: 'workforce', table: 'shifts' },
         () => { fetchData(); }
       )
       .subscribe();
@@ -90,7 +90,7 @@ export function useMonitoringBadges(): MonitoringBadgeCounts {
       .channel('sidebar-gps')
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'gps_points' },
+        { event: 'INSERT', schema: 'workforce', table: 'gps_points' },
         () => { fetchData(); }
       )
       .subscribe();
@@ -100,7 +100,7 @@ export function useMonitoringBadges(): MonitoringBadgeCounts {
       .channel('sidebar-lunch')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'lunch_breaks' },
+        { event: '*', schema: 'workforce', table: 'lunch_breaks' },
         () => { fetchData(); }
       )
       .subscribe();

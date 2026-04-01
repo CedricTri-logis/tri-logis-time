@@ -65,7 +65,7 @@ class WorkSessionService {
       // If not found locally, try Supabase lookup and update cache
       if (studio == null) {
         try {
-          final response = await _supabase
+          final response = await _supabase.schema('workforce')
               .from('studios')
               .select(
                 'id, qr_code, studio_number, building_id, studio_type, is_active, buildings!inner(name)',
@@ -180,7 +180,7 @@ class WorkSessionService {
     // Last resort: query server directly for employee's active shift
     if (resolvedShiftId == null) {
       try {
-        final serverShift = await _supabase
+        final serverShift = await _supabase.schema('workforce')
             .from('shifts')
             .select('id')
             .eq('employee_id', employeeId)
@@ -225,7 +225,7 @@ class WorkSessionService {
       if (longitude != null) params['p_longitude'] = longitude;
       if (accuracy != null) params['p_accuracy'] = accuracy;
 
-      final response = await _supabase
+      final response = await _supabase.schema('workforce')
           .rpc<Map<String, dynamic>>('start_work_session', params: params);
 
       if (response['success'] == true) {
@@ -354,7 +354,7 @@ class WorkSessionService {
       if (longitude != null) params['p_longitude'] = longitude;
       if (accuracy != null) params['p_accuracy'] = accuracy;
 
-      final response = await _supabase
+      final response = await _supabase.schema('workforce')
           .rpc<Map<String, dynamic>>(
         'complete_work_session',
         params: params,
@@ -442,7 +442,7 @@ class WorkSessionService {
 
     // Try to sync to Supabase
     try {
-      await _supabase.rpc<Map<String, dynamic>>(
+      await _supabase.schema('workforce').rpc<Map<String, dynamic>>(
         'manually_close_work_session',
         params: {
           'p_employee_id': employeeId,
@@ -503,7 +503,7 @@ class WorkSessionService {
     try {
       final serverShiftId = await _localDb.resolveServerShiftId(shiftId);
       if (serverShiftId != null) {
-        await _supabase.rpc<Map<String, dynamic>>(
+        await _supabase.schema('workforce').rpc<Map<String, dynamic>>(
           'auto_close_work_sessions',
           params: {
             'p_shift_id': serverShiftId,
@@ -599,7 +599,7 @@ class WorkSessionService {
             params['p_accuracy'] = session.startAccuracy;
           }
 
-          final response = await _supabase
+          final response = await _supabase.schema('workforce')
               .rpc<Map<String, dynamic>>(
             'start_work_session',
             params: params,
@@ -664,7 +664,7 @@ class WorkSessionService {
             insertData['end_accuracy'] = session.endAccuracy;
           }
 
-          final response = await _supabase
+          final response = await _supabase.schema('workforce')
               .from('work_sessions')
               .insert(insertData)
               .select('id')

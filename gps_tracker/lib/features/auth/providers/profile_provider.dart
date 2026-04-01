@@ -56,7 +56,7 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      final response = await _client
+      final response = await _client.schema('workforce')
           .from('employee_profiles')
           .select()
           .eq('id', userId)
@@ -102,7 +102,7 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
             employeeId.trim().isEmpty ? null : employeeId.trim();
       }
 
-      final response = await _client
+      final response = await _client.schema('workforce')
           .from('employee_profiles')
           .update(updates)
           .eq('id', userId)
@@ -147,7 +147,7 @@ final currentProfileProvider = FutureProvider<EmployeeProfile?>((ref) async {
   if (userId == null) return null;
 
   try {
-    final response = await client
+    final response = await client.schema('workforce')
         .from('employee_profiles')
         .select()
         .eq('id', userId)

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { supabaseClient } from '@/lib/supabase/client';
+import { workforceClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { X, Plus, Loader2 } from 'lucide-react';
@@ -26,14 +26,14 @@ export function EmployeeHomePicker({ locationId, isEmployeeHome }: EmployeeHomeP
 
   const fetchEmployees = useCallback(async () => {
     setIsLoading(true);
-    const { data } = await supabaseClient
+    const { data } = await workforceClient()
       .from('employee_home_locations')
       .select('employee_id')
       .eq('location_id', locationId);
 
     if (data && data.length > 0) {
       const ids = data.map((d) => d.employee_id);
-      const { data: profiles } = await supabaseClient
+      const { data: profiles } = await workforceClient()
         .from('employee_profiles')
         .select('id, full_name')
         .in('id', ids)
@@ -53,7 +53,7 @@ export function EmployeeHomePicker({ locationId, isEmployeeHome }: EmployeeHomeP
     setSearch(query);
     if (query.length < 2) { setSearchResults([]); return; }
     setIsSearching(true);
-    const { data } = await supabaseClient
+    const { data } = await workforceClient()
       .from('employee_profiles')
       .select('id, full_name')
       .ilike('full_name', `%${query}%`)
@@ -65,7 +65,7 @@ export function EmployeeHomePicker({ locationId, isEmployeeHome }: EmployeeHomeP
   }, [employees]);
 
   const handleAdd = useCallback(async (employeeId: string) => {
-    const { error } = await supabaseClient
+    const { error } = await workforceClient()
       .from('employee_home_locations')
       .insert({ employee_id: employeeId, location_id: locationId });
     if (error) { toast.error("Erreur lors de l'ajout"); return; }
@@ -76,7 +76,7 @@ export function EmployeeHomePicker({ locationId, isEmployeeHome }: EmployeeHomeP
   }, [locationId, fetchEmployees]);
 
   const handleRemove = useCallback(async (employeeId: string) => {
-    const { error } = await supabaseClient
+    const { error } = await workforceClient()
       .from('employee_home_locations')
       .delete()
       .eq('employee_id', employeeId)

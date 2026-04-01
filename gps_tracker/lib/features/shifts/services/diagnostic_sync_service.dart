@@ -47,7 +47,7 @@ class DiagnosticSyncService {
         }).toList();
 
         try {
-          final result = await _supabase.rpc<Map<String, dynamic>>(
+          final result = await _supabase.schema('workforce').rpc<Map<String, dynamic>>(
             'sync_diagnostic_logs',
             params: {'p_events': eventsJson},
           );

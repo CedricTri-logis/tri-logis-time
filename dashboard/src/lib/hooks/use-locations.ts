@@ -2,7 +2,7 @@
 
 import { useCustom } from '@refinedev/core';
 import { useMemo, useCallback, useState, useEffect } from 'react';
-import { supabaseClient } from '@/lib/supabase/client';
+import { supabaseClient, workforceClient } from '@/lib/supabase/client';
 import type {
   Location,
   LocationRow,
@@ -116,7 +116,7 @@ export function useLocation(locationId: string | null) {
     setError(null);
 
     try {
-      const { data, error: fetchError } = await supabaseClient
+      const { data, error: fetchError } = await workforceClient()
         .from('locations')
         .select('*')
         .eq('id', locationId)
@@ -174,7 +174,7 @@ export function useLocationMutations() {
     async (data: LocationFormData): Promise<Location> => {
       setIsCreating(true);
       try {
-        const { data: result, error } = await supabaseClient
+        const { data: result, error } = await workforceClient()
           .from('locations')
           .insert({
             name: data.name,
@@ -233,7 +233,7 @@ export function useLocationMutations() {
         if (data.isEmployeeHome !== undefined) updatePayload.is_employee_home = data.isEmployeeHome;
         if (data.isAlsoOffice !== undefined) updatePayload.is_also_office = data.isAlsoOffice;
 
-        const { data: result, error } = await supabaseClient
+        const { data: result, error } = await workforceClient()
           .from('locations')
           .update(updatePayload)
           .eq('id', id)
@@ -271,7 +271,7 @@ export function useLocationMutations() {
     async (id: string): Promise<void> => {
       setIsDeleting(true);
       try {
-        const { error } = await supabaseClient
+        const { error } = await workforceClient()
           .from('locations')
           .delete()
           .eq('id', id);
@@ -330,7 +330,7 @@ export function useBulkInsertLocations() {
       setProgress({ current: 0, total: locations.length });
 
       try {
-        const { data, error } = await supabaseClient.rpc('bulk_insert_locations', {
+        const { data, error } = await workforceClient().rpc('bulk_insert_locations', {
           p_locations: JSON.stringify(locations),
         });
 
@@ -404,7 +404,7 @@ export function useNearbyLocations(
       };
       if (excludeId) params.p_exclude_id = excludeId;
 
-      const { data, error } = await supabaseClient.rpc('get_nearby_locations', params);
+      const { data, error } = await workforceClient().rpc('get_nearby_locations', params);
       if (error) throw error;
 
       const rows = (data ?? []) as Array<{

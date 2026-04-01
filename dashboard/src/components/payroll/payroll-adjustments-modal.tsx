@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { createClient } from '@/lib/supabase/client';
+import { workforceClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -150,7 +150,7 @@ export function PayrollAdjustmentsModal({
     setBankBalance(null);
     setSickBalance(null);
 
-    const supabase = createClient();
+    const supabase = workforceClient();
 
     const fetchBalances = async () => {
       setLoadingBalances(true);
@@ -227,7 +227,7 @@ export function PayrollAdjustmentsModal({
   const handleSubmit = async () => {
     setLoading(true);
     try {
-      const supabase = createClient();
+      const supabase = workforceClient();
 
       if (hasBankEntry) {
         const { error } = await supabase.rpc('add_hour_bank_transaction', {

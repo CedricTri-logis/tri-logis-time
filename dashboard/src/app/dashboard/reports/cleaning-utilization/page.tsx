@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toLocalDateString } from '@/lib/utils/date-utils';
-import { supabaseClient } from '@/lib/supabase/client';
+import { workforceClient } from '@/lib/supabase/client';
 import {
   useCleaningUtilization,
   type CleaningUtilizationEmployee,
@@ -57,7 +57,7 @@ export default function CleaningUtilizationPage() {
   const [employeeOptions, setEmployeeOptions] = useState<Array<{ id: string; full_name: string }>>([]);
   useEffect(() => {
     async function loadEmployees() {
-      const { data, error } = await supabaseClient.rpc('get_supervised_employees');
+      const { data, error } = await workforceClient().rpc('get_supervised_employees');
       if (data && !error) {
         const sorted = (data as Array<{ id: string; full_name: string }>)
           .sort((a, b) => (a.full_name ?? '').localeCompare(b.full_name ?? ''));

@@ -10,7 +10,7 @@ final mileageSummaryProvider =
   final supabase = Supabase.instance.client;
 
   try {
-    final response = await supabase.rpc(
+    final response = await supabase.schema('workforce').rpc(
       'get_mileage_summary',
       params: {
         'p_employee_id': params.employeeId,

@@ -19,7 +19,7 @@ import { ReportProgress } from '@/components/reports/report-progress';
 import { ReportDownload } from '@/components/reports/report-download';
 import { ReportPreview } from '@/components/reports/report-preview';
 import { useReportGeneration } from '@/lib/hooks/use-report-generation';
-import { supabaseClient } from '@/lib/supabase/client';
+import { workforceClient } from '@/lib/supabase/client';
 import { resolveDateRange } from '@/lib/validations/reports';
 import { exportTimesheetToCsv } from '@/lib/utils/report-export';
 import { getTimesheetWithPay } from '@/lib/api/remuneration';
@@ -60,7 +60,7 @@ export default function TimesheetReportPage() {
   // Load supervised employees list
   useEffect(() => {
     async function loadEmployees() {
-      const { data, error } = await supabaseClient.rpc('get_supervised_employees_list');
+      const { data, error } = await workforceClient().rpc('get_supervised_employees_list');
       if (data && !error) {
         setEmployees(data as EmployeeOption[]);
       }
@@ -92,7 +92,7 @@ export default function TimesheetReportPage() {
 
       // Fetch preview data and pay data in parallel
       const [timesheetResult, payResult] = await Promise.all([
-        supabaseClient.rpc('get_timesheet_report_data', {
+        workforceClient().rpc('get_timesheet_report_data', {
           p_start_date: start,
           p_end_date: end,
           p_employee_ids: employeeIds,

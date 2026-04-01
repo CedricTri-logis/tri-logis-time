@@ -426,7 +426,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     if (serverId == null) return;
 
     try {
-      await Supabase.instance.client.rpc<void>(
+      await Supabase.instance.client.schema('workforce').rpc<void>(
         'ping_shift_heartbeat',
         params: {'p_shift_id': serverId},
       );
@@ -457,7 +457,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
     if (serverId == null) return;
 
     try {
-      final result = await Supabase.instance.client
+      final result = await Supabase.instance.client.schema('workforce')
           .from('shifts')
           .select('status')
           .eq('id', serverId)
@@ -992,7 +992,7 @@ class TrackingNotifier extends StateNotifier<TrackingState> {
       final serverId = shift.serverId;
       if (serverId != null) {
         try {
-          final result = await Supabase.instance.client
+          final result = await Supabase.instance.client.schema('workforce')
               .from('shifts')
               .select('status')
               .eq('id', serverId)

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { supabaseClient } from '@/lib/supabase/client';
+import { workforceClient } from '@/lib/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select,
@@ -34,8 +34,8 @@ export function BuildingLinkSection({ locationId }: BuildingLinkSectionProps) {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     const [{ data: cb }, { data: pb }] = await Promise.all([
-      supabaseClient.from('buildings').select('id, name, location_id').order('name'),
-      supabaseClient.from('property_buildings').select('id, name, location_id').order('name'),
+      workforceClient().from('buildings').select('id, name, location_id').order('name'),
+      workforceClient().from('property_buildings').select('id, name, location_id').order('name'),
     ]);
     setCleaningBuildings(cb ?? []);
     setPropertyBuildings(pb ?? []);
@@ -49,11 +49,11 @@ export function BuildingLinkSection({ locationId }: BuildingLinkSectionProps) {
   const handleCleaningChange = useCallback(async (buildingId: string) => {
     // Unlink previous
     if (linkedCleaning !== 'none') {
-      await supabaseClient.from('buildings').update({ location_id: null }).eq('id', linkedCleaning);
+      await workforceClient().from('buildings').update({ location_id: null }).eq('id', linkedCleaning);
     }
     // Link new
     if (buildingId !== 'none') {
-      const { error } = await supabaseClient.from('buildings').update({ location_id: locationId }).eq('id', buildingId);
+      const { error } = await workforceClient().from('buildings').update({ location_id: locationId }).eq('id', buildingId);
       if (error) { toast.error('Erreur'); return; }
     }
     setLinkedCleaning(buildingId);
@@ -62,10 +62,10 @@ export function BuildingLinkSection({ locationId }: BuildingLinkSectionProps) {
 
   const handlePropertyChange = useCallback(async (buildingId: string) => {
     if (linkedProperty !== 'none') {
-      await supabaseClient.from('property_buildings').update({ location_id: null }).eq('id', linkedProperty);
+      await workforceClient().from('property_buildings').update({ location_id: null }).eq('id', linkedProperty);
     }
     if (buildingId !== 'none') {
-      const { error } = await supabaseClient.from('property_buildings').update({ location_id: locationId }).eq('id', buildingId);
+      const { error } = await workforceClient().from('property_buildings').update({ location_id: locationId }).eq('id', buildingId);
       if (error) { toast.error('Erreur'); return; }
     }
     setLinkedProperty(buildingId);

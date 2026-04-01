@@ -40,7 +40,7 @@ class DeviceStatusService {
       final deviceInfo = results[5] as Map<String, String>;
       final powerSaveMode = results[6] as bool;
 
-      await client.rpc<dynamic>('upsert_device_status', params: {
+      await client.schema('workforce').rpc<dynamic>('upsert_device_status', params: {
         'p_notifications_enabled': notificationsEnabled,
         'p_gps_permission': gpsPermission,
         'p_precise_location_enabled': preciseLocation,

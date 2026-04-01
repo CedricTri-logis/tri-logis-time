@@ -11,3 +11,8 @@ export function createClient() {
 
 // Singleton for use with Refine
 export const supabaseClient = createClient();
+
+/** Pre-configured client targeting the workforce schema */
+export function workforceClient() {
+  return supabaseClient.schema('workforce');
+}

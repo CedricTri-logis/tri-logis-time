@@ -55,7 +55,7 @@ class HomeScreen extends ConsumerWidget {
     // Server-side cleanup: close shift + all sessions atomically
     try {
       final client = ref.read(supabaseClientProvider);
-      await client.rpc('sign_out_cleanup');
+      await client.schema('workforce').rpc('sign_out_cleanup');
     } catch (e) {
       // Best effort — don't block sign-out if RPC fails (e.g. offline)
       debugPrint('sign_out_cleanup failed (best effort): $e');

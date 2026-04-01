@@ -28,7 +28,7 @@ import { ReportDownload } from '@/components/reports/report-download';
 import { ReportPreview } from '@/components/reports/report-preview';
 import { EmployeeSelector } from '@/components/reports/employee-selector';
 import { useReportGeneration } from '@/lib/hooks/use-report-generation';
-import { supabaseClient } from '@/lib/supabase/client';
+import { workforceClient } from '@/lib/supabase/client';
 import { exportShiftHistoryToCsv } from '@/lib/utils/report-export';
 import type { EmployeeOption, ShiftHistoryExportRow } from '@/types/reports';
 
@@ -60,7 +60,7 @@ export default function ShiftHistoryExportPage() {
   // Load employees
   useEffect(() => {
     async function loadEmployees() {
-      const { data, error } = await supabaseClient.rpc('get_supervised_employees_list');
+      const { data, error } = await workforceClient().rpc('get_supervised_employees_list');
       if (data && !error) {
         setEmployees(data as EmployeeOption[]);
       }
@@ -81,7 +81,7 @@ export default function ShiftHistoryExportPage() {
     setPreviewError(null);
 
     try {
-      const { data, error } = await supabaseClient.rpc('get_shift_history_export_data', {
+      const { data, error } = await workforceClient().rpc('get_shift_history_export_data', {
         p_start_date: startDate,
         p_end_date: endDate,
         p_employee_ids: selectedEmployeeIds,

@@ -67,7 +67,7 @@ export async function middleware(request: NextRequest) {
     if (cached && Date.now() - cached.ts < ROLE_CACHE_TTL) {
       userRole = cached.role;
     } else {
-      const { data: profile } = await supabase
+      const { data: profile } = await supabase.schema('workforce')
         .from('employee_profiles')
         .select('role')
         .eq('id', user.id)

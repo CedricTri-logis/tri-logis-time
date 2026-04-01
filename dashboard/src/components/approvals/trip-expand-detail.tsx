@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { AlertTriangle } from 'lucide-react';
-import { supabaseClient } from '@/lib/supabase/client';
+import { workforceClient } from '@/lib/supabase/client';
 import { GoogleTripRouteMap } from '@/components/trips/google-trip-route-map';
 import { detectTripStops, detectGpsClusters } from '@/lib/utils/detect-trip-stops';
 import { formatDurationMinutes, formatDistance } from '@/lib/utils/activity-display';
@@ -19,7 +19,7 @@ export function TripExpandDetail({ activity, geocodedAddresses }: { activity: Ap
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data } = await supabaseClient
+      const { data } = await workforceClient()
         .from('trip_gps_points')
         .select(`
           sequence_order,

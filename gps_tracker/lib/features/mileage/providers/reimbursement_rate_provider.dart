@@ -9,7 +9,7 @@ final reimbursementRateProvider = FutureProvider<ReimbursementRate?>((ref) async
   final now = DateTime.now().toIso8601String().split('T').first;
 
   try {
-    final response = await supabase
+    final response = await supabase.schema('workforce')
         .from('reimbursement_rates')
         .select()
         .lte('effective_from', now)

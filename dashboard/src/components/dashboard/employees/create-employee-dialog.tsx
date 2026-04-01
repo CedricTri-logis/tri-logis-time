@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { createEmployeeSchema, type CreateEmployeeInput } from '@/lib/validations/employee';
-import { supabaseClient } from '@/lib/supabase/client';
+import { supabaseClient, workforceClient } from '@/lib/supabase/client';
 import type { ManagerListItem } from '@/types/employee';
 
 interface CreateEmployeeDialogProps {
@@ -56,7 +56,7 @@ export function CreateEmployeeDialog({ isOpen, onClose, onCreated }: CreateEmplo
   // Load managers when dialog opens
   const loadManagers = async () => {
     if (managersLoaded) return;
-    const { data } = await supabaseClient.rpc('get_managers_list');
+    const { data } = await workforceClient().rpc('get_managers_list');
     if (data) {
       setManagers(data as ManagerListItem[]);
       setManagersLoaded(true);

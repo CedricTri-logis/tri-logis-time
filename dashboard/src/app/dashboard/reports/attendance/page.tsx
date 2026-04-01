@@ -28,7 +28,7 @@ import { ReportProgress } from '@/components/reports/report-progress';
 import { ReportDownload } from '@/components/reports/report-download';
 import { EmployeeSelector } from '@/components/reports/employee-selector';
 import { useReportGeneration } from '@/lib/hooks/use-report-generation';
-import { supabaseClient } from '@/lib/supabase/client';
+import { workforceClient } from '@/lib/supabase/client';
 import { exportAttendanceToCsv } from '@/lib/utils/report-export';
 import type { AttendanceReportRow, EmployeeOption } from '@/types/reports';
 
@@ -96,7 +96,7 @@ export default function AttendanceReportPage() {
   // Load employees
   useEffect(() => {
     async function loadEmployees() {
-      const { data, error } = await supabaseClient.rpc('get_supervised_employees_list');
+      const { data, error } = await workforceClient().rpc('get_supervised_employees_list');
       if (data && !error) {
         setEmployees(data as EmployeeOption[]);
       }
@@ -177,7 +177,7 @@ export default function AttendanceReportPage() {
     try {
       const range = getDateRange();
 
-      const { data, error } = await supabaseClient.rpc('get_attendance_report_data', {
+      const { data, error } = await workforceClient().rpc('get_attendance_report_data', {
         p_start_date: range.start,
         p_end_date: range.end,
         p_employee_ids: selectedEmployeeIds.length > 0 ? selectedEmployeeIds : null,

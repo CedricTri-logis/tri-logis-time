@@ -158,7 +158,7 @@ class AuthService {
   /// Used before OTP login to prevent @phone.local phantom accounts
   Future<bool> checkPhoneExists({required String phone}) async {
     try {
-      final result = await _client.rpc<bool>(
+      final result = await _client.schema('workforce').rpc<bool>(
         'check_phone_exists',
         params: {'p_phone': phone},
       );
@@ -281,7 +281,7 @@ class AuthService {
   /// Save phone number to employee_profiles via RPC
   Future<void> savePhoneToProfile({required String phone}) async {
     try {
-      await _client.rpc<void>('register_phone_number', params: {'p_phone': phone});
+      await _client.schema('workforce').rpc<void>('register_phone_number', params: {'p_phone': phone});
     } catch (e) {
       final msg = e.toString().toLowerCase();
       if (msg.contains('unique_violation') || msg.contains('deja associe')) {
@@ -303,7 +303,7 @@ class AuthService {
   /// Check if the current user has a phone number registered
   Future<bool> isPhoneRegistered() async {
     try {
-      final result = await _client.rpc<bool>('check_phone_registered');
+      final result = await _client.schema('workforce').rpc<bool>('check_phone_registered');
       return result == true;
     } catch (e) {
       return false;

@@ -26,7 +26,7 @@ import {
 import { ReportProgress } from '@/components/reports/report-progress';
 import { ReportDownload } from '@/components/reports/report-download';
 import { useReportGeneration } from '@/lib/hooks/use-report-generation';
-import { supabaseClient } from '@/lib/supabase/client';
+import { workforceClient } from '@/lib/supabase/client';
 import { exportActivitySummaryToCsv } from '@/lib/utils/report-export';
 import type { ActivitySummaryData } from '@/types/reports';
 
@@ -118,7 +118,7 @@ export default function TeamActivitySummaryPage() {
     try {
       const range = getDateRange();
 
-      const { data, error } = await supabaseClient.rpc('get_team_activity_summary', {
+      const { data, error } = await workforceClient().rpc('get_team_activity_summary', {
         p_start_date: range.start,
         p_end_date: range.end,
         p_team_id: null, // All teams

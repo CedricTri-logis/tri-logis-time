@@ -26,7 +26,7 @@ class DashboardService {
     bool includeRecentShifts = true,
     int recentShiftsLimit = 10,
   }) async {
-    final response = await _supabase.rpc(
+    final response = await _supabase.schema('workforce').rpc(
       'get_dashboard_summary',
       params: {
         'p_include_recent_shifts': includeRecentShifts,
@@ -100,7 +100,7 @@ class DashboardService {
     final userId = _currentUserId;
     if (userId == null) return null;
 
-    final response = await _supabase
+    final response = await _supabase.schema('workforce')
         .from('shifts')
         .select()
         .eq('employee_id', userId)
@@ -120,7 +120,7 @@ class DashboardService {
 
     final shiftIds = summaryData.map((s) => s['id'] as String).toList();
 
-    final response = await _supabase
+    final response = await _supabase.schema('workforce')
         .from('shifts')
         .select()
         .inFilter('id', shiftIds)
@@ -135,7 +135,7 @@ class DashboardService {
 
   /// Load team dashboard with employee status.
   Future<List<TeamEmployeeStatus>> loadTeamActiveStatus() async {
-    final response = await _supabase.rpc('get_team_active_status');
+    final response = await _supabase.schema('workforce').rpc('get_team_active_status');
 
     if (response == null) return [];
 
@@ -151,7 +151,7 @@ class DashboardService {
     DateTime? startDate,
     DateTime? endDate,
   }) async {
-    final response = await _supabase.rpc(
+    final response = await _supabase.schema('workforce').rpc(
       'get_team_statistics',
       params: {
         'p_start_date': startDate != null
@@ -174,7 +174,7 @@ class DashboardService {
     DateTime? startDate,
     DateTime? endDate,
   }) async {
-    final response = await _supabase.rpc(
+    final response = await _supabase.schema('workforce').rpc(
       'get_team_employee_hours',
       params: {
         'p_start_date': startDate != null

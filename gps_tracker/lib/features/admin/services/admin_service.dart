@@ -18,7 +18,7 @@ class AdminService {
   /// Only accessible by admin and super_admin roles.
   /// Returns users sorted by role (super_admin first) then by name.
   Future<List<UserWithRole>> getAllUsers() async {
-    final response = await _supabase.rpc('get_all_users');
+    final response = await _supabase.schema('workforce').rpc('get_all_users');
 
     if (response == null) {
       throw const AdminException('No response from get_all_users');
@@ -39,7 +39,7 @@ class AdminService {
     required String userId,
     required UserRole newRole,
   }) async {
-    final response = await _supabase.rpc(
+    final response = await _supabase.schema('workforce').rpc(
       'update_user_role',
       params: {
         'p_user_id': userId,

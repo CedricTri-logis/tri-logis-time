@@ -17,7 +17,7 @@ class DeviceSessionService {
   Future<bool> isDeviceSessionActive() async {
     try {
       final deviceId = await DeviceIdService.getDeviceId();
-      final result = await _client.rpc<dynamic>('check_device_session', params: {
+      final result = await _client.schema('workforce').rpc<dynamic>('check_device_session', params: {
         'p_device_id': deviceId,
       },);
 

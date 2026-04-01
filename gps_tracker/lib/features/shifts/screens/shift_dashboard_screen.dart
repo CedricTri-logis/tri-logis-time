@@ -273,7 +273,7 @@ class _ShiftDashboardScreenState extends ConsumerState<ShiftDashboardScreen>
     if (activeShift?.serverId == null) return;
 
     try {
-      final serverShift = await Supabase.instance.client
+      final serverShift = await Supabase.instance.client.schema('workforce')
           .from('shifts')
           .select('status')
           .eq('id', activeShift!.serverId!)

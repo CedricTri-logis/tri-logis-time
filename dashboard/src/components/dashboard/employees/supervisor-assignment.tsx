@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { UserMinus, History, ChevronDown, ChevronUp } from 'lucide-react';
-import { supabaseClient } from '@/lib/supabase/client';
+import { workforceClient } from '@/lib/supabase/client';
 import type { SupervisorInfo, SupervisionHistoryEntry, ManagerListItem, AssignSupervisorResponse, RemoveSupervisorResponse } from '@/types/employee';
 
 interface SupervisorAssignmentProps {
@@ -41,7 +41,7 @@ export function SupervisorAssignment({
     const fetchManagers = async () => {
       setIsLoadingManagers(true);
       try {
-        const { data, error } = await supabaseClient.rpc('get_managers_list');
+        const { data, error } = await workforceClient().rpc('get_managers_list');
         if (error) throw error;
         // Filter out the employee themselves from the manager list
         const filteredManagers = (data as ManagerListItem[]).filter(
@@ -65,7 +65,7 @@ export function SupervisorAssignment({
 
     setIsSubmitting(true);
     try {
-      const { data: result, error } = await supabaseClient.rpc('assign_supervisor', {
+      const { data: result, error } = await workforceClient().rpc('assign_supervisor', {
         p_employee_id: employeeId,
         p_manager_id: selectedManagerId,
         p_supervision_type: 'direct',
@@ -98,7 +98,7 @@ export function SupervisorAssignment({
   const handleRemove = useCallback(async () => {
     setIsSubmitting(true);
     try {
-      const { data: result, error } = await supabaseClient.rpc('remove_supervisor', {
+      const { data: result, error } = await workforceClient().rpc('remove_supervisor', {
         p_employee_id: employeeId,
       });
 

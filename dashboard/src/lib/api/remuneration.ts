@@ -1,4 +1,4 @@
-import { supabaseClient } from '@/lib/supabase/client';
+import { supabaseClient, workforceClient } from '@/lib/supabase/client';
 import type {
   EmployeeHourlyRateWithCreator,
   EmployeeAnnualSalaryWithCreator,
@@ -10,7 +10,7 @@ import type {
 // ── Employee Hourly Rates ──
 
 export async function getEmployeeRatesList(): Promise<EmployeeRateListItem[]> {
-  const { data, error } = await supabaseClient
+  const { data, error } = await workforceClient()
     .from('employee_profiles')
     .select('id, full_name, employee_id, pay_type')
     .eq('status', 'active')
@@ -18,14 +18,14 @@ export async function getEmployeeRatesList(): Promise<EmployeeRateListItem[]> {
 
   if (error) throw error;
 
-  const { data: rates, error: ratesError } = await supabaseClient
+  const { data: rates, error: ratesError } = await workforceClient()
     .from('employee_hourly_rates')
     .select('employee_id, rate, effective_from')
     .is('effective_to', null);
 
   if (ratesError) throw ratesError;
 
-  const { data: salaries, error: salariesError } = await supabaseClient
+  const { data: salaries, error: salariesError } = await workforceClient()
     .from('employee_annual_salaries')
     .select('employee_id, salary, effective_from')
     .is('effective_to', null);
@@ -60,7 +60,7 @@ export async function getEmployeeRatesList(): Promise<EmployeeRateListItem[]> {
 export async function getEmployeeRateHistory(
   employeeId: string
 ): Promise<EmployeeHourlyRateWithCreator[]> {
-  const { data, error } = await supabaseClient
+  const { data, error } = await workforceClient()
     .from('employee_hourly_rates')
     .select(`
       *,
@@ -84,7 +84,7 @@ export async function upsertEmployeeRate(
 ): Promise<void> {
   const { data: { user } } = await supabaseClient.auth.getUser();
 
-  const { data: activeRate } = await supabaseClient
+  const { data: activeRate } = await workforceClient()
     .from('employee_hourly_rates')
     .select('id')
     .eq('employee_id', employeeId)
@@ -96,7 +96,7 @@ export async function upsertEmployeeRate(
     closingDate.setDate(closingDate.getDate() - 1);
     const closingDateStr = closingDate.toISOString().split('T')[0];
 
-    const { error: updateError } = await supabaseClient
+    const { error: updateError } = await workforceClient()
       .from('employee_hourly_rates')
       .update({ effective_to: closingDateStr })
       .eq('id', activeRate.id);
@@ -104,7 +104,7 @@ export async function upsertEmployeeRate(
     if (updateError) throw updateError;
   }
 
-  const { error: insertError } = await supabaseClient
+  const { error: insertError } = await workforceClient()
     .from('employee_hourly_rates')
     .insert({
       employee_id: employeeId,
@@ -122,7 +122,7 @@ export async function upsertEmployeeRate(
 export async function getEmployeeSalaryHistory(
   employeeId: string
 ): Promise<EmployeeAnnualSalaryWithCreator[]> {
-  const { data, error } = await supabaseClient
+  const { data, error } = await workforceClient()
     .from('employee_annual_salaries')
     .select(`
       *,
@@ -146,7 +146,7 @@ export async function upsertEmployeeSalary(
 ): Promise<void> {
   const { data: { user } } = await supabaseClient.auth.getUser();
 
-  const { data: activeSalary } = await supabaseClient
+  const { data: activeSalary } = await workforceClient()
     .from('employee_annual_salaries')
     .select('id')
     .eq('employee_id', employeeId)
@@ -158,7 +158,7 @@ export async function upsertEmployeeSalary(
     closingDate.setDate(closingDate.getDate() - 1);
     const closingDateStr = closingDate.toISOString().split('T')[0];
 
-    const { error: updateError } = await supabaseClient
+    const { error: updateError } = await workforceClient()
       .from('employee_annual_salaries')
       .update({ effective_to: closingDateStr })
       .eq('id', activeSalary.id);
@@ -166,7 +166,7 @@ export async function upsertEmployeeSalary(
     if (updateError) throw updateError;
   }
 
-  const { error: insertError } = await supabaseClient
+  const { error: insertError } = await workforceClient()
     .from('employee_annual_salaries')
     .insert({
       employee_id: employeeId,
@@ -185,7 +185,7 @@ export async function updateEmployeePayType(
   employeeId: string,
   payType: 'hourly' | 'annual'
 ): Promise<void> {
-  const { error } = await supabaseClient.rpc('update_employee_pay_type', {
+  const { error } = await workforceClient().rpc('update_employee_pay_type', {
     p_employee_id: employeeId,
     p_pay_type: payType,
   });
@@ -206,7 +206,7 @@ export async function updateRatePeriod(
   effectiveFrom: string,
   effectiveTo: string | null
 ): Promise<RpcResult> {
-  const { data, error } = await supabaseClient.rpc('update_employee_rate_period', {
+  const { data, error } = await workforceClient().rpc('update_employee_rate_period', {
     p_rate_id: rateId,
     p_rate: rate,
     p_effective_from: effectiveFrom,
@@ -220,7 +220,7 @@ export async function updateRatePeriod(
 export async function deleteRatePeriod(
   rateId: string
 ): Promise<RpcResult> {
-  const { data, error } = await supabaseClient.rpc('delete_employee_rate_period', {
+  const { data, error } = await workforceClient().rpc('delete_employee_rate_period', {
     p_rate_id: rateId,
   });
 
@@ -231,7 +231,7 @@ export async function deleteRatePeriod(
 // ── Pay Settings ──
 
 export async function getWeekendPremium(): Promise<WeekendCleaningPremium> {
-  const { data, error } = await supabaseClient
+  const { data, error } = await workforceClient()
     .from('pay_settings')
     .select('value')
     .eq('key', 'weekend_cleaning_premium')
@@ -242,7 +242,7 @@ export async function getWeekendPremium(): Promise<WeekendCleaningPremium> {
 }
 
 export async function updateWeekendPremium(amount: number): Promise<void> {
-  const { error } = await supabaseClient
+  const { error } = await workforceClient()
     .from('pay_settings')
     .update({
       value: { amount, currency: 'CAD' },
@@ -259,7 +259,7 @@ export async function getTimesheetWithPay(
   endDate: string,
   employeeIds?: string[]
 ): Promise<TimesheetWithPayRow[]> {
-  const { data, error } = await supabaseClient.rpc('get_timesheet_with_pay', {
+  const { data, error } = await workforceClient().rpc('get_timesheet_with_pay', {
     p_start_date: startDate,
     p_end_date: endDate,
     p_employee_ids: employeeIds ?? null,

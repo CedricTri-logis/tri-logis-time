@@ -58,7 +58,7 @@ class FcmService {
       if (user == null) return false;
 
       // Check global kill switch
-      final configResult = await Supabase.instance.client
+      final configResult = await Supabase.instance.client.schema('workforce')
           .from('app_config')
           .select('value')
           .eq('key', 'fcm_enabled')
@@ -69,7 +69,7 @@ class FcmService {
       if (globalEnabled) return true;
 
       // Global is off — check per-employee opt-in for gradual rollout
-      final profileResult = await Supabase.instance.client
+      final profileResult = await Supabase.instance.client.schema('workforce')
           .from('employee_profiles')
           .select('fcm_opt_in')
           .eq('id', user.id)
@@ -104,7 +104,7 @@ class FcmService {
       // Skip if same token was already registered this session
       if (token == _lastRegisteredToken) return;
 
-      await Supabase.instance.client
+      await Supabase.instance.client.schema('workforce')
           .from('employee_profiles')
           .update({'fcm_token': token})
           .eq('id', user.id);
@@ -149,7 +149,7 @@ class FcmService {
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) return;
 
-      await Supabase.instance.client
+      await Supabase.instance.client.schema('workforce')
           .from('employee_profiles')
           .update({'fcm_token': null})
           .eq('id', user.id);

@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { Pencil } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { workforceClient } from "@/lib/supabase/client";
 
 interface ClockTimeEditPopoverProps {
   shiftId: string;
@@ -77,7 +77,7 @@ export function ClockTimeEditPopover({
     const newDate = new Date(currentDate);
     newDate.setHours(hours, minutes, 0, 0);
 
-    const supabase = createClient();
+    const supabase = workforceClient();
     const { data, error: rpcError } = await supabase.rpc("edit_shift_time", {
       p_shift_id: shiftId,
       p_field: field,

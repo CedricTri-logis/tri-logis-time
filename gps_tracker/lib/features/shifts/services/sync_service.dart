@@ -290,7 +290,7 @@ class SyncService {
       }
 
       try {
-        final result = await _supabase.rpc<Map<String, dynamic>>(
+        final result = await _supabase.schema('workforce').rpc<Map<String, dynamic>>(
           'sync_gps_points',
           params: {
             'p_points': mappedPoints,
@@ -358,7 +358,7 @@ class SyncService {
     if (mappedGaps.isEmpty) return;
 
     try {
-      final result = await _supabase.rpc<Map<String, dynamic>>(
+      final result = await _supabase.schema('workforce').rpc<Map<String, dynamic>>(
         'sync_gps_gaps',
         params: {'p_gaps': mappedGaps},
       );
@@ -632,7 +632,7 @@ class SyncService {
 
       // Serialize: await detect_trips, then await detect_carpools
       try {
-        await _supabase.rpc<void>(
+        await _supabase.schema('workforce').rpc<void>(
           'detect_trips',
           params: {'p_shift_id': serverId},
         );
@@ -653,7 +653,7 @@ class SyncService {
       try {
         final shiftDate =
             shift.clockedInAt.toIso8601String().substring(0, 10);
-        await _supabase.rpc<void>(
+        await _supabase.schema('workforce').rpc<void>(
           'detect_carpools',
           params: {'p_date': shiftDate},
         );

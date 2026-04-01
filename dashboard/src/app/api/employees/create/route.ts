@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { verifyAdmin } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient, createAdminWorkforceClient } from '@/lib/supabase/admin';
 
 const createEmployeeSchema = z.object({
   email: z.string().email().max(255),
@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
 
     const { email, full_name, role, supervisor_id } = parseResult.data;
     const adminClient = createAdminClient();
+    const adminWf = createAdminWorkforceClient();
 
     // Only super_admin can create super_admin
     if (role === 'super_admin' && caller.role !== 'super_admin') {
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check email not already used
-    const { data: existing } = await adminClient
+    const { data: existing } = await adminWf
       .from('employee_profiles')
       .select('id')
       .eq('email', email)
@@ -77,7 +78,7 @@ export async function POST(request: NextRequest) {
 
     // Update full_name in employee_profiles (trigger handle_new_user creates the row)
     if (full_name) {
-      await adminClient
+      await adminWf
         .from('employee_profiles')
         .update({ full_name })
         .eq('id', newUserId);
@@ -85,7 +86,7 @@ export async function POST(request: NextRequest) {
 
     // Set role if not default 'employee'
     if (role !== 'employee') {
-      await adminClient
+      await adminWf
         .from('employee_profiles')
         .update({ role })
         .eq('id', newUserId);
@@ -93,7 +94,7 @@ export async function POST(request: NextRequest) {
 
     // Assign supervisor if specified
     if (supervisor_id) {
-      await adminClient.rpc('assign_supervisor', {
+      await adminWf.rpc('assign_supervisor', {
         p_employee_id: newUserId,
         p_manager_id: supervisor_id,
         p_supervision_type: 'direct',

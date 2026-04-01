@@ -13,7 +13,7 @@ import { Plus, MapPin, ChevronLeft, ChevronRight, X, EyeOff, Monitor, Building, 
 import type { Location } from '@/types/location';
 import type { LocationType } from '@/types/location';
 import { getLocationTypeColor, getLocationTypeLabel } from '@/lib/utils/segment-colors';
-import { supabaseClient } from '@/lib/supabase/client';
+import { workforceClient } from '@/lib/supabase/client';
 
 const LOCATION_TYPE_ICONS: Record<LocationType, React.ElementType> = {
   office: Monitor,
@@ -116,7 +116,7 @@ export function SuggestedLocationsMap({
     setLoadingOccurrences(true);
     (async () => {
       try {
-        const { data, error } = await supabaseClient.rpc('get_cluster_occurrences', {
+        const { data, error } = await workforceClient().rpc('get_cluster_occurrences', {
           p_centroid_lat: selectedCluster!.centroid_latitude,
           p_centroid_lng: selectedCluster!.centroid_longitude,
         });

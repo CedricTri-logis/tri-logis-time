@@ -33,6 +33,12 @@ export async function createServerSupabaseClient() {
 /** @deprecated Use createServerSupabaseClient instead */
 export const createClient = createServerSupabaseClient;
 
+/** Create a server-side Supabase client targeting the workforce schema */
+export async function createServerWorkforceClient() {
+  const client = await createServerSupabaseClient();
+  return client.schema('workforce');
+}
+
 /**
  * Verify the request's auth token and check admin role.
  * Returns the user ID and role, or null if unauthorized.
@@ -58,9 +64,9 @@ export async function verifyAdmin(request: NextRequest): Promise<{
   }
 
   // Check role in employee_profiles using admin client
-  const { createAdminClient } = await import('./admin');
-  const adminClient = createAdminClient();
-  const { data: profile } = await adminClient
+  const { createAdminWorkforceClient } = await import('./admin');
+  const adminWf = createAdminWorkforceClient();
+  const { data: profile } = await adminWf
     .from('employee_profiles')
     .select('role')
     .eq('id', user.id)

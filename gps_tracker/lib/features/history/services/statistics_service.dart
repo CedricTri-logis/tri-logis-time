@@ -31,7 +31,7 @@ class StatisticsService {
         params['p_end_date'] = endDate.toUtc().toIso8601String();
       }
 
-      final response = await _supabase.rpc(
+      final response = await _supabase.schema('workforce').rpc(
         'get_employee_statistics',
         params: params,
       );
@@ -74,7 +74,7 @@ class StatisticsService {
         params['p_end_date'] = endDate.toUtc().toIso8601String();
       }
 
-      final response = await _supabase.rpc(
+      final response = await _supabase.schema('workforce').rpc(
         'get_team_statistics',
         params: params.isEmpty ? null : params,
       );

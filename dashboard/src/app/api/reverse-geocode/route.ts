@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient, createAdminWorkforceClient } from '@/lib/supabase/admin';
 
 const SEARCH_RADIUS_METERS = 55; // matches DBSCAN eps=0.0005 (~55m)
 
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { points } = parseResult.data;
-    const supabase = createAdminClient();
+    const supabase = createAdminWorkforceClient();
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     const results: ReverseGeocodeResult[] = [];
 

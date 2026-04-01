@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EyeOff, Loader2, MapPin, Plus } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabaseClient } from '@/lib/supabase/client';
+import { workforceClient } from '@/lib/supabase/client';
 import type { MapCluster } from './suggested-locations-map';
 import type { Location } from '@/types/location';
 
@@ -81,7 +81,7 @@ export function SuggestedLocationsTab({ onCreateLocation, locations = [], refres
 
   const fetchClusters = useCallback(async () => {
     setIsLoading(true);
-    const { data, error } = await supabaseClient.rpc('get_unmatched_trip_clusters', {
+    const { data, error } = await workforceClient().rpc('get_unmatched_trip_clusters', {
       p_min_occurrences: 1,
     });
     if (error) {
@@ -122,7 +122,7 @@ export function SuggestedLocationsTab({ onCreateLocation, locations = [], refres
   };
 
   const handleIgnoreCluster = useCallback(async (cluster: UnmatchedCluster) => {
-    const { error } = await supabaseClient.rpc('ignore_location_cluster', {
+    const { error } = await workforceClient().rpc('ignore_location_cluster', {
       p_latitude: cluster.centroid_latitude,
       p_longitude: cluster.centroid_longitude,
       p_occurrence_count: cluster.occurrence_count,

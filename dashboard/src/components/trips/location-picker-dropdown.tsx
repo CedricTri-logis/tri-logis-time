@@ -7,7 +7,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { supabaseClient } from '@/lib/supabase/client';
+import { workforceClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 
 interface NearbyLocation {
@@ -113,7 +113,7 @@ export function LocationPickerDropdown({
 
   const fetchNearby = useCallback(async () => {
     setIsLoading(true);
-    const { data, error } = await supabaseClient.rpc('get_nearby_locations', {
+    const { data, error } = await workforceClient().rpc('get_nearby_locations', {
       p_latitude: latitude,
       p_longitude: longitude,
       p_limit: 10,
@@ -132,7 +132,7 @@ export function LocationPickerDropdown({
 
   const handleSelect = async (locationId: string | null) => {
     setIsSaving(true);
-    const { error } = await supabaseClient.rpc('update_trip_location', {
+    const { error } = await workforceClient().rpc('update_trip_location', {
       p_trip_id: tripId,
       p_endpoint: endpoint,
       p_location_id: locationId,

@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { Pencil } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { workforceClient } from "@/lib/supabase/client";
 
 interface LunchTimeEditPopoverProps {
   lunchShiftId: string;
@@ -42,7 +42,7 @@ export function LunchTimeEditPopover({
     const newDate = new Date(currentDate);
     newDate.setHours(hours, minutes, 0, 0);
 
-    const supabase = createClient();
+    const supabase = workforceClient();
     const { data, error: rpcError } = await supabase.rpc("edit_lunch_time", {
       p_lunch_shift_id: lunchShiftId,
       p_field: field,

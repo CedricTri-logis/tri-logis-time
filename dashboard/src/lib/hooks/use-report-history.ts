@@ -6,7 +6,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { supabaseClient } from '@/lib/supabase/client';
+import { supabaseClient, workforceClient } from '@/lib/supabase/client';
 import type {
   ReportHistoryItem,
   ReportHistoryResponse,
@@ -54,7 +54,7 @@ export function useReportHistory(
       setError(null);
 
       try {
-        const { data, error: rpcError } = await supabaseClient.rpc('get_report_history', {
+        const { data, error: rpcError } = await workforceClient().rpc('get_report_history', {
           p_limit: pageSize,
           p_offset: pageNum * pageSize,
           p_report_type: reportType || null,
@@ -90,7 +90,7 @@ export function useReportHistory(
 
     try {
       const nextPage = page + 1;
-      const { data, error: rpcError } = await supabaseClient.rpc('get_report_history', {
+      const { data, error: rpcError } = await workforceClient().rpc('get_report_history', {
         p_limit: pageSize,
         p_offset: nextPage * pageSize,
         p_report_type: reportType || null,

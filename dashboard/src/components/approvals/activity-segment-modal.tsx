@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoreVertical, Scissors, X, Undo2 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { workforceClient } from "@/lib/supabase/client";
 import { formatTime } from "@/lib/utils/activity-display";
 
 interface ActivitySegmentModalProps {
@@ -112,7 +112,7 @@ export function ActivitySegmentModal({
       })
       .sort();
 
-    const supabase = createClient();
+    const supabase = workforceClient();
     const { data, error: rpcError } = await supabase.rpc("segment_activity", {
       p_activity_type: activityType,
       p_activity_id: activityId,
@@ -140,7 +140,7 @@ export function ActivitySegmentModal({
     setLoading(true);
     setError(null);
 
-    const supabase = createClient();
+    const supabase = workforceClient();
     const { data, error: rpcError } = await supabase.rpc("unsegment_activity", {
       p_activity_type: activityType,
       p_activity_id: activityId,

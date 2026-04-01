@@ -22,7 +22,7 @@ class HistoryService {
   /// Throws [HistoryServiceException] on error.
   Future<List<EmployeeSummary>> getSupervisedEmployees() async {
     try {
-      final response = await _supabase.rpc('get_supervised_employees');
+      final response = await _supabase.schema('workforce').rpc('get_supervised_employees');
 
       if (response == null) {
         return [];
@@ -53,7 +53,7 @@ class HistoryService {
     }
 
     try {
-      final response = await _supabase.rpc(
+      final response = await _supabase.schema('workforce').rpc(
         'get_employee_shifts',
         params: filter.toQueryParams(),
       );
@@ -87,7 +87,7 @@ class HistoryService {
   /// Returns the GPS route data for displaying on a map.
   Future<List<GpsPointData>> getShiftGpsPoints(String shiftId) async {
     try {
-      final response = await _supabase.rpc(
+      final response = await _supabase.schema('workforce').rpc(
         'get_shift_gps_points',
         params: {'p_shift_id': shiftId},
       );
@@ -135,7 +135,7 @@ class HistoryService {
         params['p_end_date'] = '${endDate.year}-${endDate.month.toString().padLeft(2, '0')}-${endDate.day.toString().padLeft(2, '0')}';
       }
 
-      final response = await _supabase.rpc(
+      final response = await _supabase.schema('workforce').rpc(
         'get_employee_statistics',
         params: params,
       );
@@ -178,7 +178,7 @@ class HistoryService {
         params['p_end_date'] = '${endDate.year}-${endDate.month.toString().padLeft(2, '0')}-${endDate.day.toString().padLeft(2, '0')}';
       }
 
-      final response = await _supabase.rpc(
+      final response = await _supabase.schema('workforce').rpc(
         'get_team_statistics',
         params: params.isEmpty ? null : params,
       );
@@ -225,7 +225,7 @@ class HistoryService {
     if (userId == null) return null;
 
     try {
-      final response = await _supabase
+      final response = await _supabase.schema('workforce')
           .from('employee_profiles')
           .select()
           .eq('id', userId)

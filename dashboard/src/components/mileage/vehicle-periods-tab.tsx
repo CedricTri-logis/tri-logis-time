@@ -26,7 +26,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Car, Building2, Loader2, RefreshCw, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabaseClient } from '@/lib/supabase/client';
+import { workforceClient } from '@/lib/supabase/client';
 import { toLocalDateString } from '@/lib/utils/date-utils';
 import type { EmployeeVehiclePeriod } from '@/types/mileage';
 
@@ -65,7 +65,7 @@ export function VehiclePeriodsTab() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabaseClient
+      const { data } = await workforceClient()
         .from('employee_profiles')
         .select('id, full_name, email')
         .order('full_name');
@@ -77,7 +77,7 @@ export function VehiclePeriodsTab() {
     setIsLoading(true);
     setError(null);
     try {
-      const { data, error: fetchError } = await supabaseClient
+      const { data, error: fetchError } = await workforceClient()
         .from('employee_vehicle_periods')
         .select('*')
         .order('started_at', { ascending: false });
@@ -133,19 +133,19 @@ export function VehiclePeriodsTab() {
     const today = toLocalDateString(new Date());
     try {
       if (formPersonal && !editingEmployee.personal) {
-        const { error } = await supabaseClient.from('employee_vehicle_periods')
+        const { error } = await workforceClient().from('employee_vehicle_periods')
           .insert({ employee_id: empId, vehicle_type: 'personal', started_at: formPersonalSince, notes: formNotes.trim() || null });
         if (error) { toast.error(error.message.includes('overlap') ? 'Chevauchement de période personnel.' : error.message); setIsSaving(false); return; }
       } else if (!formPersonal && editingEmployee.personal) {
-        const { error } = await supabaseClient.from('employee_vehicle_periods').update({ ended_at: today }).eq('id', editingEmployee.personal.id);
+        const { error } = await workforceClient().from('employee_vehicle_periods').update({ ended_at: today }).eq('id', editingEmployee.personal.id);
         if (error) { toast.error(error.message); setIsSaving(false); return; }
       }
       if (formCompany && !editingEmployee.company) {
-        const { error } = await supabaseClient.from('employee_vehicle_periods')
+        const { error } = await workforceClient().from('employee_vehicle_periods')
           .insert({ employee_id: empId, vehicle_type: 'company', started_at: formCompanySince, notes: formNotes.trim() || null });
         if (error) { toast.error(error.message.includes('overlap') ? 'Chevauchement de période compagnie.' : error.message); setIsSaving(false); return; }
       } else if (!formCompany && editingEmployee.company) {
-        const { error } = await supabaseClient.from('employee_vehicle_periods').update({ ended_at: today }).eq('id', editingEmployee.company.id);
+        const { error } = await workforceClient().from('employee_vehicle_periods').update({ ended_at: today }).eq('id', editingEmployee.company.id);
         if (error) { toast.error(error.message); setIsSaving(false); return; }
       }
       toast.success('Véhicules mis à jour.');

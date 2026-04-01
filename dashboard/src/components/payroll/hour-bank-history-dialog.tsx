@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { createClient } from '@/lib/supabase/client';
+import { workforceClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -109,7 +109,7 @@ export function HourBankHistoryDialog({
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const supabase = createClient();
+  const supabase = workforceClient();
 
   const fetchHistory = useCallback(async () => {
     setLoading(true);

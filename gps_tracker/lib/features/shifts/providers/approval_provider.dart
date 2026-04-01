@@ -16,7 +16,7 @@ final dayApprovalSummariesProvider = FutureProvider.family<
     final toStr =
         '${params.to.year}-${params.to.month.toString().padLeft(2, '0')}-${params.to.day.toString().padLeft(2, '0')}';
 
-    final response = await supabase
+    final response = await supabase.schema('workforce')
         .from('day_approvals')
         .select(
             'employee_id, date, status, approved_minutes, rejected_minutes, total_shift_minutes')
@@ -43,7 +43,7 @@ final dayApprovalDetailProvider = FutureProvider.autoDispose.family<DayApprovalD
         '${params.date.year}-${params.date.month.toString().padLeft(2, '0')}-${params.date.day.toString().padLeft(2, '0')}';
 
     try {
-      final response = await supabase.rpc('get_day_approval_detail', params: {
+      final response = await supabase.schema('workforce').rpc('get_day_approval_detail', params: {
         'p_employee_id': params.employeeId,
         'p_date': dateStr,
       });

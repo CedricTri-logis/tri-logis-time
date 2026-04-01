@@ -26,7 +26,7 @@ final routeProvider =
   if (serverId != null) {
     try {
       final supabase = ref.read(supabaseClientProvider);
-      final response = await supabase
+      final response = await supabase.schema('workforce')
           .from('gps_points')
           .select('id, latitude, longitude, accuracy, captured_at')
           .eq('shift_id', serverId)

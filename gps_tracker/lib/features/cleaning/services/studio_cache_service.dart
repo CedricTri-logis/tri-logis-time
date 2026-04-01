@@ -13,7 +13,7 @@ class StudioCacheService {
   /// Download all active studios from Supabase and update local cache.
   Future<void> syncStudios() async {
     try {
-      final response = await _supabase
+      final response = await _supabase.schema('workforce')
           .from('studios')
           .select('id, qr_code, studio_number, building_id, studio_type, is_active, buildings!inner(name)')
           .eq('is_active', true);

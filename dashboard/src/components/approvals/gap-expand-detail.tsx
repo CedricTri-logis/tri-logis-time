@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { AlertTriangle } from 'lucide-react';
-import { supabaseClient } from '@/lib/supabase/client';
+import { supabaseClient, workforceClient } from '@/lib/supabase/client';
 import { GoogleTripRouteMap } from '@/components/trips/google-trip-route-map';
 import { formatDistance, formatDurationMinutes } from '@/lib/utils/activity-display';
 import type { ApprovalActivity } from '@/types/mileage';
@@ -22,7 +22,7 @@ export function GapExpandDetail({ activity, geocodedAddresses }: { activity: App
       let endLng = activity.longitude ?? 0;
 
       if (activity.end_location_id) {
-        const { data } = await supabaseClient
+        const { data } = await workforceClient()
           .from('locations')
           .select('latitude, longitude')
           .eq('id', activity.end_location_id)

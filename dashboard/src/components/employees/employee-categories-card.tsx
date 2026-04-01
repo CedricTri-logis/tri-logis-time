@@ -42,7 +42,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Plus, Pencil, Trash2, Briefcase, Loader2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabaseClient } from '@/lib/supabase/client';
+import { workforceClient } from '@/lib/supabase/client';
 import { toLocalDateString } from '@/lib/utils/date-utils';
 
 type CategoryType = 'renovation' | 'maintenance' | 'menage' | 'admin';
@@ -115,7 +115,7 @@ export function EmployeeCategoriesCard({ employeeId, isDisabled = false }: Emplo
     setIsLoading(true);
     setError(null);
     try {
-      const { data, error: fetchError } = await supabaseClient
+      const { data, error: fetchError } = await workforceClient()
         .from('employee_categories')
         .select('*')
         .eq('employee_id', employeeId)
@@ -199,7 +199,7 @@ export function EmployeeCategoriesCard({ employeeId, isDisabled = false }: Emplo
       };
 
       if (editingCategory) {
-        const { error: updateError } = await supabaseClient
+        const { error: updateError } = await workforceClient()
           .from('employee_categories')
           .update(payload)
           .eq('id', editingCategory.id);
@@ -210,7 +210,7 @@ export function EmployeeCategoriesCard({ employeeId, isDisabled = false }: Emplo
         }
         toast.success('Catégorie mise à jour avec succès.');
       } else {
-        const { error: insertError } = await supabaseClient
+        const { error: insertError } = await workforceClient()
           .from('employee_categories')
           .insert(payload);
 
@@ -236,7 +236,7 @@ export function EmployeeCategoriesCard({ employeeId, isDisabled = false }: Emplo
 
     setIsDeleting(true);
     try {
-      const { error: deleteError } = await supabaseClient
+      const { error: deleteError } = await workforceClient()
         .from('employee_categories')
         .delete()
         .eq('id', deletingCategory.id);
@@ -260,7 +260,7 @@ export function EmployeeCategoriesCard({ employeeId, isDisabled = false }: Emplo
   const handleTogglePremium = useCallback(async (cat: EmployeeCategory) => {
     const newValue = !cat.weekend_premium_eligible;
     try {
-      const { error: updateError } = await supabaseClient
+      const { error: updateError } = await workforceClient()
         .from('employee_categories')
         .update({ weekend_premium_eligible: newValue })
         .eq('id', cat.id);

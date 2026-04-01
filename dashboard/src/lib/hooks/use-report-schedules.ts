@@ -8,7 +8,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { supabaseClient } from '@/lib/supabase/client';
+import { workforceClient } from '@/lib/supabase/client';
 import type {
   ReportSchedule,
   ReportSchedulesResponse,
@@ -72,7 +72,7 @@ export function useReportSchedules(
     setError(null);
 
     try {
-      const { data, error: rpcError } = await supabaseClient.rpc('get_report_schedules');
+      const { data, error: rpcError } = await workforceClient().rpc('get_report_schedules');
 
       if (rpcError) {
         throw new Error(rpcError.message);
@@ -98,7 +98,7 @@ export function useReportSchedules(
       setError(null);
 
       try {
-        const { data, error: rpcError } = await supabaseClient.rpc('create_report_schedule', {
+        const { data, error: rpcError } = await workforceClient().rpc('create_report_schedule', {
           p_name: params.name,
           p_report_type: params.report_type,
           p_config: params.config,
@@ -138,7 +138,7 @@ export function useReportSchedules(
       setError(null);
 
       try {
-        const { data, error: rpcError } = await supabaseClient.rpc('update_report_schedule', {
+        const { data, error: rpcError } = await workforceClient().rpc('update_report_schedule', {
           p_schedule_id: params.schedule_id,
           p_name: params.name || null,
           p_status: params.status || null,
@@ -178,7 +178,7 @@ export function useReportSchedules(
       setError(null);
 
       try {
-        const { data, error: rpcError } = await supabaseClient.rpc('delete_report_schedule', {
+        const { data, error: rpcError } = await workforceClient().rpc('delete_report_schedule', {
           p_schedule_id: scheduleId,
         });
 

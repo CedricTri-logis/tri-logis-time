@@ -24,7 +24,7 @@ class DeviceInfoService {
       final info = await _getDeviceInfo();
       final deviceId = await DeviceIdService.getDeviceId();
 
-      await _client.rpc<dynamic>('register_device_login', params: {
+      await _client.schema('workforce').rpc<dynamic>('register_device_login', params: {
         'p_device_id': deviceId,
         'p_device_platform': info['device_platform'],
         'p_device_os_version': info['device_os_version'],

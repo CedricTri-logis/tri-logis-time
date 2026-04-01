@@ -1,5 +1,5 @@
 import type { AuthProvider } from '@refinedev/core';
-import { supabaseClient } from '@/lib/supabase/client';
+import { supabaseClient, workforceClient } from '@/lib/supabase/client';
 
 export const authProvider: AuthProvider = {
   login: async ({ email, password }) => {
@@ -80,7 +80,7 @@ export const authProvider: AuthProvider = {
     }
 
     // Get user role from employee_profiles
-    const { data: profile } = await supabaseClient
+    const { data: profile } = await workforceClient()
       .from('employee_profiles')
       .select('role')
       .eq('id', user.id)
@@ -97,7 +97,7 @@ export const authProvider: AuthProvider = {
     }
 
     // Get user details from employee_profiles
-    const { data: profile } = await supabaseClient
+    const { data: profile } = await workforceClient()
       .from('employee_profiles')
       .select('id, email, full_name, role')
       .eq('id', user.id)

@@ -18,6 +18,7 @@ import 'shared/services/diagnostic_logger.dart';
 import 'shared/services/realtime_service.dart';
 import 'shared/services/session_backup_service.dart';
 import 'shared/services/fcm_service.dart';
+import 'shared/widgets/force_update_screen.dart';
 import 'shared/widgets/gps_health_listener.dart';
 import 'shared/widgets/gps_health_navigator_observer.dart';
 
@@ -43,7 +44,7 @@ final _phoneRegistrationStatusProvider =
 
   // Check if phone is already registered
   try {
-    final result = await client.rpc<bool>('check_phone_registered');
+    final result = await client.schema('workforce').rpc<bool>('check_phone_registered');
     if (result == true) {
       // Phone registered — clean up any leftover skip timestamp
       const storage = secureStorage;
@@ -391,7 +392,7 @@ class _GpsTrackerAppState extends ConsumerState<GpsTrackerApp>
                 FcmService().registerToken();
                 FcmService().listenForTokenRefresh();
               }
-              return const _PhoneCheckGate();
+              return const _VersionCheckGate();
             }
             // Locked → show sign-in screen (session stays alive)
           }
@@ -400,6 +401,29 @@ class _GpsTrackerAppState extends ConsumerState<GpsTrackerApp>
         loading: () => const _SplashScreen(),
         error: (_, __) => const SignInScreen(),
       ),
+    );
+  }
+}
+
+/// Gate that blocks the app if version is below minimum_app_version.
+class _VersionCheckGate extends ConsumerWidget {
+  const _VersionCheckGate();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final updateCheck = ref.watch(forceUpdateCheckProvider);
+
+    return updateCheck.when(
+      data: (result) {
+        if (result != null) {
+          // Version too old — show blocking update screen
+          return ForceUpdateScreen(result: result);
+        }
+        return const _PhoneCheckGate();
+      },
+      loading: () => const _SplashScreen(),
+      // Fail-open on error
+      error: (_, __) => const _PhoneCheckGate(),
     );
   }
 }

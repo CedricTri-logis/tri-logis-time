@@ -32,7 +32,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Plus, Pencil, DollarSign, Loader2, RefreshCw, CalendarOff } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabaseClient } from '@/lib/supabase/client';
+import { workforceClient } from '@/lib/supabase/client';
 import { toLocalDateString } from '@/lib/utils/date-utils';
 import type { EmployeeMileageAllowance } from '@/types/mileage';
 
@@ -87,7 +87,7 @@ export function MileageAllowancesTab() {
   // Fetch all employee profiles (for dropdown)
   useEffect(() => {
     (async () => {
-      const { data } = await supabaseClient
+      const { data } = await workforceClient()
         .from('employee_profiles')
         .select('id, full_name, email')
         .order('full_name');
@@ -103,7 +103,7 @@ export function MileageAllowancesTab() {
     setError(null);
     try {
       // 1. Fetch mileage allowances
-      const { data: allowancesData, error: allowancesError } = await supabaseClient
+      const { data: allowancesData, error: allowancesError } = await workforceClient()
         .from('employee_mileage_allowances')
         .select('*')
         .order('started_at', { ascending: false });
@@ -123,7 +123,7 @@ export function MileageAllowancesTab() {
       const employeeMap: Record<string, { id: string; name: string }> = {};
 
       if (employeeIds.length > 0) {
-        const { data: emps } = await supabaseClient
+        const { data: emps } = await workforceClient()
           .from('employee_profiles')
           .select('id, full_name, email')
           .in('id', employeeIds);
@@ -225,7 +225,7 @@ export function MileageAllowancesTab() {
 
       if (editingAllowance) {
         // Update
-        const { error: updateError } = await supabaseClient
+        const { error: updateError } = await workforceClient()
           .from('employee_mileage_allowances')
           .update(payload)
           .eq('id', editingAllowance.id);
@@ -237,7 +237,7 @@ export function MileageAllowancesTab() {
         toast.success('Forfait mis à jour avec succès.');
       } else {
         // Insert
-        const { error: insertError } = await supabaseClient
+        const { error: insertError } = await workforceClient()
           .from('employee_mileage_allowances')
           .insert(payload);
 
@@ -273,7 +273,7 @@ export function MileageAllowancesTab() {
 
     setIsEnding(true);
     try {
-      const { error: updateError } = await supabaseClient
+      const { error: updateError } = await workforceClient()
         .from('employee_mileage_allowances')
         .update({ ended_at: endDate })
         .eq('id', endingAllowance.id);

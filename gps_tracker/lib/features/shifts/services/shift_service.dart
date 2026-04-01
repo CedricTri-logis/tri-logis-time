@@ -204,7 +204,7 @@ class ShiftService {
       final packageInfo = await PackageInfo.fromPlatform();
       final appVersion = '${packageInfo.version}+${packageInfo.buildNumber}';
 
-      final response = await _supabase.rpc<Map<String, dynamic>>('clock_in', params: {
+      final response = await _supabase.schema('workforce').rpc<Map<String, dynamic>>('clock_in', params: {
         'p_request_id': requestId,
         'p_location': location.toJson(),
         if (accuracy != null) 'p_accuracy': accuracy,
@@ -233,7 +233,7 @@ class ShiftService {
         // (This should be rare now that clock_in RPC auto-closes stale shifts)
         final existingServerId = result.shiftId!;
 
-        await _supabase.rpc<Map<String, dynamic>>('clock_out', params: {
+        await _supabase.schema('workforce').rpc<Map<String, dynamic>>('clock_out', params: {
           'p_shift_id': existingServerId,
           'p_request_id': _uuid.v4(),
           'p_location': location.toJson(),
@@ -241,7 +241,7 @@ class ShiftService {
         },);
 
         // Retry clock-in with the same request
-        final retryResponse = await _supabase.rpc<Map<String, dynamic>>('clock_in', params: {
+        final retryResponse = await _supabase.schema('workforce').rpc<Map<String, dynamic>>('clock_in', params: {
           'p_request_id': requestId,
           'p_location': location.toJson(),
           if (accuracy != null) 'p_accuracy': accuracy,
@@ -308,7 +308,7 @@ class ShiftService {
 
     // Server confirmation required — call server first
     try {
-      final response = await _supabase.rpc<Map<String, dynamic>>('clock_out', params: {
+      final response = await _supabase.schema('workforce').rpc<Map<String, dynamic>>('clock_out', params: {
         'p_shift_id': existingShift.serverId ?? shiftId,
         'p_request_id': requestId,
         if (location != null) 'p_location': location.toJson(),
@@ -379,7 +379,7 @@ class ShiftService {
     // 2. Query server for active shift (fail-open)
     Map<String, dynamic>? serverShift;
     try {
-      serverShift = await _supabase
+      serverShift = await _supabase.schema('workforce')
           .from('shifts')
           .select('id, employee_id, status, clocked_in_at, clock_in_location, clock_in_accuracy, created_at, updated_at')
           .eq('employee_id', userId)
@@ -517,7 +517,7 @@ class ShiftService {
   /// Close a stale server shift (clocked in before last midnight).
   Future<void> _closeStaleServerShift(String serverId) async {
     try {
-      await _supabase
+      await _supabase.schema('workforce')
           .from('shifts')
           .update({
             'status': 'completed',
@@ -574,7 +574,7 @@ class ShiftService {
 
       if (shift.status == 'active') {
         // Sync clock-in
-        final response = await _supabase.rpc<Map<String, dynamic>>('clock_in', params: {
+        final response = await _supabase.schema('workforce').rpc<Map<String, dynamic>>('clock_in', params: {
           'p_request_id': shift.requestId,
           if (shift.clockInLatitude != null && shift.clockInLongitude != null)
             'p_location': {
@@ -602,7 +602,7 @@ class ShiftService {
         // For completed shifts, sync both clock-in and clock-out
         // First sync clock-in if not already synced
         if (shift.syncStatus != 'synced') {
-          final clockInResponse = await _supabase.rpc<Map<String, dynamic>>('clock_in', params: {
+          final clockInResponse = await _supabase.schema('workforce').rpc<Map<String, dynamic>>('clock_in', params: {
             'p_request_id': shift.requestId,
             if (shift.clockInLatitude != null && shift.clockInLongitude != null)
               'p_location': {
@@ -624,7 +624,7 @@ class ShiftService {
           }
 
           // Then sync clock-out using server shift ID
-          final clockOutResponse = await _supabase.rpc<Map<String, dynamic>>('clock_out', params: {
+          final clockOutResponse = await _supabase.schema('workforce').rpc<Map<String, dynamic>>('clock_out', params: {
             'p_shift_id': clockInResult.shiftId,
             'p_request_id': _uuid.v4(),
             if (shift.clockOutLatitude != null && shift.clockOutLongitude != null)
@@ -660,7 +660,7 @@ class ShiftService {
     final serverId = shift?.serverId ?? shiftId;
 
     try {
-      final response = await _supabase.rpc<Map<String, dynamic>>('start_lunch', params: {
+      final response = await _supabase.schema('workforce').rpc<Map<String, dynamic>>('start_lunch', params: {
         'p_shift_id': serverId,
         if (at != null) 'p_at': at.toUtc().toIso8601String(),
       });
@@ -677,7 +677,7 @@ class ShiftService {
     final serverId = shift?.serverId ?? shiftId;
 
     try {
-      final response = await _supabase.rpc<Map<String, dynamic>>('end_lunch', params: {
+      final response = await _supabase.schema('workforce').rpc<Map<String, dynamic>>('end_lunch', params: {
         'p_shift_id': serverId,
         if (at != null) 'p_at': at.toUtc().toIso8601String(),
       });
@@ -691,7 +691,7 @@ class ShiftService {
   /// Fire-and-forget trip detection for mileage tracking.
   /// Called after successful clock-out to detect vehicle trips from GPS points.
   void _detectTripsAsync(String serverShiftId) {
-    _supabase.rpc('detect_trips', params: {
+    _supabase.schema('workforce').rpc('detect_trips', params: {
       'p_shift_id': serverShiftId,
     }).then((_) {
       debugPrint('[Mileage] Trip detection completed for shift $serverShiftId');

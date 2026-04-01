@@ -31,7 +31,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabaseClient } from '@/lib/supabase/client';
+import { workforceClient } from '@/lib/supabase/client';
 import { toLocalDateString, addDays } from '@/lib/utils/date-utils';
 import type { CarpoolGroup, CarpoolMember, Trip } from '@/types/mileage';
 
@@ -143,7 +143,7 @@ export function CarpoolingTab() {
     setError(null);
     try {
       // 1. Fetch carpool_groups
-      let groupQuery = supabaseClient
+      let groupQuery = workforceClient()
         .from('carpool_groups')
         .select('*')
         .order('trip_date', { ascending: false })
@@ -172,7 +172,7 @@ export function CarpoolingTab() {
       const groupIds = groupsData.map((g) => g.id);
 
       // 2. Fetch carpool_members for those group IDs
-      const { data: membersData, error: membersError } = await supabaseClient
+      const { data: membersData, error: membersError } = await workforceClient()
         .from('carpool_members')
         .select('*')
         .in('carpool_group_id', groupIds);
@@ -188,7 +188,7 @@ export function CarpoolingTab() {
       const tripMap: Record<string, Trip> = {};
 
       if (tripIds.length > 0) {
-        const { data: tripsData } = await supabaseClient
+        const { data: tripsData } = await workforceClient()
           .from('trips')
           .select('*')
           .in('id', tripIds);
@@ -211,7 +211,7 @@ export function CarpoolingTab() {
       const employeeMap: Record<string, EmployeeProfile> = {};
 
       if (employeeIds.length > 0) {
-        const { data: employees } = await supabaseClient
+        const { data: employees } = await workforceClient()
           .from('employee_profiles')
           .select('id, full_name')
           .in('id', employeeIds);
@@ -291,7 +291,7 @@ export function CarpoolingTab() {
     async (groupId: string, newStatus: 'confirmed' | 'dismissed') => {
       setActionLoadingGroupId(groupId);
       try {
-        const { error: rpcError } = await supabaseClient.rpc('update_carpool_group', {
+        const { error: rpcError } = await workforceClient().rpc('update_carpool_group', {
           p_group_id: groupId,
           p_status: newStatus,
         });
@@ -317,7 +317,7 @@ export function CarpoolingTab() {
     async (groupId: string, newDriverEmployeeId: string) => {
       setActionLoadingGroupId(groupId);
       try {
-        const { error: rpcError } = await supabaseClient.rpc('update_carpool_group', {
+        const { error: rpcError } = await workforceClient().rpc('update_carpool_group', {
           p_group_id: groupId,
           p_driver_employee_id: newDriverEmployeeId,
         });
@@ -363,7 +363,7 @@ export function CarpoolingTab() {
       setDetectProgress(`Jour ${i + 1}/${dates.length}: ${date}...`);
 
       try {
-        const { data, error: rpcError } = await supabaseClient.rpc('detect_carpools', {
+        const { data, error: rpcError } = await workforceClient().rpc('detect_carpools', {
           p_date: date,
         });
         if (rpcError) {

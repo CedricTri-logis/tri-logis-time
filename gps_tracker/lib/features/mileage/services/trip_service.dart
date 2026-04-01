@@ -28,7 +28,7 @@ class TripService {
   /// This is idempotent — re-running deletes previous trips and re-detects.
   Future<List<Trip>> detectTrips(String shiftId) async {
     try {
-      final response = await _supabase.rpc(
+      final response = await _supabase.schema('workforce').rpc(
         'detect_trips',
         params: {'p_shift_id': shiftId},
       );
@@ -88,7 +88,7 @@ class TripService {
   /// Falls back to local cache when offline.
   Future<List<Trip>> getTripsForShift(String shiftId) async {
     try {
-      final response = await _supabase
+      final response = await _supabase.schema('workforce')
           .from('trips')
           .select()
           .eq('shift_id', shiftId)
@@ -117,7 +117,7 @@ class TripService {
     DateTime end,
   ) async {
     try {
-      final response = await _supabase
+      final response = await _supabase.schema('workforce')
           .from('trips')
           .select()
           .eq('employee_id', employeeId)
@@ -147,7 +147,7 @@ class TripService {
     TripClassification classification,
   ) async {
     try {
-      await _supabase
+      await _supabase.schema('workforce')
           .from('trips')
           .update({'classification': classification.toJson()})
           .eq('id', tripId);
@@ -185,7 +185,7 @@ class TripService {
 
       for (final localTrip in pending) {
         try {
-          await _supabase
+          await _supabase.schema('workforce')
               .from('trips')
               .update({'classification': localTrip.classification})
               .eq('id', localTrip.id);
@@ -206,7 +206,7 @@ class TripService {
   /// Re-fetch a single trip from Supabase to get updated match results.
   Future<Trip?> refreshTrip(String tripId) async {
     try {
-      final response = await _supabase
+      final response = await _supabase.schema('workforce')
           .from('trips')
           .select()
           .eq('id', tripId)
@@ -235,7 +235,7 @@ class TripService {
       if (endAddress != null) updates['end_address'] = endAddress;
       if (updates.isEmpty) return;
 
-      await _supabase.from('trips').update(updates).eq('id', tripId);
+      await _supabase.schema('workforce').from('trips').update(updates).eq('id', tripId);
     } catch (e) {
       _logger?.sync(Severity.warn, 'Failed to update trip address', metadata: {'trip_id': tripId, 'error': e.toString()});
     }
@@ -287,7 +287,7 @@ class TripService {
 
     try {
       // Fetch carpool_members for these trips
-      final membersResponse = await _supabase
+      final membersResponse = await _supabase.schema('workforce')
           .from('carpool_members')
           .select()
           .inFilter('trip_id', tripIds);
@@ -299,7 +299,7 @@ class TripService {
       final groupIds = members.map((m) => m['carpool_group_id'] as String).toSet().toList();
 
       // Fetch all members for these groups (to get co-members)
-      final allMembersResponse = await _supabase
+      final allMembersResponse = await _supabase.schema('workforce')
           .from('carpool_members')
           .select()
           .inFilter('carpool_group_id', groupIds);
@@ -308,7 +308,7 @@ class TripService {
 
       // Fetch employee names
       final employeeIds = allMembers.map((m) => m['employee_id'] as String).toSet().toList();
-      final employeesResponse = await _supabase
+      final employeesResponse = await _supabase.schema('workforce')
           .from('employee_profiles')
           .select('id, name')
           .inFilter('id', employeeIds);
@@ -319,7 +319,7 @@ class TripService {
       }
 
       // Fetch carpool_groups for driver info
-      final groupsResponse = await _supabase
+      final groupsResponse = await _supabase.schema('workforce')
           .from('carpool_groups')
           .select()
           .inFilter('id', groupIds);
@@ -367,7 +367,7 @@ class TripService {
   /// Check if employee has an active company vehicle period in the given date range.
   Future<bool> hasCompanyVehicleInRange(String employeeId, DateTime start, DateTime end) async {
     try {
-      final response = await _supabase
+      final response = await _supabase.schema('workforce')
           .from('employee_vehicle_periods')
           .select('id')
           .eq('employee_id', employeeId)
@@ -387,7 +387,7 @@ class TripService {
   /// Returns set of ISO date strings (YYYY-MM-DD) where company vehicle is active.
   Future<Set<String>> getCompanyVehicleDates(String employeeId, DateTime start, DateTime end) async {
     try {
-      final response = await _supabase
+      final response = await _supabase.schema('workforce')
           .from('employee_vehicle_periods')
           .select('started_at, ended_at')
           .eq('employee_id', employeeId)

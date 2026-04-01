@@ -1,4 +1,4 @@
-import { supabaseClient } from '@/lib/supabase/client';
+import { workforceClient } from '@/lib/supabase/client';
 import type {
   MileageApprovalSummaryRow,
   MileageApprovalDetail,
@@ -9,7 +9,7 @@ export async function getMileageApprovalSummary(
   periodStart: string,
   periodEnd: string
 ): Promise<MileageApprovalSummaryRow[]> {
-  const { data, error } = await supabaseClient.rpc('get_mileage_approval_summary', {
+  const { data, error } = await workforceClient().rpc('get_mileage_approval_summary', {
     p_period_start: periodStart,
     p_period_end: periodEnd,
   });
@@ -22,7 +22,7 @@ export async function getMileageApprovalDetail(
   periodStart: string,
   periodEnd: string
 ): Promise<MileageApprovalDetail> {
-  const { data, error } = await supabaseClient.rpc('get_mileage_approval_detail', {
+  const { data, error } = await workforceClient().rpc('get_mileage_approval_detail', {
     p_employee_id: employeeId,
     p_period_start: periodStart,
     p_period_end: periodEnd,
@@ -36,7 +36,7 @@ export async function prefillMileageDefaults(
   periodStart: string,
   periodEnd: string
 ): Promise<{ prefilled_count: number; needs_review_count: number }> {
-  const { data, error } = await supabaseClient.rpc('prefill_mileage_defaults', {
+  const { data, error } = await workforceClient().rpc('prefill_mileage_defaults', {
     p_employee_id: employeeId,
     p_period_start: periodStart,
     p_period_end: periodEnd,
@@ -50,7 +50,7 @@ export async function updateTripVehicle(
   vehicleType: string | null,
   role: string | null
 ): Promise<any> {
-  const { data, error } = await supabaseClient.rpc('update_trip_vehicle', {
+  const { data, error } = await workforceClient().rpc('update_trip_vehicle', {
     p_trip_id: tripId,
     p_vehicle_type: vehicleType,
     p_role: role,
@@ -64,7 +64,7 @@ export async function batchUpdateTripVehicles(
   vehicleType: string | null,
   role: string | null
 ): Promise<{ updated_count: number }> {
-  const { data, error } = await supabaseClient.rpc('batch_update_trip_vehicles', {
+  const { data, error } = await workforceClient().rpc('batch_update_trip_vehicles', {
     p_trip_ids: tripIds,
     p_vehicle_type: vehicleType,
     p_role: role,
@@ -79,7 +79,7 @@ export async function approveMileage(
   periodEnd: string,
   notes?: string
 ): Promise<MileageApproval> {
-  const { data, error } = await supabaseClient.rpc('approve_mileage', {
+  const { data, error } = await workforceClient().rpc('approve_mileage', {
     p_employee_id: employeeId,
     p_period_start: periodStart,
     p_period_end: periodEnd,
@@ -94,7 +94,7 @@ export async function reopenMileageApproval(
   periodStart: string,
   periodEnd: string
 ): Promise<MileageApproval> {
-  const { data, error } = await supabaseClient.rpc('reopen_mileage_approval', {
+  const { data, error } = await workforceClient().rpc('reopen_mileage_approval', {
     p_employee_id: employeeId,
     p_period_start: periodStart,
     p_period_end: periodEnd,

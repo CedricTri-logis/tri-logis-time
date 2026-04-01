@@ -22,7 +22,7 @@ import {
   Pencil,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabaseClient } from '@/lib/supabase/client';
+import { supabaseClient, workforceClient } from '@/lib/supabase/client';
 import { LOCATION_TYPE_ICON_MAP } from '@/lib/constants/location-icons';
 import { LOCATION_TYPE_LABELS } from '@/lib/validations/location';
 import { mergeClockEvents } from '@/lib/utils/merge-clock-events';
@@ -109,7 +109,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
   const fetchDetail = useCallback(async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabaseClient.rpc('get_day_approval_detail', {
+      const { data, error } = await workforceClient().rpc('get_day_approval_detail', {
         p_employee_id: employeeId,
         p_date: date,
       });
@@ -242,7 +242,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
     if (activity.override_status === newStatus) {
       setIsSaving(true);
       try {
-        const { data, error } = await supabaseClient.rpc('remove_activity_override', {
+        const { data, error } = await workforceClient().rpc('remove_activity_override', {
           p_employee_id: employeeId,
           p_date: date,
           p_activity_type: activity.activity_type,
@@ -262,7 +262,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
 
     setIsSaving(true);
     try {
-      const { data, error } = await supabaseClient.rpc('save_activity_override', {
+      const { data, error } = await workforceClient().rpc('save_activity_override', {
         p_employee_id: employeeId,
         p_date: date,
         p_activity_type: activity.activity_type,
@@ -283,7 +283,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
   const handleApproveDay = async () => {
     setIsSaving(true);
     try {
-      const { data, error } = await supabaseClient.rpc('approve_day', {
+      const { data, error } = await workforceClient().rpc('approve_day', {
         p_employee_id: employeeId,
         p_date: date,
         p_notes: notes || null,
@@ -303,7 +303,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
   const handleReopenDay = async () => {
     setIsSaving(true);
     try {
-      const { data, error } = await supabaseClient.rpc('reopen_day', {
+      const { data, error } = await workforceClient().rpc('reopen_day', {
         p_employee_id: employeeId,
         p_date: date,
       });
@@ -323,7 +323,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
     const { data: { user } } = await supabaseClient.auth.getUser();
     if (!user) return;
 
-    const { error } = await supabaseClient.rpc('update_shift_type', {
+    const { error } = await workforceClient().rpc('update_shift_type', {
       p_shift_id: shiftId,
       p_shift_type: newType,
       p_changed_by: user.id,
@@ -343,7 +343,7 @@ export function DayApprovalDetail({ employeeId, employeeName, date, onClose }: D
     if (!confirm('Supprimer ce quart manuel? Cette action est irréversible.')) return;
     setIsSaving(true);
     try {
-      const { data, error } = await supabaseClient.rpc('delete_manual_time', {
+      const { data, error } = await workforceClient().rpc('delete_manual_time', {
         p_manual_time_id: manualTimeId,
       });
       if (error) {

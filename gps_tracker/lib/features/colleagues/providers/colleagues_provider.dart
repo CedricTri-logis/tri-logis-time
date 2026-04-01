@@ -45,7 +45,7 @@ class ColleaguesNotifier extends StateNotifier<ColleaguesState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final response =
-          await _supabase.rpc<List<dynamic>>('get_colleagues_status');
+          await _supabase.schema('workforce').rpc<List<dynamic>>('get_colleagues_status');
       final colleagues = response
           .map(
             (json) => ColleagueStatus.fromJson(json as Map<String, dynamic>),

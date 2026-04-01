@@ -48,7 +48,7 @@ class VersionCheckService {
   /// if the app needs updating. On network errors, allows clock-in (fail-open).
   Future<VersionCheckResult> checkVersionForClockIn() async {
     try {
-      final response = await _client
+      final response = await _client.schema('workforce')
           .from('app_config')
           .select('value')
           .eq('key', 'minimum_app_version')

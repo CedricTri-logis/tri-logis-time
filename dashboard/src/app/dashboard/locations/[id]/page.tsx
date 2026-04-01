@@ -23,7 +23,7 @@ import { BuildingLinkSection } from '@/components/locations/building-link-sectio
 import { useLocation, useLocationMutations } from '@/lib/hooks/use-locations';
 import { LOCATION_TYPE_COLORS } from '@/lib/utils/segment-colors';
 import type { LocationFormInput } from '@/lib/validations/location';
-import { supabaseClient } from '@/lib/supabase/client';
+import { workforceClient } from '@/lib/supabase/client';
 import { format } from 'date-fns';
 
 // Add AlertDialog components if not already present
@@ -66,7 +66,7 @@ export default function LocationDetailPage({ params }: LocationDetailPageProps) 
         // Rematch trips if position or radius changed
         if (positionOrRadiusChanged) {
           try {
-            const { data: result } = await supabaseClient.rpc(
+            const { data: result } = await workforceClient().rpc(
               'rematch_trips_for_updated_location',
               { p_location_id: id }
             );

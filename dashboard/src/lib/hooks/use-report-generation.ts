@@ -7,7 +7,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useCustom } from '@refinedev/core';
-import { supabaseClient } from '@/lib/supabase/client';
+import { supabaseClient, workforceClient } from '@/lib/supabase/client';
 import type {
   ReportConfig,
   ReportType,
@@ -94,7 +94,7 @@ export function useReportGeneration(
         ? config.employee_filter
         : null;
 
-      const { data, error: rpcError } = await supabaseClient.rpc('count_report_records', {
+      const { data, error: rpcError } = await workforceClient().rpc('count_report_records', {
         p_report_type: reportType,
         p_start_date: start,
         p_end_date: end,
@@ -117,7 +117,7 @@ export function useReportGeneration(
    */
   const pollJobStatus = useCallback(
     async (currentJobId: string) => {
-      const { data, error: rpcError } = await supabaseClient.rpc('get_report_job_status', {
+      const { data, error: rpcError } = await workforceClient().rpc('get_report_job_status', {
         p_job_id: currentJobId,
       });
 
@@ -197,7 +197,7 @@ export function useReportGeneration(
         };
 
         // Call generate_report RPC
-        const { data, error: rpcError } = await supabaseClient.rpc('generate_report', {
+        const { data, error: rpcError } = await workforceClient().rpc('generate_report', {
           p_report_type: reportType,
           p_config: resolvedConfig,
         });

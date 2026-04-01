@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { supabaseClient } from '@/lib/supabase/client';
+import { workforceClient } from '@/lib/supabase/client';
 import type { UserIdentity } from '@/types/dashboard';
 import type { PendingNotification } from '@/types/reports';
 
@@ -27,7 +27,7 @@ export function Header() {
   useEffect(() => {
     async function fetchNotifications() {
       try {
-        const { data, error } = await supabaseClient.rpc('get_pending_report_notifications');
+        const { data, error } = await workforceClient().rpc('get_pending_report_notifications');
         if (data && !error) {
           const response = data as { count: number; items: PendingNotification[] };
           setNotificationCount(response.count || 0);
@@ -47,7 +47,7 @@ export function Header() {
   // Mark notification as seen
   const markAsSeen = async (jobId: string) => {
     try {
-      await supabaseClient.rpc('mark_report_notification_seen', { p_job_id: jobId });
+      await workforceClient().rpc('mark_report_notification_seen', { p_job_id: jobId });
       setNotifications((prev) => prev.filter((n) => n.job_id !== jobId));
       setNotificationCount((prev) => Math.max(0, prev - 1));
     } catch {

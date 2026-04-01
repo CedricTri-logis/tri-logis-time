@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, MapPin } from 'lucide-react';
-import { supabaseClient } from '@/lib/supabase/client';
+import { workforceClient } from '@/lib/supabase/client';
 import { StationaryClustersMap } from './stationary-clusters-map';
 import type { StationaryCluster } from './stationary-clusters-map';
 import { toLocalDateString, addDays } from '@/lib/utils/date-utils';
@@ -56,7 +56,7 @@ export function StationaryClustersTab() {
   // Fetch employees
   useEffect(() => {
     (async () => {
-      const { data } = await supabaseClient
+      const { data } = await workforceClient()
         .from('employee_profiles')
         .select('id, full_name')
         .order('full_name');
@@ -71,7 +71,7 @@ export function StationaryClustersTab() {
     setIsLoading(true);
     setError(null);
     try {
-      const { data, error: rpcError } = await supabaseClient.rpc('get_stationary_clusters', {
+      const { data, error: rpcError } = await workforceClient().rpc('get_stationary_clusters', {
         p_employee_id: selectedEmployee || undefined,
         p_date_from: dateFrom || undefined,
         p_date_to: dateTo || undefined,

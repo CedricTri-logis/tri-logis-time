@@ -28,7 +28,7 @@ import {
   Settings,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabaseClient } from '@/lib/supabase/client';
+import { workforceClient } from '@/lib/supabase/client';
 import { ActivityTab } from '@/components/mileage/activity-tab';
 
 import { CarpoolingTab } from '@/components/mileage/carpooling-tab';
@@ -71,7 +71,7 @@ export default function MileagePage() {
   const handleRematchLocations = async () => {
     setIsRematching(true);
     try {
-      const { data, error } = await supabaseClient.rpc('rematch_all_trip_locations');
+      const { data, error } = await workforceClient().rpc('rematch_all_trip_locations');
       if (error) throw error;
       const result = Array.isArray(data) ? data[0] : data;
       toast.success(

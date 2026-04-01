@@ -19,3 +19,8 @@ export function createAdminClient() {
     },
   });
 }
+
+/** Admin client targeting the workforce schema */
+export function createAdminWorkforceClient() {
+  return createAdminClient().schema('workforce');
+}

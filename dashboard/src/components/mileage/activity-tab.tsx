@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import type { LocationType } from '@/types/location';
 import { LOCATION_TYPE_LABELS } from '@/lib/validations/location';
-import { supabaseClient } from '@/lib/supabase/client';
+import { supabaseClient, workforceClient } from '@/lib/supabase/client';
 import { toLocalDateString } from '@/lib/utils/date-utils';
 import { MatchStatusBadge } from '@/components/trips/match-status-badge';
 import { GoogleTripRouteMap } from '@/components/trips/google-trip-route-map';
@@ -74,7 +74,7 @@ export function ActivityTab() {
   // Fetch employees on mount
   useEffect(() => {
     (async () => {
-      const { data } = await supabaseClient
+      const { data } = await workforceClient()
         .from('employee_profiles')
         .select('id, full_name')
         .order('full_name');
@@ -91,7 +91,7 @@ export function ActivityTab() {
     setIsLoading(true);
     setError(null);
     try {
-      const { data, error: rpcError } = await supabaseClient.rpc(
+      const { data, error: rpcError } = await workforceClient().rpc(
         'get_employee_activity',
         {
           p_employee_id: selectedEmployee,
@@ -175,7 +175,7 @@ export function ActivityTab() {
     }
     if (ids.size === 0) return;
     (async () => {
-      const { data } = await supabaseClient
+      const { data } = await workforceClient()
         .from('locations')
         .select('id, location_type')
         .in('id', Array.from(ids));
@@ -535,7 +535,7 @@ function TripExpandDetail({ trip, onDataChanged, geocodedAddresses }: { trip: Ac
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data } = await supabaseClient
+      const { data } = await workforceClient()
         .from('trip_gps_points')
         .select(`
           sequence_order,

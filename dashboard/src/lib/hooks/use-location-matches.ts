@@ -2,7 +2,7 @@
 
 import { useCustom } from '@refinedev/core';
 import { useMemo, useCallback, useState } from 'react';
-import { supabaseClient } from '@/lib/supabase/client';
+import { workforceClient } from '@/lib/supabase/client';
 import type {
   LocationMatch,
   LocationMatchRow,
@@ -135,7 +135,7 @@ export function useLazyLocationMatches() {
     async (shiftId: string): Promise<LocationMatch[]> => {
       setIsComputing(true);
       try {
-        const { data, error } = await supabaseClient.rpc('match_shift_gps_to_locations', {
+        const { data, error } = await workforceClient().rpc('match_shift_gps_to_locations', {
           p_shift_id: shiftId,
         });
 

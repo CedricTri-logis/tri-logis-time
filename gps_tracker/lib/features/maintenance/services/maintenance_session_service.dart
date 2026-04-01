@@ -122,7 +122,7 @@ class MaintenanceSessionService {
       if (accuracy != null) params['p_accuracy'] = accuracy;
 
       final response =
-          await _supabase.rpc<Map<String, dynamic>>('start_maintenance',
+          await _supabase.schema('workforce').rpc<Map<String, dynamic>>('start_maintenance',
               params: params);
 
       if (response['success'] == true) {
@@ -182,7 +182,7 @@ class MaintenanceSessionService {
 
     // Attempt Supabase RPC
     try {
-      final response = await _supabase
+      final response = await _supabase.schema('workforce')
           .rpc<Map<String, dynamic>>('complete_maintenance', params: {
         'p_employee_id': employeeId,
       });
@@ -224,7 +224,7 @@ class MaintenanceSessionService {
 
     // Try to sync to Supabase
     try {
-      await _supabase.rpc('manually_close_maintenance_session', params: {
+      await _supabase.schema('workforce').rpc('manually_close_maintenance_session', params: {
         'p_employee_id': employeeId,
         'p_session_id': activeSession.id,
         'p_closed_at': now.toIso8601String(),
@@ -264,7 +264,7 @@ class MaintenanceSessionService {
     try {
       final serverShiftId = await _localDb.resolveServerShiftId(shiftId);
       if (serverShiftId != null) {
-        await _supabase.rpc('auto_close_maintenance_sessions', params: {
+        await _supabase.schema('workforce').rpc('auto_close_maintenance_sessions', params: {
           'p_shift_id': serverShiftId,
           'p_employee_id': employeeId,
           'p_closed_at': closedAt.toIso8601String(),
@@ -326,7 +326,7 @@ class MaintenanceSessionService {
             params['p_accuracy'] = session.startAccuracy;
           }
 
-          final response = await _supabase
+          final response = await _supabase.schema('workforce')
               .rpc<Map<String, dynamic>>('start_maintenance', params: params);
 
           if (response['success'] == true) {
@@ -337,7 +337,7 @@ class MaintenanceSessionService {
           }
         } else {
           // Completed/auto-closed/manually-closed: direct insert
-          await _supabase.from('maintenance_sessions').insert({
+          await _supabase.schema('workforce').from('maintenance_sessions').insert({
             'employee_id': session.employeeId,
             'shift_id': serverShiftId,
             'building_id': session.buildingId,

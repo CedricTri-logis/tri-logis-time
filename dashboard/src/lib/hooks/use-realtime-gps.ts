@@ -162,7 +162,7 @@ export function useRealtimeGps({
         'postgres_changes',
         {
           event: 'INSERT',
-          schema: 'public',
+          schema: 'workforce',
           table: 'gps_points',
         },
         (payload) => {

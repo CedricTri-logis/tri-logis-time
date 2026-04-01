@@ -84,7 +84,7 @@ export function useRealtimeShifts({
         'postgres_changes',
         {
           event: '*',
-          schema: 'public',
+          schema: 'workforce',
           table: 'shifts',
         },
         (payload) => {

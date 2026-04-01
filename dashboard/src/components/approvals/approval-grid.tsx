@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, ChevronLeft, ChevronRight, CheckCircle2, XCircle, AlertTriangle, Clock, Minus, Car, WifiOff, MapPin, UtensilsCrossed, Phone, PenLine } from 'lucide-react';
-import { supabaseClient } from '@/lib/supabase/client';
+import { workforceClient } from '@/lib/supabase/client';
 import type { WeeklyEmployeeRow, DayApprovalStatus } from '@/types/mileage';
 import { DayApprovalDetail } from './day-approval-detail';
 import { getWeekStart, toLocalDateString, parseLocalDate, addDays } from '@/lib/utils/date-utils';
@@ -60,8 +60,8 @@ export function ApprovalGrid() {
     setError(null);
     try {
       const [summaryRes, breakdownRes] = await Promise.all([
-        supabaseClient.rpc('get_weekly_approval_summary', { p_week_start: weekStart }),
-        supabaseClient.rpc('get_weekly_breakdown_totals', { p_week_start: weekStart }),
+        workforceClient().rpc('get_weekly_approval_summary', { p_week_start: weekStart }),
+        workforceClient().rpc('get_weekly_breakdown_totals', { p_week_start: weekStart }),
       ]);
       if (summaryRes.error) {
         setError(summaryRes.error.message);
@@ -184,8 +184,8 @@ export function ApprovalGrid() {
       const refreshInBackground = async () => {
         try {
           const [summaryRes, breakdownRes] = await Promise.all([
-            supabaseClient.rpc('get_weekly_approval_summary', { p_week_start: weekStart }),
-            supabaseClient.rpc('get_weekly_breakdown_totals', { p_week_start: weekStart }),
+            workforceClient().rpc('get_weekly_approval_summary', { p_week_start: weekStart }),
+            workforceClient().rpc('get_weekly_breakdown_totals', { p_week_start: weekStart }),
           ]);
           if (!summaryRes.error) {
             setData((summaryRes.data as WeeklyEmployeeRow[]) || []);

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { verifyAdmin } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient, createAdminWorkforceClient } from '@/lib/supabase/admin';
 
 const updateEmailSchema = z.object({
   employee_id: z.string().uuid(),
@@ -31,9 +31,10 @@ export async function POST(request: NextRequest) {
 
     const { employee_id, email } = parseResult.data;
     const adminClient = createAdminClient();
+    const adminWf = createAdminWorkforceClient();
 
     // Check target exists and get role
-    const { data: target } = await adminClient
+    const { data: target } = await adminWf
       .from('employee_profiles')
       .select('role, email')
       .eq('id', employee_id)
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check uniqueness
-    const { data: existing } = await adminClient
+    const { data: existing } = await adminWf
       .from('employee_profiles')
       .select('id')
       .eq('email', email)
@@ -83,7 +84,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Sync to employee_profiles (no trigger exists for this)
-    const { error: profileError } = await adminClient
+    const { error: profileError } = await adminWf
       .from('employee_profiles')
       .update({ email })
       .eq('id', employee_id);

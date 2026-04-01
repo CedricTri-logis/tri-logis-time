@@ -9,9 +9,10 @@ import type {
   GetOneParams,
   GetOneResponse,
 } from '@refinedev/core';
-import { supabaseClient } from '@/lib/supabase/client';
+import { supabaseClient, workforceClient } from '@/lib/supabase/client';
 
-const baseDataProvider = supabaseDataProvider(supabaseClient);
+// Use workforce-scoped client so Refine's built-in .from() calls target the correct schema
+const baseDataProvider = supabaseDataProvider(supabaseClient.schema('workforce') as any);
 
 interface RpcMeta {
   rpc?: string;
@@ -57,7 +58,7 @@ export const dataProvider: DataProvider = {
         rpcParams.p_sort_order = sorter.order?.toUpperCase() ?? 'ASC';
       }
 
-      const { data, error } = await supabaseClient.rpc(rpcMeta.rpc, rpcParams);
+      const { data, error } = await workforceClient().rpc(rpcMeta.rpc, rpcParams);
       if (error) throw error;
 
       // Extract total count from first record if available
@@ -94,7 +95,7 @@ export const dataProvider: DataProvider = {
         rpcParams.p_employee_id = id;
       }
 
-      const { data, error } = await supabaseClient.rpc(rpcMeta.rpc, rpcParams);
+      const { data, error } = await workforceClient().rpc(rpcMeta.rpc, rpcParams);
       if (error) throw error;
 
       // RPC returns array, get first record
@@ -116,7 +117,7 @@ export const dataProvider: DataProvider = {
 
     // Support RPC calls via meta.rpc
     if (rpcMeta?.rpc) {
-      const { data, error } = await supabaseClient.rpc(rpcMeta.rpc, payload ?? {});
+      const { data, error } = await workforceClient().rpc(rpcMeta.rpc, payload ?? {});
       if (error) throw error;
       return { data: data as TData };
     }

@@ -287,7 +287,7 @@ class _OemBatteryGuideDialogState extends State<OemBatteryGuideDialog> {
 
   Future<void> _syncCompletionToServer() async {
     try {
-      await Supabase.instance.client.rpc<void>('mark_battery_setup_completed');
+      await Supabase.instance.client.schema('workforce').rpc<void>('mark_battery_setup_completed');
     } catch (_) {
       // Best-effort: local completion flag is source of truth for the app.
     }

@@ -15,7 +15,7 @@ import { RoleSelector } from '@/components/dashboard/employees/role-selector';
 import { StatusSelector } from '@/components/dashboard/employees/status-selector';
 import { SupervisorAssignment } from '@/components/dashboard/employees/supervisor-assignment';
 import { DeactivationWarningDialog } from '@/components/dashboard/employees/deactivation-warning-dialog';
-import { supabaseClient } from '@/lib/supabase/client';
+import { supabaseClient, workforceClient } from '@/lib/supabase/client';
 import { EmployeeCategoriesCard } from '@/components/employees/employee-categories-card';
 import type { EmployeeDetail, UpdateEmployeeResponse, UpdateStatusResponse } from '@/types/employee';
 import type { EmployeeEditExtendedInput, EmployeeStatusType } from '@/lib/validations/employee';
@@ -34,7 +34,7 @@ export default function EmployeeDetailPage() {
     const fetchCurrentUser = async () => {
       const { data: { user } } = await supabaseClient.auth.getUser();
       if (user) {
-        const { data: profile } = await supabaseClient
+        const { data: profile } = await workforceClient()
           .from('employee_profiles')
           .select('id, role')
           .eq('id', user.id)
@@ -73,7 +73,7 @@ export default function EmployeeDetailPage() {
       setIsSubmitting(true);
       try {
         // 1. Update name and employee_id via existing RPC
-        const { data: result, error } = await supabaseClient.rpc('update_employee_profile', {
+        const { data: result, error } = await workforceClient().rpc('update_employee_profile', {
           p_employee_id: employeeId,
           p_full_name: formData.full_name,
           p_employee_id_value: formData.employee_id,
@@ -90,7 +90,7 @@ export default function EmployeeDetailPage() {
         // 2. Update phone if changed (PhoneInput returns E.164 directly)
         const newPhone = formData.phone_number?.trim() || null;
         if (newPhone !== employee?.phone_number && (newPhone || employee?.phone_number)) {
-          const { data: phoneResult, error: phoneError } = await supabaseClient.rpc('admin_update_phone_number', {
+          const { data: phoneResult, error: phoneError } = await workforceClient().rpc('admin_update_phone_number', {
             p_user_id: employeeId,
             p_phone: newPhone,
           });
@@ -149,7 +149,7 @@ export default function EmployeeDetailPage() {
 
       setIsSubmitting(true);
       try {
-        const { data: result, error } = await supabaseClient.rpc('update_employee_status', {
+        const { data: result, error } = await workforceClient().rpc('update_employee_status', {
           p_employee_id: employeeId,
           p_new_status: newStatus,
           p_force: force,
@@ -189,7 +189,7 @@ export default function EmployeeDetailPage() {
 
       setIsSubmitting(true);
       try {
-        const { error } = await supabaseClient.rpc('update_user_role', {
+        const { error } = await workforceClient().rpc('update_user_role', {
           p_user_id: employeeId,
           p_new_role: newRole,
         });

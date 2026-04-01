@@ -46,7 +46,7 @@ class CleaningSessionService {
     // 2. If not found locally, try Supabase lookup and update cache
     if (studio == null) {
       try {
-        final response = await _supabase
+        final response = await _supabase.schema('workforce')
             .from('studios')
             .select(
                 'id, qr_code, studio_number, building_id, studio_type, is_active, buildings!inner(name)')
@@ -162,7 +162,7 @@ class CleaningSessionService {
     // 8. Attempt Supabase RPC scan_in (use resolved server shift ID)
     try {
       final response =
-          await _supabase.rpc<Map<String, dynamic>>('scan_in', params: {
+          await _supabase.schema('workforce').rpc<Map<String, dynamic>>('scan_in', params: {
         'p_employee_id': employeeId,
         'p_qr_code': qrCode,
         'p_shift_id': resolvedShiftId,
@@ -247,7 +247,7 @@ class CleaningSessionService {
     String? warning;
     try {
       final response =
-          await _supabase.rpc<Map<String, dynamic>>('scan_out', params: {
+          await _supabase.schema('workforce').rpc<Map<String, dynamic>>('scan_out', params: {
         'p_employee_id': employeeId,
         'p_qr_code': qrCode,
         if (latitude != null) 'p_latitude': latitude,
@@ -314,7 +314,7 @@ class CleaningSessionService {
     try {
       final serverShiftId = await _localDb.resolveServerShiftId(shiftId);
       if (serverShiftId != null) {
-        await _supabase.rpc('auto_close_shift_sessions', params: {
+        await _supabase.schema('workforce').rpc('auto_close_shift_sessions', params: {
           'p_shift_id': serverShiftId,
           'p_employee_id': employeeId,
           'p_closed_at': closedAt.toIso8601String(),
@@ -361,7 +361,7 @@ class CleaningSessionService {
 
     // Try to sync to Supabase
     try {
-      await _supabase.rpc('manual_close_cleaning_session', params: {
+      await _supabase.schema('workforce').rpc('manual_close_cleaning_session', params: {
         'p_employee_id': employeeId,
         'p_session_id': activeSession.id,
         'p_closed_at': now.toIso8601String(),
@@ -404,7 +404,7 @@ class CleaningSessionService {
           if (qrCode.isEmpty) continue;
 
           final response =
-              await _supabase.rpc<Map<String, dynamic>>('scan_in', params: {
+              await _supabase.schema('workforce').rpc<Map<String, dynamic>>('scan_in', params: {
             'p_employee_id': session.employeeId,
             'p_qr_code': qrCode,
             'p_shift_id': serverShiftId,
@@ -420,7 +420,7 @@ class CleaningSessionService {
           // Completed/auto-closed/manually-closed: direct insert
           // RPCs won't work because scan_in never succeeded and shift may
           // no longer be active. Insert the full record directly.
-          final response = await _supabase
+          final response = await _supabase.schema('workforce')
               .from('cleaning_sessions')
               .insert({
                 'employee_id': session.employeeId,

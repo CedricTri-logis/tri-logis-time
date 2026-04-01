@@ -160,7 +160,7 @@ class ShiftNotifier extends StateNotifier<ShiftState>
   Future<void> _handleLunchTransition(String workBodyId) async {
     try {
       final client = _ref.read(supabaseClientProvider);
-      final response = await client
+      final response = await client.schema('workforce')
           .from('shifts')
           .select()
           .eq('work_body_id', workBodyId)
@@ -274,7 +274,7 @@ class ShiftNotifier extends StateNotifier<ShiftState>
         return;
       }
 
-      final response = await client
+      final response = await client.schema('workforce')
           .from('shifts')
           .select('id, status, clock_out_reason, work_body_id')
           .eq('id', serverId)
@@ -315,7 +315,7 @@ class ShiftNotifier extends StateNotifier<ShiftState>
         },);
         try {
           await _ref.read(authServiceProvider).refreshSession(thresholdMinutes: 0);
-          final retryResponse = await client
+          final retryResponse = await client.schema('workforce')
               .from('shifts')
               .select('id, status, clock_out_reason, work_body_id')
               .eq('id', serverId)

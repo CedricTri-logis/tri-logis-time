@@ -17,7 +17,7 @@ class PropertyCacheService {
   Future<void> syncProperties() async {
     try {
       // Fetch active buildings
-      final buildingsResponse = await _supabase
+      final buildingsResponse = await _supabase.schema('workforce')
           .from('property_buildings')
           .select('id, name, address, city, is_active')
           .eq('is_active', true);
@@ -29,7 +29,7 @@ class PropertyCacheService {
       await _localDb.upsertBuildings(buildings);
 
       // Fetch active apartments
-      final apartmentsResponse = await _supabase
+      final apartmentsResponse = await _supabase.schema('workforce')
           .from('apartments')
           .select(
               'id, building_id, apartment_name, unit_number, apartment_category, is_active')

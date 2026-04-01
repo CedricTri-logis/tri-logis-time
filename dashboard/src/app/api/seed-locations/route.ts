@@ -49,7 +49,7 @@ export async function POST(request: Request) {
     const force = searchParams.get('force') === 'true';
 
     // Check if locations already exist
-    const { count, error: countError } = await supabase
+    const { count, error: countError } = await supabase.schema('workforce')
       .from('locations')
       .select('*', { count: 'exact', head: true });
 
@@ -84,7 +84,7 @@ export async function POST(request: Request) {
     }));
 
     // Call the bulk_insert_locations RPC
-    const { data, error } = await supabase.rpc('bulk_insert_locations', {
+    const { data, error } = await supabase.schema('workforce').rpc('bulk_insert_locations', {
       p_locations: locationsToInsert,
     });
 
@@ -135,7 +135,7 @@ export async function GET() {
 
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-    const { count, error } = await supabase
+    const { count, error } = await supabase.schema('workforce')
       .from('locations')
       .select('*', { count: 'exact', head: true });
 

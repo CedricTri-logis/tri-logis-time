@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { supabaseClient } from '@/lib/supabase/client';
+import { supabaseClient, workforceClient } from '@/lib/supabase/client';
 import type { MonitoredTeamRow } from '@/types/monitoring';
 
 export interface TeamStats {
@@ -30,7 +30,7 @@ export function useTeamStats(): TeamStats {
   const mountedRef = useRef(true);
 
   const fetchStats = useCallback(async () => {
-    const { data } = await supabaseClient.rpc('get_monitored_team', {
+    const { data } = await workforceClient().rpc('get_monitored_team', {
       p_search: null,
       p_shift_status: 'all',
     });
@@ -64,7 +64,7 @@ export function useTeamStats(): TeamStats {
       .channel('stats-shifts')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'shifts' },
+        { event: '*', schema: 'workforce', table: 'shifts' },
         () => { fetchStats(); }
       )
       .subscribe();

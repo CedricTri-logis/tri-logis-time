@@ -1,4 +1,4 @@
-import { supabaseClient } from '@/lib/supabase/client';
+import { workforceClient } from '@/lib/supabase/client';
 import type { PayrollReportRow } from '@/types/payroll';
 
 export async function getPayrollPeriodReport(
@@ -6,7 +6,7 @@ export async function getPayrollPeriodReport(
   periodEnd: string,
   employeeIds?: string[]
 ): Promise<PayrollReportRow[]> {
-  const { data, error } = await supabaseClient.rpc('get_payroll_period_report', {
+  const { data, error } = await workforceClient().rpc('get_payroll_period_report', {
     p_period_start: periodStart,
     p_period_end: periodEnd,
     p_employee_ids: employeeIds || null,
@@ -21,7 +21,7 @@ export async function approvePayroll(
   periodEnd: string,
   notes?: string
 ) {
-  const { data, error } = await supabaseClient.rpc('approve_payroll', {
+  const { data, error } = await workforceClient().rpc('approve_payroll', {
     p_employee_id: employeeId,
     p_period_start: periodStart,
     p_period_end: periodEnd,
@@ -36,7 +36,7 @@ export async function unlockPayroll(
   periodStart: string,
   periodEnd: string
 ) {
-  const { data, error } = await supabaseClient.rpc('unlock_payroll', {
+  const { data, error } = await workforceClient().rpc('unlock_payroll', {
     p_employee_id: employeeId,
     p_period_start: periodStart,
     p_period_end: periodEnd,
@@ -49,7 +49,7 @@ export async function toggleBreakDeductionWaiver(
   employeeId: string,
   date: string
 ): Promise<boolean> {
-  const { data, error } = await supabaseClient.rpc('toggle_break_deduction_waiver', {
+  const { data, error } = await workforceClient().rpc('toggle_break_deduction_waiver', {
     p_employee_id: employeeId,
     p_date: date,
   });

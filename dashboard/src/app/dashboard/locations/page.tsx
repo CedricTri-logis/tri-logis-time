@@ -57,7 +57,7 @@ import {
 } from '@/lib/utils/segment-colors';
 import type { Location, LocationType } from '@/types/location';
 import { format } from 'date-fns';
-import { supabaseClient } from '@/lib/supabase/client';
+import { workforceClient } from '@/lib/supabase/client';
 
 // Dynamically import the locations map to avoid SSR issues
 const LocationsOverviewMap = dynamic(
@@ -212,7 +212,7 @@ export default function LocationsPage() {
         // If created from Suggested tab, rematch nearby trips
         if (createPrefill && newLocation?.id) {
           try {
-            const { data: rematchResult } = await supabaseClient.rpc('rematch_trips_near_location', {
+            const { data: rematchResult } = await workforceClient().rpc('rematch_trips_near_location', {
               p_location_id: newLocation.id,
             });
             const row = rematchResult?.[0];

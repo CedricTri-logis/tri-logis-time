@@ -8,7 +8,7 @@ import {
   AdvancedMarker,
 } from '@vis.gl/react-google-maps';
 import { X } from 'lucide-react';
-import { supabaseClient } from '@/lib/supabase/client';
+import { workforceClient } from '@/lib/supabase/client';
 
 export interface StationaryCluster {
   id: string;
@@ -97,7 +97,7 @@ export function StationaryClustersMap({
     setLoadingGps(true);
     (async () => {
       try {
-        const { data, error } = await supabaseClient.rpc('get_cluster_gps_points', {
+        const { data, error } = await workforceClient().rpc('get_cluster_gps_points', {
           p_cluster_id: infoClusterId,
         });
         if (cancelled) return;
