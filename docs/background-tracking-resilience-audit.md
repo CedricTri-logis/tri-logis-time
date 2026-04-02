@@ -1,6 +1,6 @@
 # Background Tracking Resilience - Audit complet
 
-> Dernière mise à jour : 2026-03-26 | Build actuel : v1.0.0+152
+> Dernière mise à jour : 2026-04-02 | Build actuel : v1.0.0+154
 
 ## Table des matières
 
@@ -617,6 +617,7 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +135→+150 | Mar 12-25 | Dashboard/DB changes only — payroll, mileage approval, break deductions, hour bank, manual time entries, lunch overrides, manager access, GPS diagnostics dashboard. 10s debounce clock-in/clock-out (+136). Auto-delete micro-shifts <1min (+136). Aucun changement tracking/résilience mobile | ✅ Stable |
 | +151 | Mar 25 | **GPS diagnostics RPCs** — 6 fonctions analytics serveur (summary, trend, ranking, feed, gaps, events). `classify_gps_event()` helper. `get_employee_gps_gaps()` via LAG() window function. Dashboard GPS diagnostics page complète (KPIs, trend chart, ranking, incident feed, gap-by-day). Gap tolerance 1min→5min pour stops/trips | ✅ Dashboard |
 | +152 | Mar 26 | **Fix ProGuard TypeToken crash** — Règles ProGuard pour Gson TypeToken + `flutter_local_notifications` (51 crashes/semaine, 13/13 Android). **Fix GNSS satellite reporting** — `onFirstFix` envoyait `gnss_status` avec `satellite_count:-1` → séparé en `gnss_first_fix` event, guard Dart pour `satellite_count<0` (2030 faux warnings/semaine). **Fix standby bucket mapping** — `UNKNOWN(5)` → `EXEMPTED` dans `MainActivity.kt` et `DiagnosticNativePlugin.kt` (bucket 5 = `STANDBY_BUCKET_EXEMPTED` API 31+, meilleur bucket). **Fix NativeGpsSyncer** — lisait SharedPreferences (ancien format) au lieu du fichier JSONL (format actuel) → points natifs rescue jamais syncés directement. **Cleanup** — supprimé `disable_battery_optimization` (déclaré mais jamais importé) | ✅ Résilience + Diagnostic |
+| +154 | Avr 2 | **Migration workforce schema** — Toutes les requêtes Supabase (`.from()` et `.rpc()`) préfixées `.schema('workforce')` (21 fichiers `.from()`, 11 fichiers `.rpc()`). `ForceUpdateScreen` + `forceUpdateCheckProvider` ajoutés pour bloquer l'app si version < `minimum_app_version`. **Fix gap detection** — join `shift_id` dans détection de gaps GPS pour éliminer gaps fantômes cross-shift. **Fix split trips at pre-gap stops** — `detect_trips()` coupe les trajets aux arrêts pré-gap quand le GPS meurt en stationnaire. Aucun changement aux mécanismes de résilience background eux-mêmes | ✅ Stable |
 
 ### Chronologie complète Android Watchdog
 

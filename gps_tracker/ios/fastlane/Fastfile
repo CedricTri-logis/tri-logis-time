@@ -26,7 +26,7 @@ def build_ipa
 
   # Step 1: Generate Xcode project config and install pods
   Bundler.with_unbundled_env do
-    sh("cd ../.. && /opt/homebrew/bin/flutter build ios --config-only --release --no-codesign 2>&1")
+    sh("cd ../.. && /opt/homebrew/share/flutter/bin/flutter build ios --config-only --release --no-codesign 2>&1")
   end
 
   # Step 2: Archive with API key authentication (no local cert needed)
