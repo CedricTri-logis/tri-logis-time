@@ -543,7 +543,25 @@ class _ShiftDetailScreenState extends ConsumerState<ShiftDetailScreen> {
               ),
             ),
           ),
-          error: (_, __) => const SizedBox.shrink(),
+          error: (error, _) => Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Icon(Icons.warning_amber, size: 20, color: Theme.of(context).colorScheme.error),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Impossible de charger les approbations : $error',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         );
       },
     );

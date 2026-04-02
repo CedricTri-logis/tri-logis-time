@@ -1,6 +1,6 @@
 # Background Tracking Resilience - Audit complet
 
-> Dernière mise à jour : 2026-04-02 | Build actuel : v1.0.0+155
+> Dernière mise à jour : 2026-04-02 | Build actuel : v1.0.0+156
 
 ## Table des matières
 
@@ -619,6 +619,7 @@ C'est la phase la plus mouvementée. Android 16 a introduit des restrictions sé
 | +152 | Mar 26 | **Fix ProGuard TypeToken crash** — Règles ProGuard pour Gson TypeToken + `flutter_local_notifications` (51 crashes/semaine, 13/13 Android). **Fix GNSS satellite reporting** — `onFirstFix` envoyait `gnss_status` avec `satellite_count:-1` → séparé en `gnss_first_fix` event, guard Dart pour `satellite_count<0` (2030 faux warnings/semaine). **Fix standby bucket mapping** — `UNKNOWN(5)` → `EXEMPTED` dans `MainActivity.kt` et `DiagnosticNativePlugin.kt` (bucket 5 = `STANDBY_BUCKET_EXEMPTED` API 31+, meilleur bucket). **Fix NativeGpsSyncer** — lisait SharedPreferences (ancien format) au lieu du fichier JSONL (format actuel) → points natifs rescue jamais syncés directement. **Cleanup** — supprimé `disable_battery_optimization` (déclaré mais jamais importé) | ✅ Résilience + Diagnostic |
 | +154 | Avr 2 | **Migration workforce schema** — Toutes les requêtes Supabase (`.from()` et `.rpc()`) préfixées `.schema('workforce')` (21 fichiers `.from()`, 11 fichiers `.rpc()`). `ForceUpdateScreen` + `forceUpdateCheckProvider` ajoutés pour bloquer l'app si version < `minimum_app_version`. **Fix gap detection** — join `shift_id` dans détection de gaps GPS pour éliminer gaps fantômes cross-shift. **Fix split trips at pre-gap stops** — `detect_trips()` coupe les trajets aux arrêts pré-gap quand le GPS meurt en stationnaire. Aucun changement aux mécanismes de résilience background eux-mêmes | ✅ Stable |
 | +155 | Avr 2 | **Cutover Supabase → portail DB** — `.env` Flutter pointe maintenant vers `tcrymlwdnwmfmpnkrfeu` (portail) au lieu de `xdyzdclwvhkfwbkrdsiz` (gps_tracker). Aucun changement code/résilience — changement d'infrastructure uniquement | ✅ Stable |
+| +156 | Avr 2 | **Fix historique Flutter** — Filtre `p_end_date` ajoutait `T23:59:59` (excluait shifts du jour en UTC). `can_manage_employee` self-check ajouté (employés réguliers bloqués de leur propre détail approbation). Erreurs silencieuses exposées dans approval provider et shift detail. Aucun changement tracking/résilience | ✅ Bugfix |
 
 ### Chronologie complète Android Watchdog
 

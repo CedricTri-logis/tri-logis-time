@@ -117,7 +117,7 @@ class ShiftHistoryFilter {
       params['p_start_date'] = '${startDate!.year}-${startDate!.month.toString().padLeft(2, '0')}-${startDate!.day.toString().padLeft(2, '0')}';
     }
     if (endDate != null) {
-      params['p_end_date'] = '${endDate!.year}-${endDate!.month.toString().padLeft(2, '0')}-${endDate!.day.toString().padLeft(2, '0')}';
+      params['p_end_date'] = '${endDate!.year}-${endDate!.month.toString().padLeft(2, '0')}-${endDate!.day.toString().padLeft(2, '0')}T23:59:59';
     }
 
     return params;

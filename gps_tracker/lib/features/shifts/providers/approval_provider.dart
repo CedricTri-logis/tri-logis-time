@@ -42,17 +42,12 @@ final dayApprovalDetailProvider = FutureProvider.autoDispose.family<DayApprovalD
     final dateStr =
         '${params.date.year}-${params.date.month.toString().padLeft(2, '0')}-${params.date.day.toString().padLeft(2, '0')}';
 
-    try {
-      final response = await supabase.schema('workforce').rpc('get_day_approval_detail', params: {
-        'p_employee_id': params.employeeId,
-        'p_date': dateStr,
-      });
+    final response = await supabase.schema('workforce').rpc('get_day_approval_detail', params: {
+      'p_employee_id': params.employeeId,
+      'p_date': dateStr,
+    });
 
-      if (response == null) return null;
-      return DayApprovalDetail.fromJson(response as Map<String, dynamic>);
-    } catch (_) {
-      // Graceful degradation — approval data is supplementary
-      return null;
-    }
+    if (response == null) return null;
+    return DayApprovalDetail.fromJson(response as Map<String, dynamic>);
   },
 );

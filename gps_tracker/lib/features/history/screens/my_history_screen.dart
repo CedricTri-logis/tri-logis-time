@@ -48,18 +48,32 @@ class _MyHistoryScreenState extends ConsumerState<MyHistoryScreen> {
   }
 
   Future<void> _loadUserProfile() async {
-    final historyService = ref.read(historyServiceProvider);
-    final profile = await historyService.getCurrentUserProfile();
+    try {
+      final historyService = ref.read(historyServiceProvider);
+      final profile = await historyService.getCurrentUserProfile();
 
-    if (profile != null && mounted) {
-      setState(() {
-        _userId = profile.id;
-        _userName = profile.displayName;
-      });
+      if (profile != null && mounted) {
+        setState(() {
+          _userId = profile.id;
+          _userName = profile.displayName;
+        });
 
-      // Clear filters and load history
-      ref.read(historyFilterProvider.notifier).clearAll();
-      ref.read(employeeHistoryProvider.notifier).loadForEmployee(profile.id);
+        // Clear filters and load history
+        ref.read(historyFilterProvider.notifier).clearAll();
+        ref.read(employeeHistoryProvider.notifier).loadForEmployee(profile.id);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _userId = null;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur de chargement du profil : $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
     }
   }
 
