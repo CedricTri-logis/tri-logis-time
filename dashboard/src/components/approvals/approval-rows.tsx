@@ -1140,6 +1140,8 @@ export function ActivityRow({
                       originalTime={clockOutActivity ? (clockOutActivity as ApprovalActivity).original_value : undefined}
                       isEdited={!!(clockOutActivity && (clockOutActivity as ApprovalActivity).is_edited)}
                       onUpdated={onDetailUpdated}
+                      effectiveClockIn={clockInActivity ? clockInActivity.started_at : activity.started_at}
+                      effectiveClockOut={clockOutActivity ? clockOutActivity.started_at : activity.ended_at}
                     />
                   </span>
                 )}
@@ -1166,6 +1168,8 @@ export function ActivityRow({
                     originalTime={activity.original_value}
                     isEdited={!!activity.is_edited}
                     onUpdated={onDetailUpdated}
+                    effectiveClockIn={activity.started_at}
+                    effectiveClockOut={activity.started_at}
                   />
                 </span>
               </span>
