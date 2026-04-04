@@ -41,12 +41,22 @@ export function ClockTimeEditPopover({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const computeNewDate = (h: number, m: number) => {
+    const baseTime = field === 'clocked_out_at' && effectiveClockIn
+      ? effectiveClockIn
+      : currentTime;
+    const d = new Date(baseTime);
+    d.setHours(h, m, 0, 0);
+    if (field === 'clocked_out_at' && effectiveClockIn && d < new Date(effectiveClockIn)) {
+      d.setDate(d.getDate() + 1);
+    }
+    return d;
+  };
+
   const addsTime = (() => {
     if (!time) return false;
     const [h, m] = time.split(':').map(Number);
-    const currentDate = new Date(currentTime);
-    const newDate = new Date(currentDate);
-    newDate.setHours(h, m, 0, 0);
+    const newDate = computeNewDate(h, m);
 
     if (field === 'clocked_out_at') {
       const currentEffective = new Date(effectiveClockOut || currentTime);
@@ -60,9 +70,7 @@ export function ClockTimeEditPopover({
   const addedMinutes = (() => {
     if (!addsTime) return 0;
     const [h, m] = time.split(':').map(Number);
-    const currentDate = new Date(currentTime);
-    const newDate = new Date(currentDate);
-    newDate.setHours(h, m, 0, 0);
+    const newDate = computeNewDate(h, m);
     const effective = new Date(field === 'clocked_out_at' ? (effectiveClockOut || currentTime) : (effectiveClockIn || currentTime));
     return Math.abs(Math.round((newDate.getTime() - effective.getTime()) / 60000));
   })();
@@ -71,11 +79,20 @@ export function ClockTimeEditPopover({
     setLoading(true);
     setError(null);
 
-    // Build new timestamp: same date, new time
-    const currentDate = new Date(currentTime);
+    // Build new timestamp: use clock-in date for clock-out edits
+    // (prevents zombie-cleaned midnight from shifting to next day)
+    const baseTime = field === 'clocked_out_at' && effectiveClockIn
+      ? effectiveClockIn
+      : currentTime;
+    const baseDate = new Date(baseTime);
     const [hours, minutes] = time.split(":").map(Number);
-    const newDate = new Date(currentDate);
+    const newDate = new Date(baseDate);
     newDate.setHours(hours, minutes, 0, 0);
+
+    // If result is before clock-in, assume next-day overnight shift
+    if (field === 'clocked_out_at' && effectiveClockIn && newDate < new Date(effectiveClockIn)) {
+      newDate.setDate(newDate.getDate() + 1);
+    }
 
     const supabase = workforceClient();
     const { data, error: rpcError } = await supabase.rpc("edit_shift_time", {
