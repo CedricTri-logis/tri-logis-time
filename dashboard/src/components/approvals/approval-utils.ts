@@ -312,7 +312,7 @@ export function groupDisplayItemsByShift(displayItems: DisplayItem[]): ShiftGrou
     groupMap.get(shiftId)!.items.push(item);
   }
 
-  return Array.from(groupMap.entries()).map(([shiftId, group], idx) => {
+  const unsorted = Array.from(groupMap.entries()).map(([shiftId, group]) => {
     let earliest = '';
     let latest = '';
 
@@ -333,7 +333,6 @@ export function groupDisplayItemsByShift(displayItems: DisplayItem[]): ShiftGrou
 
     return {
       shiftId,
-      shiftNumber: idx + 1,
       startedAt: earliest,
       endedAt: latest,
       durationMinutes: Math.round(
@@ -344,6 +343,18 @@ export function groupDisplayItemsByShift(displayItems: DisplayItem[]): ShiftGrou
       items: group.items,
     };
   });
+
+  // Sort by local time-of-day so evening callback shifts appear after daytime shifts
+  unsorted.sort((a, b) => {
+    const da = new Date(a.startedAt);
+    const db = new Date(b.startedAt);
+    return (da.getHours() * 60 + da.getMinutes()) - (db.getHours() * 60 + db.getMinutes());
+  });
+
+  return unsorted.map((group, idx) => ({
+    ...group,
+    shiftNumber: idx + 1,
+  }));
 }
 
 // --- Nest activities during lunch breaks ---
