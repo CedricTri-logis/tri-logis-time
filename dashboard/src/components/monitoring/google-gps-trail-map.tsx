@@ -16,8 +16,9 @@ import { Play, Square, Navigation, Map as MapIcon, Layers } from 'lucide-react';
 import type { GpsTrailPoint } from '@/types/monitoring';
 import { filterTrailPoints, formatDuration } from '@/lib/gps-trail-filter';
 
+import { GOOGLE_MAP_ID } from '@/lib/constants/google-maps';
+
 // Professional "Silver" map style to reduce visual noise
-const SILVER_MAP_ID = '8e0a97af9386fefc'; // Note: In production, you'd create this in Google Cloud Console
 const SILVER_MAP_STYLE = [
   { elementType: "geometry", stylers: [{ color: "#f5f5f5" }] },
   { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
@@ -113,7 +114,7 @@ export function GoogleGpsTrailMap({
             <Map
               defaultCenter={{ lat: endPoint.latitude, lng: endPoint.longitude }}
               defaultZoom={15}
-              mapId={SILVER_MAP_ID}
+              mapId={GOOGLE_MAP_ID}
               styles={mapType === 'roadmap' ? SILVER_MAP_STYLE : []}
               mapTypeId={mapType}
               disableDefaultUI={true}

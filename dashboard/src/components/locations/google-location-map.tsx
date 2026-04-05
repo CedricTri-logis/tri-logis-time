@@ -12,6 +12,7 @@ import { Card } from '@/components/ui/card';
 import { Map as MapIcon, Layers } from 'lucide-react';
 import type { LocationType } from '@/types/location';
 import { getLocationTypeColor } from '@/lib/utils/segment-colors';
+import { GOOGLE_MAP_ID } from '@/lib/constants/google-maps';
 
 interface NearbyLocationCircle {
   id: string;
@@ -68,7 +69,7 @@ export function GoogleLocationMap({
         <Map
           defaultCenter={center}
           defaultZoom={position ? 15 : 12}
-          mapId="location_edit_map"
+          mapId={GOOGLE_MAP_ID}
           mapTypeId={mapType}
           onClick={handleMapClick}
           disableDefaultUI={readOnly}

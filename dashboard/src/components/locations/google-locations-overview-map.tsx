@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Location } from '@/types/location';
+import { GOOGLE_MAP_ID } from '@/lib/constants/google-maps';
 import { LOCATION_TYPE_COLORS, getLocationTypeColor } from '@/lib/utils/segment-colors';
 import { MapPin, ExternalLink, Layers, Map as MapIcon } from 'lucide-react';
 
@@ -85,7 +86,7 @@ export function GoogleLocationsOverviewMap({
             <Map
               defaultCenter={DEFAULT_CENTER}
               defaultZoom={DEFAULT_ZOOM}
-              mapId="locations_overview_map"
+              mapId={GOOGLE_MAP_ID}
               mapTypeId={mapType}
               disableDefaultUI={true}
               zoomControl={true}

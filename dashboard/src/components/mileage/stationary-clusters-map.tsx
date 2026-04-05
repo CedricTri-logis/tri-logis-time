@@ -9,6 +9,7 @@ import {
 } from '@vis.gl/react-google-maps';
 import { X } from 'lucide-react';
 import { workforceClient } from '@/lib/supabase/client';
+import { GOOGLE_MAP_ID } from '@/lib/constants/google-maps';
 
 export interface StationaryCluster {
   id: string;
@@ -138,7 +139,7 @@ export function StationaryClustersMap({
         <Map
           defaultCenter={DEFAULT_CENTER}
           defaultZoom={DEFAULT_ZOOM}
-          mapId="stationary_clusters_map"
+          mapId={GOOGLE_MAP_ID}
           disableDefaultUI
           zoomControl
         >

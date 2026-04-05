@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { DurationCounter } from './duration-counter';
 import { getStalenessLevel } from '@/types/monitoring';
 import type { MonitoredEmployee, StalenessLevel } from '@/types/monitoring';
+import { GOOGLE_MAP_ID } from '@/lib/constants/google-maps';
 import Link from 'next/link';
 import { Users } from 'lucide-react';
 
@@ -90,7 +91,7 @@ export function GoogleTeamMap({
             <Map
               defaultCenter={DEFAULT_CENTER}
               defaultZoom={DEFAULT_ZOOM}
-              mapId="team_overview_map"
+              mapId={GOOGLE_MAP_ID}
               disableDefaultUI={true}
               zoomControl={true}
             >

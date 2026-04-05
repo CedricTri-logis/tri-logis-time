@@ -13,6 +13,7 @@ import { Plus, MapPin, ChevronLeft, ChevronRight, X, EyeOff, Monitor, Building, 
 import type { Location } from '@/types/location';
 import type { LocationType } from '@/types/location';
 import { getLocationTypeColor, getLocationTypeLabel } from '@/lib/utils/segment-colors';
+import { GOOGLE_MAP_ID } from '@/lib/constants/google-maps';
 import { workforceClient } from '@/lib/supabase/client';
 
 const LOCATION_TYPE_ICONS: Record<LocationType, React.ElementType> = {
@@ -164,7 +165,7 @@ export function SuggestedLocationsMap({
         <Map
           defaultCenter={DEFAULT_CENTER}
           defaultZoom={DEFAULT_ZOOM}
-          mapId="suggested_locations_map"
+          mapId={GOOGLE_MAP_ID}
           mapTypeId={mapType}
           disableDefaultUI={true}
           zoomControl={true}

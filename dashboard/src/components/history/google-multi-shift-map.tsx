@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Layers, Activity } from 'lucide-react';
+import { GOOGLE_MAP_ID } from '@/lib/constants/google-maps';
 import type { MultiShiftGpsPoint, ShiftColorMapping } from '@/types/history';
 import { getTrailColorFromPalette, getDimmedColor } from '@/lib/utils/trail-colors';
 import { autoSimplifyTrail } from '@/lib/utils/trail-simplify';
@@ -95,7 +96,7 @@ export function GoogleMultiShiftMap({
             <GoogleMap
               defaultCenter={{ lat: 45.5017, lng: -73.5673 }}
               defaultZoom={12}
-              mapId="multi_shift_map"
+              mapId={GOOGLE_MAP_ID}
               disableDefaultUI={true}
               zoomControl={true}
             >

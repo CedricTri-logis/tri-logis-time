@@ -12,6 +12,7 @@ import { decodePolyline6 } from '@/lib/polyline';
 import type { Trip, TripGpsPoint } from '@/types/mileage';
 import type { TripStop, GpsCluster } from '@/lib/utils/detect-trip-stops';
 import { Card } from '@/components/ui/card';
+import { GOOGLE_MAP_ID } from '@/lib/constants/google-maps';
 
 interface TripRouteMapProps {
   trips: Trip[];
@@ -123,7 +124,7 @@ export function GoogleTripRouteMap({
         <Map
           defaultCenter={routes[0]?.start}
           defaultZoom={12}
-          mapId="trip_route_map"
+          mapId={GOOGLE_MAP_ID}
           disableDefaultUI={true}
           zoomControl={true}
           style={{ height: '100%', width: '100%' }}

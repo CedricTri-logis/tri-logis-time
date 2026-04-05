@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Navigation, Clock, MapPin } from 'lucide-react';
 import type { TimelineSegment } from '@/types/location';
+import { GOOGLE_MAP_ID } from '@/lib/constants/google-maps';
 import type { GpsTrailPoint } from '@/types/monitoring';
 import { filterTrailPoints } from '@/lib/gps-trail-filter';
 import {
@@ -80,7 +81,7 @@ export function GoogleSegmentedTrailMap({
             <Map
               defaultCenter={{ lat: endPoint.latitude, lng: endPoint.longitude }}
               defaultZoom={15}
-              mapId="segmented_map"
+              mapId={GOOGLE_MAP_ID}
               disableDefaultUI={true}
               zoomControl={true}
             >
